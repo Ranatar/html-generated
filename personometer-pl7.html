@@ -16,7 +16,15 @@
             font-family: 'Courier New', monospace;
             color: #fff;
             overflow-x: hidden;
-        }
+        window.activateMode = activateMode;
+        window.emergency = emergency;
+        window.connectPort = connectPort;
+        window.indicatorClick = indicatorClick;
+        window.selfTest = selfTest;
+        window.showWarning = showWarning;
+        window.printDiagnosis = printDiagnosis;
+        window.screenClick = screenClick;
+        window.closePopup = closePopup;
 
         .device-container {
             perspective: 1000px;
@@ -212,6 +220,57 @@
             padding: 5px;
             border-radius: 5px;
             resize: none;
+            transition: all 0.3s ease;
+        }
+
+        .poem-input textarea.danger {
+            background: rgba(255,0,0,0.1);
+            border-color: #ff0000;
+            color: #ff6666;
+            animation: textPulse 1s ease-in-out infinite;
+        }
+
+        .poem-input textarea.warning {
+            background: rgba(255,255,0,0.1);
+            border-color: #ffff00;
+            color: #ffff66;
+        }
+
+        @keyframes textPulse {
+            0%, 100% { box-shadow: 0 0 5px rgba(255,0,0,0.5); }
+            50% { box-shadow: 0 0 20px rgba(255,0,0,0.8); }
+        }
+
+        .analysis-result {
+            position: absolute;
+            top: 90px;
+            left: 10px;
+            right: 10px;
+            font-size: 9px;
+            color: #ff9900;
+            background: rgba(0,0,0,0.7);
+            padding: 5px;
+            border-radius: 5px;
+            display: none;
+            max-height: 40px;
+            overflow-y: auto;
+        }
+
+        .diagnosis-meter {
+            position: absolute;
+            top: 135px;
+            left: 10px;
+            right: 10px;
+            height: 20px;
+            display: none;
+        }
+
+        .diagnosis-meter .meter-fill {
+            height: 100%;
+            background: linear-gradient(to right, #00ff00, #ffff00, #ff0000);
+            border-radius: 10px;
+            width: 0%;
+            transition: width 0.5s ease;
         }
 
         .controls {
@@ -568,6 +627,10 @@
                 <div class="poem-input" id="poemInput">
                     <textarea id="poemText" placeholder="Вставьте сюда свой стих для анализа..."></textarea>
                 </div>
+                <div class="analysis-result" id="analysisResult"></div>
+                <div class="diagnosis-meter" id="diagnosisMeter">
+                    <div class="meter-fill" id="meterFill"></div>
+                </div>
                 <div class="scale">
                     <div class="scale-bar">
                         <div class="needle" id="needle"></div>
@@ -583,23 +646,26 @@
             </div>
 
             <div class="controls">
-                <button class="button" onclick="activateMode('journal')">Толстый журнал</button>
-                <button class="button" onclick="activateMode('bar')">Барное чтение</button>
-                <button class="button" onclick="activateMode('grant')">Детектор грантов</button>
-                <button class="button" onclick="activateMode('network')">Нетворкинг</button>
+                <button class="button" onclick="activateMode('journal', event)">Толстый журнал</button>
+                <button class="button" onclick="activateMode('bar', event)">Барное чтение</button>
+                <button class="button" onclick="activateMode('grant', event)">Детектор грантов</button>
+                <button class="button" onclick="activateMode('network', event)">Нетворкинг</button>
                 <button class="button emergency-button" onclick="emergency()">АВАРИЙНЫЙ СБРОС</button>
+                <button class="button" style="grid-column: 1 / -1; font-size: 9px;" onclick="insertSamplePoem()">
+                    Вставить образец графомании
+                </button>
             </div>
 
             <div class="indicators">
-                <div class="indicator" onclick="indicatorClick('sincerity')">
+                <div class="indicator" onclick="indicatorClick('sincerity', event)">
                     <div class="led" id="sincerity"></div>
                     <div class="indicator-label">Искренность</div>
                 </div>
-                <div class="indicator" onclick="indicatorClick('conformity')">
+                <div class="indicator" onclick="indicatorClick('conformity', event)">
                     <div class="led" id="conformity"></div>
                     <div class="indicator-label">Конформизм</div>
                 </div>
-                <div class="indicator" onclick="indicatorClick('soul')">
+                <div class="indicator" onclick="indicatorClick('soul', event)">
                     <div class="led" id="soul"></div>
                     <div class="indicator-label">Душа</div>
                 </div>
@@ -613,13 +679,13 @@
             </div>
 
             <div class="ports">
-                <div class="port" id="port1" onclick="connectPort('grant')">
+                <div class="port" id="port1" onclick="connectPort('grant', event)">
                     <div class="port-label">USB-Грант</div>
                 </div>
-                <div class="port" id="port2" onclick="connectPort('alco')">
+                <div class="port" id="port2" onclick="connectPort('alco', event)">
                     <div class="port-label">Алкотест</div>
                 </div>
-                <div class="port" id="port3" onclick="connectPort('audio')">
+                <div class="port" id="port3" onclick="connectPort('audio', event)">
                     <div class="port-label">Аудио</div>
                 </div>
             </div>
@@ -668,11 +734,13 @@
             runningText.textContent = messages[messageIndex];
         }, 5000);
 
-        function activateMode(modeType) {
+        window.activateMode = function(modeType, event) {
             if (isAnalyzing) return;
             
             document.querySelectorAll('.button').forEach(btn => btn.classList.remove('active'));
-            event.target.classList.add('active');
+            if (event && event.target) {
+                event.target.classList.add('active');
+            }
             
             device.classList.add('glitch');
             setTimeout(() => device.classList.remove('glitch'), 500);
@@ -703,6 +771,9 @@
                         conformity.className = 'led yellow';
                         soul.className = 'led red';
                         createSparks();
+                        poemInput.style.display = 'none';
+                        document.getElementById('analysisResult').style.display = 'none';
+                        document.getElementById('diagnosisMeter').style.display = 'none';
                         break;
                     case 'grant':
                         mode.textContent = 'ДЕТЕКТОР ГРАНТОВ';
@@ -711,7 +782,12 @@
                         sincerity.className = 'led';
                         conformity.className = 'led green';
                         soul.className = 'led red';
-                        event.target.classList.add('danger');
+                        if (event && event.target) {
+                            event.target.classList.add('danger');
+                        }
+                        poemInput.style.display = 'none';
+                        document.getElementById('analysisResult').style.display = 'none';
+                        document.getElementById('diagnosisMeter').style.display = 'none';
                         break;
                     case 'network':
                         mode.textContent = 'НЕТВОРКИНГ';
@@ -720,6 +796,9 @@
                         sincerity.className = 'led red';
                         conformity.className = 'led green';
                         soul.className = 'led yellow';
+                        poemInput.style.display = 'none';
+                        document.getElementById('analysisResult').style.display = 'none';
+                        document.getElementById('diagnosisMeter').style.display = 'none';
                         break;
                 }
                 
@@ -727,34 +806,282 @@
             }, 1500);
         }
 
-        // Анализ стихотворения
+        // Улучшенный анализ стихотворения
+        let analysisTimeout;
+        let lastAnalysis = '';
+        
         poemText.addEventListener('input', () => {
-            const text = poemText.value.toLowerCase();
-            let penalty = 0;
-            
-            // Проверка на клише
-            const cliches = ['любовь', 'кровь', 'душа', 'сердце', 'слеза', 'мечта', 'звезда'];
-            cliches.forEach(cliche => {
-                if (text.includes(cliche)) penalty += 5;
-            });
-            
-            // Проверка на модные слова
-            const trendy = ['дискурс', 'контекст', 'деконструкция', 'нарратив'];
-            trendy.forEach(word => {
-                if (text.includes(word)) penalty += 10;
-            });
-            
-            personalityLevel = Math.min(95, 85 + penalty);
-            needle.style.left = personalityLevel + '%';
-            
-            if (penalty > 20) {
-                status.textContent = 'БЕЗНАДЕЖНО';
-                device.classList.add('shake');
-                setTimeout(() => device.classList.remove('shake'), 500);
-            }
+            clearTimeout(analysisTimeout);
+            analysisTimeout = setTimeout(() => analyzePoem(), 500);
         });
 
-        function emergency() {
+        function analyzePoem() {
+            const text = poemText.value;
+            if (!text || text === lastAnalysis) return;
+            lastAnalysis = text;
+            
+            const analysis = performDetailedAnalysis(text);
+            updateDeviceState(analysis);
+        }
+
+        function performDetailedAnalysis(text) {
+            const lower = text.toLowerCase();
+            const lines = text.split('\n').filter(l => l.trim());
+            const words = lower.split(/\s+/).filter(w => w.length > 0);
+            
+            let score = 0;
+            let diagnosis = [];
+            let severity = 0;
+
+            // 1. Анализ клише
+            const cliches = {
+                'любовь': 5, 'кровь': 5, 'душа': 4, 'сердце': 4, 
+                'слеза': 6, 'слёзы': 6, 'мечта': 5, 'звезда': 5,
+                'небо': 3, 'небеса': 4, 'ангел': 7, 'боль': 6,
+                'тоска': 5, 'печаль': 5, 'грусть': 4, 'судьба': 8
+            };
+            
+            let clicheCount = 0;
+            for (let [word, penalty] of Object.entries(cliches)) {
+                const count = (lower.match(new RegExp(word, 'g')) || []).length;
+                if (count > 0) {
+                    score += penalty * count;
+                    clicheCount += count;
+                }
+            }
+            
+            if (clicheCount > 3) {
+                diagnosis.push(`Обнаружено ${clicheCount} клише. Критическое заражение банальностью!`);
+                severity += 2;
+            }
+
+            // 2. Проверка на псевдоинтеллектуализм
+            const pretentious = {
+                'дискурс': 10, 'контекст': 8, 'деконструкция': 12,
+                'нарратив': 9, 'парадигма': 11, 'экзистенциальный': 10,
+                'постмодерн': 12, 'симулякр': 15, 'ризома': 20,
+                'трансцендентный': 11, 'имманентный': 12
+            };
+            
+            let pretentiousCount = 0;
+            for (let [word, penalty] of Object.entries(pretentious)) {
+                if (lower.includes(word)) {
+                    score += penalty;
+                    pretentiousCount++;
+                }
+            }
+            
+            if (pretentiousCount > 0) {
+                diagnosis.push(`Псевдоинтеллектуализм зашкаливает! Обнаружено ${pretentiousCount} умных слов.`);
+                severity += 3;
+            }
+
+            // 3. Анализ рифм
+            if (lines.length >= 2) {
+                const lastWords = lines.map(line => {
+                    const words = line.trim().split(/\s+/);
+                    return words[words.length - 1]?.toLowerCase().replace(/[.,!?;:]/, '') || '';
+                });
+                
+                // Проверка банальных рифм
+                const badRhymes = [
+                    ['любовь', 'кровь'], ['розы', 'морозы'], ['слезы', 'грезы'],
+                    ['день', 'тень'], ['ночь', 'прочь'], ['мечты', 'цветы']
+                ];
+                
+                for (let i = 0; i < lastWords.length - 1; i++) {
+                    for (let j = i + 1; j < lastWords.length; j++) {
+                        for (let [r1, r2] of badRhymes) {
+                            if ((lastWords[i].includes(r1) && lastWords[j].includes(r2)) ||
+                                (lastWords[i].includes(r2) && lastWords[j].includes(r1))) {
+                                score += 8;
+                                diagnosis.push(`Рифма "${r1}-${r2}" вызывает приступ тошноты у прибора!`);
+                                severity += 1;
+                            }
+                        }
+                    }
+                }
+            }
+
+            // 4. Проверка на графоманию
+            const repetitions = {};
+            words.forEach(word => {
+                if (word.length > 3) {
+                    repetitions[word] = (repetitions[word] || 0) + 1;
+                }
+            });
+            
+            const overusedWords = Object.entries(repetitions)
+                .filter(([word, count]) => count > 3)
+                .sort((a, b) => b[1] - a[1]);
+                
+            if (overusedWords.length > 0) {
+                const [word, count] = overusedWords[0];
+                diagnosis.push(`Слово "${word}" использовано ${count} раз. Словарный запас на исходе!`);
+                score += count * 2;
+                severity += 1;
+            }
+
+            // 5. Анализ пафоса
+            const pathos = ['вечность', 'бесконечность', 'вселенная', 'космос', 
+                           'бездна', 'пучина', 'мироздание', 'бытие'];
+            const pathosCount = pathos.filter(word => lower.includes(word)).length;
+            
+            if (pathosCount > 1) {
+                diagnosis.push(`Уровень пафоса: ${pathosCount}/8. Рекомендуется снизить градус!`);
+                score += pathosCount * 6;
+                severity += 2;
+            }
+
+            // 6. Проверка структуры
+            if (text.includes('...........')) {
+                diagnosis.push('Многоточия размножились! Похоже на терминальную стадию.');
+                score += 10;
+                severity += 1;
+            }
+            
+            if (text.split('!').length > 4) {
+                diagnosis.push('Передозировка восклицательными знаками! Требуется седатив.');
+                score += 8;
+                severity += 1;
+            }
+
+            // 7. Специальные случаи
+            if (lower.includes('дождь') && lower.includes('окно')) {
+                diagnosis.push('Комбо "дождь+окно" обнаружено! Меланхолия 80 уровня.');
+                score += 15;
+                severity += 2;
+            }
+            
+            if (lower.includes('я поэт')) {
+                diagnosis.push('Самопровозглашение поэтом! Диагноз подтвержден.');
+                score += 20;
+                severity += 3;
+            }
+
+            // 8. Проверка на плагиат известных строк
+            const famousLines = {
+                'я помню чудное мгновенье': 'Пушкин вызывает на дуэль!',
+                'я вас любил': 'Александр Сергеевич не одобряет.',
+                'белеет парус одинокий': 'Лермонтов смотрит с укоризной.',
+                'ночь улица фонарь аптека': 'Блок требует роялти.'
+            };
+            
+            for (let [line, message] of Object.entries(famousLines)) {
+                if (lower.includes(line)) {
+                    diagnosis.push(message);
+                    score += 25;
+                    severity += 4;
+                    break;
+                }
+            }
+
+            // Финальная оценка
+            const finalScore = Math.min(95, 20 + score);
+            
+            return {
+                score: finalScore,
+                diagnosis: diagnosis,
+                severity: severity,
+                wordCount: words.length,
+                lineCount: lines.length
+            };
+        }
+
+        function updateDeviceState(analysis) {
+            personalityLevel = analysis.score;
+            needle.style.left = personalityLevel + '%';
+            
+            // Обновление статуса
+            if (analysis.severity === 0) {
+                status.textContent = 'ПОДОЗРИТЕЛЬНО';
+            } else if (analysis.severity <= 3) {
+                status.textContent = 'ТРЕВОГА';
+            } else if (analysis.severity <= 6) {
+                status.textContent = 'КРИТИЧНО';
+            } else {
+                status.textContent = 'БЕЗНАДЕЖНО';
+            }
+            
+            // Визуальные эффекты для текстового поля
+            if (analysis.score > 70) {
+                poemText.className = 'danger';
+            } else if (analysis.score > 40) {
+                poemText.className = 'warning';
+            } else {
+                poemText.className = '';
+            }
+            
+            // Показ результатов анализа
+            const analysisResult = document.getElementById('analysisResult');
+            const diagnosisMeter = document.getElementById('diagnosisMeter');
+            const meterFill = document.getElementById('meterFill');
+            
+            if (analysis.diagnosis.length > 0) {
+                analysisResult.style.display = 'block';
+                analysisResult.textContent = analysis.diagnosis[0];
+                
+                diagnosisMeter.style.display = 'block';
+                meterFill.style.width = analysis.score + '%';
+            }
+            
+            // Визуальные эффекты
+            if (analysis.severity > 4) {
+                device.classList.add('shake');
+                setTimeout(() => device.classList.remove('shake'), 500);
+                createSparks();
+            }
+            
+            // Обновление индикаторов
+            if (analysis.score > 70) {
+                sincerity.className = 'led red';
+                conformity.className = 'led green';
+                soul.className = 'led red';
+            } else if (analysis.score > 40) {
+                sincerity.className = 'led yellow';
+                conformity.className = 'led yellow';
+                soul.className = 'led yellow';
+            }
+            
+            // Показ диагноза в бегущей строке
+            if (analysis.diagnosis.length > 0) {
+                let diagIndex = 0;
+                const showNextDiagnosis = () => {
+                    if (diagIndex < analysis.diagnosis.length) {
+                        runningText.textContent = analysis.diagnosis[diagIndex];
+                        diagIndex++;
+                        setTimeout(showNextDiagnosis, 3000);
+                    }
+                };
+                showNextDiagnosis();
+                
+                // Для критических случаев показываем попап
+                if (analysis.severity > 6) {
+                    setTimeout(() => {
+                        showPopup('ДИАГНОЗ АНАЛИЗАТОРА', 
+                                 `${analysis.diagnosis.join(' ')} \n\nРекомендация: немедленно перечитать Хармса!`);
+                    }, 1000);
+                }
+            }
+            
+            // Специальные эффекты для особых случаев
+            if (analysis.wordCount > 100) {
+                createSmoke();
+                runningText.textContent = 'ПЕРЕГРЕВ! Многословие превысило допустимые нормы!';
+            }
+            
+            if (analysis.lineCount === 1) {
+                runningText.textContent = 'Моностих детектирован. Минимализм или графомания?';
+            }
+            
+            // Мигание экрана при критических значениях
+            if (analysis.score > 85) {
+                screen.classList.add('analyzing');
+                setTimeout(() => screen.classList.remove('analyzing'), 2000);
+            }
+        }
+
+        window.emergency = function() {
             device.classList.add('shake');
             createSmoke();
             
@@ -772,10 +1099,12 @@
                 });
                 poemInput.style.display = 'none';
                 poemText.value = '';
+                document.getElementById('analysisResult').style.display = 'none';
+                document.getElementById('diagnosisMeter').style.display = 'none';
             }, 1000);
         }
 
-        function connectPort(type) {
+        window.connectPort = function(type, event) {
             const port = event.target.closest('.port');
             port.classList.toggle('connected');
             
@@ -796,7 +1125,7 @@
             }
         }
 
-        function indicatorClick(type) {
+        window.indicatorClick = function(type, event) {
             createSparks(event.pageX, event.pageY);
             
             switch(type) {
@@ -812,7 +1141,7 @@
             }
         }
 
-        function selfTest() {
+        window.selfTest = function() {
             status.textContent = 'САМОДИАГНОСТИКА...';
             device.classList.add('shake');
             screen.classList.add('analyzing');
@@ -824,11 +1153,11 @@
             }, 2000);
         }
 
-        function showWarning() {
+        window.showWarning = function() {
             showPopup('ПРЕДУПРЕЖДЕНИЕ!', 'При получении государственной премии прибор автоматически показывает 100% потерю личности. Возврату не подлежит.');
         }
 
-        function printDiagnosis() {
+        window.printDiagnosis = function() {
             const printer = document.getElementById('printer');
             const paper = document.getElementById('paper');
             const paperText = document.getElementById('paperText');
@@ -865,7 +1194,7 @@
             }
         }
 
-        function screenClick(event) {
+        window.screenClick = function(event) {
             if (event.target.closest('.poem-input')) return;
             createSparks(event.pageX, event.pageY);
         }
@@ -876,7 +1205,7 @@
             popup.style.display = 'block';
         }
 
-        function closePopup() {
+        window.closePopup = function() {
             popup.style.display = 'none';
         }
 
@@ -902,6 +1231,57 @@
                 needle.style.left = (personalityLevel + variation) + '%';
             }
         }, 500);
+
+        // Функция вставки примера (глобальная для onclick)
+        window.insertSamplePoem = function() {
+            if (!poemInput.style.display || poemInput.style.display === 'none') {
+                // Сначала активируем режим журнала
+                window.activateMode('journal', { target: document.querySelector('.button') });
+                setTimeout(() => window.insertSamplePoem(), 1500);
+                return;
+            }
+            
+            const samples = [
+                `Дождь за окном, и в сердце тоска,
+Душа моя плачет, как небеса.
+Любовь и кровь - вечная связь,
+О, экзистенциальная грязь!
+
+Дискурс бытия в парадигме слёз,
+Деконструкция чувств и грёз...`,
+
+                `Я поэт! Я познал бесконечность!
+Звёзды, космос и вечность - мой дом!
+В бездне мироздания - моя беспечность,
+Трансцендентный нарратив о том...
+
+Ангелы плачут кровавой слезой,
+Судьба моя - вечная боль!`,
+
+                `любовь любовь любовь любовь
+кровь кровь кровь кровь
+розы морозы грозы
+слёзы грёзы стрекозы
+
+(это постмодерн, вы не поймёте)`,
+
+                `Симулякр моей души в ризоме чувств,
+Имманентность тоски в контексте пустоты.
+Парадигма любви деконструирует суть,
+Постмодернистский дискурс моей мечты.`,
+
+                `Я помню чудное мгновенье...
+Ой, это уже было.
+Белеет парус одинокий...
+Блин, и это тоже.
+
+Ночь, улица, фонарь, аптека...
+Всё украдено до нас!!! 😭`
+            ];
+            
+            poemText.value = samples[Math.floor(Math.random() * samples.length)];
+            analyzePoem();
+        }
     </script>
 </body>
 </html>
