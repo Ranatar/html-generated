@@ -1,0 +1,2058 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>RGB куб - сферическая и картографическая проекции</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            font-family: Arial, sans-serif;
+            overflow: hidden;
+            background-color: #f0f0f0;
+        }
+        .container {
+            display: flex;
+            height: 100vh;
+        }
+        .visualization {
+            flex: 3;
+            position: relative;
+        }
+        .controls {
+            flex: 1;
+            padding: 20px;
+            background-color: #fff;
+            box-shadow: -2px 0 5px rgba(0,0,0,0.1);
+            overflow-y: auto;
+            max-width: 300px;
+            min-width: 250px;
+        }
+        canvas {
+            display: block;
+            width: 100%;
+            height: 100%;
+        }
+        .header {
+            margin-bottom: 20px;
+        }
+        .control-group {
+            margin-bottom: 15px;
+            border-bottom: 1px solid #eee;
+            padding-bottom: 15px;
+        }
+        label {
+            display: block;
+            margin-bottom: 5px;
+        }
+        select, input[type="range"], input[type="color"] {
+            width: 100%;
+            padding: 5px;
+            margin-bottom: 10px;
+        }
+        button {
+            padding: 8px 12px;
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            cursor: pointer;
+            border-radius: 4px;
+            margin-right: 5px;
+            margin-bottom: 5px;
+        }
+        button:hover {
+            background-color: #45a049;
+        }
+        .loading {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            font-size: 20px;
+            color: #666;
+        }
+        .view-toggle {
+            display: flex;
+            margin-bottom: 15px;
+        }
+        .view-toggle button {
+            flex: 1;
+            background-color: #ddd;
+            color: #333;
+        }
+        .view-toggle button.active {
+            background-color: #4CAF50;
+            color: white;
+        }
+        #download-link {
+            display: none;
+        }
+        .info-panel {
+            position: absolute;
+            bottom: 10px;
+            left: 10px;
+            background-color: rgba(255, 255, 255, 0.7);
+            padding: 10px;
+            border-radius: 5px;
+            font-size: 14px;
+            max-width: 300px;
+            box-shadow: 0px 0px 5px rgba(0,0,0,0.2);
+        }
+        .info-panel h3 {
+            margin-top: 0;
+            margin-bottom: 5px;
+        }
+        .info-panel p {
+            margin: 5px 0;
+        }
+        .mouse-controls-info {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            background-color: rgba(255, 255, 255, 0.7);
+            padding: 10px;
+            border-radius: 5px;
+            font-size: 12px;
+            box-shadow: 0px 0px 5px rgba(0,0,0,0.2);
+        }
+        .mouse-controls-info ul {
+            margin: 5px 0;
+            padding-left: 20px;
+        }
+        .color-info {
+            display: flex;
+            align-items: center;
+            margin-top: 10px;
+        }
+        .color-swatch {
+            width: 20px;
+            height: 20px;
+            border: 1px solid #000;
+            margin-right: 10px;
+        }
+        .zoom-controls {
+            position: absolute;
+            right: 10px;
+            bottom: 10px;
+            display: flex;
+            flex-direction: column;
+        }
+        .zoom-controls button {
+            margin-bottom: 5px;
+            width: 40px;
+            height: 40px;
+            font-size: 18px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .tooltip {
+            position: absolute;
+            background-color: rgba(0, 0, 0, 0.7);
+            color: white;
+            padding: 5px 10px;
+            border-radius: 5px;
+            font-size: 12px;
+            pointer-events: none;
+            z-index: 1000;
+            display: none;
+        }
+        .tab-content {
+            display: none;
+        }
+        .tab-content.active {
+            display: block;
+        }
+        .tabs {
+            display: flex;
+            margin-bottom: 10px;
+        }
+        .tab {
+            flex: 1;
+            text-align: center;
+            padding: 10px;
+            background-color: #ddd;
+            cursor: pointer;
+            border-right: 1px solid #ccc;
+        }
+        .tab:last-child {
+            border-right: none;
+        }
+        .tab.active {
+            background-color: #4CAF50;
+            color: white;
+        }
+        .export-options {
+            margin-top: 10px;
+        }
+        .export-options label {
+            display: inline-flex;
+            align-items: center;
+            margin-right: 10px;
+        }
+        .export-options input[type="radio"] {
+            margin-right: 5px;
+        }
+        .export-size {
+            display: flex;
+            align-items: center;
+            margin-top: 5px;
+        }
+        .export-size input {
+            width: 70px;
+            margin-right: 5px;
+            margin-left: 5px;
+        }
+        .loading-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-color: rgba(255, 255, 255, 0.8);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 1000;
+            display: none;
+        }
+        .loading-spinner {
+            border: 5px solid #f3f3f3;
+            border-top: 5px solid #4CAF50;
+            border-radius: 50%;
+            width: 50px;
+            height: 50px;
+            animation: spin 2s linear infinite;
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        .debug-panel {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            background-color: rgba(255, 255, 255, 0.7);
+            padding: 10px;
+            border-radius: 5px;
+            font-size: 12px;
+            box-shadow: 0px 0px 5px rgba(0,0,0,0.2);
+            display: none;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="visualization">
+            <div id="canvas-container"></div>
+            <div class="loading" id="loading">Загрузка...</div>
+            <div class="info-panel" id="info-panel">
+                <h3>Информация</h3>
+                <p id="projection-info">Текущая проекция: Равнопромежуточная</p>
+                <p id="rotation-info">Вращение: X: 0°, Y: 0°, Z: 0°</p>
+                <div class="color-info">
+                    <div class="color-swatch" id="color-swatch"></div>
+                    <div id="color-values">RGB: 128, 128, 128</div>
+                </div>
+            </div>
+            <div class="mouse-controls-info">
+                <strong>Управление мышью:</strong>
+                <ul>
+                    <li>Вращение: левая кнопка + перемещение</li>
+                    <li>Масштабирование: колесо мыши</li>
+                    <li>Перемещение: правая кнопка + перемещение</li>
+                </ul>
+            </div>
+            <div class="zoom-controls">
+                <button id="zoom-in">+</button>
+                <button id="zoom-out">-</button>
+                <button id="reset-view">↺</button>
+            </div>
+            <div class="tooltip" id="tooltip"></div>
+            <div class="loading-overlay" id="loading-overlay">
+                <div class="loading-spinner"></div>
+            </div>
+            <div id="debug-panel" class="debug-panel">
+                <h4>Отладочная информация:</h4>
+                <div id="debug-info"></div>
+                <button id="force-update-projection">Обновить проекцию</button>
+            </div>
+        </div>
+        <div class="controls">
+            <div class="header">
+                <h2>RGB куб и проекции</h2>
+                <p>Визуализация RGB-куба на сфере и картографические проекции</p>
+            </div>
+            
+            <div class="view-toggle">
+                <button id="cube-view" class="active">RGB куб</button>
+                <button id="sphere-view">Сфера</button>
+                <button id="projection-view">Проекция</button>
+            </div>
+            
+            <div class="tabs">
+                <div class="tab active" data-tab="rotation">Вращение</div>
+                <div class="tab" data-tab="grid">Точки и решётка</div>
+                <div class="tab" data-tab="projection">Проекция</div>
+                <div class="tab" data-tab="export">Экспорт</div>
+            </div>
+            
+            <div id="rotation-tab" class="tab-content active">
+                <div class="control-group">
+                    <h3>Вращение куба</h3>
+                    <label for="rotation-x">Поворот по X: <span id="rotation-x-value">0°</span></label>
+                    <input type="range" id="rotation-x" min="-180" max="180" value="0">
+                    
+                    <label for="rotation-y">Поворот по Y: <span id="rotation-y-value">0°</span></label>
+                    <input type="range" id="rotation-y" min="-180" max="180" value="0">
+                    
+                    <label for="rotation-z">Поворот по Z: <span id="rotation-z-value">0°</span></label>
+                    <input type="range" id="rotation-z" min="-180" max="180" value="0">
+                    
+                    <button id="reset-rotation">Сбросить вращение</button>
+                </div>
+            </div>
+            
+            <div id="grid-tab" class="tab-content">
+                <div class="control-group">
+                    <h3>Точки и решётка</h3>
+                    
+                    <label for="point-density">Плотность точек: <span id="point-density-value">8</span></label>
+                    <input type="range" id="point-density" min="8" max="256" value="8">
+                    
+                    <label for="point-size">Размер точек: <span id="point-size-value">1.0</span></label>
+                    <input type="range" id="point-size" min="0.5" max="3" value="1" step="0.1">
+                    
+                    <label for="grid-visible">
+                        <input type="checkbox" id="grid-visible" checked> Показать решётку
+                    </label>
+                    
+                    <label for="grid-density">Плотность решётки: <span id="grid-density-value">8</span></label>
+                    <input type="range" id="grid-density" min="4" max="64" value="8">
+                    
+                    <label for="grid-opacity">Непрозрачность решётки: <span id="grid-opacity-value">0.2</span></label>
+                    <input type="range" id="grid-opacity" min="0.1" max="1.0" value="0.2" step="0.1">
+                    
+                    <label for="grid-color">Цвет решётки:</label>
+                    <input type="color" id="grid-color" value="#000000">
+                    
+                    <label for="adaptive-thickness">
+                        <input type="checkbox" id="adaptive-thickness" checked> Адаптивная толщина линий
+                    </label>
+                </div>
+            </div>
+            
+            <div id="projection-tab" class="tab-content">
+                <div class="control-group">
+                    <h3>Картографическая проекция</h3>
+                    <label for="projection">Выберите проекцию:</label>
+                    <select id="projection">
+                        <option value="equirectangular">Равнопромежуточная (Plate Carrée)</option>
+                        <option value="mercator">Меркатора</option>
+                        <option value="orthographic">Ортографическая</option>
+                        <option value="stereographic">Стереографическая</option>
+                        <option value="azimuthalEqualArea">Азимутальная равновеликая</option>
+                        <option value="azimuthalEquidistant">Азимутальная равнопромежуточная</option>
+                        <option value="conicEquidistant">Коническая равнопромежуточная</option>
+                        <option value="conicConformal">Коническая равноугольная</option>
+                        <option value="conicEqualArea">Коническая равновеликая</option>
+                        <option value="gnomonic">Гномоническая</option>
+                        <option value="mollweide">Мольвейде</option>
+                        <option value="sinusoidal">Синусоидальная</option>
+                        <option value="robinson">Робинсона</option>
+                    </select>
+                    
+                    <div id="projection-params">
+                        <h4>Параметры проекции</h4>
+                        <div id="conic-params" style="display: none;">
+                            <label for="standard-parallel1">Стандартная параллель 1: <span id="standard-parallel1-value">30°</span></label>
+                            <input type="range" id="standard-parallel1" min="0" max="90" value="30">
+                            
+                            <label for="standard-parallel2">Стандартная параллель 2: <span id="standard-parallel2-value">60°</span></label>
+                            <input type="range" id="standard-parallel2" min="0" max="90" value="60">
+                        </div>
+                        
+                        <div id="azimuthal-params" style="display: none;">
+                            <label for="central-latitude">Центральная широта: <span id="central-latitude-value">0°</span></label>
+                            <input type="range" id="central-latitude" min="-90" max="90" value="0">
+                            
+                            <label for="central-longitude">Центральная долгота: <span id="central-longitude-value">0°</span></label>
+                            <input type="range" id="central-longitude" min="-180" max="180" value="0">
+                        </div>
+                    </div>
+                    
+                    <label for="scale">Масштаб проекции: <span id="scale-value">100%</span></label>
+                    <input type="range" id="scale" min="50" max="200" value="100">
+                </div>
+            </div>
+            
+            <div id="export-tab" class="tab-content">
+                <div class="control-group">
+                    <h3>Экспорт</h3>
+                    <div class="export-options">
+                        <h4>Разрешение:</h4>
+                        <label>
+                            <input type="radio" name="export-quality" value="hd" checked> HD (1920x1080)
+                        </label>
+                        <label>
+                            <input type="radio" name="export-quality" value="4k"> 4K (3840x2160)
+                        </label>
+                        <label>
+                            <input type="radio" name="export-quality" value="custom"> Своё
+                        </label>
+                        
+                        <div class="export-size" id="custom-size" style="display: none;">
+                            <input type="number" id="export-width" value="1920" min="100">
+                            x
+                            <input type="number" id="export-height" value="1080" min="100">
+                        </div>
+                    </div>
+                    
+                    <h4>Формат:</h4>
+                    <select id="export-format">
+                        <option value="png">PNG</option>
+                        <option value="jpg">JPG</option>
+                    </select>
+                    
+                    <button id="export-image">Экспортировать изображение</button>
+                    <button id="export-metadata">Экспортировать метаданные</button>
+                    <a id="download-link" href="#" download="rgb-cube-projection.png">Скачать</a>
+                </div>
+            </div>
+            
+            <div class="control-group">
+                <label for="show-debug">
+                    <input type="checkbox" id="show-debug"> Показать отладочную информацию
+                </label>
+            </div>
+        </div>
+    </div>
+
+    <!-- Загрузка необходимых библиотек -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/d3/7.0.0/d3.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/dat-gui/0.7.7/dat.gui.min.js"></script>
+    <!-- Инициализация приложения -->
+<script>
+    // Основные переменные и конфигурация
+    let scene, camera, renderer;
+    let rgbCube, rgbSphere, projectionMesh;
+    let projectionScene, projectionCamera, projectionRenderer;
+    let raycaster, mouse;
+    let orbitControls = {}; // Для хранения информации о пользовательском вращении
+    let controls = {
+        rotationX: 0,
+        rotationY: 0,
+        rotationZ: 0,
+        projection: 'equirectangular',
+        pointDensity: 256,     // Плотность точек (отдельно от решётки)
+        gridDensity: 16,      // Плотность решётки (отдельно от точек)
+        gridVisible: true,
+        scale: 1.0,
+        pointSize: 1.0,
+        gridOpacity: 0.2,
+        gridColor: '#000000', // Цвет линий решётки
+        adaptiveThickness: true, // Адаптивная толщина линий
+        projectionParams: {
+            standardParallel1: 30,
+            standardParallel2: 60,
+            centralLatitude: 0,
+            centralLongitude: 0
+        }
+    };
+    
+    // Данные RGB куба и сферы
+    let cubeVertices = [];
+    let cubeColors = [];
+    let sphereVertices = [];
+    let sphereColors = [];
+    
+    // Кэш для хранения цветов
+    let colorCache = {
+        originalColors: null,  // Исходные цвета (без решётки)
+        gridColors: null       // Цвета с применённой решёткой
+    };
+    
+    // Буфер для хранения данных о проекции
+    let projectionData = {
+        points: [],
+        colors: [],
+        gridLines: []
+    };
+
+    // Переменная для отслеживания текущего вида
+    let currentView = 'cube';
+    
+    // Переменная для отслеживания наведенной точки
+    let hoveredPoint = null;
+
+    // Вспомогательная функция логирования отладочной информации
+    function logDebug(message) {
+        const debugInfo = document.getElementById('debug-info');
+        if (debugInfo) {
+            debugInfo.innerHTML += `<p>${message}</p>`;
+            // Ограничиваем количество сообщений
+            if (debugInfo.children.length > 10) {
+                debugInfo.removeChild(debugInfo.firstChild);
+            }
+        }
+        console.log(message);
+    }
+
+    // Вспомогательная функция очистки отладочной информации
+    function clearDebug() {
+        const debugInfo = document.getElementById('debug-info');
+        if (debugInfo) {
+            debugInfo.innerHTML = '';
+        }
+    }
+    
+    // Будем инициализировать после загрузки окна
+    window.addEventListener('load', init);
+    
+    // Основная функция инициализации
+    function init() {
+        // Создаем сцену, камеру и рендерер
+        setupScene();
+        
+        // Настройка элементов управления
+        setupControls();
+        
+        // Инициализация трекинга мыши и рейкастинга
+        setupMouseTracking();
+        
+        // Создаем RGB куб
+        createRGBCube(true);
+        
+        // Создаем сферическую проекцию
+        createSphereProjection();
+        
+        // Создаем сцену для проекции
+        setupProjectionScene();
+        
+        // Запускаем цикл анимации
+        animate();
+        
+        // Скрытие индикатора загрузки
+        document.getElementById('loading').style.display = 'none';
+    }
+    
+    // Настройка Three.js сцены
+    function setupScene() {
+        const container = document.getElementById('canvas-container');
+        
+        scene = new THREE.Scene();
+        scene.background = new THREE.Color(0xf0f0f0);
+        
+        camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+        camera.position.z = 2;
+        
+        renderer = new THREE.WebGLRenderer({ antialias: true });
+        renderer.setSize(container.clientWidth || window.innerWidth * 0.75, 
+                         container.clientHeight || window.innerHeight);
+        container.appendChild(renderer.domElement);
+        
+        // Добавляем свет
+        const ambientLight = new THREE.AmbientLight(0xffffff, 0.5);
+        scene.add(ambientLight);
+        
+        const directionalLight = new THREE.DirectionalLight(0xffffff, 0.5);
+        directionalLight.position.set(1, 1, 1);
+        scene.add(directionalLight);
+        
+        // Обработка изменения размера окна
+        window.addEventListener('resize', onWindowResize);
+
+        logDebug("Основная сцена настроена");
+    }
+    
+    // Настройка сцены для проекции
+    function setupProjectionScene() {
+        const container = document.getElementById('canvas-container');
+        
+        projectionScene = new THREE.Scene();
+        projectionScene.background = new THREE.Color(0xf0f0f0);
+        
+        // Используем ортографическую камеру для 2D-проекции
+        const aspect = container.clientWidth / container.clientHeight;
+        projectionCamera = new THREE.OrthographicCamera(
+            -1 * aspect, 1 * aspect, 1, -1, 0.1, 1000
+        );
+        projectionCamera.position.z = 1;
+        
+        // Инициализация projectionRenderer - ДОБАВЛЕНО
+        // Мы не будем создавать отдельный canvas для проекционного рендерера,
+        // а будем использовать тот же renderer для обоих сцен
+        projectionRenderer = renderer;
+
+        logDebug("Проекционная сцена настроена");
+    }
+    
+    // Настройка трекинга мыши
+    function setupMouseTracking() {
+        raycaster = new THREE.Raycaster();
+        mouse = new THREE.Vector2();
+        
+        // Событие перемещения мыши для отслеживания позиции
+        renderer.domElement.addEventListener('mousemove', onMouseMove);
+        
+        // События мыши для вращения и масштабирования
+        renderer.domElement.addEventListener('mousedown', onMouseDown);
+        renderer.domElement.addEventListener('mouseup', onMouseUp);
+        renderer.domElement.addEventListener('wheel', onMouseWheel);
+        
+        // Начальное состояние контроля
+        orbitControls = {
+            rotating: false,
+            panning: false,
+            lastX: 0,
+            lastY: 0,
+            rotationSpeed: 0.01,
+            panSpeed: 0.01,
+            zoomSpeed: 0.1,
+            distance: 2
+        };
+
+        logDebug("Трекинг мыши настроен");
+    }
+    
+    // Обработка изменения размера окна
+    function onWindowResize() {
+        const container = document.getElementById('canvas-container');
+        const width = container.clientWidth || window.innerWidth * 0.75;
+        const height = container.clientHeight || window.innerHeight;
+        
+        // Обновляем основную камеру
+        camera.aspect = width / height;
+        camera.updateProjectionMatrix();
+        renderer.setSize(width, height);
+        
+        // Обновляем камеру проекции - ИСПРАВЛЕНО, обновляем все параметры
+        const aspect = width / height;
+        projectionCamera.left = -1 * aspect;
+        projectionCamera.right = 1 * aspect;
+        projectionCamera.top = 1;
+        projectionCamera.bottom = -1;
+        projectionCamera.updateProjectionMatrix();
+
+        logDebug("Размер окна обновлён");
+    }
+    // Обработка движения мыши
+    function onMouseMove(event) {
+        // Обновляем позицию мыши
+        const rect = renderer.domElement.getBoundingClientRect();
+        mouse.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
+        mouse.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
+        
+        // Проверяем, не вращает ли пользователь сцену
+        if (orbitControls.rotating) {
+            const deltaX = event.clientX - orbitControls.lastX;
+            const deltaY = event.clientY - orbitControls.lastY;
+            
+            controls.rotationY += deltaX * orbitControls.rotationSpeed;
+            controls.rotationX += deltaY * orbitControls.rotationSpeed;
+            
+            // Обновляем слайдеры
+            document.getElementById('rotation-x').value = (controls.rotationX * 180 / Math.PI).toFixed(0);
+            document.getElementById('rotation-y').value = (controls.rotationY * 180 / Math.PI).toFixed(0);
+            document.getElementById('rotation-x-value').textContent = (controls.rotationX * 180 / Math.PI).toFixed(0) + '°';
+            document.getElementById('rotation-y-value').textContent = (controls.rotationY * 180 / Math.PI).toFixed(0) + '°';
+            
+            // Обновляем информацию о вращении
+            updateRotationInfo();
+        }
+        
+        // Проверяем, не перемещает ли пользователь сцену
+        if (orbitControls.panning) {
+            const deltaX = event.clientX - orbitControls.lastX;
+            const deltaY = event.clientY - orbitControls.lastY;
+            
+            if (currentView === 'projection') {
+                // Перемещение для проекции
+                projectionCamera.position.x -= deltaX * orbitControls.panSpeed;
+                projectionCamera.position.y += deltaY * orbitControls.panSpeed;
+            } else {
+                // Перемещение для 3D-видов
+                camera.position.x -= deltaX * orbitControls.panSpeed;
+                camera.position.y += deltaY * orbitControls.panSpeed;
+            }
+        }
+        
+        orbitControls.lastX = event.clientX;
+        orbitControls.lastY = event.clientY;
+        
+        // Обнаружение наведения на точку (только для проекции)
+        if (currentView === 'projection' && projectionMesh) {
+            raycaster.setFromCamera(mouse, projectionCamera);
+            
+            // Проверяем пересечение только с точками проекции
+            const intersects = raycaster.intersectObjects([projectionMesh.children[0]], true);
+            
+            if (intersects.length > 0) {
+                // Получаем индекс точки
+                const pointIndex = intersects[0].index;
+                
+                // Получаем цвет точки
+                const color = projectionMesh.children[0].geometry.attributes.color;
+                const r = color.array[pointIndex * 3] * 255;
+                const g = color.array[pointIndex * 3 + 1] * 255;
+                const b = color.array[pointIndex * 3 + 2] * 255;
+                
+                // Показываем подсказку
+                const tooltip = document.getElementById('tooltip');
+                tooltip.style.display = 'block';
+                tooltip.style.left = (event.clientX + 10) + 'px';
+                tooltip.style.top = (event.clientY + 10) + 'px';
+                tooltip.textContent = `RGB: ${r.toFixed(0)}, ${g.toFixed(0)}, ${b.toFixed(0)}`;
+                
+                // Обновляем информацию о цвете
+                updateColorInfo(r, g, b);
+                
+                hoveredPoint = pointIndex;
+            } else {
+                // Скрываем подсказку
+                document.getElementById('tooltip').style.display = 'none';
+                hoveredPoint = null;
+            }
+        } else {
+            // Скрываем подсказку
+            document.getElementById('tooltip').style.display = 'none';
+            hoveredPoint = null;
+        }
+    }
+    
+    // Обработка нажатия кнопки мыши
+    function onMouseDown(event) {
+        orbitControls.lastX = event.clientX;
+        orbitControls.lastY = event.clientY;
+        
+        if (event.button === 0) { // Левая кнопка
+            orbitControls.rotating = true;
+            renderer.domElement.style.cursor = 'grabbing';
+        } else if (event.button === 2) { // Правая кнопка
+            orbitControls.panning = true;
+            renderer.domElement.style.cursor = 'move';
+            event.preventDefault(); // Отключаем контекстное меню
+        }
+        
+        // Добавляем обработчик для случая, если мышь покинет область рендерера
+        document.addEventListener('mousemove', onMouseMove);
+        document.addEventListener('mouseup', onMouseUp);
+    }
+    
+    // Обработка отпускания кнопки мыши
+    function onMouseUp(event) {
+        orbitControls.rotating = false;
+        orbitControls.panning = false;
+        renderer.domElement.style.cursor = 'auto';
+        
+        // Удаляем обработчики на уровне документа
+        document.removeEventListener('mousemove', onMouseMove);
+        document.removeEventListener('mouseup', onMouseUp);
+    }
+    
+    // Обработка колеса мыши
+    function onMouseWheel(event) {
+        event.preventDefault();
+        
+        const delta = Math.sign(event.deltaY);
+        
+        if (currentView === 'projection') {
+            // Масштабирование для проекции
+            const factor = 1 - delta * orbitControls.zoomSpeed;
+            projectionCamera.left *= factor;
+            projectionCamera.right *= factor;
+            projectionCamera.top *= factor;
+            projectionCamera.bottom *= factor;
+            projectionCamera.updateProjectionMatrix();
+        } else {
+            // Масштабирование для 3D-видов
+            orbitControls.distance += delta * orbitControls.zoomSpeed;
+            orbitControls.distance = Math.max(1, Math.min(10, orbitControls.distance));
+            camera.position.z = orbitControls.distance;
+        }
+    }
+    
+    // Создание RGB куба с оптимизированной решёткой
+    function createRGBCube(forceRecreate = false) {
+        // Определяем, нужно ли полностью пересоздавать куб
+        const needFullRecreation = forceRecreate || !rgbCube || !colorCache.originalColors;
+        
+        if (needFullRecreation) {
+            // Удаляем предыдущий куб, если он существует
+            if (rgbCube) {
+                scene.remove(rgbCube);
+            }
+            
+            // Показываем индикатор загрузки
+            document.getElementById('loading-overlay').style.display = 'flex';
+            
+            // Создаем группу для куба
+            rgbCube = new THREE.Group();
+            
+            // Используем setTimeout для предотвращения блокировки интерфейса
+            setTimeout(() => {
+                // Создаем геометрию куба с указанной плотностью точек
+                const geometry = new THREE.BoxGeometry(
+                    1, 1, 1, 
+                    controls.pointDensity, 
+                    controls.pointDensity, 
+                    controls.pointDensity
+                );
+                
+                // Создаем материал для вершин (точек)
+                const material = new THREE.PointsMaterial({
+                    vertexColors: true,
+                    size: 0.01 * controls.pointSize
+                });
+                
+                // Создаем материал для граней
+                const meshMaterial = new THREE.MeshBasicMaterial({
+                    vertexColors: true,
+                    wireframe: false,
+                    transparent: true,
+                    opacity: 0.7,
+                    side: THREE.DoubleSide
+                });
+                
+                // Настраиваем цвета вершин
+                const positions = geometry.attributes.position;
+                const originalColors = new Float32Array(positions.count * 3);
+                const gridColors = new Float32Array(positions.count * 3);
+                
+                cubeVertices = [];
+                cubeColors = [];
+                
+                // Создаем исходные цвета (без решётки)
+                for (let i = 0; i < positions.count; i++) {
+                    const x = positions.getX(i) + 0.5; // Сдвигаем от [-0.5, 0.5] к [0, 1]
+                    const y = positions.getY(i) + 0.5;
+                    const z = positions.getZ(i) + 0.5;
+                    
+                    // RGB значения равны нормализованным координатам
+                    const r = x;
+                    const g = y;
+                    const b = z;
+                    
+                    // Сохраняем вершины и исходные цвета
+                    cubeVertices.push(new THREE.Vector3(x - 0.5, y - 0.5, z - 0.5)); // Обратно к [-0.5, 0.5]
+                    cubeColors.push(new THREE.Color(r, g, b));
+                    
+                    // Заполняем буфер исходных цветов
+                    originalColors[i * 3] = r;
+                    originalColors[i * 3 + 1] = g;
+                    originalColors[i * 3 + 2] = b;
+                }
+                
+                // Сохраняем исходные цвета в кэше
+                colorCache.originalColors = originalColors;
+                
+                // Применяем решётку к цветам
+                applyGridToColors(gridColors);
+                
+                // Устанавливаем цвета для геометрии
+                geometry.setAttribute('color', new THREE.BufferAttribute(gridColors, 3));
+                
+                // Создаем меш куба
+                const cubeMesh = new THREE.Mesh(geometry, meshMaterial);
+                
+                // Создаем точки
+                const cubePoints = new THREE.Points(geometry, material);
+                
+                // Добавляем в группу
+                rgbCube.add(cubeMesh);
+                rgbCube.add(cubePoints);
+                
+                // Добавляем на сцену
+                scene.add(rgbCube);
+                
+                // Обновляем сферическую проекцию
+                updateSphereProjection(true);
+                
+                // Скрываем индикатор загрузки
+                document.getElementById('loading-overlay').style.display = 'none';
+                
+                logDebug(`RGB куб создан с ${positions.count} вершинами`);
+            }, 100);
+        } else {
+            // Если куб уже создан и нам нужно только обновить цвета решётки
+            const gridColors = new Float32Array(colorCache.originalColors.length);
+            
+            // Применяем решётку к цветам
+            applyGridToColors(gridColors);
+            
+            // Обновляем атрибут цвета в геометрии куба
+            rgbCube.children[0].geometry.setAttribute(
+                'color', 
+                new THREE.BufferAttribute(gridColors, 3)
+            );
+            rgbCube.children[1].geometry.setAttribute(
+                'color', 
+                new THREE.BufferAttribute(gridColors, 3)
+            );
+            
+            // Обновляем проекцию на сферу, если она видима
+            if (rgbSphere && rgbSphere.visible) {
+                updateSphereProjection(false);
+            }
+            
+            logDebug("Обновлены цвета RGB куба");
+        }
+    }
+    
+    /**
+     * Применяет решётку к буферу цветов
+     * @param {Float32Array} colors - Буфер для записи результата
+     */
+    function applyGridToColors(colors) {
+        // Копируем исходные цвета
+        for (let i = 0; i < colorCache.originalColors.length; i++) {
+            colors[i] = colorCache.originalColors[i];
+        }
+        
+        // Если решётка не видна, просто возвращаем исходные цвета
+        if (!controls.gridVisible) {
+            return;
+        }
+        
+        // Шаг сетки
+        const gridStep = 1 / controls.gridDensity;
+        
+        // Адаптивная толщина линий в зависимости от плотности решётки
+        let lineThickness = 0.15;
+        if (controls.adaptiveThickness) {
+            // Уменьшаем толщину при увеличении плотности
+            lineThickness = Math.max(0.05, 0.3 - (controls.gridDensity / 100));
+        }
+        
+        // Получаем компоненты цвета решётки из hex-строки
+        const gridColor = new THREE.Color(controls.gridColor);
+        
+        // Для каждой точки проверяем, находится ли она на линии решётки
+        for (let i = 0; i < cubeVertices.length; i++) {
+            const vertex = cubeVertices[i];
+            const x = vertex.x + 0.5; // Переводим обратно в [0,1]
+            const y = vertex.y + 0.5;
+            const z = vertex.z + 0.5;
+            
+            // Проверяем, находится ли точка на решётке
+            if (isPointOnGrid(x, y, z, gridStep, lineThickness)) {
+                // Для точек на решётке смешиваем исходный цвет с цветом решётки
+                const idx = i * 3;
+                const r = colorCache.originalColors[idx];
+                const g = colorCache.originalColors[idx + 1];
+                const b = colorCache.originalColors[idx + 2];
+                
+                // Смешиваем цвета с учетом непрозрачности
+                colors[idx] = r * (1 - controls.gridOpacity) + gridColor.r * controls.gridOpacity;
+                colors[idx + 1] = g * (1 - controls.gridOpacity) + gridColor.g * controls.gridOpacity;
+                colors[idx + 2] = b * (1 - controls.gridOpacity) + gridColor.b * controls.gridOpacity;
+            }
+        }
+        
+        // Сохраняем цвета с решёткой в кэше
+        colorCache.gridColors = colors.slice();
+    }
+    
+    /**
+     * Определяет, находится ли точка на линии решётки
+     * @param {number} x - X-координата точки (0-1)
+     * @param {number} y - Y-координата точки (0-1)
+     * @param {number} z - Z-координата точки (0-1)
+     * @param {number} gridStep - Шаг решётки
+     * @param {number} thickness - Толщина линии в долях от шага
+     * @returns {boolean} - Находится ли точка на линии
+     */
+    function isPointOnGrid(x, y, z, gridStep, thickness) {
+        // Определение, является ли точка частью поверхности куба
+        const epsilon = 0.001;
+        const isOnSurface = 
+            Math.abs(x) < epsilon || Math.abs(x - 1) < epsilon ||
+            Math.abs(y) < epsilon || Math.abs(y - 1) < epsilon ||
+            Math.abs(z) < epsilon || Math.abs(z - 1) < epsilon;
+        
+        if (!isOnSurface) {
+            return false;
+        }
+        
+        // Проверяем, лежит ли точка на линии решётки
+        const halfThickness = thickness / 2;
+        
+        // Нормализуем координаты к шагу сетки
+        const xNorm = x / gridStep;
+        const yNorm = y / gridStep;
+        const zNorm = z / gridStep;
+        
+        // Находим ближайшие линии сетки
+        const xGrid = Math.round(xNorm);
+        const yGrid = Math.round(yNorm);
+        const zGrid = Math.round(zNorm);
+        
+        // Проверяем расстояние до ближайшей линии
+        const xDist = Math.abs(xNorm - xGrid);
+        const yDist = Math.abs(yNorm - yGrid);
+        const zDist = Math.abs(zNorm - zGrid);
+        
+        // Если мы близко к линии по любой оси, считаем точку частью решётки
+        if (Math.abs(x) < epsilon || Math.abs(x - 1) < epsilon) { // Точка на грани YZ
+            return (yDist < halfThickness || zDist < halfThickness);
+        }
+        if (Math.abs(y) < epsilon || Math.abs(y - 1) < epsilon) { // Точка на грани XZ
+            return (xDist < halfThickness || zDist < halfThickness);
+        }
+        if (Math.abs(z) < epsilon || Math.abs(z - 1) < epsilon) { // Точка на грани XY
+            return (xDist < halfThickness || yDist < halfThickness);
+        }
+        
+        return false;
+    }
+    
+    // Создаем сферическую проекцию
+    function createSphereProjection() {
+        // Удаляем предыдущую сферу, если она существует
+        if (rgbSphere) {
+            scene.remove(rgbSphere);
+        }
+        
+        // Создаем группу для сферы
+        rgbSphere = new THREE.Group();
+        
+        // Добавляем прозрачную сферу для ориентации
+        const sphereGeometry = new THREE.SphereGeometry(0.5, 32, 32);
+        const sphereMaterial = new THREE.MeshBasicMaterial({
+            color: 0xffffff,
+            transparent: true,
+            opacity: 0.1,
+            wireframe: true
+        });
+        const sphereMesh = new THREE.Mesh(sphereGeometry, sphereMaterial);
+        rgbSphere.add(sphereMesh);
+        
+        // Обновляем точки сферической проекции
+        updateSphereProjection(true);
+        
+        // Сначала скрываем сферу
+        rgbSphere.visible = false;
+        
+        // Добавляем на сцену
+        scene.add(rgbSphere);
+        
+        logDebug("Сферическая проекция создана");
+    }
+    
+    // Обновление сферической проекции
+    function updateSphereProjection(fullRecreation = true) {
+        logDebug("Обновление сферической проекции, fullRecreation=" + fullRecreation);
+        
+        // Показываем индикатор загрузки
+        document.getElementById('loading-overlay').style.display = 'flex';
+        
+        // Используем setTimeout для предотвращения блокировки интерфейса
+        setTimeout(() => {
+            // Проверяем, что куб создан и есть вершины
+            if (!cubeVertices.length) {
+                logDebug("Ошибка: нет вершин куба для проекции на сферу");
+                document.getElementById('loading-overlay').style.display = 'none';
+                return;
+            }
+            
+            // Очищаем предыдущие точки
+            if (rgbSphere) {
+                // Удаляем все точки, оставляя только базовую сферу
+                while (rgbSphere.children.length > 1) {
+                    rgbSphere.remove(rgbSphere.children[1]);
+                }
+            } else {
+                logDebug("Ошибка: объект сферы не создан");
+                document.getElementById('loading-overlay').style.display = 'none';
+                return; // Если сфера еще не создана
+            }
+            
+            // Проецируем каждую точку куба на сферу
+            sphereVertices = [];
+            sphereColors = [];
+            
+            const geometry = new THREE.BufferGeometry();
+            const positions = new Float32Array(cubeVertices.length * 3);
+            const colors = new Float32Array(cubeVertices.length * 3);
+            
+            // Шаг сетки
+            const gridStep = 1 / controls.gridDensity;
+            
+            // Адаптивная толщина линий в зависимости от плотности решётки
+            let lineThickness = 0.15;
+            if (controls.adaptiveThickness) {
+                // Уменьшаем толщину при увеличении плотности
+                lineThickness = Math.max(0.05, 0.3 - (controls.gridDensity / 100));
+            }
+            
+            // Получаем компоненты цвета решётки из hex-строки
+            const gridColor = new THREE.Color(controls.gridColor);
+            
+            for (let i = 0; i < cubeVertices.length; i++) {
+                const vertex = cubeVertices[i].clone();
+                
+                // Переводим в координаты [0,1] для проверки на решётку
+                const x = vertex.x + 0.5;
+                const y = vertex.y + 0.5;
+                const z = vertex.z + 0.5;
+                
+                // Нормализуем вектор для проекции на сферу (радиус 0.5)
+                vertex.normalize().multiplyScalar(0.5);
+                
+                // Берём оригинальный цвет с куба
+                let color = cubeColors[i].clone();
+                
+                // Для точек на решётке применяем цвет решётки
+                if (controls.gridVisible) {
+                    const isGridLine = isPointOnGrid(x, y, z, gridStep, lineThickness);
+                    if (isGridLine) {
+                        // Смешиваем с цветом решётки в соответствии с непрозрачностью
+                        color.r = color.r * (1 - controls.gridOpacity) + gridColor.r * controls.gridOpacity;
+                        color.g = color.g * (1 - controls.gridOpacity) + gridColor.g * controls.gridOpacity;
+                        color.b = color.b * (1 - controls.gridOpacity) + gridColor.b * controls.gridOpacity;
+                    }
+                }
+                
+                // Сохраняем для использования в других функциях
+                sphereVertices.push(vertex.clone());
+                sphereColors.push(color);
+                
+                // Заполняем буферы
+                positions[i * 3] = vertex.x;
+                positions[i * 3 + 1] = vertex.y;
+                positions[i * 3 + 2] = vertex.z;
+                
+                colors[i * 3] = color.r;
+                colors[i * 3 + 1] = color.g;
+                colors[i * 3 + 2] = color.b;
+            }
+            
+            geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+            geometry.setAttribute('color', new THREE.BufferAttribute(colors, 3));
+            
+            // Создаем материал для точек
+            const material = new THREE.PointsMaterial({
+                vertexColors: true,
+                size: 0.01 * controls.pointSize
+            });
+            
+            // Создаем объект точек
+            const spherePoints = new THREE.Points(geometry, material);
+            
+            // Добавляем на сферу
+            rgbSphere.add(spherePoints);
+            
+            logDebug(`Сферическая проекция обновлена с ${sphereVertices.length} вершинами`);
+            
+            // Обновляем картографическую проекцию
+            updateProjection();
+            
+            // Скрываем индикатор загрузки
+            document.getElementById('loading-overlay').style.display = 'none';
+        }, 100);
+    }
+    
+    // Обновление картографической проекции
+    function updateProjection() {
+        logDebug("Обновление картографической проекции");
+        logDebug("sphereVertices.length = " + sphereVertices.length);
+        
+        if (!sphereVertices.length) {
+            logDebug("Ошибка: нет вершин сферы для картографической проекции");
+            return;
+        }
+        
+        // Показываем индикатор загрузки
+        document.getElementById('loading-overlay').style.display = 'flex';
+        
+        // Используем setTimeout для предотвращения блокировки интерфейса
+        setTimeout(() => {
+            // Очищаем предыдущую проекцию
+            if (projectionMesh) {
+                projectionScene.remove(projectionMesh);
+                projectionMesh = null;
+            }
+            
+            // Создаем геометрию для проекции
+            const geometry = new THREE.BufferGeometry();
+            
+            // Получаем проецированные координаты
+            const { projectedPoints } = projectSphereToMap();
+            
+            // Создаем позиции и цвета для точек
+            const positions = new Float32Array(projectedPoints.length * 3);
+            const colors = new Float32Array(projectedPoints.length * 3);
+            
+            for (let i = 0; i < projectedPoints.length; i++) {
+                // Если точка не null (некоторые проекции могут исключать точки)
+                if (projectedPoints[i]) {
+                    positions[i * 3] = projectedPoints[i].x * controls.scale;
+                    positions[i * 3 + 1] = projectedPoints[i].y * controls.scale;
+                    positions[i * 3 + 2] = 0;
+                    
+                    colors[i * 3] = sphereColors[i].r;
+                    colors[i * 3 + 1] = sphereColors[i].g;
+                    colors[i * 3 + 2] = sphereColors[i].b;
+                } else {
+                    // Если точка исключена из проекции, ставим её за пределами видимости
+                    positions[i * 3] = 999;
+                    positions[i * 3 + 1] = 999;
+                    positions[i * 3 + 2] = 999;
+                    
+                    // Цвет может быть любым, так как точка не видна
+                    colors[i * 3] = 0;
+                    colors[i * 3 + 1] = 0;
+                    colors[i * 3 + 2] = 0;
+                }
+            }
+            
+            geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+            geometry.setAttribute('color', new THREE.BufferAttribute(colors, 3));
+            
+            // Создаем материал для точек
+            const material = new THREE.PointsMaterial({
+                vertexColors: true,
+                size: 0.01 * controls.pointSize * controls.scale
+            });
+            
+            // Создаем объект точек
+            const pointsMesh = new THREE.Points(geometry, material);
+            
+            // Создаем группу и добавляем в нее точки
+            projectionMesh = new THREE.Group();
+            projectionMesh.add(pointsMesh);
+            
+            // Добавляем на сцену проекции
+            projectionScene.add(projectionMesh);
+            
+            logDebug(`Картографическая проекция создана с ${projectedPoints.length} точками`);
+            
+            // Обновляем информацию о проекции
+            updateProjectionInfo();
+            
+            // Если текущий вид - проекция, обновляем отображение
+            if (currentView === 'projection') {
+                renderer.render(projectionScene, projectionCamera);
+            }
+            
+            // Скрываем индикатор загрузки
+            document.getElementById('loading-overlay').style.display = 'none';
+        }, 100);
+    }
+    
+    // Проекция сферы на карту
+    function projectSphereToMap() {
+        const projectedPoints = [];
+        
+        // Выбор проекции
+        const projection = getProjection(controls.projection);
+        
+        // Функция для проекции сферических координат на плоскость
+        function projectPoint(point) {
+            // Конвертируем декартовы координаты в сферические
+            const phi = Math.atan2(point.y, point.x);
+            const theta = Math.acos(point.z / 0.5); // 0.5 - радиус сферы
+            
+            // Применяем выбранную проекцию
+            return projection(phi, theta);
+        }
+        
+        // Проецируем каждую точку сферы
+        for (let i = 0; i < sphereVertices.length; i++) {
+            const point = projectPoint(sphereVertices[i]);
+            projectedPoints.push(point);
+        }
+        
+        return { projectedPoints };
+    }
+    // Получение функции проекции
+    function getProjection(type) {
+        // Коэффициент масштабирования
+        const scale = 0.8;
+        
+        // Параметры проекции
+        const params = controls.projectionParams;
+        
+        switch (type) {
+            case 'equirectangular':
+                // Равнопромежуточная проекция (Plate Carrée)
+                return function(phi, theta) {
+                    const x = phi / Math.PI * scale;
+                    const y = (theta / Math.PI - 0.5) * scale * 2;
+                    return new THREE.Vector2(x, y);
+                };
+                
+            case 'mercator':
+                // Проекция Меркатора
+                return function(phi, theta) {
+                    const x = phi / Math.PI * scale;
+                    const y = Math.log(Math.tan(Math.PI / 4 + theta / 2)) * scale;
+                    return new THREE.Vector2(x, y);
+                };
+                
+            case 'orthographic':
+                // Ортографическая проекция
+                return function(phi, theta) {
+                    // Учитываем центральную точку
+                    const centralLat = params.centralLatitude * Math.PI / 180;
+                    const centralLon = params.centralLongitude * Math.PI / 180;
+                    
+                    // Вычисляем координаты с учетом центральной точки
+                    const sinLat = Math.sin(theta);
+                    const cosLat = Math.cos(theta);
+                    const sinCentralLat = Math.sin(centralLat);
+                    const cosCentralLat = Math.cos(centralLat);
+                    const cosLonDiff = Math.cos(phi - centralLon);
+                    
+                    // Проверяем видимость точки (должна быть на видимой стороне сферы)
+                    const cosC = sinLat * sinCentralLat + cosLat * cosCentralLat * cosLonDiff;
+                    if (cosC < 0) {
+                        return null; // Точка на обратной стороне сферы
+                    }
+                    
+                    const x = cosLat * Math.sin(phi - centralLon) * scale;
+                    const y = (cosLat * sinCentralLat * cosLonDiff - sinLat * cosCentralLat) * scale;
+                    return new THREE.Vector2(x, y);
+                };
+                
+            case 'stereographic':
+                // Стереографическая проекция
+                return function(phi, theta) {
+                    // Учитываем центральную точку
+                    const centralLat = params.centralLatitude * Math.PI / 180;
+                    const centralLon = params.centralLongitude * Math.PI / 180;
+                    
+                    // Вычисляем координаты с учетом центральной точки
+                    const sinLat = Math.sin(theta);
+                    const cosLat = Math.cos(theta);
+                    const sinCentralLat = Math.sin(centralLat);
+                    const cosCentralLat = Math.cos(centralLat);
+                    const cosLonDiff = Math.cos(phi - centralLon);
+                    
+                    const k = 2 / (1 + sinLat * sinCentralLat + cosLat * cosCentralLat * cosLonDiff);
+                    const x = k * cosLat * Math.sin(phi - centralLon) * scale;
+                    const y = k * (cosLat * sinCentralLat * cosLonDiff - sinLat * cosCentralLat) * scale;
+                    return new THREE.Vector2(x, y);
+                };
+                
+            case 'azimuthalEqualArea':
+                // Азимутальная равновеликая проекция (Lambert)
+                return function(phi, theta) {
+                    // Учитываем центральную точку
+                    const centralLat = params.centralLatitude * Math.PI / 180;
+                    const centralLon = params.centralLongitude * Math.PI / 180;
+                    
+                    // Вычисляем координаты с учетом центральной точки
+                    const sinLat = Math.sin(theta);
+                    const cosLat = Math.cos(theta);
+                    const sinCentralLat = Math.sin(centralLat);
+                    const cosCentralLat = Math.cos(centralLat);
+                    const cosLonDiff = Math.cos(phi - centralLon);
+                    
+                    const k = Math.sqrt(2 / (1 + sinLat * sinCentralLat + cosLat * cosCentralLat * cosLonDiff));
+                    const x = k * cosLat * Math.sin(phi - centralLon) * scale;
+                    const y = k * (cosLat * sinCentralLat * cosLonDiff - sinLat * cosCentralLat) * scale;
+                    return new THREE.Vector2(x, y);
+                };
+                
+            case 'azimuthalEquidistant':
+                // Азимутальная равнопромежуточная проекция
+                return function(phi, theta) {
+                    // Учитываем центральную точку
+                    const centralLat = params.centralLatitude * Math.PI / 180;
+                    const centralLon = params.centralLongitude * Math.PI / 180;
+                    
+                    // Вычисляем координаты с учетом центральной точки
+                    const sinLat = Math.sin(theta);
+                    const cosLat = Math.cos(theta);
+                    const sinCentralLat = Math.sin(centralLat);
+                    const cosCentralLat = Math.cos(centralLat);
+                    const cosLonDiff = Math.cos(phi - centralLon);
+                    
+                    const c = Math.acos(sinLat * sinCentralLat + cosLat * cosCentralLat * cosLonDiff);
+                    const k = c / Math.sin(c);
+                    
+                    if (c === 0) {
+                        return new THREE.Vector2(0, 0);
+                    }
+                    
+                    const x = k * cosLat * Math.sin(phi - centralLon) * scale;
+                    const y = k * (cosLat * sinCentralLat * cosLonDiff - sinLat * cosCentralLat) * scale;
+                    return new THREE.Vector2(x, y);
+                };
+                
+            case 'conicEquidistant':
+                // Коническая равнопромежуточная проекция
+                return function(phi, theta) {
+                    // Параметры конической проекции
+                    const lat1 = params.standardParallel1 * Math.PI / 180;
+                    const lat2 = params.standardParallel2 * Math.PI / 180;
+                    
+                    // Вычисляем константу конуса
+                    const n = (Math.cos(lat1) - Math.cos(lat2)) / (lat2 - lat1);
+                    
+                    // Радиус и угол
+                    const rho = 1 - theta * n;
+                    const gamma = n * phi;
+                    
+                    const x = rho * Math.sin(gamma) * scale;
+                    const y = -rho * Math.cos(gamma) * scale;
+                    return new THREE.Vector2(x, y);
+                };
+                
+            case 'conicConformal':
+                // Коническая равноугольная проекция (Lambert)
+                return function(phi, theta) {
+                    // Параметры конической проекции
+                    const lat1 = params.standardParallel1 * Math.PI / 180;
+                    const lat2 = params.standardParallel2 * Math.PI / 180;
+                    
+                    // Вычисляем константу конуса
+                    const n = Math.log(Math.cos(lat1) / Math.cos(lat2)) / Math.log(Math.tan(Math.PI / 4 + lat2 / 2) / Math.tan(Math.PI / 4 + lat1 / 2));
+                    
+                    // Радиус и угол
+                    const F = Math.cos(lat1) * Math.pow(Math.tan(Math.PI / 4 + lat1 / 2), n) / n;
+                    const rho = F / Math.pow(Math.tan(Math.PI / 4 + theta / 2), n);
+                    const gamma = n * phi;
+                    
+                    const x = rho * Math.sin(gamma) * scale;
+                    const y = -rho * Math.cos(gamma) * scale;
+                    return new THREE.Vector2(x, y);
+                };
+                
+            case 'conicEqualArea':
+                // Коническая равновеликая проекция (Albers)
+                return function(phi, theta) {
+                    // Параметры конической проекции
+                    const lat1 = params.standardParallel1 * Math.PI / 180;
+                    const lat2 = params.standardParallel2 * Math.PI / 180;
+                    
+                    // Вычисляем константы
+                    const n = 0.5 * (Math.sin(lat1) + Math.sin(lat2));
+                    const C = Math.cos(lat1) * Math.cos(lat1) + 2 * n * Math.sin(lat1);
+                    
+                    // Радиус и угол
+                    const rho = Math.sqrt(C - 2 * n * Math.sin(theta)) / n;
+                    const gamma = n * phi;
+                    
+                    const x = rho * Math.sin(gamma) * scale;
+                    const y = -rho * Math.cos(gamma) * scale;
+                    return new THREE.Vector2(x, y);
+                };
+                
+            case 'gnomonic':
+                // Гномоническая проекция
+                return function(phi, theta) {
+                    // Учитываем центральную точку
+                    const centralLat = params.centralLatitude * Math.PI / 180;
+                    const centralLon = params.centralLongitude * Math.PI / 180;
+                    
+                    // Вычисляем координаты с учетом центральной точки
+                    const sinLat = Math.sin(theta);
+                    const cosLat = Math.cos(theta);
+                    const sinCentralLat = Math.sin(centralLat);
+                    const cosCentralLat = Math.cos(centralLat);
+                    const cosLonDiff = Math.cos(phi - centralLon);
+                    
+                    const cosC = sinLat * sinCentralLat + cosLat * cosCentralLat * cosLonDiff;
+                    
+                    if (cosC <= 0) {
+                        return null; // Точка на обратной стороне сферы или на горизонте
+                    }
+                    
+                    const x = (cosLat * Math.sin(phi - centralLon)) / cosC * scale;
+                    const y = (cosLat * sinCentralLat * cosLonDiff - sinLat * cosCentralLat) / cosC * scale;
+                    return new THREE.Vector2(x, y);
+                };
+                
+            case 'mollweide':
+                // Проекция Мольвейде
+                return function(phi, theta) {
+                    // Вспомогательное уравнение для проекции Мольвейде
+                    let auxTheta = theta;
+                    for (let i = 0; i < 3; i++) {
+                        auxTheta = theta + (2 * auxTheta + Math.sin(2 * auxTheta) - Math.PI * Math.sin(theta)) / (2 + 2 * Math.cos(2 * auxTheta));
+                    }
+                    
+                    const x = 2 * Math.sqrt(2) / Math.PI * phi * Math.cos(auxTheta) * scale;
+                    const y = Math.sqrt(2) * Math.sin(auxTheta) * scale;
+                    return new THREE.Vector2(x, y);
+                };
+                
+            case 'sinusoidal':
+                // Синусоидальная проекция
+                return function(phi, theta) {
+                    const y = (theta - Math.PI / 2) * scale;
+                    const x = phi * Math.cos(theta) * scale;
+                    return new THREE.Vector2(x, y);
+                };
+                
+            case 'robinson':
+                // Проекция Робинсона
+                return function(phi, theta) {
+                    // Таблица коэффициентов для проекции Робинсона
+                    const robinsonTable = [
+                        [1.0000, 0.0000],
+                        [0.9986, 0.0620],
+                        [0.9954, 0.1240],
+                        [0.9900, 0.1860],
+                        [0.9822, 0.2480],
+                        [0.9730, 0.3100],
+                        [0.9600, 0.3720],
+                        [0.9427, 0.4340],
+                        [0.9216, 0.4958],
+                        [0.8962, 0.5571],
+                        [0.8679, 0.6176],
+                        [0.8350, 0.6769],
+                        [0.7986, 0.7346],
+                        [0.7597, 0.7903],
+                        [0.7186, 0.8435],
+                        [0.6732, 0.8936],
+                        [0.6213, 0.9394],
+                        [0.5722, 0.9761],
+                        [0.5322, 1.0000]
+                    ];
+                    
+                    // Вычисляем индекс в таблице для текущей широты
+                    const latDegrees = theta * 180 / Math.PI - 90;
+                    const absLatDegrees = Math.abs(latDegrees);
+                    
+                    // Индекс в таблице (с интерполяцией)
+                    const index = absLatDegrees / 5;
+                    const lowerIndex = Math.floor(index);
+                    const upperIndex = Math.min(lowerIndex + 1, robinsonTable.length - 1);
+                    const t = index - lowerIndex;
+                    
+                    // Интерполируем коэффициенты
+                    const X = robinsonTable[lowerIndex][0] + t * (robinsonTable[upperIndex][0] - robinsonTable[lowerIndex][0]);
+                    const Y = robinsonTable[lowerIndex][1] + t * (robinsonTable[upperIndex][1] - robinsonTable[lowerIndex][1]);
+                    
+                    // Вычисляем координаты
+                    const x = 0.8487 * phi * X * scale;
+                    const y = 1.3523 * Y * Math.sign(latDegrees) * scale;
+                    
+                    return new THREE.Vector2(x, y);
+                };
+                
+            default:
+                // По умолчанию используем равнопромежуточную проекцию
+                return function(phi, theta) {
+                    const x = phi / Math.PI * scale;
+                    const y = (theta / Math.PI - 0.5) * scale * 2;
+                    return new THREE.Vector2(x, y);
+                };
+        }
+    }
+    
+    // Настройка элементов управления
+    function setupControls() {
+        // Переключение вкладок
+        document.querySelectorAll('.tab').forEach(tab => {
+            tab.addEventListener('click', function() {
+                document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+                document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+                
+                this.classList.add('active');
+                document.getElementById(this.dataset.tab + '-tab').classList.add('active');
+            });
+        });
+        
+        // Слайдеры вращения
+        document.getElementById('rotation-x').addEventListener('input', function(e) {
+            controls.rotationX = parseFloat(e.target.value) * Math.PI / 180;
+            document.getElementById('rotation-x-value').textContent = e.target.value + '°';
+            updateRotationInfo();
+        });
+        
+        document.getElementById('rotation-y').addEventListener('input', function(e) {
+            controls.rotationY = parseFloat(e.target.value) * Math.PI / 180;
+            document.getElementById('rotation-y-value').textContent = e.target.value + '°';
+            updateRotationInfo();
+        });
+        
+        document.getElementById('rotation-z').addEventListener('input', function(e) {
+            controls.rotationZ = parseFloat(e.target.value) * Math.PI / 180;
+            document.getElementById('rotation-z-value').textContent = e.target.value + '°';
+            updateRotationInfo();
+        });
+        
+        // Кнопка сброса вращения
+        document.getElementById('reset-rotation').addEventListener('click', function() {
+            controls.rotationX = 0;
+            controls.rotationY = 0;
+            controls.rotationZ = 0;
+            
+            document.getElementById('rotation-x').value = 0;
+            document.getElementById('rotation-y').value = 0;
+            document.getElementById('rotation-z').value = 0;
+            
+            document.getElementById('rotation-x-value').textContent = '0°';
+            document.getElementById('rotation-y-value').textContent = '0°';
+            document.getElementById('rotation-z-value').textContent = '0°';
+            
+            updateRotationInfo();
+        });
+        
+        // Выбор проекции
+        document.getElementById('projection').addEventListener('change', function(e) {
+            controls.projection = e.target.value;
+            
+            // Показываем/скрываем соответствующие параметры проекции
+            const isConicProjection = ['conicEquidistant', 'conicConformal', 'conicEqualArea'].includes(controls.projection);
+            const isAzimuthalProjection = ['orthographic', 'stereographic', 'azimuthalEqualArea', 'azimuthalEquidistant', 'gnomonic'].includes(controls.projection);
+            
+            document.getElementById('conic-params').style.display = isConicProjection ? 'block' : 'none';
+            document.getElementById('azimuthal-params').style.display = isAzimuthalProjection ? 'block' : 'none';
+            
+            updateProjection();
+            updateProjectionInfo();
+        });
+        
+        // Параметры проекции
+        document.getElementById('standard-parallel1').addEventListener('input', function(e) {
+            controls.projectionParams.standardParallel1 = parseFloat(e.target.value);
+            document.getElementById('standard-parallel1-value').textContent = e.target.value + '°';
+            updateProjection();
+        });
+        
+        document.getElementById('standard-parallel2').addEventListener('input', function(e) {
+            controls.projectionParams.standardParallel2 = parseFloat(e.target.value);
+            document.getElementById('standard-parallel2-value').textContent = e.target.value + '°';
+            updateProjection();
+        });
+        
+        document.getElementById('central-latitude').addEventListener('input', function(e) {
+            controls.projectionParams.centralLatitude = parseFloat(e.target.value);
+            document.getElementById('central-latitude-value').textContent = e.target.value + '°';
+            updateProjection();
+        });
+        
+        document.getElementById('central-longitude').addEventListener('input', function(e) {
+            controls.projectionParams.centralLongitude = parseFloat(e.target.value);
+            document.getElementById('central-longitude-value').textContent = e.target.value + '°';
+            updateProjection();
+        });
+        
+        // Плотность точек
+        document.getElementById('point-density').addEventListener('input', function(e) {
+            controls.pointDensity = parseInt(e.target.value);
+            document.getElementById('point-density-value').textContent = e.target.value;
+            createRGBCube(true); // Полное пересоздание куба при изменении плотности точек
+        });
+        
+        // Размер точек
+        document.getElementById('point-size').addEventListener('input', function(e) {
+            controls.pointSize = parseFloat(e.target.value);
+            document.getElementById('point-size-value').textContent = e.target.value;
+            
+            // Обновляем размер точек для куба
+            if (rgbCube && rgbCube.children.length > 1) {
+                rgbCube.children[1].material.size = 0.01 * controls.pointSize;
+            }
+            
+            // Обновляем размер точек для сферы
+            if (rgbSphere && rgbSphere.children.length > 1) {
+                rgbSphere.children[1].material.size = 0.01 * controls.pointSize;
+            }
+            
+            // Обновляем проекцию
+            updateProjection();
+        });
+        
+        // Переключатель видимости решётки
+        document.getElementById('grid-visible').addEventListener('change', function(e) {
+            controls.gridVisible = e.target.checked;
+            // Используем буферизацию, обновляем только цвета без пересоздания геометрии
+            createRGBCube(false);
+        });
+        
+        // Плотность решётки
+        document.getElementById('grid-density').addEventListener('input', function(e) {
+            controls.gridDensity = parseInt(e.target.value);
+            document.getElementById('grid-density-value').textContent = e.target.value;
+            // Используем буферизацию, обновляем только цвета без пересоздания геометрии
+            createRGBCube(false);
+        });
+        
+        // Непрозрачность решётки
+        document.getElementById('grid-opacity').addEventListener('input', function(e) {
+            controls.gridOpacity = parseFloat(e.target.value);
+            document.getElementById('grid-opacity-value').textContent = e.target.value;
+            // Обновляем только цвета без пересоздания геометрии
+            createRGBCube(false);
+        });
+        
+        // Цвет решётки
+        document.getElementById('grid-color').addEventListener('input', function(e) {
+            controls.gridColor = e.target.value;
+            // Обновляем только цвета без пересоздания геометрии
+            createRGBCube(false);
+        });
+        
+        // Адаптивная толщина линий
+        document.getElementById('adaptive-thickness').addEventListener('change', function(e) {
+            controls.adaptiveThickness = e.target.checked;
+            // Обновляем только цвета без пересоздания геометрии
+            createRGBCube(false);
+        });
+        
+        // Масштаб проекции
+        document.getElementById('scale').addEventListener('input', function(e) {
+            controls.scale = parseFloat(e.target.value) / 100;
+            document.getElementById('scale-value').textContent = e.target.value + '%';
+            updateProjection();
+        });
+        
+        // Кнопки переключения вида
+        document.getElementById('cube-view').addEventListener('click', function() {
+            setActiveView('cube');
+        });
+        
+        document.getElementById('sphere-view').addEventListener('click', function() {
+            setActiveView('sphere');
+        });
+        
+        document.getElementById('projection-view').addEventListener('click', function() {
+            setActiveView('projection');
+        });
+        
+        // Настройка кнопок масштабирования
+        document.getElementById('zoom-in').addEventListener('click', function() {
+            if (currentView === 'projection') {
+                const factor = 0.8;
+                projectionCamera.left *= factor;
+                projectionCamera.right *= factor;
+                projectionCamera.top *= factor;
+                projectionCamera.bottom *= factor;
+                projectionCamera.updateProjectionMatrix();
+            } else {
+                orbitControls.distance = Math.max(1, orbitControls.distance - orbitControls.zoomSpeed * 10);
+                camera.position.z = orbitControls.distance;
+            }
+        });
+        
+        document.getElementById('zoom-out').addEventListener('click', function() {
+            if (currentView === 'projection') {
+                const factor = 1.25;
+                projectionCamera.left *= factor;
+                projectionCamera.right *= factor;
+                projectionCamera.top *= factor;
+                projectionCamera.bottom *= factor;
+                projectionCamera.updateProjectionMatrix();
+            } else {
+                orbitControls.distance = Math.min(10, orbitControls.distance + orbitControls.zoomSpeed * 10);
+                camera.position.z = orbitControls.distance;
+            }
+        });
+        
+        document.getElementById('reset-view').addEventListener('click', function() {
+            if (currentView === 'projection') {
+                const container = document.getElementById('canvas-container');
+                const aspect = container.clientWidth / container.clientHeight;
+                projectionCamera.left = -1 * aspect;
+                projectionCamera.right = 1 * aspect;
+                projectionCamera.top = 1;
+                projectionCamera.bottom = -1;
+                projectionCamera.position.set(0, 0, 1);
+                projectionCamera.updateProjectionMatrix();
+            } else {
+                orbitControls.distance = 2;
+                camera.position.set(0, 0, orbitControls.distance);
+            }
+        });
+        
+        // Настройка параметров экспорта
+        document.querySelectorAll('input[name="export-quality"]').forEach(radio => {
+            radio.addEventListener('change', function() {
+                document.getElementById('custom-size').style.display = this.value === 'custom' ? 'flex' : 'none';
+            });
+        });
+        
+        // Кнопки экспорта
+        document.getElementById('export-image').addEventListener('click', exportImage);
+        document.getElementById('export-metadata').addEventListener('click', exportMetadata);
+        
+        // Добавляем новый элемент управления для принудительного обновления проекции
+        document.getElementById('force-update-projection').addEventListener('click', function() {
+            clearDebug();
+            logDebug("Принудительное обновление проекции");
+            updateSphereProjection(true);
+        });
+        
+        // Добавляем управление отладочной панелью
+        document.getElementById('show-debug').addEventListener('change', function(e) {
+            document.getElementById('debug-panel').style.display = e.target.checked ? 'block' : 'none';
+            if (e.target.checked) {
+                logDebug("Отладочная панель активирована");
+            }
+        });
+        
+        // Предотвращение появления контекстного меню при правом клике
+        renderer.domElement.addEventListener('contextmenu', function(event) {
+            event.preventDefault();
+        });
+        
+        logDebug("Элементы управления настроены");
+    }
+    
+    // Обновление информации о вращении
+    function updateRotationInfo() {
+        const xDeg = (controls.rotationX * 180 / Math.PI).toFixed(0);
+        const yDeg = (controls.rotationY * 180 / Math.PI).toFixed(0);
+        const zDeg = (controls.rotationZ * 180 / Math.PI).toFixed(0);
+        
+        document.getElementById('rotation-info').textContent = `Вращение: X: ${xDeg}°, Y: ${yDeg}°, Z: ${zDeg}°`;
+    }
+    
+    // Обновление информации о проекции
+    function updateProjectionInfo() {
+        const projectionNames = {
+            'equirectangular': 'Равнопромежуточная (Plate Carrée)',
+            'mercator': 'Меркатора',
+            'orthographic': 'Ортографическая',
+            'stereographic': 'Стереографическая',
+            'azimuthalEqualArea': 'Азимутальная равновеликая',
+            'azimuthalEquidistant': 'Азимутальная равнопромежуточная',
+            'conicEquidistant': 'Коническая равнопромежуточная',
+            'conicConformal': 'Коническая равноугольная',
+            'conicEqualArea': 'Коническая равновеликая',
+            'gnomonic': 'Гномоническая',
+            'mollweide': 'Мольвейде',
+            'sinusoidal': 'Синусоидальная',
+            'robinson': 'Робинсона'
+        };
+        
+        document.getElementById('projection-info').textContent = `Текущая проекция: ${projectionNames[controls.projection]}`;
+    }
+    
+    // Обновление информации о цвете
+    function updateColorInfo(r, g, b) {
+        document.getElementById('color-swatch').style.backgroundColor = `rgb(${r}, ${g}, ${b})`;
+        document.getElementById('color-values').textContent = `RGB: ${r.toFixed(0)}, ${g.toFixed(0)}, ${b.toFixed(0)}`;
+    }
+    
+    // Установка активного вида
+    function setActiveView(view) {
+        currentView = view;
+        
+        // Обновляем активные кнопки
+        document.getElementById('cube-view').classList.remove('active');
+        document.getElementById('sphere-view').classList.remove('active');
+        document.getElementById('projection-view').classList.remove('active');
+        
+        document.getElementById(view + '-view').classList.add('active');
+        
+        // Переключаем видимость объектов
+        if (rgbCube) rgbCube.visible = (view === 'cube');
+        if (rgbSphere) rgbSphere.visible = (view === 'sphere');
+        
+        // Настраиваем камеру
+        switch (view) {
+            case 'cube':
+            case 'sphere':
+                camera.position.set(0, 0, orbitControls.distance);
+                break;
+            case 'projection':
+                // Для проекции устанавливаем ортографическую камеру
+                const container = document.getElementById('canvas-container');
+                const aspect = container.clientWidth / container.clientHeight;
+                projectionCamera.left = -1 * aspect;
+                projectionCamera.right = 1 * aspect;
+                projectionCamera.top = 1;
+                projectionCamera.bottom = -1;
+                projectionCamera.updateProjectionMatrix();
+                
+                // Если нет данных сферы, создаём их
+                if (!sphereVertices.length) {
+                    logDebug("Создание данных сферы, так как они отсутствуют");
+                    updateSphereProjection(true);
+                }
+                
+                // Если нет projectionMesh, создаём его
+                if (!projectionMesh) {
+                    logDebug("Создание projectionMesh, так как он отсутствует");
+                    updateProjection();
+                }
+                break;
+        }
+        
+        // Скрываем/показываем панели информации
+        document.getElementById('tooltip').style.display = 'none';
+        
+        logDebug(`Активный вид изменён на: ${view}`);
+    }
+    
+    // Экспорт изображения
+    function exportImage() {
+        // Показываем индикатор загрузки
+        document.getElementById('loading-overlay').style.display = 'flex';
+        
+        setTimeout(() => {
+            // Определяем размеры экспорта
+            let width, height;
+            const exportQuality = document.querySelector('input[name="export-quality"]:checked').value;
+            
+            if (exportQuality === 'hd') {
+                width = 1920;
+                height = 1080;
+            } else if (exportQuality === '4k') {
+                width = 3840;
+                height = 2160;
+            } else { // custom
+                width = parseInt(document.getElementById('export-width').value);
+                height = parseInt(document.getElementById('export-height').value);
+            }
+            
+            // Определяем формат
+            const format = document.getElementById('export-format').value;
+            
+            // Создаем временный canvas для сохранения
+            const tempCanvas = document.createElement('canvas');
+            tempCanvas.width = width;
+            tempCanvas.height = height;
+            
+            // Создаем временный рендерер
+            const tempRenderer = new THREE.WebGLRenderer({ 
+                canvas: tempCanvas,
+                antialias: true,
+                preserveDrawingBuffer: true
+            });
+            tempRenderer.setSize(tempCanvas.width, tempCanvas.height);
+            
+            // Рендерим в зависимости от текущего вида
+            if (currentView === 'cube') {
+                // Настраиваем камеру
+                const tempCamera = camera.clone();
+                tempCamera.aspect = tempCanvas.width / tempCanvas.height;
+                tempCamera.updateProjectionMatrix();
+                
+                // Рендерим куб
+                tempRenderer.render(scene, tempCamera);
+            } else if (currentView === 'sphere') {
+                // Настраиваем камеру
+                const tempCamera = camera.clone();
+                tempCamera.aspect = tempCanvas.width / tempCanvas.height;
+                tempCamera.updateProjectionMatrix();
+                
+                // Сохраняем видимость куба
+                const cubeVisible = rgbCube.visible;
+                rgbCube.visible = false;
+                
+                // Рендерим сферу
+                tempRenderer.render(scene, tempCamera);
+                
+                // Восстанавливаем видимость куба
+                rgbCube.visible = cubeVisible;
+            } else if (currentView === 'projection') {
+                // Настраиваем камеру
+                const aspect = tempCanvas.width / tempCanvas.height;
+                const tempCamera = new THREE.OrthographicCamera(
+                    projectionCamera.left * (aspect / (projectionCamera.right - projectionCamera.left)),
+                    projectionCamera.right * (aspect / (projectionCamera.right - projectionCamera.left)),
+                    projectionCamera.top * (aspect / (projectionCamera.right - projectionCamera.left)),
+                    projectionCamera.bottom * (aspect / (projectionCamera.right - projectionCamera.left)),
+                    0.1, 1000
+                );
+                tempCamera.position.copy(projectionCamera.position);
+                
+                // Рендерим проекцию
+                tempRenderer.render(projectionScene, tempCamera);
+            }
+            
+            // Конвертируем canvas в URL и создаем ссылку для скачивания
+            const mimeType = format === 'png' ? 'image/png' : 'image/jpeg';
+            const quality = format === 'png' ? 1.0 : 0.9;
+            
+            const dataURL = tempCanvas.toDataURL(mimeType, quality);
+            const downloadLink = document.getElementById('download-link');
+            downloadLink.href = dataURL;
+            downloadLink.download = 'rgb-cube-' + currentView + '.' + format;
+            downloadLink.click();
+            
+            // Скрываем индикатор загрузки
+            document.getElementById('loading-overlay').style.display = 'none';
+        }, 100);
+    }
+    
+    // Экспорт метаданных
+    function exportMetadata() {
+        // Собираем метаданные
+        const metadata = {
+            type: currentView,
+            resolution: document.querySelector('input[name="export-quality"]:checked').value,
+            rotation: {
+                x: (controls.rotationX * 180 / Math.PI).toFixed(2),
+                y: (controls.rotationY * 180 / Math.PI).toFixed(2),
+                z: (controls.rotationZ * 180 / Math.PI).toFixed(2)
+            },
+            projection: controls.projection,
+            projectionParams: {
+                standardParallel1: controls.projectionParams.standardParallel1,
+                standardParallel2: controls.projectionParams.standardParallel2,
+                centralLatitude: controls.projectionParams.centralLatitude,
+                centralLongitude: controls.projectionParams.centralLongitude
+            },
+            pointDensity: controls.pointDensity,
+            gridDensity: controls.gridDensity,
+            gridVisible: controls.gridVisible,
+            gridOpacity: controls.gridOpacity,
+            gridColor: controls.gridColor,
+            adaptiveThickness: controls.adaptiveThickness,
+            pointSize: controls.pointSize,
+            scale: controls.scale,
+            timestamp: new Date().toISOString()
+        };
+        
+        // Конвертируем в JSON
+        const jsonString = JSON.stringify(metadata, null, 2);
+        const blob = new Blob([jsonString], { type: 'application/json' });
+        
+        // Создаем ссылку для скачивания
+        const url = URL.createObjectURL(blob);
+        const downloadLink = document.getElementById('download-link');
+        downloadLink.href = url;
+        downloadLink.download = 'rgb-cube-metadata.json';
+        downloadLink.click();
+        
+        // Очищаем ссылку
+        URL.revokeObjectURL(url);
+    }
+    
+    // Цикл анимации
+    function animate() {
+        requestAnimationFrame(animate);
+        
+        // Применяем вращение
+        if (rgbCube) {
+            rgbCube.rotation.x = controls.rotationX;
+            rgbCube.rotation.y = controls.rotationY;
+            rgbCube.rotation.z = controls.rotationZ;
+        }
+        
+        if (rgbSphere) {
+            rgbSphere.rotation.x = controls.rotationX;
+            rgbSphere.rotation.y = controls.rotationY;
+            rgbSphere.rotation.z = controls.rotationZ;
+        }
+        
+        // Рендеринг сцены в зависимости от текущего вида
+        if (currentView === 'projection') {
+            // Проверяем наличие проекционной сетки
+            if (!projectionMesh) {
+                if (!sphereVertices.length) {
+                    // Если нет данных сферы, создаём сферическую проекцию
+                    updateSphereProjection(true);
+                } else {
+                    updateProjection();
+                }
+            }
+            renderer.render(projectionScene, projectionCamera);
+        } else {
+            renderer.render(scene, camera);
+        }
+    }
+</script>
+</body>
+</html>

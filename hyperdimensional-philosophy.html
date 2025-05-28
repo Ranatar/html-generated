@@ -1,0 +1,688 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Гиперпространственная Философия: n-Мерное Мышление</title>
+  <style>
+    :root {
+      --bg-color: #0a0a0a;
+      --text-color: #e0e0e0;
+      --accent-color: #ff00aa;
+      --secondary-color: #00ffaa;
+      --tertiary-color: #aa00ff;
+    }
+    
+    body, html {
+      margin: 0;
+      padding: 0;
+      background-color: var(--bg-color);
+      color: var(--text-color);
+      font-family: 'Courier New', monospace;
+      overflow: hidden;
+      height: 100vh;
+      perspective: 800px;
+      transition: perspective 3s cubic-bezier(0.645, 0.045, 0.355, 1);
+    }
+    
+    body:hover {
+      perspective: 1200px;
+    }
+    
+    #container {
+      position: relative;
+      height: 100vh;
+      width: 100vw;
+      transform-style: preserve-3d;
+    }
+    
+    #canvas {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      z-index: 1;
+    }
+    
+    .content-panel {
+      position: absolute;
+      width: 70%;
+      max-width: 800px;
+      background-color: rgba(10, 10, 10, 0.7);
+      backdrop-filter: blur(5px);
+      padding: 2rem;
+      border-radius: 8px;
+      border: 1px solid var(--accent-color);
+      box-shadow: 0 0 20px var(--accent-color);
+      z-index: 2;
+      transform: translateZ(0);
+      transition: all 0.8s cubic-bezier(0.645, 0.045, 0.355, 1);
+      opacity: 0.9;
+      overflow: auto;
+      max-height: 80vh;
+    }
+    
+    #panel-1 {
+      top: 10%;
+      left: 15%;
+      transform: translateZ(50px) rotateY(5deg);
+    }
+    
+    #panel-2 {
+      bottom: 10%;
+      right: 15%;
+      transform: translateZ(30px) rotateY(-7deg);
+    }
+    
+    #panel-3 {
+      top: 30%;
+      right: 20%;
+      transform: translateZ(70px) rotateY(-10deg);
+      display: none;
+    }
+    
+    #panel-4 {
+      bottom: 30%;
+      left: 20%;
+      transform: translateZ(90px) rotateY(12deg);
+      display: none;
+    }
+    
+    .content-panel:hover {
+      transform: translateZ(100px) rotateY(0);
+      box-shadow: 0 0 30px var(--accent-color);
+      z-index: 10;
+    }
+    
+    h1, h2, h3 {
+      color: var(--accent-color);
+      text-shadow: 0 0 5px var(--accent-color);
+      margin-top: 0;
+    }
+    
+    p {
+      line-height: 1.6;
+      text-align: justify;
+      text-shadow: 0 0 2px var(--text-color);
+    }
+    
+    .interactive-element {
+      background-color: rgba(0, 0, 0, 0.3);
+      border: 1px solid var(--secondary-color);
+      padding: 1rem;
+      margin: 1rem 0;
+      cursor: pointer;
+      transition: all 0.4s ease;
+    }
+    
+    .interactive-element:hover {
+      background-color: rgba(0, 0, 0, 0.6);
+      box-shadow: 0 0 15px var(--secondary-color);
+      transform: scale(1.02);
+    }
+    
+    .dimension-selector {
+      display: flex;
+      justify-content: center;
+      margin: 1rem 0;
+      flex-wrap: wrap;
+    }
+    
+    .dimension-btn {
+      background-color: transparent;
+      border: 1px solid var(--text-color);
+      color: var(--text-color);
+      padding: 0.5rem 1rem;
+      margin: 0.25rem;
+      cursor: pointer;
+      transition: all 0.3s ease;
+    }
+    
+    .dimension-btn:hover, .dimension-btn.active {
+      background-color: var(--accent-color);
+      color: var(--bg-color);
+      border-color: var(--accent-color);
+    }
+    
+    .thought-path {
+      height: 3px;
+      background: linear-gradient(90deg, var(--accent-color), var(--secondary-color), var(--tertiary-color));
+      width: 0%;
+      margin: 2rem 0;
+      position: relative;
+      transition: width 1.5s cubic-bezier(0.645, 0.045, 0.355, 1);
+    }
+    
+    .thought-path.active {
+      width: 100%;
+    }
+    
+    .thought-node {
+      position: absolute;
+      width: 15px;
+      height: 15px;
+      background-color: var(--bg-color);
+      border: 2px solid var(--accent-color);
+      border-radius: 50%;
+      top: -7px;
+      transition: all 0.5s ease;
+      cursor: pointer;
+    }
+    
+    .thought-node:hover {
+      transform: scale(1.3);
+      box-shadow: 0 0 10px var(--accent-color);
+    }
+    
+    .node-1 { left: 0%; }
+    .node-2 { left: 25%; }
+    .node-3 { left: 50%; }
+    .node-4 { left: 75%; }
+    .node-5 { left: 100%; }
+    
+    .shape-info {
+      display: none;
+      padding: 1rem;
+      border-left: 3px solid var(--secondary-color);
+      margin: 1rem 0;
+    }
+    
+    .visible {
+      display: block;
+    }
+    
+    .concept-map {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 1rem;
+      margin: 1.5rem 0;
+    }
+    
+    @media (max-width: 768px) {
+      .content-panel {
+        width: 85%;
+        padding: 1rem;
+      }
+      
+      #panel-1, #panel-2 {
+        left: 7.5%;
+        right: auto;
+      }
+      
+      #panel-1 {
+        top: 5%;
+      }
+      
+      #panel-2 {
+        top: 50%;
+      }
+      
+      .concept-map {
+        grid-template-columns: 1fr;
+      }
+    }
+    
+    .glitch-text {
+      position: relative;
+      animation: glitch 3s infinite;
+    }
+    
+    @keyframes glitch {
+      0% { text-shadow: 0 0 0 var(--text-color); }
+      2% { text-shadow: 2px 0 0 var(--accent-color), -2px 0 0 var(--secondary-color); }
+      4% { text-shadow: 0 0 0 var(--text-color); }
+      50% { text-shadow: 0 0 0 var(--text-color); }
+      52% { text-shadow: 3px 0 0 var(--tertiary-color), -3px 0 0 var(--secondary-color); }
+      54% { text-shadow: 0 0 0 var(--text-color); }
+      100% { text-shadow: 0 0 0 var(--text-color); }
+    }
+    
+    .fractal-text {
+      font-size: 1rem;
+      transition: all 0.5s ease;
+    }
+    
+    .fractal-text:hover {
+      font-size: 1.2rem;
+      letter-spacing: 2px;
+      color: var(--secondary-color);
+    }
+    
+    #consciousness-meter {
+      width: 100%;
+      height: 10px;
+      background-color: rgba(170, 0, 255, 0.2);
+      margin: 1rem 0;
+      position: relative;
+      overflow: hidden;
+    }
+    
+    #consciousness-fill {
+      position: absolute;
+      height: 100%;
+      width: 0%;
+      background: linear-gradient(90deg, var(--tertiary-color), var(--accent-color));
+      transition: width 0.5s ease;
+    }
+    
+    .paradox-container {
+      position: relative;
+      padding: 1rem;
+      border: 1px dashed var(--secondary-color);
+      margin: 1rem 0;
+      overflow: hidden;
+    }
+    
+    .paradox-container::before {
+      content: "";
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: linear-gradient(45deg, transparent 49.5%, var(--secondary-color) 49.5%, var(--secondary-color) 50.5%, transparent 50.5%);
+      background-size: 10px 10px;
+      opacity: 0.1;
+      pointer-events: none;
+    }
+  </style>
+</head>
+<body>
+  <div id="container">
+    <canvas id="canvas"></canvas>
+    
+    <div class="content-panel" id="panel-1">
+      <h1 class="glitch-text">Гиперпространственная Философия</h1>
+      <p>Добро пожаловать в <span class="fractal-text">n-мерное пространство мышления</span>, где геометрия многогранников переплетается с философскими структурами, создавая новые формы сознания и понимания.</p>
+      
+      <div class="interactive-element" id="dimension-control">
+        <h3>Выберите измерение познания:</h3>
+        <div class="dimension-selector">
+          <button class="dimension-btn active" data-dim="3">3D</button>
+          <button class="dimension-btn" data-dim="4">4D</button>
+          <button class="dimension-btn" data-dim="5">5D</button>
+          <button class="dimension-btn" data-dim="7">7D</button>
+          <button class="dimension-btn" data-dim="11">11D</button>
+        </div>
+        <p id="dimension-description">Трёхмерное мышление ограничено классической логикой и категориальным аппаратом Аристотеля.</p>
+      </div>
+      
+      <div class="thought-path">
+        <div class="thought-node node-1" data-node="1"></div>
+        <div class="thought-node node-2" data-node="2"></div>
+        <div class="thought-node node-3" data-node="3"></div>
+        <div class="thought-node node-4" data-node="4"></div>
+        <div class="thought-node node-5" data-node="5"></div>
+      </div>
+      
+      <div class="shape-info" id="info-1">
+        <h3>Тетраэдр Познания</h3>
+        <p>Четыре вершины тетраэдра соответствуют четырём фундаментальным эпистемологическим подходам: эмпиризму, рационализму, интуитивизму и прагматизму. Взаимодействие между этими вершинами порождает поверхность знания.</p>
+      </div>
+      
+      <div class="shape-info" id="info-2">
+        <h3>Гиперкуб Онтологии</h3>
+        <p>В 4-мерном пространстве онтологические категории связываются между собой через гиперграни, создавая 16 различных модальностей бытия. Проекция гиперкуба в трёхмерное пространство искажает отношения между категориями, порождая парадоксы и апории в философии.</p>
+      </div>
+      
+      <div class="shape-info" id="info-3">
+        <h3>Додекаэдр Диалектики</h3>
+        <p>Пятимерный додекаэдр представляет диалектический процесс развития мысли, где каждая грань – это отдельная философская система. Противоположные грани находятся в диалектическом противоречии, а путь через центр додекаэдра символизирует диалектический синтез.</p>
+      </div>
+      
+      <div class="shape-info" id="info-4">
+        <h3>Семимерный Симплекс Феноменологии</h3>
+        <p>Каждое измерение симплекса соответствует одному из аспектов сознания: восприятию, представлению, суждению, рефлексии, воображению, интенциональности и темпоральности. Движение в этом пространстве – это феноменологическая редукция.</p>
+      </div>
+      
+      <div class="shape-info" id="info-5">
+        <h3>11-мерный Политоп Квантовой Этики</h3>
+        <p>В этом пространстве этические решения квантово суперпозиционированы, существуя одновременно в противоречивых состояниях. Коллапс этических волновых функций происходит в момент принятия решения, проецируя многомерную этику в линейное повседневное сознание.</p>
+      </div>
+    </div>
+    
+    <div class="content-panel" id="panel-2">
+      <h2>Структуры Философствования</h2>
+      
+      <div class="paradox-container">
+        <p>Процесс философской мысли всегда нелинеен и рекурсивен. Подобно тому, как проекция n-мерного многогранника на (n-1)-мерное пространство искажает его истинную природу, так и вербализация философской мысли всегда является лишь искажённой проекцией многомерного мышления.</p>
+      </div>
+      
+      <div class="concept-map">
+        <div class="interactive-element">
+          <h3>Топология Аргументации</h3>
+          <p>Аргументы образуют топологические пространства, где различие между дедукцией и индукцией – всего лишь разница между замкнутыми и открытыми множествами рассуждений.</p>
+          <div id="consciousness-meter">
+            <div id="consciousness-fill"></div>
+          </div>
+        </div>
+        
+        <div class="interactive-element">
+          <h3>Платоновы Тела Метафизики</h3>
+          <p>Пять платоновых тел соответствуют пяти фундаментальным метафизическим системам: монизму, дуализму, плюрализму, нигилизму и холизму.</p>
+        </div>
+      </div>
+      
+      <div class="interactive-element" id="hyperlink-philosophy">
+        <h3>Гиперссылочная Структура Познания</h3>
+        <p>Нажмите, чтобы активировать случайный переход между измерениями мысли.</p>
+      </div>
+      
+      <p>Границы между концепциями в n-мерном пространстве размываются, как и границы между рациональным и иррациональным, логическим и алогичным, бытием и небытием.</p>
+      
+      <p class="fractal-text">Каждый многогранник мысли при ближайшем рассмотрении оказывается составленным из бесконечного множества более мелких многогранников, подобно фракталу. Фрактальная природа мышления не позволяет достичь окончательного понимания.</p>
+    </div>
+    
+    <div class="content-panel" id="panel-3">
+      <h2>Гиперсемантические Поля</h2>
+      <p>На пересечении вершин многомерных многогранников возникают гиперсемантические поля – области потенциальных значений, существующих одновременно во всех возможных интерпретациях.</p>
+      
+      <div class="interactive-element">
+        <h3>Квантовая Семантика</h3>
+        <p>В квантовой семантике значение слова находится в суперпозиции до момента его интерпретации сознанием. Каждое понятие – это волновая функция смысла, охватывающая всё семантическое поле.</p>
+      </div>
+      
+      <div class="paradox-container">
+        <p>Пропозициональное исчисление Витгенштейна рассматривается как трёхмерная проекция семимерной логики, где противоречия являются не ошибками, а необходимыми артефактами проекции.</p>
+      </div>
+    </div>
+    
+    <div class="content-panel" id="panel-4">
+      <h2>Трансцендентальная Геометрия</h2>
+      <p>В этом разделе исследуется связь между категориями Канта и симметриями многомерных многогранников. Каждая категория соответствует определённой симметрической операции.</p>
+      
+      <div class="interactive-element">
+        <h3>Трансцендентальная Эстетика</h3>
+        <p>Пространство и время, как априорные формы чувственности, соответствуют двум фундаментальным измерениям любого политопа. Остальные измерения – это трансцендентные категории, недоступные непосредственному восприятию.</p>
+      </div>
+      
+      <div class="paradox-container">
+        <p>Самосознание – это способность проецировать n-мерные структуры мышления в пространство с (n-1) измерениями и осознавать неизбежные искажения, возникающие при этой проекции.</p>
+      </div>
+    </div>
+  </div>
+  
+  <script>
+    document.addEventListener('DOMContentLoaded', function() {
+      // Canvas setup
+      const canvas = document.getElementById('canvas');
+      const ctx = canvas.getContext('2d');
+      canvas.width = window.innerWidth;
+      canvas.height = window.innerHeight;
+      
+      // Resize handler
+      window.addEventListener('resize', function() {
+        canvas.width = window.innerWidth;
+        canvas.height = window.innerHeight;
+      });
+      
+      // Dimension selector
+      const dimensionBtns = document.querySelectorAll('.dimension-btn');
+      const dimensionDescription = document.getElementById('dimension-description');
+      
+      const dimensionDescriptions = {
+        '3': 'Трёхмерное мышление ограничено классической логикой и категориальным аппаратом Аристотеля.',
+        '4': 'Четырёхмерное мышление позволяет воспринимать время как измерение и преодолевать причинно-следственные парадоксы.',
+        '5': 'Пятимерное мышление объединяет противоположности и позволяет выйти за пределы бинарных оппозиций.',
+        '7': 'Семимерное мышление охватывает все аспекты сознания одновременно, преодолевая феноменологические ограничения.',
+        '11': 'Одиннадцатимерное мышление соответствует высшей форме сознания, где все возможности существуют одновременно в суперпозиции.'
+      };
+      
+      dimensionBtns.forEach(btn => {
+        btn.addEventListener('click', function() {
+          dimensionBtns.forEach(b => b.classList.remove('active'));
+          this.classList.add('active');
+          
+          const dim = this.getAttribute('data-dim');
+          dimensionDescription.textContent = dimensionDescriptions[dim];
+          
+          // Change visualization based on dimension
+          currentDimension = parseInt(dim);
+          
+          // Increase consciousness level
+          const consciousnessFill = document.getElementById('consciousness-fill');
+          consciousnessFill.style.width = (currentDimension / 11 * 100) + '%';
+          
+          // Show additional panels based on dimension
+          if (currentDimension > 5) {
+            document.getElementById('panel-3').style.display = 'block';
+          } else {
+            document.getElementById('panel-3').style.display = 'none';
+          }
+          
+          if (currentDimension > 7) {
+            document.getElementById('panel-4').style.display = 'block';
+          } else {
+            document.getElementById('panel-4').style.display = 'none';
+          }
+        });
+      });
+      
+      // Thought path activation
+      setTimeout(() => {
+        document.querySelector('.thought-path').classList.add('active');
+      }, 1000);
+      
+      // Thought nodes interaction
+      const thoughtNodes = document.querySelectorAll('.thought-node');
+      const shapeInfos = document.querySelectorAll('.shape-info');
+      
+      thoughtNodes.forEach(node => {
+        node.addEventListener('click', function() {
+          const nodeId = this.getAttribute('data-node');
+          
+          shapeInfos.forEach(info => info.classList.remove('visible'));
+          document.getElementById('info-' + nodeId).classList.add('visible');
+        });
+      });
+      
+      // Initialize the first info section
+      document.getElementById('info-1').classList.add('visible');
+      
+      // Hyperlink philosophy random panel switcher
+      const hyperlinkPhilosophy = document.getElementById('hyperlink-philosophy');
+      const panels = document.querySelectorAll('.content-panel');
+      
+      hyperlinkPhilosophy.addEventListener('click', function() {
+        const randomPanel = Math.floor(Math.random() * panels.length);
+        panels.forEach(panel => panel.style.zIndex = '2');
+        panels[randomPanel].style.zIndex = '10';
+        
+        // Random rotation effect
+        const randomRotation = (Math.random() * 20) - 10;
+        document.body.style.perspective = (800 + Math.random() * 800) + 'px';
+        panels[randomPanel].style.transform = `translateZ(${50 + Math.random() * 100}px) rotateY(${randomRotation}deg)`;
+      });
+      
+      // Canvas visualization
+      let particles = [];
+      let lines = [];
+      let currentDimension = 3;
+      
+      class Particle {
+        constructor() {
+          this.x = Math.random() * canvas.width;
+          this.y = Math.random() * canvas.height;
+          this.z = Math.random() * 1000 - 500;
+          this.w = Math.random() * 1000 - 500; // 4th dimension
+          this.v = Math.random() * 1000 - 500; // 5th dimension
+          this.size = Math.random() * 3 + 1;
+          this.color = `hsl(${Math.random() * 60 + 280}, 100%, 70%)`;
+          this.speed = Math.random() * 0.5 + 0.1;
+          this.direction = Math.random() * Math.PI * 2;
+          this.connected = [];
+        }
+        
+        update() {
+          // Movement based on current dimensions
+          this.x += Math.cos(this.direction) * this.speed;
+          this.y += Math.sin(this.direction) * this.speed;
+          
+          if (currentDimension >= 4) {
+            this.z += (Math.random() - 0.5) * 2;
+            this.direction += (Math.random() - 0.5) * 0.02 * (currentDimension / 3);
+          }
+          
+          if (currentDimension >= 5) {
+            this.w += (Math.random() - 0.5) * 3;
+            // Project 4th dimension onto 2D
+            this.x += Math.sin(this.w * 0.001) * 0.5;
+            this.y += Math.cos(this.w * 0.001) * 0.5;
+          }
+          
+          // Boundary check
+          if (this.x < 0 || this.x > canvas.width) this.direction = Math.PI - this.direction;
+          if (this.y < 0 || this.y > canvas.height) this.direction = -this.direction;
+          
+          // Size oscillation based on dimensions - ensure it's always positive
+          this.size = Math.max(0.1, 1 + Math.sin(Date.now() * 0.001 + this.z * 0.01) * 2 * (currentDimension / 5));
+          
+          // Color changes in higher dimensions
+          if (currentDimension > 7) {
+            const hue = (280 + Math.sin(Date.now() * 0.0005 + this.w * 0.01) * 60) % 360;
+            this.color = `hsl(${hue}, 100%, 70%)`;
+          }
+        }
+        
+        draw() {
+          ctx.beginPath();
+          ctx.arc(this.x, this.y, this.size, 0, Math.PI * 2);
+          ctx.fillStyle = this.color;
+          ctx.fill();
+        }
+      }
+      
+      function drawConnection(p1, p2) {
+        const distance = Math.sqrt((p1.x - p2.x) ** 2 + (p1.y - p2.y) ** 2);
+        const maxDistance = 150 * (currentDimension / 3);
+        
+        if (distance < maxDistance) {
+          ctx.beginPath();
+          ctx.moveTo(p1.x, p1.y);
+          ctx.lineTo(p2.x, p2.y);
+          
+          const opacity = 1 - distance / maxDistance;
+          ctx.strokeStyle = `rgba(170, 0, 255, ${opacity * 0.5})`;
+          ctx.lineWidth = opacity * 2;
+          ctx.stroke();
+          
+          // Add to connected list if not already there
+          if (!p1.connected.includes(p2)) {
+            p1.connected.push(p2);
+          }
+          
+          return true;
+        } else {
+          // Remove from connected list if exists
+          const index = p1.connected.indexOf(p2);
+          if (index > -1) {
+            p1.connected.splice(index, 1);
+          }
+          
+          return false;
+        }
+      }
+      
+      // Initialize particles
+      function initializeParticles() {
+        const numParticles = 50 + currentDimension * 5;
+        particles = [];
+        
+        for (let i = 0; i < numParticles; i++) {
+          particles.push(new Particle());
+        }
+      }
+      
+      initializeParticles();
+      
+      // Animation loop
+      function animate() {
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        
+        // Update and draw particles
+        particles.forEach(particle => {
+          particle.update();
+          particle.draw();
+        });
+        
+        // Check and draw connections
+        const connections = [];
+        
+        for (let i = 0; i < particles.length; i++) {
+          for (let j = i + 1; j < particles.length; j++) {
+            if (drawConnection(particles[i], particles[j])) {
+              connections.push([particles[i], particles[j]]);
+            }
+          }
+        }
+        
+        // Special connections for higher dimensions
+        if (currentDimension >= 7) {
+          connections.forEach(connection => {
+            if (Math.random() < 0.05) {
+              const [p1, p2] = connection;
+              const midX = (p1.x + p2.x) / 2;
+              const midY = (p1.y + p2.y) / 2;
+              
+              ctx.beginPath();
+              const radius = Math.max(0.1, Math.random() * 5 + 1); // Ensure radius is positive
+              ctx.arc(midX, midY, radius, 0, Math.PI * 2);
+              ctx.fillStyle = `rgba(255, 0, 170, ${Math.random() * 0.8 + 0.2})`;
+              ctx.fill();
+            }
+          });
+        }
+        
+        // Draw strange attractor paths in 11D
+        if (currentDimension >= 11) {
+          ctx.beginPath();
+          ctx.moveTo(canvas.width / 2, canvas.height / 2);
+          
+          let x = canvas.width / 2;
+          let y = canvas.height / 2;
+          
+          for (let i = 0; i < 100; i++) {
+            // Lorenz attractor-like equations modified for visualization
+            const a = 10;
+            const b = 28;
+            const c = 8 / 3;
+            const dt = 0.01;
+            
+            const time = Date.now() * 0.001;
+            
+            const dx = a * (y - x) * dt;
+            const dy = (x * (b - particles[0].z) - y) * dt;
+            
+            x += dx;
+            y += dy;
+            
+            // Apply strange modulation based on higher dimensions
+            x += Math.sin(time + particles[0].w * 0.1) * 5;
+            y += Math.cos(time + particles[0].v * 0.1) * 5;
+            
+            ctx.lineTo(x, y);
+          }
+          
+          ctx.strokeStyle = 'rgba(0, 255, 170, 0.3)';
+          ctx.lineWidth = 2;
+          ctx.stroke();
+        }
+        
+        requestAnimationFrame(animate);
+      }
+      
+      animate();
+      
+      // Periodically update number of particles based on dimension
+      setInterval(() => {
+        if (particles.length < 50 + currentDimension * 5) {
+          particles.push(new Particle());
+        } else if (particles.length > 50 + currentDimension * 5) {
+          particles.pop();
+        }
+      }, 1000);
+    });
+  </script>
+</body>
+</html>

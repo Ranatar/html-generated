@@ -1,0 +1,2436 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Комплексный анализ музыкальной последовательности</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        :root {
+            --primary-color: #1a1a2e;
+            --secondary-color: #16213e;
+            --accent-color: #0f3460;
+            --highlight-color: #e94560;
+            --text-color: #f5f5f5;
+            --text-secondary: #b8b8b8;
+            --success-color: #4caf50;
+            --warning-color: #ff9800;
+            --wt0-color: #3498db;
+            --wt1-color: #e74c3c;
+            --diminished-color: #9b59b6;
+            --major-color: #f39c12;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(135deg, var(--primary-color) 0%, var(--secondary-color) 100%);
+            color: var(--text-color);
+            line-height: 1.6;
+            min-height: 100vh;
+        }
+
+        /* Header */
+        header {
+            background: rgba(26, 26, 46, 0.95);
+            backdrop-filter: blur(10px);
+            position: fixed;
+            top: 0;
+            width: 100%;
+            z-index: 1000;
+            box-shadow: 0 2px 20px rgba(0, 0, 0, 0.3);
+        }
+
+        nav {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 1rem 2rem;
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+
+        .logo {
+            font-size: 1.5rem;
+            font-weight: bold;
+            background: linear-gradient(135deg, var(--highlight-color), #f5f5f5);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .nav-links {
+            display: flex;
+            gap: 2rem;
+            list-style: none;
+        }
+
+        .nav-links a {
+            color: var(--text-secondary);
+            text-decoration: none;
+            transition: color 0.3s;
+            font-weight: 500;
+        }
+
+        .nav-links a:hover, .nav-links a.active {
+            color: var(--highlight-color);
+        }
+
+        /* Main Content */
+        main {
+            margin-top: 80px;
+            padding: 2rem;
+            max-width: 1400px;
+            margin-left: auto;
+            margin-right: auto;
+        }
+
+        .section {
+            margin-bottom: 4rem;
+            opacity: 0;
+            transform: translateY(30px);
+            animation: fadeInUp 0.8s forwards;
+        }
+
+        @keyframes fadeInUp {
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        h1, h2, h3, h4 {
+            margin-bottom: 1.5rem;
+        }
+
+        h1 {
+            font-size: 2.5rem;
+            background: linear-gradient(135deg, var(--highlight-color), #f5f5f5);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            text-align: center;
+            margin-bottom: 3rem;
+        }
+
+        h2 {
+            font-size: 2rem;
+            color: var(--highlight-color);
+            border-bottom: 2px solid var(--accent-color);
+            padding-bottom: 0.5rem;
+        }
+
+        h3 {
+            font-size: 1.5rem;
+            color: var(--text-color);
+        }
+
+        /* Cards */
+        .card {
+            background: rgba(15, 52, 96, 0.3);
+            backdrop-filter: blur(10px);
+            border-radius: 15px;
+            padding: 2rem;
+            margin-bottom: 2rem;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            transition: transform 0.3s, box-shadow 0.3s;
+        }
+
+        .card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+        }
+
+        /* Sequence Visualization */
+        .sequence-container {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 1.5rem;
+            margin: 2rem 0;
+        }
+
+        .note-group {
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 10px;
+            padding: 1.5rem;
+            text-align: center;
+            transition: all 0.3s;
+            cursor: pointer;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .note-group.playing {
+            background: rgba(233, 69, 96, 0.3);
+            transform: scale(1.05);
+        }
+
+        .group-number {
+            font-size: 0.9rem;
+            color: var(--text-secondary);
+            margin-bottom: 0.5rem;
+        }
+
+        .notes {
+            font-size: 1.8rem;
+            font-weight: bold;
+            margin: 1rem 0;
+            letter-spacing: 0.3rem;
+        }
+
+        .tonality {
+            font-size: 1rem;
+            color: var(--success-color);
+        }
+
+        .wt-indicator {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            width: 25px;
+            height: 25px;
+            border-radius: 50%;
+            font-size: 0.7rem;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+            color: white;
+        }
+
+        .wt0 { background: var(--wt0-color); }
+        .wt1 { background: var(--wt1-color); }
+
+        /* Fixed Piano Keyboard */
+        .piano-container {
+            margin: 2rem 0;
+            background: rgba(0, 0, 0, 0.3);
+            padding: 2rem;
+            border-radius: 15px;
+            position: relative;
+        }
+
+        .piano-scroll {
+            overflow-x: auto;
+            overflow-y: hidden;
+            padding-bottom: 1rem;
+        }
+
+        .piano {
+            display: flex;
+            height: 120px;
+            position: relative;
+            min-width: 1000px;
+        }
+
+        .octave {
+            display: flex;
+            position: relative;
+        }
+
+        .key {
+            cursor: pointer;
+            transition: all 0.1s;
+            position: relative;
+        }
+
+        .white-key {
+            width: 30px;
+            height: 120px;
+            background: white;
+            border: 1px solid #ccc;
+            border-radius: 0 0 5px 5px;
+        }
+
+        .black-key {
+            width: 20px;
+            height: 80px;
+            background: #333;
+            position: absolute;
+            z-index: 2;
+            border-radius: 0 0 3px 3px;
+            top: 0;
+        }
+
+        .key:hover {
+            background: var(--highlight-color) !important;
+        }
+
+        .key.active {
+            background: var(--success-color) !important;
+        }
+
+        .key-label {
+            position: absolute;
+            bottom: 5px;
+            width: 100%;
+            text-align: center;
+            font-size: 10px;
+            color: #333;
+            font-weight: bold;
+        }
+
+        .black-key .key-label {
+            color: white;
+            bottom: 10px;
+        }
+
+        /* Visual Diagrams */
+        .diagram-container {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 2rem;
+            margin: 2rem 0;
+        }
+
+        .diagram {
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 15px;
+            padding: 2rem;
+            text-align: center;
+        }
+
+        .circle-of-fifths {
+            width: 100%;
+            max-width: 400px;
+            margin: 0 auto;
+        }
+
+        /* Matrix Visualization */
+        .matrix-container {
+            overflow-x: auto;
+            margin: 2rem 0;
+        }
+
+        .matrix {
+            display: grid;
+            grid-template-columns: repeat(13, 1fr);
+            gap: 5px;
+            min-width: 800px;
+            margin: 0 auto;
+        }
+
+        .matrix-cell {
+            aspect-ratio: 1;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 5px;
+            font-size: 0.8rem;
+            font-weight: bold;
+            transition: all 0.3s;
+            cursor: pointer;
+        }
+
+        .matrix-header {
+            background: var(--accent-color);
+            color: white;
+        }
+
+        .matrix-note {
+            background: rgba(255, 255, 255, 0.1);
+        }
+
+        .matrix-note.active {
+            background: var(--highlight-color);
+            transform: scale(1.1);
+        }
+
+        .matrix-note.wt0 {
+            border: 2px solid var(--wt0-color);
+        }
+
+        .matrix-note.wt1 {
+            border: 2px solid var(--wt1-color);
+        }
+
+        /* Interval Analysis */
+        .interval-display {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 1rem;
+            margin: 1rem 0;
+            flex-wrap: wrap;
+        }
+
+        .interval-box {
+            background: rgba(255, 255, 255, 0.1);
+            padding: 0.5rem 1rem;
+            border-radius: 5px;
+            font-weight: bold;
+        }
+
+        .interval-arrow {
+            color: var(--highlight-color);
+            font-size: 1.5rem;
+        }
+
+        /* Tabs */
+        .tabs {
+            display: flex;
+            gap: 1rem;
+            margin-bottom: 2rem;
+            border-bottom: 2px solid var(--accent-color);
+            flex-wrap: wrap;
+        }
+
+        .tab {
+            padding: 1rem 1.5rem;
+            background: none;
+            border: none;
+            color: var(--text-secondary);
+            cursor: pointer;
+            transition: all 0.3s;
+            font-size: 1rem;
+            font-weight: 500;
+            position: relative;
+        }
+
+        .tab::after {
+            content: '';
+            position: absolute;
+            bottom: -2px;
+            left: 0;
+            width: 0;
+            height: 2px;
+            background: var(--highlight-color);
+            transition: width 0.3s;
+        }
+
+        .tab:hover {
+            color: var(--text-color);
+        }
+
+        .tab.active {
+            color: var(--highlight-color);
+        }
+
+        .tab.active::after {
+            width: 100%;
+        }
+
+        .tab-content {
+            display: none;
+            animation: fadeIn 0.5s;
+        }
+
+        .tab-content.active {
+            display: block;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+
+        /* Analysis Cards */
+        .analysis-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 2rem;
+            margin: 2rem 0;
+        }
+
+        .analysis-card {
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 10px;
+            padding: 1.5rem;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .analysis-card h4 {
+            color: var(--highlight-color);
+            margin-bottom: 1rem;
+        }
+
+        /* Controls */
+        .controls {
+            display: flex;
+            gap: 1rem;
+            margin: 2rem 0;
+            flex-wrap: wrap;
+            align-items: center;
+        }
+
+        button {
+            padding: 0.8rem 1.5rem;
+            background: var(--highlight-color);
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            transition: all 0.3s;
+            font-size: 1rem;
+            font-weight: 500;
+        }
+
+        button:hover {
+            background: #d63651;
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(233, 69, 96, 0.3);
+        }
+
+        button:active {
+            transform: translateY(0);
+        }
+
+        button.secondary {
+            background: var(--accent-color);
+        }
+
+        button.secondary:hover {
+            background: #0d2b4d;
+        }
+
+        /* Speed Control */
+        .speed-control {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+            background: rgba(255, 255, 255, 0.1);
+            padding: 0.5rem 1rem;
+            border-radius: 5px;
+        }
+
+        .speed-control input[type="range"] {
+            width: 150px;
+        }
+
+        /* Progress Bar */
+        .progress-container {
+            margin: 2rem 0;
+        }
+
+        .progress-bar {
+            width: 100%;
+            height: 10px;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 5px;
+            overflow: hidden;
+        }
+
+        .progress-fill {
+            height: 100%;
+            background: linear-gradient(90deg, var(--highlight-color), var(--success-color));
+            width: 0;
+            transition: width 0.3s;
+        }
+
+        /* Info Box */
+        .info-box {
+            background: rgba(76, 175, 80, 0.1);
+            border: 1px solid var(--success-color);
+            border-radius: 10px;
+            padding: 1.5rem;
+            margin: 1rem 0;
+        }
+
+        .warning-box {
+            background: rgba(255, 152, 0, 0.1);
+            border: 1px solid var(--warning-color);
+            border-radius: 10px;
+            padding: 1.5rem;
+            margin: 1rem 0;
+        }
+
+        /* Mathematical Formulas */
+        .formula {
+            background: rgba(0, 0, 0, 0.3);
+            padding: 1rem;
+            border-radius: 5px;
+            margin: 1rem 0;
+            font-family: 'Courier New', monospace;
+            overflow-x: auto;
+        }
+
+        /* Timeline */
+        .timeline {
+            position: relative;
+            padding: 2rem 0;
+        }
+
+        .timeline::before {
+            content: '';
+            position: absolute;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 2px;
+            height: 100%;
+            background: var(--accent-color);
+        }
+
+        .timeline-item {
+            position: relative;
+            margin-bottom: 3rem;
+            width: 45%;
+        }
+
+        .timeline-item:nth-child(odd) {
+            margin-left: auto;
+        }
+
+        .timeline-item::before {
+            content: '';
+            position: absolute;
+            width: 20px;
+            height: 20px;
+            background: var(--highlight-color);
+            border-radius: 50%;
+            top: 0;
+        }
+
+        .timeline-item:nth-child(odd)::before {
+            left: -60px;
+        }
+
+        .timeline-item:nth-child(even)::before {
+            right: -60px;
+        }
+
+        /* Pattern Visualization */
+        .pattern-vis {
+            display: flex;
+            gap: 0.5rem;
+            margin: 1rem 0;
+            flex-wrap: wrap;
+            justify-content: center;
+        }
+
+        .pattern-note {
+            width: 40px;
+            height: 40px;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 5px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+            font-size: 0.9rem;
+            transition: all 0.3s;
+        }
+
+        .pattern-note.tone {
+            background: var(--success-color);
+            color: white;
+        }
+
+        .pattern-note.semitone {
+            background: var(--warning-color);
+            color: white;
+        }
+
+        /* Responsive */
+        @media (max-width: 768px) {
+            .nav-links {
+                display: none;
+            }
+
+            h1 {
+                font-size: 1.8rem;
+            }
+
+            h2 {
+                font-size: 1.5rem;
+            }
+
+            .sequence-container {
+                grid-template-columns: 1fr;
+            }
+
+            .timeline-item {
+                width: 100%;
+                margin-left: 0 !important;
+            }
+
+            .timeline::before {
+                left: 20px;
+            }
+
+            .timeline-item::before {
+                left: 10px !important;
+                right: auto !important;
+            }
+        }
+
+        /* Loading Animation */
+        .loader {
+            display: inline-block;
+            width: 20px;
+            height: 20px;
+            border: 3px solid rgba(255, 255, 255, 0.3);
+            border-radius: 50%;
+            border-top-color: var(--highlight-color);
+            animation: spin 1s ease-in-out infinite;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        /* Comparison Table */
+        .comparison-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 2rem 0;
+        }
+
+        .comparison-table th,
+        .comparison-table td {
+            padding: 1rem;
+            text-align: left;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .comparison-table th {
+            background: rgba(233, 69, 96, 0.2);
+            font-weight: bold;
+        }
+
+        .comparison-table tr:hover {
+            background: rgba(255, 255, 255, 0.05);
+        }
+
+        /* Hexagon Grid for Tonnetz */
+        .tonnetz-container {
+            display: flex;
+            justify-content: center;
+            margin: 2rem 0;
+        }
+
+        .tonnetz-svg {
+            width: 100%;
+            max-width: 600px;
+            height: 400px;
+        }
+
+        /* Animated Elements */
+        .pulse {
+            animation: pulse 2s infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% { transform: scale(1); opacity: 1; }
+            50% { transform: scale(1.05); opacity: 0.8; }
+        }
+
+        .slide-in {
+            animation: slideIn 0.5s ease-out;
+        }
+
+        @keyframes slideIn {
+            from {
+                transform: translateX(-50px);
+                opacity: 0;
+            }
+            to {
+                transform: translateX(0);
+                opacity: 1;
+            }
+        }
+    </style>
+</head>
+<body>
+    <header>
+        <nav>
+            <div class="logo">🎼 Музыкальный Анализ</div>
+            <ul class="nav-links">
+                <li><a href="#overview" class="active">Обзор</a></li>
+                <li><a href="#structure">Структура</a></li>
+                <li><a href="#harmony">Гармония</a></li>
+                <li><a href="#mathematics">Математика</a></li>
+                <li><a href="#theory">Теория</a></li>
+                <li><a href="#history">История</a></li>
+                <li><a href="#practice">Практика</a></li>
+            </ul>
+        </nav>
+    </header>
+
+    <main>
+        <h1>Исчерпывающий комплексный анализ музыкальной последовательности</h1>
+        
+        <section id="overview" class="section">
+            <div class="card">
+                <h2>Введение: феномен многоуровневой музыкальной структуры</h2>
+                <p>Перед нами уникальная музыкальная последовательность из 36 нот, организованных в 12 групп по три ноты в каждой. Эта структура демонстрирует поразительную систематичность организации, сочетающую математическую строгость с музыкальной многозначностью.</p>
+                
+                <div class="info-box">
+                    <h4>Ключевые характеристики:</h4>
+                    <ul>
+                        <li><strong>36 нот</strong> = 12 групп × 3 ноты</li>
+                        <li><strong>Диапазон:</strong> 4 октавы и большая септима (B1 - Bb6)</li>
+                        <li><strong>Паттерн:</strong> [Тон - Тон - Полутон] × 12</li>
+                        <li><strong>Движение:</strong> По квинтовому кругу</li>
+                        <li><strong>Двойственность:</strong> Диминуированные трезвучия ИЛИ мажорные фрагменты</li>
+                    </ul>
+                </div>
+            </div>
+
+            <div class="diagram-container">
+                <div class="diagram">
+                    <h3>Визуальная схема последовательности</h3>
+                    <canvas id="sequenceVisualization" width="300" height="300"></canvas>
+                </div>
+                <div class="diagram">
+                    <h3>Распределение по октавам</h3>
+                    <canvas id="octaveDistribution" width="300" height="300"></canvas>
+                </div>
+                <div class="diagram">
+                    <h3>Интервальная структура</h3>
+                    <canvas id="intervalStructure" width="300" height="300"></canvas>
+                </div>
+            </div>
+        </section>
+
+        <section id="structure" class="section">
+            <h2>Детальная структура последовательности</h2>
+            
+            <div class="card">
+                <h3>Управление воспроизведением</h3>
+                <div class="controls">
+                    <button onclick="playSequence()">▶ Воспроизвести всю последовательность</button>
+                    <button onclick="stopSequence()" class="secondary">⏸ Остановить</button>
+                    <button onclick="playWithHarmony()" class="secondary">🎹 С гармонией</button>
+                    <div class="speed-control">
+                        <label>Скорость:</label>
+                        <input type="range" id="speedSlider" min="50" max="500" value="200" onchange="updateSpeed(this.value)">
+                        <span id="speedValue">200мс</span>
+                    </div>
+                </div>
+                
+                <div class="progress-container">
+                    <div class="progress-bar">
+                        <div class="progress-fill" id="progressBar"></div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="sequence-container" id="sequenceContainer">
+                <!-- Groups will be generated by JavaScript -->
+            </div>
+
+            <div class="card">
+                <h3>Матричное представление</h3>
+                <div class="matrix-container">
+                    <div class="matrix" id="noteMatrix">
+                        <!-- Matrix will be generated by JavaScript -->
+                    </div>
+                </div>
+            </div>
+
+            <div class="piano-container">
+                <h3>Визуализация на фортепианной клавиатуре</h3>
+                <div class="piano-scroll">
+                    <div class="piano" id="piano">
+                        <!-- Piano keys will be generated by JavaScript -->
+                    </div>
+                </div>
+                <div class="info-box" style="margin-top: 1rem;">
+                    <small>Прокрутите горизонтально для просмотра всех октав. Кликните на клавишу для воспроизведения звука.</small>
+                </div>
+            </div>
+
+            <div class="card">
+                <h3>Паттерн интервалов</h3>
+                <div class="pattern-vis" id="patternVisualization">
+                    <!-- Pattern will be generated by JavaScript -->
+                </div>
+            </div>
+        </section>
+
+        <section id="harmony" class="section">
+            <h2>Глубокий анализ двойственной гармонической природы</h2>
+            
+            <div class="tabs">
+                <button class="tab active" onclick="showTab('diminished')">Диминуированные трезвучия</button>
+                <button class="tab" onclick="showTab('major')">Мажорные фрагменты</button>
+                <button class="tab" onclick="showTab('elliptical')">Эллиптическая гармония</button>
+                <button class="tab" onclick="showTab('wholetone')">Целотоновые структуры</button>
+            </div>
+
+            <div id="diminished" class="tab-content active">
+                <div class="card">
+                    <h3>Интерпретация как уменьшенные трезвучия</h3>
+                    <p>С позиций классической функциональной гармонии, каждая тройка нот образует диминуированное (уменьшенное) трезвучие в основном положении.</p>
+                    
+                    <div class="interval-display">
+                        <div class="interval-box">Основной тон</div>
+                        <span class="interval-arrow">→</span>
+                        <div class="interval-box">м.3 (3 полутона)</div>
+                        <span class="interval-arrow">→</span>
+                        <div class="interval-box">м.3 (3 полутона)</div>
+                        <span class="interval-arrow">=</span>
+                        <div class="interval-box" style="background: var(--diminished-color);">Тритон</div>
+                    </div>
+
+                    <div class="analysis-grid">
+                        <div class="analysis-card">
+                            <h4>Структурный анализ</h4>
+                            <ul>
+                                <li>B-D♭-E♭ = B° (B уменьшенное)</li>
+                                <li>E-G♭-A♭ = E° (E уменьшенное)</li>
+                                <li>Все 12 групп = 12 уменьшенных трезвучий</li>
+                                <li>Энгармонические эквиваленты возможны</li>
+                            </ul>
+                        </div>
+                        <div class="analysis-card">
+                            <h4>Функциональная роль</h4>
+                            <ul>
+                                <li>vii° в четырёх тональностях одновременно</li>
+                                <li>Мощный инструмент модуляции</li>
+                                <li>Создание напряжения без разрешения</li>
+                                <li>Символ неопределённости и тревоги</li>
+                            </ul>
+                        </div>
+                        <div class="analysis-card">
+                            <h4>Историческое использование</h4>
+                            <ul>
+                                <li><strong>Бах:</strong> "Страсти по Матфею" - страдание</li>
+                                <li><strong>Моцарт:</strong> "Дон Жуан" - появление Командора</li>
+                                <li><strong>Бетховен:</strong> "Патетическая" - драма</li>
+                                <li><strong>Вагнер:</strong> основа гармонии "Тристана"</li>
+                            </ul>
+                        </div>
+                    </div>
+
+                    <div class="warning-box">
+                        <h4>Энгармоническая многозначность</h4>
+                        <p>Каждое уменьшенное трезвучие может разрешаться в 4 различные тональности. Например, B° может вести в C, E♭, G♭ или A.</p>
+                    </div>
+                </div>
+            </div>
+
+            <div id="major" class="tab-content">
+                <div class="card">
+                    <h3>Интерпретация как мажорные фрагменты</h3>
+                    <p>Каждая тройка точно соответствует первым трём ступеням (I-II-III) определённой мажорной гаммы.</p>
+                    
+                    <div class="circle-of-fifths">
+                        <svg viewBox="0 0 400 400" id="circleOfFifths">
+                            <!-- Circle of fifths will be generated by JavaScript -->
+                        </svg>
+                    </div>
+
+                    <table class="comparison-table">
+                        <thead>
+                            <tr>
+                                <th>Группа</th>
+                                <th>Ноты</th>
+                                <th>Тональность</th>
+                                <th>Знаки при ключе</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr><td>1</td><td>B-C♯-D♯</td><td>B мажор</td><td>5♯</td></tr>
+                            <tr><td>2</td><td>E-F♯-G♯</td><td>E мажор</td><td>4♯</td></tr>
+                            <tr><td>3</td><td>A-B-C♯</td><td>A мажор</td><td>3♯</td></tr>
+                            <tr><td>4</td><td>D-E-F♯</td><td>D мажор</td><td>2♯</td></tr>
+                            <tr><td>5</td><td>G-A-B</td><td>G мажор</td><td>1♯</td></tr>
+                            <tr><td>6</td><td>C-D-E</td><td>C мажор</td><td>—</td></tr>
+                            <tr><td>7</td><td>F-G-A</td><td>F мажор</td><td>1♭</td></tr>
+                            <tr><td>8</td><td>B♭-C-D</td><td>B♭ мажор</td><td>2♭</td></tr>
+                            <tr><td>9</td><td>E♭-F-G</td><td>E♭ мажор</td><td>3♭</td></tr>
+                            <tr><td>10</td><td>A♭-B♭-C</td><td>A♭ мажор</td><td>4♭</td></tr>
+                            <tr><td>11</td><td>D♭-E♭-F</td><td>D♭ мажор</td><td>5♭</td></tr>
+                            <tr><td>12</td><td>G♭-A♭-B♭</td><td>G♭ мажор</td><td>6♭</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <div id="elliptical" class="tab-content">
+                <div class="card">
+                    <h3>Революционная концепция "эллиптической гармонии"</h3>
+                    <p>Современная теория XXI века, предлагающая радикально новый взгляд на природу мажорного трезвучия.</p>
+                    
+                    <div class="warning-box">
+                        <h4>Основные постулаты теории:</h4>
+                        <ol>
+                            <li><strong>Целотоновая чистота:</strong> Истинно мажорное созвучие должно состоять только из нот одного целотонового ряда</li>
+                            <li><strong>Проблема квинты:</strong> В традиционном C-E-G нота G принадлежит другому целотоновому ряду</li>
+                            <li><strong>Оптимальная структура:</strong> C-D-E представляет "чистую мажорность"</li>
+                        </ol>
+                    </div>
+
+                    <div class="analysis-grid">
+                        <div class="analysis-card">
+                            <h4>Акустические обоснования</h4>
+                            <div class="formula">
+                                C-D: 9:8 (204 цента)
+                                D-E: 10:9 (182 цента)
+                                C-E: 5:4 (386 центов)
+                                
+                                Все ноты в обертоновом ряду:
+                                C = 1-й обертон
+                                E = 5-й обертон
+                                D = 9-й обертон
+                            </div>
+                        </div>
+                        <div class="analysis-card">
+                            <h4>Перцептивные особенности</h4>
+                            <ul>
+                                <li>Более "светлое" звучание</li>
+                                <li>Ощущение движения и развития</li>
+                                <li>Меньшая "завершённость"</li>
+                                <li>Стимулирует ожидание продолжения</li>
+                            </ul>
+                        </div>
+                        <div class="analysis-card">
+                            <h4>Применение в музыке</h4>
+                            <ul>
+                                <li><strong>Джаз:</strong> add9 аккорды без квинты</li>
+                                <li><strong>Билл Эванс:</strong> rootless voicings</li>
+                                <li><strong>Coldplay:</strong> "Clocks"</li>
+                                <li><strong>Radiohead:</strong> "Kid A"</li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div id="wholetone" class="tab-content">
+                <div class="card">
+                    <h3>Целотоновые структуры</h3>
+                    <p>Группы чередуются между двумя непересекающимися целотоновыми множествами.</p>
+                    
+                    <div class="diagram-container">
+                        <div class="diagram">
+                            <h4>Целотоновый лад 0 (WT0)</h4>
+                            <div class="pattern-vis">
+                                <div class="pattern-note wt0">C</div>
+                                <div class="pattern-note wt0">D</div>
+                                <div class="pattern-note wt0">E</div>
+                                <div class="pattern-note wt0">F♯</div>
+                                <div class="pattern-note wt0">G♯</div>
+                                <div class="pattern-note wt0">A♯</div>
+                            </div>
+                            <p>Группы: 2, 4, 6, 8, 10, 12</p>
+                        </div>
+                        <div class="diagram">
+                            <h4>Целотоновый лад 1 (WT1)</h4>
+                            <div class="pattern-vis">
+                                <div class="pattern-note wt1">C♯</div>
+                                <div class="pattern-note wt1">D♯</div>
+                                <div class="pattern-note wt1">F</div>
+                                <div class="pattern-note wt1">G</div>
+                                <div class="pattern-note wt1">A</div>
+                                <div class="pattern-note wt1">B</div>
+                            </div>
+                            <p>Группы: 1, 3, 5, 7, 9, 11</p>
+                        </div>
+                    </div>
+
+                    <div class="info-box">
+                        <h4>Мессиан и модусы ограниченной транспозиции</h4>
+                        <p>Целотоновый лад = <strong>Первый модус</strong> ограниченной транспозиции по Мессиану</p>
+                        <ul>
+                            <li>Только 2 транспозиции</li>
+                            <li>Максимальная симметрия</li>
+                            <li>Отсутствие полутонов создаёт "парящее" звучание</li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <section id="mathematics" class="section">
+            <h2>Исчерпывающий математический анализ</h2>
+            
+            <div class="card">
+                <h3>Арифметические закономерности</h3>
+                
+                <div class="formula">
+                    <strong>Формула для начальной ноты n-й группы:</strong>
+                    MIDI(n) = 30 + 5n, где n = 1, 2, 3, ..., 12
+                    
+                    B1 = 35 = 30 + 5×1
+                    E2 = 40 = 30 + 5×2
+                    A2 = 45 = 30 + 5×3
+                    ...и так далее
+                </div>
+
+                <canvas id="arithmeticProgression" width="600" height="300"></canvas>
+            </div>
+
+            <div class="card">
+                <h3>Модулярная арифметика и теория групп</h3>
+                
+                <div class="formula">
+                    <strong>В системе mod 12:</strong>
+                    11 → 4 → 9 → 2 → 7 → 0 → 5 → 10 → 3 → 8 → 1 → 6
+                    
+                    Переход: x → (x + 5) mod 12
+                    НОД(5, 12) = 1 ⟹ 5 является генератором Z₁₂
+                </div>
+
+                <div class="info-box">
+                    <p><strong>Свойства:</strong></p>
+                    <ul>
+                        <li>Полнота: проходит через все 12 классов высот</li>
+                        <li>Цикличность: после 12 шагов возврат к началу</li>
+                        <li>Биективность: взаимно однозначное соответствие</li>
+                    </ul>
+                </div>
+            </div>
+
+            <div class="card">
+                <h3>Геометрическая интерпретация</h3>
+                <div class="tonnetz-container">
+                    <svg class="tonnetz-svg" id="tonnetzVisualization">
+                        <!-- Tonnetz will be generated by JavaScript -->
+                    </svg>
+                </div>
+            </div>
+
+            <div class="card">
+                <h3>Фрактальные свойства</h3>
+                <div class="analysis-grid">
+                    <div class="analysis-card">
+                        <h4>Микроуровень</h4>
+                        <p>Каждая группа: [0, +2, +4]</p>
+                        <p>Самоподобие внутри группы</p>
+                    </div>
+                    <div class="analysis-card">
+                        <h4>Мезоуровень</h4>
+                        <p>Группы: +5 полутонов</p>
+                        <p>Квартовое движение</p>
+                    </div>
+                    <div class="analysis-card">
+                        <h4>Макроуровень</h4>
+                        <p>Полный хроматический цикл</p>
+                        <p>12-лучевая звезда {12/5}</p>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <section id="theory" class="section">
+            <h2>Углублённый теоретический анализ</h2>
+            
+            <div class="tabs">
+                <button class="tab active" onclick="showTheoryTab('settheory')">Теория множеств</button>
+                <button class="tab" onclick="showTheoryTab('neoriemannian')">Neo-Riemannian</button>
+                <button class="tab" onclick="showTheoryTab('voice')">Голосоведение</button>
+                <button class="tab" onclick="showTheoryTab('cognitive')">Когнитивные аспекты</button>
+            </div>
+
+            <div id="settheory" class="tab-content active">
+                <div class="card">
+                    <h3>Теория множеств (Set Theory)</h3>
+                    
+                    <div class="formula">
+                        <strong>Классификация по Форте:</strong> 3-6 [0,2,4]
+                        
+                        Интервальный вектор: &lt;020100&gt;
+                        0 малых секунд
+                        2 больших секунды
+                        0 малых терций
+                        1 большая терция
+                        0 чистых кварт
+                        0 тритонов
+                    </div>
+
+                    <div class="analysis-grid">
+                        <div class="analysis-card">
+                            <h4>Нормальная форма</h4>
+                            <p>Все группы: [0,2,4]</p>
+                            <p>Транспозиционная эквивалентность</p>
+                            <p>T₅(группа n) = группа n+1</p>
+                        </div>
+                        <div class="analysis-card">
+                            <h4>Инверсионные отношения</h4>
+                            <p>I₀[0,2,4] = [0,10,8]</p>
+                            <p>= [8,10,0] в норм. форме</p>
+                            <p>Не представлено в последовательности</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div id="neoriemannian" class="tab-content">
+                <div class="card">
+                    <h3>Neo-Riemannian теория</h3>
+                    <p>Трансформационный анализ гармонических отношений</p>
+                    
+                    <div class="warning-box">
+                        <p>Классические операции P, L, R не применимы напрямую из-за отсутствия полных трезвучий. Требуется модифицированный подход.</p>
+                    </div>
+
+                    <div class="analysis-grid">
+                        <div class="analysis-card">
+                            <h4>Модифицированные операции</h4>
+                            <ul>
+                                <li>T₅: транспозиция на кварту</li>
+                                <li>Хроматический сдвиг третьего звука</li>
+                                <li>Сохранение интервальной структуры</li>
+                            </ul>
+                        </div>
+                        <div class="analysis-card">
+                            <h4>Граф трансформаций</h4>
+                            <p>Циклический граф длины 12</p>
+                            <p>Единственная операция: T₅</p>
+                            <p>Отсутствие ветвлений</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div id="voice" class="tab-content">
+                <div class="card">
+                    <h3>Анализ голосоведения</h3>
+                    
+                    <div class="warning-box">
+                        <h4>Систематические нарушения классических правил:</h4>
+                        <ul>
+                            <li>Параллельные большие терции между крайними голосами</li>
+                            <li>Параллельное движение всех трёх голосов</li>
+                            <li>Мелодические тритоны при переходах между группами</li>
+                        </ul>
+                    </div>
+
+                    <h4>Движение голосов:</h4>
+                    <div class="analysis-grid">
+                        <div class="analysis-card">
+                            <h4>Верхний голос</h4>
+                            <p>Паттерн: [+1, +4, +1, +4...]</p>
+                            <p>Хроматические шаги чередуются с терциями</p>
+                        </div>
+                        <div class="analysis-card">
+                            <h4>Средний голос</h4>
+                            <p>Паттерн: [+5, +5, +5...]</p>
+                            <p>Постоянное квартовое движение</p>
+                        </div>
+                        <div class="analysis-card">
+                            <h4>Нижний голос</h4>
+                            <p>Паттерн: [+5, +5, +5...]</p>
+                            <p>Параллелен среднему голосу</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div id="cognitive" class="tab-content">
+                <div class="card">
+                    <h3>Когнитивные аспекты восприятия</h3>
+                    
+                    <div class="analysis-grid">
+                        <div class="analysis-card">
+                            <h4>Гештальт-принципы</h4>
+                            <ul>
+                                <li><strong>Группировка:</strong> По 3 ноты</li>
+                                <li><strong>Близость:</strong> Временная и тональная</li>
+                                <li><strong>Продолжение:</strong> Предсказуемый паттерн</li>
+                                <li><strong>Замыкание:</strong> Возврат к началу</li>
+                            </ul>
+                        </div>
+                        <div class="analysis-card">
+                            <h4>Теория ожиданий (Meyer)</h4>
+                            <ul>
+                                <li>Формирование паттерна после 3-4 групп</li>
+                                <li>Предсказание следующей группы</li>
+                                <li>Удовлетворение от подтверждения</li>
+                                <li>Напряжение от хроматических сдвигов</li>
+                            </ul>
+                        </div>
+                        <div class="analysis-card">
+                            <h4>Нейроэстетика</h4>
+                            <ul>
+                                <li>Активация центров распознавания паттернов</li>
+                                <li>Дофаминовый отклик на предсказуемость</li>
+                                <li>Напряжение от диссонансов</li>
+                                <li>Разрешение через движение</li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <section id="history" class="section">
+            <h2>Всеобъемлющий историко-стилистический анализ</h2>
+            
+            <div class="timeline">
+                <div class="timeline-item">
+                    <div class="card">
+                        <h3>Барокко (1600-1750)</h3>
+                        <h4>И.С. Бах и систематизация</h4>
+                        <ul>
+                            <li><strong>"Хорошо темперированный клавир":</strong> 48 прелюдий и фуг во всех тональностях</li>
+                            <li><strong>Отличия:</strong> Бах - хроматический порядок, наша - квинтовый</li>
+                            <li><strong>Секвенции:</strong> Развёрнутые модуляционные периоды</li>
+                        </ul>
+                    </div>
+                </div>
+                
+                <div class="timeline-item">
+                    <div class="card">
+                        <h3>Классицизм (1750-1820)</h3>
+                        <h4>Моцарт и Бетховен</h4>
+                        <ul>
+                            <li><strong>Моцарт:</strong> Фантазия c-moll - отдалённые тональности</li>
+                            <li><strong>Бетховен:</strong> Поздние сонаты - расширение тональности</li>
+                            <li><strong>Модуляции:</strong> Развитые переходные разделы</li>
+                        </ul>
+                    </div>
+                </div>
+                
+                <div class="timeline-item">
+                    <div class="card">
+                        <h3>Романтизм (1820-1910)</h3>
+                        <h4>Шопен, Лист, Вагнер</h4>
+                        <ul>
+                            <li><strong>Шопен:</strong> 24 прелюдии по квинтовому кругу</li>
+                            <li><strong>Лист:</strong> Трансцендентные этюды - виртуозная хроматика</li>
+                            <li><strong>Вагнер:</strong> "Тристан" - избегание разрешений</li>
+                            <li><strong>Уменьшенные аккорды:</strong> Символ романтической тоски</li>
+                        </ul>
+                    </div>
+                </div>
+                
+                <div class="timeline-item">
+                    <div class="card">
+                        <h3>Импрессионизм (1890-1920)</h3>
+                        <h4>Дебюсси и целотоновые лады</h4>
+                        <ul>
+                            <li><strong>"Voiles":</strong> Полностью в целотоновом ладу</li>
+                            <li><strong>Параллельные аккорды:</strong> Нарушение классических правил</li>
+                            <li><strong>Глинка:</strong> "Руслан и Людмила" - первое использование</li>
+                        </ul>
+                    </div>
+                </div>
+                
+                <div class="timeline-item">
+                    <div class="card">
+                        <h3>XX век</h3>
+                        <h4>Мессиан и новая модальность</h4>
+                        <ul>
+                            <li><strong>Модусы ограниченной транспозиции:</strong> Систематизация</li>
+                            <li><strong>Шёнберг:</strong> Додекафония - все 12 тонов равны</li>
+                            <li><strong>Минимализм:</strong> Систематические процессы</li>
+                        </ul>
+                    </div>
+                </div>
+                
+                <div class="timeline-item">
+                    <div class="card">
+                        <h3>Джаз и современность</h3>
+                        <h4>Новые гармонические концепции</h4>
+                        <ul>
+                            <li><strong>Колтрейн:</strong> "Giant Steps" - движение по терциям</li>
+                            <li><strong>Билл Эванс:</strong> Rootless voicings</li>
+                            <li><strong>Modal jazz:</strong> Отход от функциональности</li>
+                            <li><strong>Спектрализм:</strong> Работа со спектром звука</li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <section id="practice" class="section">
+            <h2>Практическое применение</h2>
+            
+            <div class="tabs">
+                <button class="tab active" onclick="showPracticeTab('pedagogy')">Педагогика</button>
+                <button class="tab" onclick="showPracticeTab('instruments')">Инструменты</button>
+                <button class="tab" onclick="showPracticeTab('composition')">Композиция</button>
+                <button class="tab" onclick="showPracticeTab('improvisation')">Импровизация</button>
+                <button class="tab" onclick="showPracticeTab('exercises')">Упражнения</button>
+            </div>
+
+            <div id="pedagogy" class="tab-content active">
+                <div class="card">
+                    <h3>Педагогическое применение</h3>
+                    
+                    <div class="analysis-grid">
+                        <div class="analysis-card">
+                            <h4>Развитие техники</h4>
+                            <ul>
+                                <li>Работа во всех тональностях</li>
+                                <li>Быстрая смена позиций</li>
+                                <li>Координация движений</li>
+                                <li>Мышечная память паттернов</li>
+                                <li>Развитие беглости</li>
+                            </ul>
+                        </div>
+                        <div class="analysis-card">
+                            <h4>Сольфеджио</h4>
+                            <ul>
+                                <li>Интонирование целотоновых структур</li>
+                                <li>Хроматические переходы</li>
+                                <li>Определение тональностей по фрагментам</li>
+                                <li>Слуховой анализ интервалов</li>
+                                <li>Диктанты с модуляциями</li>
+                            </ul>
+                        </div>
+                        <div class="analysis-card">
+                            <h4>Теория музыки</h4>
+                            <ul>
+                                <li>Практическое изучение квинтового круга</li>
+                                <li>Энгармонические замены</li>
+                                <li>Модуляционные техники</li>
+                                <li>Современные лады и звукоряды</li>
+                                <li>Математические основы музыки</li>
+                            </ul>
+                        </div>
+                    </div>
+
+                    <div class="info-box">
+                        <h4>План поэтапного освоения:</h4>
+                        <ol>
+                            <li><strong>Недели 1-2:</strong> Отдельные группы, медленный темп</li>
+                            <li><strong>Недели 3-4:</strong> Соединение групп, работа над переходами</li>
+                            <li><strong>Недели 5-6:</strong> Половина последовательности, различные артикуляции</li>
+                            <li><strong>Месяц 2:</strong> Полная последовательность, ритмические варианты</li>
+                            <li><strong>Месяц 3:</strong> Игра наизусть, транспозиции, импровизации</li>
+                        </ol>
+                    </div>
+                </div>
+            </div>
+
+            <div id="instruments" class="tab-content">
+                <div class="card">
+                    <h3>Специфика для различных инструментов</h3>
+                    
+                    <div class="analysis-grid">
+                        <div class="analysis-card">
+                            <h4>Фортепиано</h4>
+                            <strong>Аппликатура:</strong>
+                            <ul>
+                                <li>C-D-E: 1-2-3</li>
+                                <li>G♭-A♭-B♭: 2-3-4 (чёрные клавиши)</li>
+                                <li>Быстрая смена позиций кисти</li>
+                            </ul>
+                            <strong>Технические аспекты:</strong>
+                            <ul>
+                                <li>Легато во всех тональностях</li>
+                                <li>Стаккато с педалью</li>
+                                <li>Октавные дублировки</li>
+                            </ul>
+                        </div>
+                        
+                        <div class="analysis-card">
+                            <h4>Струнные</h4>
+                            <strong>Скрипка/Альт:</strong>
+                            <ul>
+                                <li>I позиция: группы 5-7</li>
+                                <li>III-V позиции: группы 8-12</li>
+                                <li>Смена струн в арпеджио</li>
+                            </ul>
+                            <strong>Виолончель:</strong>
+                            <ul>
+                                <li>Широкие растяжки в низком регистре</li>
+                                <li>Использование ставки для высоких групп</li>
+                            </ul>
+                        </div>
+                        
+                        <div class="analysis-card">
+                            <h4>Духовые</h4>
+                            <strong>Деревянные:</strong>
+                            <ul>
+                                <li>Флейта: контроль в крайних регистрах</li>
+                                <li>Кларнет: переход через "разрыв"</li>
+                                <li>Саксофон: альтиссимо для групп 10-12</li>
+                            </ul>
+                            <strong>Медные:</strong>
+                            <ul>
+                                <li>Труба: различные серии обертонов</li>
+                                <li>Валторна: точный слуховой контроль</li>
+                                <li>Тромбон: быстрая смена позиций</li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div id="composition" class="tab-content">
+                <div class="card">
+                    <h3>Композиционные техники</h3>
+                    
+                    <div class="analysis-grid">
+                        <div class="analysis-card">
+                            <h4>Структурная основа</h4>
+                            <ul>
+                                <li>12 групп = 12 разделов формы</li>
+                                <li>Возможность репризности</li>
+                                <li>Арочные структуры</li>
+                                <li>Вариационные циклы</li>
+                            </ul>
+                        </div>
+                        <div class="analysis-card">
+                            <h4>Современные подходы</h4>
+                            <ul>
+                                <li><strong>Сериализм:</strong> 36-тоновый ряд</li>
+                                <li><strong>Минимализм:</strong> Фазовые сдвиги</li>
+                                <li><strong>Спектрализм:</strong> Анализ созвучий</li>
+                                <li><strong>Алгоритмическая композиция</strong></li>
+                            </ul>
+                        </div>
+                        <div class="analysis-card">
+                            <h4>Электроакустика</h4>
+                            <ul>
+                                <li>FM-синтез с частотными соотношениями</li>
+                                <li>Гранулярная обработка</li>
+                                <li>Live electronics</li>
+                                <li>Интерактивные системы</li>
+                            </ul>
+                        </div>
+                    </div>
+
+                    <div class="warning-box">
+                        <h4>Композиционные этюды:</h4>
+                        <ol>
+                            <li>Написать вариации на одну группу</li>
+                            <li>Создать полифоническую текстуру из фрагментов</li>
+                            <li>Использовать как cantus firmus</li>
+                            <li>Применить ритмические трансформации</li>
+                            <li>Создать электроакустическую композицию</li>
+                        </ol>
+                    </div>
+                </div>
+            </div>
+
+            <div id="improvisation" class="tab-content">
+                <div class="card">
+                    <h3>Импровизационные применения</h3>
+                    
+                    <h4>Джазовая импровизация</h4>
+                    <div class="analysis-grid">
+                        <div class="analysis-card">
+                            <h4>Outside playing</h4>
+                            <ul>
+                                <li>Целотоновые пассажи</li>
+                                <li>Хроматические подходы</li>
+                                <li>Политональные наложения</li>
+                                <li>Расширенная гармония</li>
+                            </ul>
+                        </div>
+                        <div class="analysis-card">
+                            <h4>Паттерны для практики</h4>
+                            <ul>
+                                <li>Секвенцирование троек</li>
+                                <li>Ритмические смещения</li>
+                                <li>Мотивное развитие</li>
+                                <li>Интервальные перестановки</li>
+                            </ul>
+                        </div>
+                        <div class="analysis-card">
+                            <h4>Гармонические замены</h4>
+                            <ul>
+                                <li>Тритоновые замены</li>
+                                <li>Альтерированные доминанты</li>
+                                <li>Модальные подмены</li>
+                                <li>Хроматические медианты</li>
+                            </ul>
+                        </div>
+                    </div>
+
+                    <h4>Свободная импровизация</h4>
+                    <ul>
+                        <li>Использование фрагментов как отправных точек</li>
+                        <li>Тембровые эксперименты</li>
+                        <li>Расширенные техники игры</li>
+                        <li>Коллективная импровизация на основе структуры</li>
+                    </ul>
+                </div>
+            </div>
+
+            <div id="exercises" class="tab-content">
+                <div class="card">
+                    <h3>Практические упражнения</h3>
+                    
+                    <div class="info-box">
+                        <h4>Базовые упражнения:</h4>
+                        <ol>
+                            <li>Играть каждую группу в разных октавах</li>
+                            <li>Транспонировать всю последовательность на полтон</li>
+                            <li>Играть в обратном порядке (ракоход)</li>
+                            <li>Играть с различными ритмическими паттернами</li>
+                            <li>Петь одну линию, играя другую</li>
+                        </ol>
+                    </div>
+
+                    <div class="warning-box">
+                        <h4>Продвинутые упражнения:</h4>
+                        <ol>
+                            <li>Играть в каноне с самим собой</li>
+                            <li>Импровизировать контрапункт к последовательности</li>
+                            <li>Создавать полиритмические наложения</li>
+                            <li>Модулировать между фрагментами</li>
+                            <li>Использовать как основу для композиции</li>
+                        </ol>
+                    </div>
+
+                    <div class="controls">
+                        <button onclick="generateExercise()">Сгенерировать случайное упражнение</button>
+                        <div id="exerciseDisplay" style="margin-top: 1rem;"></div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <div class="section">
+            <div class="card">
+                <h2>Заключение: многомерность музыкальной структуры</h2>
+                
+                <div class="analysis-grid">
+                    <div class="analysis-card">
+                        <h4>Математически элегантна</h4>
+                        <ul>
+                            <li>Строгая организация</li>
+                            <li>Предсказуемые паттерны</li>
+                            <li>Полный охват пространства</li>
+                            <li>Фрактальные свойства</li>
+                        </ul>
+                    </div>
+                    <div class="analysis-card">
+                        <h4>Исторически обоснована</h4>
+                        <ul>
+                            <li>Связи с различными эпохами</li>
+                            <li>Предвосхищение техник</li>
+                            <li>Синтез традиций</li>
+                            <li>Универсальный язык</li>
+                        </ul>
+                    </div>
+                    <div class="analysis-card">
+                        <h4>Практически применима</h4>
+                        <ul>
+                            <li>Педагогическая ценность</li>
+                            <li>Композиционный потенциал</li>
+                            <li>Исполнительские возможности</li>
+                            <li>Аналитический инструмент</li>
+                        </ul>
+                    </div>
+                </div>
+
+                <div class="info-box" style="margin-top: 2rem;">
+                    <h3>Философское измерение</h3>
+                    <p>Данная последовательность демонстрирует <strong>диалектическое единство противоположностей</strong>:</p>
+                    <ul>
+                        <li><strong>Простота и сложность:</strong> Элементарный паттерн порождает сложную структуру</li>
+                        <li><strong>Порядок и свобода:</strong> Строгая организация открывает пространство для творчества</li>
+                        <li><strong>Традиция и новаторство:</strong> Классические элементы в новом контексте</li>
+                        <li><strong>Локальное и глобальное:</strong> Малые структуры формируют большую форму</li>
+                        <li><strong>Статика и динамика:</strong> Повторяющийся паттерн создаёт движение</li>
+                    </ul>
+                </div>
+
+                <div class="warning-box" style="margin-top: 2rem;">
+                    <h3>Заключительная мысль</h3>
+                    <p>В эпоху постмодернизма, когда границы между стилями и эпохами стираются, такие универсальные структуры приобретают особое значение. Они служат мостами между различными музыкальными мирами, позволяя музыкантам XXI века говорить на языке, понятном как приверженцам традиции, так и искателям нового.</p>
+                    <p><strong>Пусть эта последовательность станет не только объектом анализа, но и источником творческого вдохновения!</strong></p>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/tone/14.8.49/Tone.js"></script>
+    <script>
+        // Musical sequence data with enhanced information
+        const groups = [
+            { notes: ['B1', 'Db2', 'Eb2'], tonality: 'B мажор', wt: 1, sharp: ['B1', 'C#2', 'D#2'] },
+            { notes: ['E2', 'Gb2', 'Ab2'], tonality: 'E мажор', wt: 0, sharp: ['E2', 'F#2', 'G#2'] },
+            { notes: ['A2', 'B2', 'Db3'], tonality: 'A мажор', wt: 1, sharp: ['A2', 'B2', 'C#3'] },
+            { notes: ['D3', 'E3', 'Gb3'], tonality: 'D мажор', wt: 0, sharp: ['D3', 'E3', 'F#3'] },
+            { notes: ['G3', 'A3', 'B3'], tonality: 'G мажор', wt: 1, sharp: ['G3', 'A3', 'B3'] },
+            { notes: ['C4', 'D4', 'E4'], tonality: 'C мажор', wt: 0, sharp: ['C4', 'D4', 'E4'] },
+            { notes: ['F4', 'G4', 'A4'], tonality: 'F мажор', wt: 1, sharp: ['F4', 'G4', 'A4'] },
+            { notes: ['Bb4', 'C5', 'D5'], tonality: 'Bb мажор', wt: 0, sharp: ['Bb4', 'C5', 'D5'] },
+            { notes: ['Eb5', 'F5', 'G5'], tonality: 'Eb мажор', wt: 1, sharp: ['Eb5', 'F5', 'G5'] },
+            { notes: ['Ab5', 'Bb5', 'C6'], tonality: 'Ab мажор', wt: 0, sharp: ['Ab5', 'Bb5', 'C6'] },
+            { notes: ['Db6', 'Eb6', 'F6'], tonality: 'Db мажор', wt: 1, sharp: ['C#6', 'D#6', 'E#6'] },
+            { notes: ['Gb6', 'Ab6', 'Bb6'], tonality: 'Gb мажор', wt: 0, sharp: ['F#6', 'G#6', 'A#6'] }
+        ];
+
+        let synth = null;
+        let polySynth = null;
+        let currentSequence = null;
+        let playbackSpeed = 200;
+
+        // Initialize Tone.js
+        async function initAudio() {
+            await Tone.start();
+            synth = new Tone.Synth({
+                oscillator: { type: "triangle" },
+                envelope: {
+                    attack: 0.02,
+                    decay: 0.1,
+                    sustain: 0.3,
+                    release: 1
+                }
+            }).toDestination();
+
+            polySynth = new Tone.PolySynth(Tone.Synth, {
+                oscillator: { type: "sine" },
+                envelope: {
+                    attack: 0.05,
+                    decay: 0.2,
+                    sustain: 0.3,
+                    release: 1.5
+                }
+            }).toDestination();
+            polySynth.volume.value = -10;
+        }
+
+        // Generate sequence visualization
+        function generateSequenceVisualization() {
+            const container = document.getElementById('sequenceContainer');
+            groups.forEach((group, index) => {
+                const groupEl = document.createElement('div');
+                groupEl.className = 'note-group';
+                groupEl.innerHTML = `
+                    <div class="wt-indicator wt${group.wt}">WT${group.wt}</div>
+                    <div class="group-number">Группа ${index + 1}</div>
+                    <div class="notes">${group.notes.join(' ')}</div>
+                    <div class="tonality">${group.tonality}</div>
+                `;
+                groupEl.onclick = () => playGroup(index);
+                container.appendChild(groupEl);
+            });
+        }
+
+        // Generate proper piano keyboard
+        function generatePiano() {
+            const piano = document.getElementById('piano');
+            const noteNames = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'];
+            const whiteKeys = ['C', 'D', 'E', 'F', 'G', 'A', 'B'];
+            const blackKeyPositions = {
+                'C#': 22, 'D#': 52, 'F#': 112, 'G#': 142, 'A#': 172
+            };
+            
+            // Generate octaves from 1 to 6
+            for (let octave = 1; octave <= 6; octave++) {
+                const octaveEl = document.createElement('div');
+                octaveEl.className = 'octave';
+                octaveEl.style.position = 'relative';
+                
+                // White keys
+                whiteKeys.forEach((note, i) => {
+                    const key = document.createElement('div');
+                    key.className = 'key white-key';
+                    key.dataset.note = note + octave;
+                    
+                    const label = document.createElement('div');
+                    label.className = 'key-label';
+                    label.textContent = note + octave;
+                    key.appendChild(label);
+                    
+                    key.onclick = () => playNote(note + octave);
+                    octaveEl.appendChild(key);
+                });
+                
+                // Black keys
+                Object.entries(blackKeyPositions).forEach(([note, leftPos]) => {
+                    if (note === 'D#' && octave === 1) return; // Skip D#1 for spacing
+                    
+                    const key = document.createElement('div');
+                    key.className = 'key black-key';
+                    key.dataset.note = note + octave;
+                    key.style.left = leftPos + 'px';
+                    
+                    const label = document.createElement('div');
+                    label.className = 'key-label';
+                    label.textContent = note + octave;
+                    key.appendChild(label);
+                    
+                    key.onclick = (e) => {
+                        e.stopPropagation();
+                        playNote(note + octave);
+                    };
+                    octaveEl.appendChild(key);
+                });
+                
+                octaveEl.style.position = 'relative';
+                octaveEl.style.display = 'flex';
+                piano.appendChild(octaveEl);
+            }
+        }
+
+        // Generate note matrix
+        function generateNoteMatrix() {
+            const matrix = document.getElementById('noteMatrix');
+            const noteNames = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'];
+            
+            // Header
+            const emptyHeader = document.createElement('div');
+            emptyHeader.className = 'matrix-cell matrix-header';
+            matrix.appendChild(emptyHeader);
+            
+            for (let i = 1; i <= 12; i++) {
+                const header = document.createElement('div');
+                header.className = 'matrix-cell matrix-header';
+                header.textContent = i;
+                matrix.appendChild(header);
+            }
+            
+            // Rows
+            noteNames.forEach(noteName => {
+                const rowHeader = document.createElement('div');
+                rowHeader.className = 'matrix-cell matrix-header';
+                rowHeader.textContent = noteName;
+                matrix.appendChild(rowHeader);
+                
+                for (let groupIndex = 0; groupIndex < 12; groupIndex++) {
+                    const cell = document.createElement('div');
+                    cell.className = 'matrix-cell matrix-note';
+                    
+                    const group = groups[groupIndex];
+                    const isInGroup = group.sharp.some(note => 
+                        note.replace(/\d/, '') === noteName || 
+                        note.replace(/\d/, '').replace('#', '') === noteName.replace('#', '')
+                    );
+                    
+                    if (isInGroup) {
+                        cell.classList.add('active');
+                        cell.classList.add(`wt${group.wt}`);
+                        cell.textContent = '●';
+                    }
+                    
+                    matrix.appendChild(cell);
+                }
+            });
+        }
+
+        // Generate pattern visualization
+        function generatePatternVisualization() {
+            const container = document.getElementById('patternVisualization');
+            const pattern = ['Тон', 'Тон', 'Полутон'];
+            
+            for (let i = 0; i < 12; i++) {
+                pattern.forEach((interval, j) => {
+                    const note = document.createElement('div');
+                    note.className = 'pattern-note';
+                    note.classList.add(interval === 'Тон' ? 'tone' : 'semitone');
+                    note.textContent = interval === 'Тон' ? 'T' : 'S';
+                    note.title = interval;
+                    container.appendChild(note);
+                    
+                    if (j < 2) {
+                        const arrow = document.createElement('span');
+                        arrow.textContent = '→';
+                        arrow.style.margin = '0 5px';
+                        container.appendChild(arrow);
+                    } else if (i < 11) {
+                        const separator = document.createElement('span');
+                        separator.textContent = '|';
+                        separator.style.margin = '0 10px';
+                        separator.style.color = 'var(--text-secondary)';
+                        container.appendChild(separator);
+                    }
+                });
+            }
+        }
+
+        // Play a single note
+        async function playNote(note) {
+            if (!synth) await initAudio();
+            synth.triggerAttackRelease(note, "8n");
+            highlightPianoKey(note);
+            setTimeout(() => clearPianoKey(note), 300);
+        }
+
+        // Play a group
+        async function playGroup(index) {
+            if (!synth) await initAudio();
+            
+            const group = groups[index];
+            const groupEls = document.querySelectorAll('.note-group');
+            groupEls[index].classList.add('playing');
+            
+            for (let note of group.notes) {
+                highlightPianoKey(note);
+                synth.triggerAttackRelease(note, "8n");
+                await sleep(playbackSpeed);
+            }
+            
+            groupEls[index].classList.remove('playing');
+            clearPianoHighlights();
+        }
+
+        // Play entire sequence
+        async function playSequence() {
+            if (!synth) await initAudio();
+            if (currentSequence) return;
+            
+            currentSequence = true;
+            const progressBar = document.getElementById('progressBar');
+            
+            for (let i = 0; i < groups.length; i++) {
+                if (!currentSequence) break;
+                
+                progressBar.style.width = `${(i / groups.length) * 100}%`;
+                await playGroup(i);
+                await sleep(100);
+            }
+            
+            progressBar.style.width = '100%';
+            setTimeout(() => {
+                progressBar.style.width = '0%';
+            }, 500);
+            
+            currentSequence = null;
+        }
+
+        // Play with harmony
+        async function playWithHarmony() {
+            if (!polySynth) await initAudio();
+            if (currentSequence) return;
+            
+            currentSequence = true;
+            const progressBar = document.getElementById('progressBar');
+            
+            for (let i = 0; i < groups.length; i++) {
+                if (!currentSequence) break;
+                
+                progressBar.style.width = `${(i / groups.length) * 100}%`;
+                
+                const group = groups[i];
+                const groupEls = document.querySelectorAll('.note-group');
+                groupEls[i].classList.add('playing');
+                
+                // Play as chord
+                polySynth.triggerAttackRelease(group.notes, "2n");
+                highlightGroupOnPiano(group.notes);
+                
+                await sleep(playbackSpeed * 3);
+                
+                groupEls[i].classList.remove('playing');
+                clearPianoHighlights();
+            }
+            
+            progressBar.style.width = '100%';
+            setTimeout(() => {
+                progressBar.style.width = '0%';
+            }, 500);
+            
+            currentSequence = null;
+        }
+
+        // Stop sequence
+        function stopSequence() {
+            currentSequence = null;
+            if (synth) synth.releaseAll();
+            if (polySynth) polySynth.releaseAll();
+            clearPianoHighlights();
+            
+            document.querySelectorAll('.note-group.playing').forEach(el => {
+                el.classList.remove('playing');
+            });
+        }
+
+        // Update playback speed
+        function updateSpeed(value) {
+            playbackSpeed = parseInt(value);
+            document.getElementById('speedValue').textContent = value + 'мс';
+        }
+
+        // Highlight piano key
+        function highlightPianoKey(note) {
+            // Handle enharmonic equivalents
+            const enharmonics = {
+                'Db': 'C#', 'Eb': 'D#', 'Gb': 'F#', 'Ab': 'G#', 'Bb': 'A#',
+                'C#': 'Db', 'D#': 'Eb', 'F#': 'Gb', 'G#': 'Ab', 'A#': 'Bb'
+            };
+            
+            let key = document.querySelector(`[data-note="${note}"]`);
+            if (!key) {
+                // Try enharmonic equivalent
+                const noteName = note.slice(0, -1);
+                const octave = note.slice(-1);
+                if (enharmonics[noteName]) {
+                    key = document.querySelector(`[data-note="${enharmonics[noteName]}${octave}"]`);
+                }
+            }
+            if (key) key.classList.add('active');
+        }
+
+        // Highlight group on piano
+        function highlightGroupOnPiano(notes) {
+            notes.forEach(note => highlightPianoKey(note));
+        }
+
+        // Clear specific piano key
+        function clearPianoKey(note) {
+            const enharmonics = {
+                'Db': 'C#', 'Eb': 'D#', 'Gb': 'F#', 'Ab': 'G#', 'Bb': 'A#',
+                'C#': 'Db', 'D#': 'Eb', 'F#': 'Gb', 'G#': 'Ab', 'A#': 'Bb'
+            };
+            
+            let key = document.querySelector(`[data-note="${note}"]`);
+            if (!key) {
+                const noteName = note.slice(0, -1);
+                const octave = note.slice(-1);
+                if (enharmonics[noteName]) {
+                    key = document.querySelector(`[data-note="${enharmonics[noteName]}${octave}"]`);
+                }
+            }
+            if (key) key.classList.remove('active');
+        }
+
+        // Clear all piano highlights
+        function clearPianoHighlights() {
+            document.querySelectorAll('.key.active').forEach(key => {
+                key.classList.remove('active');
+            });
+        }
+
+        // Tab switching functions
+        function showTab(tabName) {
+            document.querySelectorAll('#harmony .tab-content').forEach(content => {
+                content.classList.remove('active');
+            });
+            document.querySelectorAll('#harmony .tab').forEach(tab => {
+                tab.classList.remove('active');
+            });
+            
+            document.getElementById(tabName).classList.add('active');
+            event.target.classList.add('active');
+        }
+
+        function showTheoryTab(tabName) {
+            document.querySelectorAll('#theory .tab-content').forEach(content => {
+                content.classList.remove('active');
+            });
+            document.querySelectorAll('#theory .tab').forEach(tab => {
+                tab.classList.remove('active');
+            });
+            
+            document.getElementById(tabName).classList.add('active');
+            event.target.classList.add('active');
+        }
+
+        function showPracticeTab(tabName) {
+            document.querySelectorAll('#practice .tab-content').forEach(content => {
+                content.classList.remove('active');
+            });
+            document.querySelectorAll('#practice .tab').forEach(tab => {
+                tab.classList.remove('active');
+            });
+            
+            document.getElementById(tabName).classList.add('active');
+            event.target.classList.add('active');
+        }
+
+        // Generate random exercise
+        function generateExercise() {
+            const exercises = [
+                "Сыграйте группы 1-4 в ритме триолей",
+                "Транспонируйте группу 6 на малую терцию вверх",
+                "Играйте верхний голос стаккато, нижние легато",
+                "Создайте канон из групп 5-8 с задержкой в 2 такта",
+                "Импровизируйте переход между группами 3 и 4",
+                "Сыграйте всю последовательность в миноре",
+                "Используйте группу 7 как остинато в левой руке",
+                "Гармонизуйте группу 2 септаккордами",
+                "Сыграйте в обратном порядке (от группы 12 к 1)",
+                "Создайте полиритмию: 3 против 4 между руками"
+            ];
+            
+            const exercise = exercises[Math.floor(Math.random() * exercises.length)];
+            document.getElementById('exerciseDisplay').innerHTML = `
+                <div class="info-box">
+                    <strong>Ваше упражнение:</strong><br>
+                    ${exercise}
+                </div>
+            `;
+        }
+
+        // Draw visualizations on canvases
+        function drawVisualizations() {
+            // Sequence visualization (circular)
+            const canvas1 = document.getElementById('sequenceVisualization');
+            const ctx1 = canvas1.getContext('2d');
+            const centerX = 150, centerY = 150, radius = 100;
+            
+            ctx1.clearRect(0, 0, 300, 300);
+            ctx1.strokeStyle = '#0f3460';
+            ctx1.lineWidth = 2;
+            ctx1.beginPath();
+            ctx1.arc(centerX, centerY, radius, 0, 2 * Math.PI);
+            ctx1.stroke();
+            
+            // Draw groups as points
+            groups.forEach((group, i) => {
+                const angle = (i * 30 - 90) * Math.PI / 180;
+                const x = centerX + radius * Math.cos(angle);
+                const y = centerY + radius * Math.sin(angle);
+                
+                ctx1.fillStyle = group.wt === 0 ? '#3498db' : '#e74c3c';
+                ctx1.beginPath();
+                ctx1.arc(x, y, 8, 0, 2 * Math.PI);
+                ctx1.fill();
+                
+                // Connect with lines
+                if (i > 0) {
+                    const prevAngle = ((i-1) * 30 - 90) * Math.PI / 180;
+                    const prevX = centerX + radius * Math.cos(prevAngle);
+                    const prevY = centerY + radius * Math.sin(prevAngle);
+                    
+                    ctx1.strokeStyle = '#e94560';
+                    ctx1.lineWidth = 1;
+                    ctx1.beginPath();
+                    ctx1.moveTo(prevX, prevY);
+                    ctx1.lineTo(x, y);
+                    ctx1.stroke();
+                }
+            });
+            
+            // Octave distribution
+            const canvas2 = document.getElementById('octaveDistribution');
+            const ctx2 = canvas2.getContext('2d');
+            
+            const octaveCount = [0, 3, 6, 9, 9, 9]; // Count per octave
+            const maxCount = Math.max(...octaveCount);
+            const barWidth = 40;
+            const barSpacing = 10;
+            
+            ctx2.clearRect(0, 0, 300, 300);
+            ctx2.fillStyle = '#e94560';
+            
+            octaveCount.forEach((count, i) => {
+                const barHeight = (count / maxCount) * 200;
+                const x = 30 + i * (barWidth + barSpacing);
+                const y = 250 - barHeight;
+                
+                ctx2.fillRect(x, y, barWidth, barHeight);
+                
+                // Label
+                ctx2.fillStyle = '#f5f5f5';
+                ctx2.font = '12px Arial';
+                ctx2.textAlign = 'center';
+                ctx2.fillText(`Oct ${i+1}`, x + barWidth/2, 270);
+                ctx2.fillText(count, x + barWidth/2, y - 10);
+                
+                ctx2.fillStyle = '#e94560';
+            });
+            
+            // Interval structure
+            const canvas3 = document.getElementById('intervalStructure');
+            const ctx3 = canvas3.getContext('2d');
+            
+            ctx3.clearRect(0, 0, 300, 300);
+            
+            // Draw pie chart
+            const intervals = [
+                { name: 'Б.2', count: 24, color: '#4caf50' },
+                { name: 'М.2', count: 11, color: '#ff9800' },
+                { name: 'Б.3', count: 12, color: '#e94560' }
+            ];
+            
+            let currentAngle = -Math.PI / 2;
+            const total = intervals.reduce((sum, int) => sum + int.count, 0);
+            
+            intervals.forEach(interval => {
+                const angle = (interval.count / total) * 2 * Math.PI;
+                
+                ctx3.fillStyle = interval.color;
+                ctx3.beginPath();
+                ctx3.moveTo(150, 150);
+                ctx3.arc(150, 150, 80, currentAngle, currentAngle + angle);
+                ctx3.closePath();
+                ctx3.fill();
+                
+                // Label
+                const labelAngle = currentAngle + angle / 2;
+                const labelX = 150 + 100 * Math.cos(labelAngle);
+                const labelY = 150 + 100 * Math.sin(labelAngle);
+                
+                ctx3.fillStyle = '#f5f5f5';
+                ctx3.font = 'bold 14px Arial';
+                ctx3.textAlign = 'center';
+                ctx3.fillText(`${interval.name}: ${interval.count}`, labelX, labelY);
+                
+                currentAngle += angle;
+            });
+        }
+
+        // Draw circle of fifths
+        function drawCircleOfFifths() {
+            const svg = document.getElementById('circleOfFifths');
+            const notes = ['C', 'G', 'D', 'A', 'E', 'B', 'Gb', 'Db', 'Ab', 'Eb', 'Bb', 'F'];
+            const noteOrder = ['B', 'E', 'A', 'D', 'G', 'C', 'F', 'Bb', 'Eb', 'Ab', 'Db', 'Gb'];
+            const cx = 200, cy = 200, r = 150;
+            
+            // Main circle
+            const circle = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+            circle.setAttribute('cx', cx);
+            circle.setAttribute('cy', cy);
+            circle.setAttribute('r', r);
+            circle.setAttribute('fill', 'none');
+            circle.setAttribute('stroke', '#0f3460');
+            circle.setAttribute('stroke-width', '3');
+            svg.appendChild(circle);
+            
+            // Notes
+            notes.forEach((note, i) => {
+                const angle = (i * 30 - 90) * Math.PI / 180;
+                const x = cx + r * Math.cos(angle);
+                const y = cy + r * Math.sin(angle);
+                
+                // Note circle
+                const noteCircle = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+                noteCircle.setAttribute('cx', x);
+                noteCircle.setAttribute('cy', y);
+                noteCircle.setAttribute('r', '30');
+                noteCircle.setAttribute('fill', '#1a1a2e');
+                noteCircle.setAttribute('stroke', '#e94560');
+                noteCircle.setAttribute('stroke-width', '2');
+                
+                // Highlight if in sequence
+                const sequenceIndex = noteOrder.indexOf(note);
+                if (sequenceIndex !== -1) {
+                    noteCircle.setAttribute('fill', 'rgba(233, 69, 96, 0.3)');
+                    noteCircle.setAttribute('stroke-width', '4');
+                    
+                    // Add animation
+                    const animate = document.createElementNS('http://www.w3.org/2000/svg', 'animate');
+                    animate.setAttribute('attributeName', 'r');
+                    animate.setAttribute('values', '30;35;30');
+                    animate.setAttribute('dur', '2s');
+                    animate.setAttribute('begin', `${sequenceIndex * 0.2}s`);
+                    animate.setAttribute('repeatCount', 'indefinite');
+                    noteCircle.appendChild(animate);
+                }
+                
+                svg.appendChild(noteCircle);
+                
+                // Note text
+                const text = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+                text.setAttribute('x', x);
+                text.setAttribute('y', y + 5);
+                text.setAttribute('text-anchor', 'middle');
+                text.setAttribute('fill', '#f5f5f5');
+                text.setAttribute('font-size', '18');
+                text.setAttribute('font-weight', 'bold');
+                text.textContent = note;
+                svg.appendChild(text);
+            });
+            
+            // Draw path
+            noteOrder.forEach((note, i) => {
+                if (i === 0) return;
+                
+                const noteIndex = notes.indexOf(note);
+                const prevNoteIndex = notes.indexOf(noteOrder[i-1]);
+                
+                const angle1 = (prevNoteIndex * 30 - 90) * Math.PI / 180;
+                const angle2 = (noteIndex * 30 - 90) * Math.PI / 180;
+                
+                const x1 = cx + (r - 30) * Math.cos(angle1);
+                const y1 = cy + (r - 30) * Math.sin(angle1);
+                const x2 = cx + (r - 30) * Math.cos(angle2);
+                const y2 = cy + (r - 30) * Math.sin(angle2);
+                
+                const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+                path.setAttribute('d', `M ${x1} ${y1} L ${x2} ${y2}`);
+                path.setAttribute('stroke', '#4caf50');
+                path.setAttribute('stroke-width', '2');
+                path.setAttribute('fill', 'none');
+                path.setAttribute('stroke-dasharray', '5,5');
+                
+                // Animate
+                const animate = document.createElementNS('http://www.w3.org/2000/svg', 'animate');
+                animate.setAttribute('attributeName', 'stroke-dashoffset');
+                animate.setAttribute('values', '10;0');
+                animate.setAttribute('dur', '0.5s');
+                animate.setAttribute('repeatCount', 'indefinite');
+                path.appendChild(animate);
+                
+                svg.appendChild(path);
+            });
+        }
+
+        // Draw arithmetic progression
+        function drawArithmeticProgression() {
+            const canvas = document.getElementById('arithmeticProgression');
+            if (!canvas) return;
+            
+            const ctx = canvas.getContext('2d');
+            const width = 600;
+            const height = 300;
+            
+            ctx.clearRect(0, 0, width, height);
+            
+            // Draw axes
+            ctx.strokeStyle = '#666';
+            ctx.lineWidth = 2;
+            ctx.beginPath();
+            ctx.moveTo(50, height - 50);
+            ctx.lineTo(width - 30, height - 50);
+            ctx.moveTo(50, height - 50);
+            ctx.lineTo(50, 30);
+            ctx.stroke();
+            
+            // Plot points
+            const midiValues = groups.map((_, i) => 30 + 5 * (i + 1));
+            const stepX = (width - 100) / 12;
+            const maxMidi = Math.max(...midiValues);
+            const minMidi = Math.min(...midiValues);
+            const scaleY = (height - 100) / (maxMidi - minMidi);
+            
+            // Draw points and line
+            ctx.strokeStyle = '#e94560';
+            ctx.fillStyle = '#e94560';
+            ctx.lineWidth = 2;
+            ctx.beginPath();
+            
+            midiValues.forEach((midi, i) => {
+                const x = 50 + (i + 1) * stepX;
+                const y = height - 50 - (midi - minMidi) * scaleY;
+                
+                if (i === 0) ctx.moveTo(x, y);
+                else ctx.lineTo(x, y);
+                
+                // Draw point
+                ctx.fillStyle = '#e94560';
+                ctx.beginPath();
+                ctx.arc(x, y, 5, 0, 2 * Math.PI);
+                ctx.fill();
+                
+                // Label
+                ctx.fillStyle = '#f5f5f5';
+                ctx.font = '12px Arial';
+                ctx.textAlign = 'center';
+                ctx.fillText(groups[i].notes[0], x, height - 30);
+                ctx.fillText(midi, x, y - 10);
+            });
+            
+            ctx.stroke();
+            
+            // Title
+            ctx.fillStyle = '#f5f5f5';
+            ctx.font = 'bold 16px Arial';
+            ctx.textAlign = 'center';
+            ctx.fillText('MIDI(n) = 30 + 5n', width / 2, 20);
+        }
+
+        // Draw Tonnetz visualization
+        function drawTonnetz() {
+            const svg = document.getElementById('tonnetzVisualization');
+            if (!svg) return;
+            
+            // Create hexagonal grid showing note relationships
+            const hexRadius = 30;
+            const notePositions = {
+                'C': { x: 300, y: 100 },
+                'G': { x: 400, y: 100 },
+                'D': { x: 450, y: 170 },
+                'A': { x: 400, y: 240 },
+                'E': { x: 300, y: 240 },
+                'B': { x: 250, y: 170 },
+                'F': { x: 200, y: 100 },
+                'Bb': { x: 150, y: 170 },
+                'Eb': { x: 200, y: 240 },
+                'Ab': { x: 300, y: 340 },
+                'Db': { x: 400, y: 340 },
+                'Gb': { x: 350, y: 170 }
+            };
+            
+            // Draw connections
+            const connections = [
+                ['C', 'G'], ['G', 'D'], ['D', 'A'], ['A', 'E'], ['E', 'B'],
+                ['C', 'E'], ['G', 'B'], ['D', 'Gb'], ['A', 'Db'], ['E', 'Ab'],
+                ['B', 'Eb'], ['Gb', 'Bb'], ['Db', 'F'], ['Ab', 'C'], ['Eb', 'G'],
+                ['Bb', 'D'], ['F', 'A']
+            ];
+            
+            connections.forEach(([note1, note2]) => {
+                const pos1 = notePositions[note1];
+                const pos2 = notePositions[note2];
+                if (pos1 && pos2) {
+                    const line = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+                    line.setAttribute('x1', pos1.x);
+                    line.setAttribute('y1', pos1.y);
+                    line.setAttribute('x2', pos2.x);
+                    line.setAttribute('y2', pos2.y);
+                    line.setAttribute('stroke', '#0f3460');
+                    line.setAttribute('stroke-width', '1');
+                    svg.appendChild(line);
+                }
+            });
+            
+            // Draw notes
+            Object.entries(notePositions).forEach(([note, pos]) => {
+                // Circle
+                const circle = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+                circle.setAttribute('cx', pos.x);
+                circle.setAttribute('cy', pos.y);
+                circle.setAttribute('r', hexRadius);
+                circle.setAttribute('fill', '#1a1a2e');
+                circle.setAttribute('stroke', '#e94560');
+                circle.setAttribute('stroke-width', '2');
+                
+                // Highlight if in sequence
+                const isInSequence = groups.some(g => 
+                    g.tonality.includes(note + ' ') || g.tonality.endsWith(note)
+                );
+                if (isInSequence) {
+                    circle.setAttribute('fill', 'rgba(233, 69, 96, 0.3)');
+                    circle.setAttribute('stroke-width', '3');
+                }
+                
+                svg.appendChild(circle);
+                
+                // Text
+                const text = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+                text.setAttribute('x', pos.x);
+                text.setAttribute('y', pos.y + 5);
+                text.setAttribute('text-anchor', 'middle');
+                text.setAttribute('fill', '#f5f5f5');
+                text.setAttribute('font-size', '16');
+                text.setAttribute('font-weight', 'bold');
+                text.textContent = note;
+                svg.appendChild(text);
+            });
+        }
+
+        // Smooth scrolling for navigation
+        document.querySelectorAll('.nav-links a').forEach(link => {
+            link.addEventListener('click', (e) => {
+                e.preventDefault();
+                const targetId = link.getAttribute('href').substring(1);
+                const targetSection = document.getElementById(targetId);
+                
+                if (targetSection) {
+                    targetSection.scrollIntoView({ behavior: 'smooth' });
+                    
+                    // Update active nav link
+                    document.querySelectorAll('.nav-links a').forEach(a => a.classList.remove('active'));
+                    link.classList.add('active');
+                }
+            });
+        });
+
+        // Utility function
+        function sleep(ms) {
+            return new Promise(resolve => setTimeout(resolve, ms));
+        }
+
+        // Initialize on load
+        window.addEventListener('load', () => {
+            generateSequenceVisualization();
+            generatePiano();
+            generateNoteMatrix();
+            generatePatternVisualization();
+            drawVisualizations();
+            drawCircleOfFifths();
+            drawArithmeticProgression();
+            drawTonnetz();
+        });
+
+        // Intersection Observer for animations
+        const observer = new IntersectionObserver((entries) => {
+            entries.forEach(entry => {
+                if (entry.isIntersecting) {
+                    entry.target.classList.add('slide-in');
+                }
+            });
+        }, { threshold: 0.1 });
+
+        document.querySelectorAll('.section').forEach(section => {
+            observer.observe(section);
+        });
+    </script>
+</body>
+</html>

@@ -1,0 +1,1080 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Конформные отображения</title>
+    <style>
+        body {
+            font-family: 'Arial', sans-serif;
+            line-height: 1.6;
+            color: #333;
+            max-width: 1000px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        h1 {
+            color: #2c3e50;
+            text-align: center;
+            margin-bottom: 30px;
+        }
+        h2 {
+            color: #3498db;
+            margin-top: 30px;
+        }
+        .canvas-container {
+            display: flex;
+            justify-content: center;
+            margin: 20px 0;
+            flex-wrap: wrap;
+            gap: 20px;
+        }
+        canvas {
+            border: 1px solid #ddd;
+        }
+        .controls {
+            background-color: #f5f5f5;
+            padding: 15px;
+            border-radius: 5px;
+            margin: 20px 0;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 15px;
+            align-items: center;
+        }
+        .advantages-disadvantages {
+            display: flex;
+            justify-content: space-between;
+            margin-top: 30px;
+        }
+        .advantages, .disadvantages {
+            width: 48%;
+            padding: 15px;
+            border-radius: 5px;
+        }
+        .advantages {
+            background-color: #e8f8f5;
+            border-left: 5px solid #1abc9c;
+        }
+        .disadvantages {
+            background-color: #fef5e7;
+            border-left: 5px solid #f39c12;
+        }
+        ul {
+            padding-left: 20px;
+        }
+        .explanation {
+            margin-top: 20px;
+            padding: 15px;
+            background-color: #eaf2f8;
+            border-radius: 5px;
+        }
+        .control-group {
+            margin-right: 15px;
+        }
+        .canvas-label {
+            text-align: center;
+            font-weight: bold;
+            margin-top: 5px;
+        }
+        .canvas-wrapper {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+        .range-control {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        .range-control input {
+            width: 150px;
+        }
+        .checkbox-group {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+        }
+        .canvas-overlay {
+            position: relative;
+        }
+        .property-highlight {
+            margin-top: 30px;
+            padding: 15px;
+            background-color: #e8f4fc;
+            border-radius: 5px;
+            border-left: 5px solid #3498db;
+        }
+        .property-highlight h3 {
+            margin-top: 0;
+            color: #3498db;
+        }
+    </style>
+</head>
+<body>
+    <h1>Конформные отображения функций комплексного переменного</h1>
+    
+    <p>
+        Метод конформных отображений позволяет визуализировать, как функция f(z) отображает фигуры из z-плоскости 
+        в f(z)-плоскость. Обычно используются прямоугольные сетки, окружности и лучи, которые наглядно демонстрируют 
+        геометрические свойства функций комплексного переменного.
+    </p>
+
+    <div class="controls">
+        <div class="control-group">
+            <label for="function-select">Выберите функцию: </label>
+            <select id="function-select">
+                <option value="z2">f(z) = z²</option>
+                <option value="1_z">f(z) = 1/z</option>
+                <option value="sin_z">f(z) = sin(z)</option>
+                <option value="exp_z">f(z) = e^z</option>
+                <option value="z3_minus_1">f(z) = z³ - 1</option>
+                <option value="sqrt_z">f(z) = √z</option>
+                <option value="log_z">f(z) = log(z)</option>
+                <option value="mobius">f(z) = (z+1)/(z-1)</option>
+            </select>
+        </div>
+        
+        <div class="control-group">
+            <label for="grid-type">Тип сетки: </label>
+            <select id="grid-type">
+                <option value="rectangular">Прямоугольная</option>
+                <option value="polar">Полярная</option>
+                <option value="both">Комбинированная</option>
+            </select>
+        </div>
+        
+        <div class="control-group range-control">
+            <label for="grid-density">Плотность сетки: </label>
+            <input type="range" id="grid-density" min="3" max="15" value="8">
+            <span id="grid-density-value">8</span>
+        </div>
+    </div>
+    
+    <div class="controls">
+        <div class="checkbox-group">
+            <div>
+                <input type="checkbox" id="show-angles" checked>
+                <label for="show-angles">Показать углы</label>
+            </div>
+            
+            <div>
+                <input type="checkbox" id="color-grid" checked>
+                <label for="color-grid">Цветная сетка</label>
+            </div>
+            
+            <div>
+                <input type="checkbox" id="animate-transform">
+                <label for="animate-transform">Анимация преобразования</label>
+            </div>
+        </div>
+        
+        <div id="animation-controls" style="display: none;">
+            <button id="start-animation">Запустить анимацию</button>
+            <button id="stop-animation">Остановить</button>
+        </div>
+    </div>
+    
+    <div class="canvas-container">
+        <div class="canvas-wrapper">
+            <canvas id="sourceCanvas" width="400" height="400"></canvas>
+            <div class="canvas-label">Исходная область (z-плоскость)</div>
+        </div>
+        <div class="canvas-wrapper">
+            <canvas id="targetCanvas" width="400" height="400"></canvas>
+            <div class="canvas-label">Образ функции (w-плоскость)</div>
+        </div>
+    </div>
+    
+    <div class="property-highlight" id="conformal-property">
+        <h3>Конформные свойства</h3>
+        <p id="property-description">
+            Голоморфная функция сохраняет углы между кривыми при отображении. Обратите внимание на то, 
+            как линии сетки пересекаются под прямым углом и в исходной области, и в образе. Это ключевое 
+            свойство конформных отображений.
+        </p>
+        <div id="special-properties"></div>
+    </div>
+
+    <div class="explanation">
+        <h2>Интерпретация конформных отображений</h2>
+        <p>
+            Конформное отображение визуализирует, как функция f(z) преобразует области и фигуры из z-плоскости 
+            в w-плоскость (где w = f(z)). Это дает наглядное представление о геометрических свойствах функции.
+        </p>
+        
+        <p>
+            <strong>Ключевые особенности:</strong>
+        </p>
+        <ul>
+            <li><strong>Сохранение углов:</strong> Голоморфные функции сохраняют углы между кривыми (конформность)</li>
+            <li><strong>Локальное подобие:</strong> В окрестности каждой регулярной точки отображение приближенно является подобием</li>
+            <li><strong>Ортогональность сетки:</strong> Прямоугольная сетка отображается в ортогональную систему кривых</li>
+        </ul>
+        
+        <p>
+            <strong>На визуализации можно наблюдать:</strong>
+        </p>
+        <ul>
+            <li><strong>Нули:</strong> Точки, где сетка стягивается в точку в образе</li>
+            <li><strong>Полюса:</strong> Точки, где сетка "разбегается" в бесконечность</li>
+            <li><strong>Точки ветвления:</strong> Точки, где нарушается конформность (изменяется кратность углов)</li>
+            <li><strong>Кратность преобразования:</strong> Число повторений образа при обходе вокруг особой точки</li>
+        </ul>
+    </div>
+
+    <div class="advantages-disadvantages">
+        <div class="advantages">
+            <h2>Преимущества</h2>
+            <ul>
+                <li>Наглядно демонстрирует конформные свойства функции</li>
+                <li>Показывает глобальное поведение функции на целой области</li>
+                <li>Позволяет визуализировать отображение сложных областей</li>
+                <li>Интуитивно понятно демонстрирует геометрический смысл функции</li>
+                <li>Наглядно показывает точки ветвления и их порядок</li>
+                <li>Эффективно для понимания теоремы Римана о конформном отображении</li>
+            </ul>
+        </div>
+        <div class="disadvantages">
+            <h2>Недостатки</h2>
+            <ul>
+                <li>Не отображает напрямую численные значения функции</li>
+                <li>Может быть сложно интерпретировать при наличии сильных деформаций</li>
+                <li>Требует тщательного выбора исходной сетки для информативной визуализации</li>
+                <li>Трудно визуализировать функции с особенностями и сильными искажениями</li>
+                <li>Сложно одновременно наблюдать детали и глобальное поведение</li>
+                <li>Ограниченная точность представления вблизи особых точек</li>
+            </ul>
+        </div>
+    </div>
+
+    <script>
+        // Получаем холсты и их контексты
+        const sourceCanvas = document.getElementById('sourceCanvas');
+        const targetCanvas = document.getElementById('targetCanvas');
+        const sourceCtx = sourceCanvas.getContext('2d');
+        const targetCtx = targetCanvas.getContext('2d');
+        
+        // Получаем элементы управления
+        const functionSelect = document.getElementById('function-select');
+        const gridTypeSelect = document.getElementById('grid-type');
+        const gridDensityInput = document.getElementById('grid-density');
+        const gridDensityValue = document.getElementById('grid-density-value');
+        const showAnglesCheckbox = document.getElementById('show-angles');
+        const colorGridCheckbox = document.getElementById('color-grid');
+        const animateTransformCheckbox = document.getElementById('animate-transform');
+        const animationControls = document.getElementById('animation-controls');
+        const startAnimationButton = document.getElementById('start-animation');
+        const stopAnimationButton = document.getElementById('stop-animation');
+        
+        // Определяем размеры холстов
+        const width = sourceCanvas.width;
+        const height = sourceCanvas.height;
+        
+        // Определяем область визуализации
+        const viewScale = 3; // Масштаб области: от -viewScale до +viewScale
+        
+        // Переменные для анимации
+        let animationId = null;
+        let animationProgress = 0;
+        const animationDuration = 2000; // ms
+        let animationStartTime = 0;
+        
+        // Вспомогательные функции для преобразования координат
+        function complexToCanvas(z, canvas) {
+            const x = canvas.width / 2 + (z.re * canvas.width) / (2 * viewScale);
+            const y = canvas.height / 2 - (z.im * canvas.height) / (2 * viewScale);
+            return { x, y };
+        }
+        
+        function canvasToComplex(x, y, canvas) {
+            const re = ((x - canvas.width / 2) * 2 * viewScale) / canvas.width;
+            const im = -((y - canvas.height / 2) * 2 * viewScale) / canvas.height;
+            return { re, im };
+        }
+        
+        // Определяем комплексные функции
+        const functions = {
+            z2: z => ({ re: z.re * z.re - z.im * z.im, im: 2 * z.re * z.im }),
+            z3_minus_1: z => {
+                const z2 = { re: z.re * z.re - z.im * z.im, im: 2 * z.re * z.im };
+                const z3 = {
+                    re: z2.re * z.re - z2.im * z.im,
+                    im: z2.re * z.im + z2.im * z.re
+                };
+                return { re: z3.re - 1, im: z3.im };
+            },
+            exp_z: z => {
+                const exp_re = Math.exp(z.re);
+                return {
+                    re: exp_re * Math.cos(z.im),
+                    im: exp_re * Math.sin(z.im)
+                };
+            },
+            sin_z: z => {
+                return {
+                    re: Math.sin(z.re) * Math.cosh(z.im),
+                    im: Math.cos(z.re) * Math.sinh(z.im)
+                };
+            },
+            1_z: z => {
+                const denom = z.re * z.re + z.im * z.im;
+                if (denom < 0.0001) return { re: 1000, im: 0 }; // Избегаем деления на ноль
+                return {
+                    re: z.re / denom,
+                    im: -z.im / denom
+                };
+            },
+            sqrt_z: z => {
+                const r = Math.sqrt(z.re * z.re + z.im * z.im);
+                const theta = Math.atan2(z.im, z.re);
+                const sqrtR = Math.sqrt(r);
+                const halfTheta = theta / 2;
+                return {
+                    re: sqrtR * Math.cos(halfTheta),
+                    im: sqrtR * Math.sin(halfTheta)
+                };
+            },
+            log_z: z => {
+                const r = Math.sqrt(z.re * z.re + z.im * z.im);
+                const theta = Math.atan2(z.im, z.re);
+                return {
+                    re: Math.log(r),
+                    im: theta
+                };
+            },
+            mobius: z => {
+                const num = { re: z.re + 1, im: z.im };
+                const denom = { re: z.re - 1, im: z.im };
+                const denomMagSq = denom.re * denom.re + denom.im * denom.im;
+                
+                if (denomMagSq < 0.0001) return { re: -1000, im: 0 }; // Избегаем деления на ноль
+                
+                return {
+                    re: (num.re * denom.re + num.im * denom.im) / denomMagSq,
+                    im: (num.im * denom.re - num.re * denom.im) / denomMagSq
+                };
+            }
+        };
+        
+        // Функция для отрисовки сетки в исходной области
+        function drawSourceGrid() {
+            sourceCtx.clearRect(0, 0, width, height);
+            
+            const gridType = gridTypeSelect.value;
+            const gridDensity = parseInt(gridDensityInput.value);
+            const showAngles = showAnglesCheckbox.checked;
+            const colorGrid = colorGridCheckbox.checked;
+            
+            // Рисуем оси координат
+            sourceCtx.strokeStyle = 'rgba(0, 0, 0, 0.5)';
+            sourceCtx.lineWidth = 1;
+            
+            // Ось x
+            sourceCtx.beginPath();
+            sourceCtx.moveTo(0, height / 2);
+            sourceCtx.lineTo(width, height / 2);
+            sourceCtx.stroke();
+            
+            // Ось y
+            sourceCtx.beginPath();
+            sourceCtx.moveTo(width / 2, 0);
+            sourceCtx.lineTo(width / 2, height);
+            sourceCtx.stroke();
+            
+            // Рисуем прямоугольную сетку
+            if (gridType === 'rectangular' || gridType === 'both') {
+                const step = viewScale / gridDensity;
+                
+                // Вертикальные линии
+                for (let x = -viewScale; x <= viewScale; x += step) {
+                    sourceCtx.beginPath();
+                    
+                    if (colorGrid) {
+                        // Цветная сетка: от синего (минимум) через зеленый к красному (максимум)
+                        const normalizedX = (x + viewScale) / (2 * viewScale);
+                        sourceCtx.strokeStyle = getColorForValue(normalizedX);
+                    } else {
+                        sourceCtx.strokeStyle = 'rgba(0, 0, 255, 0.5)';
+                    }
+                    
+                    sourceCtx.lineWidth = Math.abs(x) < 0.01 ? 2 : 1;
+                    
+                    const startPoint = complexToCanvas({ re: x, im: -viewScale }, sourceCanvas);
+                    const endPoint = complexToCanvas({ re: x, im: viewScale }, sourceCanvas);
+                    
+                    sourceCtx.moveTo(startPoint.x, startPoint.y);
+                    sourceCtx.lineTo(endPoint.x, endPoint.y);
+                    sourceCtx.stroke();
+                }
+                
+                // Горизонтальные линии
+                for (let y = -viewScale; y <= viewScale; y += step) {
+                    sourceCtx.beginPath();
+                    
+                    if (colorGrid) {
+                        // Цветная сетка: от синего (минимум) через зеленый к красному (максимум)
+                        const normalizedY = (y + viewScale) / (2 * viewScale);
+                        sourceCtx.strokeStyle = getColorForValue(normalizedY);
+                    } else {
+                        sourceCtx.strokeStyle = 'rgba(255, 0, 0, 0.5)';
+                    }
+                    
+                    sourceCtx.lineWidth = Math.abs(y) < 0.01 ? 2 : 1;
+                    
+                    const startPoint = complexToCanvas({ re: -viewScale, im: y }, sourceCanvas);
+                    const endPoint = complexToCanvas({ re: viewScale, im: y }, sourceCanvas);
+                    
+                    sourceCtx.moveTo(startPoint.x, startPoint.y);
+                    sourceCtx.lineTo(endPoint.x, endPoint.y);
+                    sourceCtx.stroke();
+                }
+            }
+            
+            // Рисуем полярную сетку
+            if (gridType === 'polar' || gridType === 'both') {
+                // Окружности (линии постоянного модуля)
+                for (let r = 0.5; r <= viewScale; r += 0.5) {
+                    sourceCtx.beginPath();
+                    
+                    if (colorGrid) {
+                        // Цветная сетка: от синего (минимум) через зеленый к красному (максимум)
+                        const normalizedR = r / viewScale;
+                        sourceCtx.strokeStyle = getColorForValue(normalizedR);
+                    } else {
+                        sourceCtx.strokeStyle = 'rgba(0, 0, 255, 0.5)';
+                    }
+                    
+                    sourceCtx.lineWidth = 1;
+                    
+                    for (let theta = 0; theta <= 2 * Math.PI; theta += 0.01) {
+                        const re = r * Math.cos(theta);
+                        const im = r * Math.sin(theta);
+                        
+                        const point = complexToCanvas({ re, im }, sourceCanvas);
+                        
+                        if (theta === 0) {
+                            sourceCtx.moveTo(point.x, point.y);
+                        } else {
+                            sourceCtx.lineTo(point.x, point.y);
+                        }
+                    }
+                    
+                    sourceCtx.closePath();
+                    sourceCtx.stroke();
+                }
+                
+                // Лучи (линии постоянного аргумента)
+                const angularStep = Math.PI / 6; // 30 градусов
+                for (let theta = 0; theta < 2 * Math.PI; theta += angularStep) {
+                    sourceCtx.beginPath();
+                    
+                    if (colorGrid) {
+                        // Цветная сетка: от синего (минимум) через зеленый к красному (максимум)
+                        const normalizedTheta = theta / (2 * Math.PI);
+                        sourceCtx.strokeStyle = getColorForValue(normalizedTheta);
+                    } else {
+                        sourceCtx.strokeStyle = 'rgba(255, 0, 0, 0.5)';
+                    }
+                    
+                    sourceCtx.lineWidth = 1;
+                    
+                    const startPoint = complexToCanvas({ re: 0, im: 0 }, sourceCanvas);
+                    const endPoint = complexToCanvas({ 
+                        re: viewScale * Math.cos(theta), 
+                        im: viewScale * Math.sin(theta) 
+                    }, sourceCanvas);
+                    
+                    sourceCtx.moveTo(startPoint.x, startPoint.y);
+                    sourceCtx.lineTo(endPoint.x, endPoint.y);
+                    sourceCtx.stroke();
+                }
+            }
+            
+            // Рисуем углы для демонстрации сохранения углов
+            if (showAngles) {
+                drawAngles(sourceCtx, sourceCanvas, null);
+            }
+        }
+        
+        // Функция для отрисовки образа сетки
+        function drawTargetGrid(t = 1) {
+            targetCtx.clearRect(0, 0, width, height);
+            
+            const functionName = functionSelect.value;
+            const f = functions[functionName];
+            const gridType = gridTypeSelect.value;
+            const gridDensity = parseInt(gridDensityInput.value);
+            const showAngles = showAnglesCheckbox.checked;
+            const colorGrid = colorGridCheckbox.checked;
+            
+            // Интерполяционная функция для анимации
+            function interpolate(z, t) {
+                const w = f(z);
+                return {
+                    re: z.re * (1 - t) + w.re * t,
+                    im: z.im * (1 - t) + w.im * t
+                };
+            }
+            
+            // Рисуем оси координат
+            targetCtx.strokeStyle = 'rgba(0, 0, 0, 0.5)';
+            targetCtx.lineWidth = 1;
+            
+            // Ось x
+            targetCtx.beginPath();
+            targetCtx.moveTo(0, height / 2);
+            targetCtx.lineTo(width, height / 2);
+            targetCtx.stroke();
+            
+            // Ось y
+            targetCtx.beginPath();
+            targetCtx.moveTo(width / 2, 0);
+            targetCtx.lineTo(width / 2, height);
+            targetCtx.stroke();
+            
+            // Рисуем образ прямоугольной сетки
+            if (gridType === 'rectangular' || gridType === 'both') {
+                const step = viewScale / gridDensity;
+                
+                // Вертикальные линии
+                for (let x = -viewScale; x <= viewScale; x += step) {
+                    targetCtx.beginPath();
+                    
+                    if (colorGrid) {
+                        // Цветная сетка: от синего (минимум) через зеленый к красному (максимум)
+                        const normalizedX = (x + viewScale) / (2 * viewScale);
+                        targetCtx.strokeStyle = getColorForValue(normalizedX);
+                    } else {
+                        targetCtx.strokeStyle = 'rgba(0, 0, 255, 0.5)';
+                    }
+                    
+                    targetCtx.lineWidth = Math.abs(x) < 0.01 ? 2 : 1;
+                    
+                    let firstPoint = true;
+                    
+                    for (let y = -viewScale; y <= viewScale; y += step / 10) {
+                        const z = { re: x, im: y };
+                        const w = animateTransformCheckbox.checked ? interpolate(z, t) : f(z);
+                        
+                        // Проверяем, чтобы точка находилась в пределах области визуализации
+                        if (Math.abs(w.re) > viewScale * 3 || Math.abs(w.im) > viewScale * 3) {
+                            firstPoint = true;
+                            continue;
+                        }
+                        
+                        const point = complexToCanvas(w, targetCanvas);
+                        
+                        if (firstPoint) {
+                            targetCtx.moveTo(point.x, point.y);
+                            firstPoint = false;
+                        } else {
+                            targetCtx.lineTo(point.x, point.y);
+                        }
+                    }
+                    
+                    targetCtx.stroke();
+                }
+                
+                // Горизонтальные линии
+                for (let y = -viewScale; y <= viewScale; y += step) {
+                    targetCtx.beginPath();
+                    
+                    if (colorGrid) {
+                        // Цветная сетка: от синего (минимум) через зеленый к красному (максимум)
+                        const normalizedY = (y + viewScale) / (2 * viewScale);
+                        targetCtx.strokeStyle = getColorForValue(normalizedY);
+                    } else {
+                        targetCtx.strokeStyle = 'rgba(255, 0, 0, 0.5)';
+                    }
+                    
+                    targetCtx.lineWidth = Math.abs(y) < 0.01 ? 2 : 1;
+                    
+                    let firstPoint = true;
+                    
+                    for (let x = -viewScale; x <= viewScale; x += step / 10) {
+                        const z = { re: x, im: y };
+                        const w = animateTransformCheckbox.checked ? interpolate(z, t) : f(z);
+                        
+                        // Проверяем, чтобы точка находилась в пределах области визуализации
+                        if (Math.abs(w.re) > viewScale * 3 || Math.abs(w.im) > viewScale * 3) {
+                            firstPoint = true;
+                            continue;
+                        }
+                        
+                        const point = complexToCanvas(w, targetCanvas);
+                        
+                        if (firstPoint) {
+                            targetCtx.moveTo(point.x, point.y);
+                            firstPoint = false;
+                        } else {
+                            targetCtx.lineTo(point.x, point.y);
+                        }
+                    }
+                    
+                    targetCtx.stroke();
+                }
+            }
+            
+            // Рисуем образ полярной сетки
+            if (gridType === 'polar' || gridType === 'both') {
+                // Окружности (линии постоянного модуля)
+                for (let r = 0.5; r <= viewScale; r += 0.5) {
+                    targetCtx.beginPath();
+                    
+                    if (colorGrid) {
+                        // Цветная сетка: от синего (минимум) через зеленый к красному (максимум)
+                        const normalizedR = r / viewScale;
+                        targetCtx.strokeStyle = getColorForValue(normalizedR);
+                    } else {
+                        targetCtx.strokeStyle = 'rgba(0, 0, 255, 0.5)';
+                    }
+                    
+                    targetCtx.lineWidth = 1;
+                    
+                    let firstPoint = true;
+                    
+                    for (let theta = 0; theta <= 2 * Math.PI; theta += 0.01) {
+                        const z = {
+                            re: r * Math.cos(theta),
+                            im: r * Math.sin(theta)
+                        };
+                        
+                        const w = animateTransformCheckbox.checked ? interpolate(z, t) : f(z);
+                        
+                        // Проверяем, чтобы точка находилась в пределах области визуализации
+                        if (Math.abs(w.re) > viewScale * 3 || Math.abs(w.im) > viewScale * 3) {
+                            firstPoint = true;
+                            continue;
+                        }
+                        
+                        const point = complexToCanvas(w, targetCanvas);
+                        
+                        if (firstPoint) {
+                            targetCtx.moveTo(point.x, point.y);
+                            firstPoint = false;
+                        } else {
+                            targetCtx.lineTo(point.x, point.y);
+                        }
+                    }
+                    
+                    targetCtx.stroke();
+                }
+                
+                // Лучи (линии постоянного аргумента)
+                const angularStep = Math.PI / 6; // 30 градусов
+                for (let theta = 0; theta < 2 * Math.PI; theta += angularStep) {
+                    targetCtx.beginPath();
+                    
+                    if (colorGrid) {
+                        // Цветная сетка: от синего (минимум) через зеленый к красному (максимум)
+                        const normalizedTheta = theta / (2 * Math.PI);
+                        targetCtx.strokeStyle = getColorForValue(normalizedTheta);
+                    } else {
+                        targetCtx.strokeStyle = 'rgba(255, 0, 0, 0.5)';
+                    }
+                    
+                    targetCtx.lineWidth = 1;
+                    
+                    let firstPoint = true;
+                    
+                    for (let r = 0; r <= viewScale; r += viewScale / 100) {
+                        const z = {
+                            re: r * Math.cos(theta),
+                            im: r * Math.sin(theta)
+                        };
+                        
+                        const w = animateTransformCheckbox.checked ? interpolate(z, t) : f(z);
+                        
+                        // Проверяем, чтобы точка находилась в пределах области визуализации
+                        if (Math.abs(w.re) > viewScale * 3 || Math.abs(w.im) > viewScale * 3) {
+                            firstPoint = true;
+                            continue;
+                        }
+                        
+                        const point = complexToCanvas(w, targetCanvas);
+                        
+                        if (firstPoint) {
+                            targetCtx.moveTo(point.x, point.y);
+                            firstPoint = false;
+                        } else {
+                            targetCtx.lineTo(point.x, point.y);
+                        }
+                    }
+                    
+                    targetCtx.stroke();
+                }
+            }
+            
+            // Рисуем углы для демонстрации сохранения углов
+            if (showAngles) {
+                drawAngles(targetCtx, targetCanvas, f, t);
+            }
+            
+            // Обновляем описание свойств
+            updatePropertyDescription();
+        }
+        
+        // Функция для рисования углов
+        function drawAngles(ctx, canvas, f, t = 1) {
+            // Рисуем несколько пар линий, пересекающихся под разными углами
+            const anglePositions = [
+                { re: 1, im: 1 },
+                { re: -1, im: 1 },
+                { re: -1, im: -1 },
+                { re: 1, im: -1 }
+            ];
+            
+            const angles = [
+                [0, Math.PI/4],
+                [Math.PI/4, Math.PI/2],
+                [0, Math.PI/2],
+                [Math.PI/4, 3*Math.PI/4]
+            ];
+            
+            // Рисуем углы в заданных позициях
+            for (let i = 0; i < anglePositions.length; i++) {
+                const pos = anglePositions[i];
+                const [angle1, angle2] = angles[i];
+                
+                // Определяем точку пересечения
+                let intersection;
+                if (f) {
+                    // Для образа используем функцию
+                    const z = pos;
+                    const w = animateTransformCheckbox.checked ? 
+                        interpolateZ(z, f(z), t) : f(z);
+                    intersection = complexToCanvas(w, canvas);
+                } else {
+                    // Для исходной области используем исходные точки
+                    intersection = complexToCanvas(pos, canvas);
+                }
+                
+                // Определяем длину линий
+                const lineLength = 20;
+                
+                // Рисуем первую линию
+                ctx.beginPath();
+                ctx.strokeStyle = 'rgba(255, 0, 255, 0.8)';
+                ctx.lineWidth = 2;
+                
+                // Если это образ, нужно учесть эффект функции на углы
+                if (f) {
+                    // Для образа используем якобиан функции для вычисления направления
+                    // Это сложно реализовать точно, поэтому используем приближение
+                    // Рисуем первую линию
+                    const z1 = addComplexPolar(pos, 0.1, angle1);
+                    const w1 = animateTransformCheckbox.checked ? 
+                        interpolateZ(z1, f(z1), t) : f(z1);
+                    const point1 = complexToCanvas(w1, canvas);
+                    
+                    ctx.moveTo(intersection.x, intersection.y);
+                    
+                    // Вычисляем направление от пересечения к точке
+                    const dx1 = point1.x - intersection.x;
+                    const dy1 = point1.y - intersection.y;
+                    const length1 = Math.sqrt(dx1*dx1 + dy1*dy1);
+                    
+                    if (length1 > 0) {
+                        const nx1 = dx1 / length1;
+                        const ny1 = dy1 / length1;
+                        
+                        ctx.lineTo(
+                            intersection.x + nx1 * lineLength,
+                            intersection.y + ny1 * lineLength
+                        );
+                    }
+                } else {
+                    // Для исходной области просто используем углы напрямую
+                    ctx.moveTo(intersection.x, intersection.y);
+                    ctx.lineTo(
+                        intersection.x + lineLength * Math.cos(angle1),
+                        intersection.y - lineLength * Math.sin(angle1)
+                    );
+                }
+                ctx.stroke();
+                
+                // Рисуем вторую линию
+                ctx.beginPath();
+                ctx.strokeStyle = 'rgba(0, 255, 255, 0.8)';
+                ctx.lineWidth = 2;
+                
+                if (f) {
+                    // Для образа используем якобиан функции для вычисления направления
+                    const z2 = addComplexPolar(pos, 0.1, angle2);
+                    const w2 = animateTransformCheckbox.checked ? 
+                        interpolateZ(z2, f(z2), t) : f(z2);
+                    const point2 = complexToCanvas(w2, canvas);
+                    
+                    ctx.moveTo(intersection.x, intersection.y);
+                    
+                    // Вычисляем направление от пересечения к точке
+                    const dx2 = point2.x - intersection.x;
+                    const dy2 = point2.y - intersection.y;
+                    const length2 = Math.sqrt(dx2*dx2 + dy2*dy2);
+                    
+                    if (length2 > 0) {
+                        const nx2 = dx2 / length2;
+                        const ny2 = dy2 / length2;
+                        
+                        ctx.lineTo(
+                            intersection.x + nx2 * lineLength,
+                            intersection.y + ny2 * lineLength
+                        );
+                    }
+                } else {
+                    // Для исходной области просто используем углы напрямую
+                    ctx.moveTo(intersection.x, intersection.y);
+                    ctx.lineTo(
+                        intersection.x + lineLength * Math.cos(angle2),
+                        intersection.y - lineLength * Math.sin(angle2)
+                    );
+                }
+                ctx.stroke();
+                
+                // Рисуем дугу для обозначения угла
+                ctx.beginPath();
+                ctx.strokeStyle = 'rgba(50, 200, 50, 0.8)';
+                ctx.lineWidth = 2;
+                
+                const arcRadius = 10;
+                const startAngle = f ? 
+                    Math.atan2(-dy1, dx1) : 
+                    angle1;
+                const endAngle = f ? 
+                    Math.atan2(-dy2, dx2) : 
+                    angle2;
+                
+                // Для образа используем вычисленные направления
+                if (f) {
+                    const clockwise = isClockwise(startAngle, endAngle);
+                    ctx.arc(
+                        intersection.x, 
+                        intersection.y, 
+                        arcRadius, 
+                        startAngle, 
+                        endAngle, 
+                        !clockwise
+                    );
+                } else {
+                    // Для исходной области используем углы напрямую
+                    ctx.arc(
+                        intersection.x, 
+                        intersection.y, 
+                        arcRadius, 
+                        -angle1, 
+                        -angle2, 
+                        angle1 > angle2
+                    );
+                }
+                ctx.stroke();
+            }
+        }
+        
+        // Функция для определения, идет ли угол по часовой стрелке
+        function isClockwise(startAngle, endAngle) {
+            // Нормализуем углы
+            const normStart = (startAngle + 2 * Math.PI) % (2 * Math.PI);
+            const normEnd = (endAngle + 2 * Math.PI) % (2 * Math.PI);
+            
+            // Если конечный угол меньше начального, добавляем полный круг
+            const adjustedEnd = normEnd < normStart ? normEnd + 2 * Math.PI : normEnd;
+            
+            // Угол по часовой стрелке, если разница меньше PI
+            return (adjustedEnd - normStart) <= Math.PI;
+        }
+        
+        // Функция для добавления к комплексному числу смещения в полярных координатах
+        function addComplexPolar(z, r, theta) {
+            return {
+                re: z.re + r * Math.cos(theta),
+                im: z.im + r * Math.sin(theta)
+            };
+        }
+        
+        // Функция для интерполяции между двумя комплексными числами
+        function interpolateZ(z1, z2, t) {
+            return {
+                re: z1.re * (1 - t) + z2.re * t,
+                im: z1.im * (1 - t) + z2.im * t
+            };
+        }
+        
+        // Функция для получения цвета в зависимости от значения
+        function getColorForValue(value) {
+            // От синего (0) через зеленый (0.5) к красному (1)
+            let r, g, b;
+            
+            if (value < 0.5) {
+                // От синего к зеленому
+                b = 1 - 2 * value;
+                g = 2 * value;
+                r = 0;
+            } else {
+                // От зеленого к красному
+                b = 0;
+                g = 2 - 2 * value;
+                r = 2 * value - 1;
+            }
+            
+            return `rgb(${Math.round(r * 255)}, ${Math.round(g * 255)}, ${Math.round(b * 255)})`;
+        }
+        
+        // Функция для обновления описания свойств
+        function updatePropertyDescription() {
+            const functionName = functionSelect.value;
+            const specialProps = document.getElementById('special-properties');
+            let specialText = '';
+            
+            // Описания для разных функций
+            switch (functionName) {
+                case 'z2':
+                    specialText = `
+                        <p>Функция f(z) = z² имеет нуль второго порядка в точке z = 0. Обратите внимание, 
+                        как угол поворачивается вдвое быстрее в образе - это типичное свойство функции z^n.</p>
+                        <p>Каждой точке w образа (кроме w = 0) соответствуют ровно две точки z в прообразе.</p>
+                    `;
+                    break;
+                case '1_z':
+                    specialText = `
+                        <p>Функция f(z) = 1/z отображает внутренность круга единичного радиуса на внешность этого круга и наоборот. 
+                        Это свойство известно как инверсия относительно единичной окружности.</p>
+                        <p>Функция имеет полюс первого порядка в точке z = 0.</p>
+                    `;
+                    break;
+                case 'sin_z':
+                    specialText = `
+                        <p>Функция sin(z) периодична с периодом 2π вдоль действительной оси. Всем значениям w в образе соответствует 
+                        бесконечно много точек z в прообразе.</p>
+                        <p>Функция имеет нули в точках z = nπ, где n - целое число.</p>
+                    `;
+                    break;
+                case 'exp_z':
+                    specialText = `
+                        <p>Экспонента e^z отображает вертикальные полосы на плоскости z в концентрические кольца на плоскости w,
+                        а горизонтальные полосы - в секторы. Функция периодична с периодом 2πi вдоль мнимой оси.</p>
+                        <p>Образ функции покрывает всю комплексную плоскость, кроме точки w = 0.</p>
+                    `;
+                    break;
+                case 'z3_minus_1':
+                    specialText = `
+                        <p>Функция f(z) = z³ - 1 имеет три корня третьей степени из единицы: 1, -1/2 + i√3/2, -1/2 - i√3/2.
+                        В окрестности каждого корня угол поворачивается в 3 раза быстрее.</p>
+                        <p>Каждой точке w образа (кроме w = 0) соответствуют ровно три точки z в прообразе.</p>
+                    `;
+                    break;
+                case 'sqrt_z':
+                    specialText = `
+                        <p>Функция f(z) = √z является многозначной и имеет точку ветвления при z = 0. На визуализации показана 
+                        главная ветвь функции с разрезом по отрицательной действительной полуоси.</p>
+                        <p>Угол в 2π в области определения отображается в угол π в образе.</p>
+                    `;
+                    break;
+                case 'log_z':
+                    specialText = `
+                        <p>Логарифм является многозначной функцией с точкой ветвления при z = 0 и разрезом по отрицательной 
+                        действительной полуоси. Функция отображает концентрические окружности в горизонтальные линии, а лучи - в вертикальные.</p>
+                        <p>Главная ветвь логарифма отображает всю комплексную плоскость с разрезом на горизонтальную полосу шириной 2π.</p>
+                    `;
+                    break;
+                case 'mobius':
+                    specialText = `
+                        <p>Дробно-линейное преобразование f(z) = (z+1)/(z-1) отображает прямые и окружности снова в прямые и окружности.
+                        Точка z = 1 отображается в бесконечность, а точка z = -1 в 0.</p>
+                        <p>Функция отображает единичный круг на левую полуплоскость, а внешность круга на правую полуплоскость.</p>
+                    `;
+                    break;
+            }
+            
+            specialProps.innerHTML = specialText;
+        }
+        
+        // Функция для анимации преобразования
+        function animateTransformation(timestamp) {
+            if (!animationStartTime) {
+                animationStartTime = timestamp;
+            }
+            
+            const elapsed = timestamp - animationStartTime;
+            let progress = elapsed / animationDuration;
+            
+            if (progress > 1) {
+                progress = 0;
+                animationStartTime = timestamp;
+            }
+            
+            drawTargetGrid(progress);
+            
+            animationId = requestAnimationFrame(animateTransformation);
+        }
+        
+        // Обработчики событий
+        functionSelect.addEventListener('change', () => {
+            drawSourceGrid();
+            drawTargetGrid();
+        });
+        
+        gridTypeSelect.addEventListener('change', () => {
+            drawSourceGrid();
+            drawTargetGrid();
+        });
+        
+        gridDensityInput.addEventListener('input', () => {
+            gridDensityValue.textContent = gridDensityInput.value;
+            drawSourceGrid();
+            drawTargetGrid();
+        });
+        
+        showAnglesCheckbox.addEventListener('change', () => {
+            drawSourceGrid();
+            drawTargetGrid();
+        });
+        
+        colorGridCheckbox.addEventListener('change', () => {
+            drawSourceGrid();
+            drawTargetGrid();
+        });
+        
+        animateTransformCheckbox.addEventListener('change', () => {
+            if (animateTransformCheckbox.checked) {
+                animationControls.style.display = 'block';
+            } else {
+                animationControls.style.display = 'none';
+                
+                // Если анимация запущена, останавливаем ее
+                if (animationId) {
+                    cancelAnimationFrame(animationId);
+                    animationId = null;
+                }
+                
+                // Отрисовываем конечный результат
+                drawTargetGrid();
+            }
+        });
+        
+        startAnimationButton.addEventListener('click', () => {
+            if (animationId) {
+                cancelAnimationFrame(animationId);
+            }
+            
+            animationStartTime = 0;
+            animationId = requestAnimationFrame(animateTransformation);
+        });
+        
+        stopAnimationButton.addEventListener('click', () => {
+            if (animationId) {
+                cancelAnimationFrame(animationId);
+                animationId = null;
+            }
+            
+            // Отрисовываем конечный результат
+            drawTargetGrid();
+        });
+        
+        // Начальная отрисовка
+        drawSourceGrid();
+        drawTargetGrid();
+        updatePropertyDescription();
+    </script>
+</body>
+</html>

@@ -1,0 +1,734 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Векторные поля</title>
+    <style>
+        body {
+            font-family: 'Arial', sans-serif;
+            line-height: 1.6;
+            color: #333;
+            max-width: 1000px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        h1 {
+            color: #2c3e50;
+            text-align: center;
+            margin-bottom: 30px;
+        }
+        h2 {
+            color: #3498db;
+            margin-top: 30px;
+        }
+        .canvas-container {
+            display: flex;
+            justify-content: center;
+            margin: 20px 0;
+            position: relative;
+        }
+        canvas {
+            border: 1px solid #ddd;
+        }
+        .controls {
+            background-color: #f5f5f5;
+            padding: 15px;
+            border-radius: 5px;
+            margin: 20px 0;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 15px;
+            align-items: center;
+        }
+        .control-group {
+            margin-right: 15px;
+        }
+        .advantages-disadvantages {
+            display: flex;
+            justify-content: space-between;
+            margin-top: 30px;
+        }
+        .advantages, .disadvantages {
+            width: 48%;
+            padding: 15px;
+            border-radius: 5px;
+        }
+        .advantages {
+            background-color: #e8f8f5;
+            border-left: 5px solid #1abc9c;
+        }
+        .disadvantages {
+            background-color: #fef5e7;
+            border-left: 5px solid #f39c12;
+        }
+        ul {
+            padding-left: 20px;
+        }
+        .explanation {
+            margin-top: 20px;
+            padding: 15px;
+            background-color: #eaf2f8;
+            border-radius: 5px;
+        }
+        .range-control {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        .range-control input {
+            width: 150px;
+        }
+        .legend {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin: 15px 0;
+            flex-wrap: wrap;
+            gap: 15px;
+        }
+        .legend-item {
+            display: flex;
+            align-items: center;
+            margin: 0 10px;
+        }
+        .legend-color {
+            width: 20px;
+            height: 20px;
+            margin-right: 5px;
+            border: 1px solid #000;
+        }
+        .special-points {
+            margin: 15px 0;
+            padding: 10px;
+            background-color: #e8f4fc;
+            border-radius: 5px;
+        }
+        .checkbox-group {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+        }
+        .color-scheme-select {
+            display: flex;
+            gap: 10px;
+            align-items: center;
+        }
+    </style>
+</head>
+<body>
+    <h1>Векторные поля для визуализации функций комплексного переменного</h1>
+    
+    <p>
+        Метод векторных полей представляет функцию комплексного переменного f(z) в виде векторного поля 
+        на плоскости, где каждой точке z соответствует вектор, определяемый значением f(z). Этот метод 
+        дает наглядное представление о направлении и величине функции в каждой точке.
+    </p>
+
+    <div class="controls">
+        <div class="control-group">
+            <label for="function-select">Выберите функцию: </label>
+            <select id="function-select">
+                <option value="z">f(z) = z</option>
+                <option value="z2">f(z) = z²</option>
+                <option value="1_z">f(z) = 1/z</option>
+                <option value="sin_z">f(z) = sin(z)</option>
+                <option value="exp_z">f(z) = exp(z)</option>
+                <option value="z3_minus_1">f(z) = z³ - 1</option>
+            </select>
+        </div>
+        
+        <div class="control-group range-control">
+            <label for="density">Плотность векторов: </label>
+            <input type="range" id="density" min="5" max="30" value="15">
+            <span id="density-value">15</span>
+        </div>
+        
+        <div class="control-group range-control">
+            <label for="scale">Масштаб векторов: </label>
+            <input type="range" id="scale" min="0.1" max="2" step="0.1" value="0.8">
+            <span id="scale-value">0.8</span>
+        </div>
+    </div>
+    
+    <div class="controls">
+        <div class="control-group color-scheme-select">
+            <label for="color-scheme">Цветовая схема: </label>
+            <select id="color-scheme">
+                <option value="direction">По направлению (аргументу)</option>
+                <option value="magnitude">По величине (модулю)</option>
+            </select>
+        </div>
+        
+        <div class="control-group checkbox-group">
+            <div>
+                <input type="checkbox" id="show-background" checked>
+                <label for="show-background">Фоновая окраска</label>
+            </div>
+            
+            <div>
+                <input type="checkbox" id="normalize-vectors">
+                <label for="normalize-vectors">Нормализовать векторы</label>
+            </div>
+            
+            <div>
+                <input type="checkbox" id="show-special-points" checked>
+                <label for="show-special-points">Показать особые точки</label>
+            </div>
+        </div>
+    </div>
+    
+    <div class="canvas-container">
+        <canvas id="vectorFieldCanvas" width="600" height="600"></canvas>
+    </div>
+    
+    <div class="special-points" id="special-points-info">
+        <h3>Особые точки функции:</h3>
+        <div id="special-points-list"></div>
+    </div>
+
+    <div class="legend" id="color-legend">
+        <!-- Легенда будет заполнена с помощью JavaScript -->
+    </div>
+
+    <div class="explanation">
+        <h2>Интерпретация векторного поля</h2>
+        <p>
+            <strong>Векторное поле</strong> представляет собой набор векторов, расположенных в узлах регулярной сетки 
+            на комплексной плоскости. Каждый вектор отображает значение функции f(z) в соответствующей точке z.
+        </p>
+        
+        <p>
+            <strong>Интерпретация вектора:</strong>
+        </p>
+        <ul>
+            <li><strong>Начало вектора</strong> соответствует точке z на комплексной плоскости</li>
+            <li><strong>Направление вектора</strong> определяется аргументом функции f(z)</li>
+            <li><strong>Длина вектора</strong> пропорциональна модулю функции |f(z)|</li>
+        </ul>
+        
+        <p>
+            <strong>Особые точки функции:</strong>
+        </p>
+        <ul>
+            <li><strong>Нули:</strong> точки, где векторы исчезают (или становятся очень маленькими)</li>
+            <li><strong>Полюса:</strong> точки, где векторы расходятся во все стороны от центра</li>
+            <li><strong>Критические точки:</strong> точки, где происходит резкое изменение направления векторов</li>
+        </ul>
+        
+        <p>
+            <strong>Анализ векторного поля:</strong>
+        </p>
+        <ul>
+            <li><strong>Завихрения:</strong> области, где векторы образуют вихревые структуры</li>
+            <li><strong>Источники и стоки:</strong> точки, откуда векторы исходят или куда они сходятся</li>
+            <li><strong>Седловые точки:</strong> точки, где векторы расходятся в одном направлении и сходятся в другом</li>
+        </ul>
+    </div>
+
+    <div class="advantages-disadvantages">
+        <div class="advantages">
+            <h2>Преимущества</h2>
+            <ul>
+                <li>Наглядно показывает направление и величину функции</li>
+                <li>Интуитивно понятная визуализация для функций с физической интерпретацией</li>
+                <li>Хорошо отображает локальное поведение функции</li>
+                <li>Позволяет легко идентифицировать особые точки (нули, полюса)</li>
+                <li>Эффективен для анализа критических точек и особенностей</li>
+                <li>Демонстрирует свойства голоморфных функций (теорема Коши-Римана)</li>
+            </ul>
+        </div>
+        <div class="disadvantages">
+            <h2>Недостатки</h2>
+            <ul>
+                <li>Перегруженность изображения при большом количестве векторов</li>
+                <li>Ограниченная точность представления значений функции</li>
+                <li>Сложности с визуализацией функций с большим диапазоном значений</li>
+                <li>Трудности в отображении полюсов (бесконечных значений)</li>
+                <li>Менее наглядное представление глобальной структуры функции</li>
+                <li>Требует внимательного подбора плотности и масштаба векторов</li>
+            </ul>
+        </div>
+    </div>
+
+    <script>
+        // Определяем основные переменные
+        const canvas = document.getElementById('vectorFieldCanvas');
+        const ctx = canvas.getContext('2d');
+        const width = canvas.width;
+        const height = canvas.height;
+        
+        // Преобразование координат холста в комплексные числа
+        function canvasToComplex(x, y) {
+            const scale = 4;
+            const real = (x - width / 2) / (width / scale);
+            const imag = -(y - height / 2) / (height / scale);
+            return { real, imag };
+        }
+        
+        // Преобразование комплексных координат в координаты холста
+        function complexToCanvas(real, imag) {
+            const scale = 4;
+            const x = width / 2 + real * (width / scale);
+            const y = height / 2 - imag * (height / scale);
+            return { x, y };
+        }
+        
+        // Комплексные функции
+        const functions = {
+            z: z => z,
+            z2: z => ({ real: z.real * z.real - z.imag * z.imag, imag: 2 * z.real * z.imag }),
+            z3_minus_1: z => {
+                const z3 = {
+                    real: z.real * z.real * z.real - 3 * z.real * z.imag * z.imag,
+                    imag: 3 * z.real * z.real * z.imag - z.imag * z.imag * z.imag
+                };
+                return { real: z3.real - 1, imag: z3.imag };
+            },
+            exp_z: z => {
+                const exp_real = Math.exp(z.real);
+                return {
+                    real: exp_real * Math.cos(z.imag),
+                    imag: exp_real * Math.sin(z.imag)
+                };
+            },
+            sin_z: z => {
+                return {
+                    real: Math.sin(z.real) * Math.cosh(z.imag),
+                    imag: Math.cos(z.real) * Math.sinh(z.imag)
+                };
+            },
+            1_z: z => {
+                const denom = z.real * z.real + z.imag * z.imag;
+                if (denom < 0.0001) return { real: 1000, imag: 0 }; // Избегаем деления на ноль
+                return {
+                    real: z.real / denom,
+                    imag: -z.imag / denom
+                };
+            }
+        };
+        
+        // Информация об особых точках для каждой функции
+        const specialPoints = {
+            z: [],
+            z2: [{ real: 0, imag: 0, type: "нуль" }],
+            z3_minus_1: [
+                { real: 1, imag: 0, type: "нуль" },
+                { real: -0.5, imag: 0.866, type: "нуль" },
+                { real: -0.5, imag: -0.866, type: "нуль" }
+            ],
+            exp_z: [],
+            sin_z: [
+                { real: 0, imag: 0, type: "нуль" },
+                { real: Math.PI, imag: 0, type: "нуль" },
+                { real: -Math.PI, imag: 0, type: "нуль" }
+            ],
+            1_z: [{ real: 0, imag: 0, type: "полюс" }]
+        };
+        
+        // Функция для вычисления модуля комплексного числа
+        function complexAbs(z) {
+            return Math.sqrt(z.real * z.real + z.imag * z.imag);
+        }
+        
+        // Функция для вычисления аргумента комплексного числа
+        function complexArg(z) {
+            return Math.atan2(z.imag, z.real);
+        }
+        
+        // Функция для отрисовки векторного поля
+        function drawVectorField() {
+            // Очищаем холст
+            ctx.clearRect(0, 0, width, height);
+            
+            // Получаем параметры из элементов управления
+            const functionName = document.getElementById('function-select').value;
+            const density = parseInt(document.getElementById('density').value);
+            const vectorScale = parseFloat(document.getElementById('scale').value);
+            const colorScheme = document.getElementById('color-scheme').value;
+            const showBackground = document.getElementById('show-background').checked;
+            const normalizeVectors = document.getElementById('normalize-vectors').checked;
+            const showSpecialPoints = document.getElementById('show-special-points').checked;
+            
+            // Получаем функцию
+            const f = functions[functionName];
+            
+            // Если выбран показ фона, рисуем его
+            if (showBackground) {
+                drawBackground(f, colorScheme);
+            }
+            
+            // Рисуем оси координат
+            drawAxes();
+            
+            // Рисуем векторы
+            const step = width / density;
+            
+            for (let x = 0; x < width; x += step) {
+                for (let y = 0; y < height; y += step) {
+                    const z = canvasToComplex(x, y);
+                    const fz = f(z);
+                    
+                    // Если fz слишком большое, пропускаем точку
+                    const absFz = complexAbs(fz);
+                    if (absFz > 10) continue;
+                    
+                    // Определяем длину вектора
+                    let vectorLength = vectorScale * step * Math.min(1, absFz / 3);
+                    
+                    // Если нормализация включена, то все векторы имеют одинаковую длину
+                    if (normalizeVectors && absFz > 0.01) {
+                        vectorLength = vectorScale * step;
+                    }
+                    
+                    // Определяем компоненты вектора
+                    const angle = complexArg(fz);
+                    const dx = vectorLength * Math.cos(angle);
+                    const dy = -vectorLength * Math.sin(angle);
+                    
+                    // Определяем цвет вектора в зависимости от выбранной схемы
+                    let color;
+                    if (colorScheme === 'direction') {
+                        // Цвет по направлению (аргументу)
+                        const hue = ((angle + Math.PI) / (2 * Math.PI)) * 360;
+                        color = `hsl(${hue}, 100%, 50%)`;
+                    } else {
+                        // Цвет по величине (модулю)
+                        // Используем градиент от синего (малые значения) к красному (большие значения)
+                        const normalizedAbs = Math.min(1, absFz / 3);
+                        color = getColorByMagnitude(normalizedAbs);
+                    }
+                    
+                    // Рисуем вектор
+                    drawVector(x, y, dx, dy, color);
+                }
+            }
+            
+            // Рисуем особые точки
+            if (showSpecialPoints) {
+                drawSpecialPoints(functionName);
+            }
+            
+            // Обновляем легенду
+            updateLegend(colorScheme);
+            
+            // Обновляем информацию об особых точках
+            updateSpecialPointsInfo(functionName);
+        }
+        
+        // Функция для рисования фона
+        function drawBackground(f, colorScheme) {
+            const imageData = ctx.createImageData(width, height);
+            const data = imageData.data;
+            
+            for (let y = 0; y < height; y++) {
+                for (let x = 0; x < width; x++) {
+                    const z = canvasToComplex(x, y);
+                    const fz = f(z);
+                    const absFz = complexAbs(fz);
+                    
+                    let color;
+                    if (colorScheme === 'direction') {
+                        // Цвет по направлению (аргументу)
+                        const angle = complexArg(fz);
+                        const hue = ((angle + Math.PI) / (2 * Math.PI)) * 360;
+                        const saturation = Math.min(1, absFz / 3);
+                        
+                        // Преобразуем HSL в RGB для фона с пониженной насыщенностью
+                        color = hslToRgb(hue / 360, saturation * 0.5, 0.9);
+                    } else {
+                        // Цвет по величине (модулю)
+                        const normalizedAbs = Math.min(1, absFz / 3);
+                        const rgb = getColorByMagnitudeRGB(normalizedAbs);
+                        
+                        // Для фона делаем цвет более светлым
+                        color = {
+                            r: Math.floor(rgb.r * 0.5 + 128),
+                            g: Math.floor(rgb.g * 0.5 + 128),
+                            b: Math.floor(rgb.b * 0.5 + 128)
+                        };
+                    }
+                    
+                    const index = (y * width + x) * 4;
+                    data[index] = color.r;
+                    data[index + 1] = color.g;
+                    data[index + 2] = color.b;
+                    data[index + 3] = 100; // Прозрачность для фона
+                }
+            }
+            
+            ctx.putImageData(imageData, 0, 0);
+        }
+        
+        // Функция для рисования осей координат
+        function drawAxes() {
+            ctx.strokeStyle = 'rgba(0, 0, 0, 0.5)';
+            ctx.lineWidth = 1;
+            
+            // Ось x
+            ctx.beginPath();
+            ctx.moveTo(0, height / 2);
+            ctx.lineTo(width, height / 2);
+            ctx.stroke();
+            
+            // Ось y
+            ctx.beginPath();
+            ctx.moveTo(width / 2, 0);
+            ctx.lineTo(width / 2, height);
+            ctx.stroke();
+            
+            // Риски на осях
+            ctx.lineWidth = 0.5;
+            const scale = 4;
+            const step = width / scale;
+            
+            for (let i = 1; i <= scale / 2; i++) {
+                // Положительные риски по x
+                ctx.beginPath();
+                ctx.moveTo(width / 2 + i * step, height / 2 - 5);
+                ctx.lineTo(width / 2 + i * step, height / 2 + 5);
+                ctx.stroke();
+                
+                // Отрицательные риски по x
+                ctx.beginPath();
+                ctx.moveTo(width / 2 - i * step, height / 2 - 5);
+                ctx.lineTo(width / 2 - i * step, height / 2 + 5);
+                ctx.stroke();
+                
+                // Положительные риски по y
+                ctx.beginPath();
+                ctx.moveTo(width / 2 - 5, height / 2 - i * step);
+                ctx.lineTo(width / 2 + 5, height / 2 - i * step);
+                ctx.stroke();
+                
+                // Отрицательные риски по y
+                ctx.beginPath();
+                ctx.moveTo(width / 2 - 5, height / 2 + i * step);
+                ctx.lineTo(width / 2 + 5, height / 2 + i * step);
+                ctx.stroke();
+            }
+        }
+        
+        // Функция для рисования вектора
+        function drawVector(x, y, dx, dy, color) {
+            const headSize = 4;
+            const angle = Math.atan2(dy, dx);
+            
+            ctx.strokeStyle = color;
+            ctx.fillStyle = color;
+            ctx.lineWidth = 2;
+            
+            // Рисуем линию вектора
+            ctx.beginPath();
+            ctx.moveTo(x, y);
+            ctx.lineTo(x + dx, y + dy);
+            ctx.stroke();
+            
+            // Рисуем стрелку
+            ctx.beginPath();
+            ctx.moveTo(x + dx, y + dy);
+            ctx.lineTo(x + dx - headSize * Math.cos(angle - Math.PI / 6), y + dy - headSize * Math.sin(angle - Math.PI / 6));
+            ctx.lineTo(x + dx - headSize * Math.cos(angle + Math.PI / 6), y + dy - headSize * Math.sin(angle + Math.PI / 6));
+            ctx.closePath();
+            ctx.fill();
+        }
+        
+        // Функция для рисования особых точек
+        function drawSpecialPoints(functionName) {
+            const points = specialPoints[functionName];
+            
+            if (!points || points.length === 0) return;
+            
+            for (const point of points) {
+                const { x, y } = complexToCanvas(point.real, point.imag);
+                
+                // Рисуем круг
+                ctx.beginPath();
+                ctx.arc(x, y, 6, 0, 2 * Math.PI);
+                
+                if (point.type === "нуль") {
+                    ctx.fillStyle = 'rgba(0, 0, 255, 0.7)';
+                } else { // полюс
+                    ctx.fillStyle = 'rgba(255, 0, 0, 0.7)';
+                }
+                
+                ctx.fill();
+                
+                // Рисуем обводку
+                ctx.strokeStyle = 'black';
+                ctx.lineWidth = 1;
+                ctx.stroke();
+            }
+        }
+        
+        // Функция для обновления информации об особых точках
+        function updateSpecialPointsInfo(functionName) {
+            const points = specialPoints[functionName];
+            const container = document.getElementById('special-points-list');
+            
+            if (!points || points.length === 0) {
+                container.innerHTML = '<p>Особых точек в области визуализации не обнаружено.</p>';
+                return;
+            }
+            
+            let html = '<ul>';
+            for (const point of points) {
+                html += `<li><strong>${point.type}</strong> в точке z = `;
+                
+                if (point.imag >= 0) {
+                    html += `${point.real.toFixed(2)} + ${Math.abs(point.imag).toFixed(2)}i`;
+                } else {
+                    html += `${point.real.toFixed(2)} - ${Math.abs(point.imag).toFixed(2)}i`;
+                }
+                
+                html += '</li>';
+            }
+            html += '</ul>';
+            
+            container.innerHTML = html;
+        }
+        
+        // Функция для обновления легенды
+        function updateLegend(colorScheme) {
+            const legendContainer = document.getElementById('color-legend');
+            let html = '';
+            
+            if (colorScheme === 'direction') {
+                html += '<div class="legend-item"><span>Легенда цветов по направлению (аргументу):</span></div>';
+                
+                // Добавляем цвета по направлению
+                const directions = [
+                    { angle: 0, label: '0°' },
+                    { angle: Math.PI / 4, label: '45°' },
+                    { angle: Math.PI / 2, label: '90°' },
+                    { angle: 3 * Math.PI / 4, label: '135°' },
+                    { angle: Math.PI, label: '180°' },
+                    { angle: 5 * Math.PI / 4, label: '225°' },
+                    { angle: 3 * Math.PI / 2, label: '270°' },
+                    { angle: 7 * Math.PI / 4, label: '315°' }
+                ];
+                
+                for (const dir of directions) {
+                    const hue = ((dir.angle + Math.PI) / (2 * Math.PI)) * 360;
+                    html += `
+                        <div class="legend-item">
+                            <div class="legend-color" style="background-color: hsl(${hue}, 100%, 50%);"></div>
+                            <span>${dir.label}</span>
+                        </div>
+                    `;
+                }
+            } else {
+                html += '<div class="legend-item"><span>Легенда цветов по величине (модулю):</span></div>';
+                
+                // Добавляем цвета по величине
+                const magnitudes = [0, 0.2, 0.4, 0.6, 0.8, 1];
+                
+                for (const mag of magnitudes) {
+                    const color = getColorByMagnitude(mag);
+                    html += `
+                        <div class="legend-item">
+                            <div class="legend-color" style="background-color: ${color};"></div>
+                            <span>${mag.toFixed(1)}</span>
+                        </div>
+                    `;
+                }
+            }
+            
+            legendContainer.innerHTML = html;
+        }
+        
+        // Функция для получения цвета по величине (модулю)
+        function getColorByMagnitude(value) {
+            // От синего (0) через зеленый (0.5) к красному (1)
+            let r, g, b;
+            
+            if (value < 0.5) {
+                // От синего к зеленому
+                b = 1 - 2 * value;
+                g = 2 * value;
+                r = 0;
+            } else {
+                // От зеленого к красному
+                b = 0;
+                g = 2 - 2 * value;
+                r = 2 * value - 1;
+            }
+            
+            return `rgb(${Math.round(r * 255)}, ${Math.round(g * 255)}, ${Math.round(b * 255)})`;
+        }
+        
+        // Функция для получения цвета по величине (модулю) в формате RGB
+        function getColorByMagnitudeRGB(value) {
+            // От синего (0) через зеленый (0.5) к красному (1)
+            let r, g, b;
+            
+            if (value < 0.5) {
+                // От синего к зеленому
+                b = 1 - 2 * value;
+                g = 2 * value;
+                r = 0;
+            } else {
+                // От зеленого к красному
+                b = 0;
+                g = 2 - 2 * value;
+                r = 2 * value - 1;
+            }
+            
+            return {
+                r: Math.round(r * 255),
+                g: Math.round(g * 255),
+                b: Math.round(b * 255)
+            };
+        }
+        
+        // Функция для преобразования HSL в RGB
+        function hslToRgb(h, s, l) {
+            let r, g, b;
+            
+            if (s === 0) {
+                r = g = b = l; // оттенок серого
+            } else {
+                const hue2rgb = function(p, q, t) {
+                    if (t < 0) t += 1;
+                    if (t > 1) t -= 1;
+                    if (t < 1/6) return p + (q - p) * 6 * t;
+                    if (t < 1/2) return q;
+                    if (t < 2/3) return p + (q - p) * (2/3 - t) * 6;
+                    return p;
+                };
+                
+                const q = l < 0.5 ? l * (1 + s) : l + s - l * s;
+                const p = 2 * l - q;
+                
+                r = hue2rgb(p, q, h + 1/3);
+                g = hue2rgb(p, q, h);
+                b = hue2rgb(p, q, h - 1/3);
+            }
+            
+            return {
+                r: Math.round(r * 255),
+                g: Math.round(g * 255),
+                b: Math.round(b * 255)
+            };
+        }
+        
+        // Обработчики событий для элементов управления
+        document.getElementById('function-select').addEventListener('change', drawVectorField);
+        document.getElementById('density').addEventListener('input', function(e) {
+            document.getElementById('density-value').textContent = e.target.value;
+            drawVectorField();
+        });
+        document.getElementById('scale').addEventListener('input', function(e) {
+            document.getElementById('scale-value').textContent = e.target.value;
+            drawVectorField();
+        });
+        document.getElementById('color-scheme').addEventListener('change', drawVectorField);
+        document.getElementById('show-background').addEventListener('change', drawVectorField);
+        document.getElementById('normalize-vectors').addEventListener('change', drawVectorField);
+        document.getElementById('show-special-points').addEventListener('change', drawVectorField);
+        
+        // Начальная отрисовка
+        drawVectorField();
+    </script>
+</body>
+</html>

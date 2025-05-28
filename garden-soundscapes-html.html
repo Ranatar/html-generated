@@ -1,0 +1,955 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Музыкальные ландшафты Сада согласований</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/tone/14.8.49/Tone.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(135deg, #1e1b4b 0%, #581c87 50%, #000000 100%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+            color: #e5e7eb;
+        }
+
+        .container {
+            width: 100%;
+            max-width: 900px;
+            background: rgba(0, 0, 0, 0.4);
+            border-radius: 16px;
+            padding: 32px;
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+            backdrop-filter: blur(10px);
+        }
+
+        .header {
+            text-align: center;
+            margin-bottom: 32px;
+        }
+
+        .header h1 {
+            font-size: 2rem;
+            font-weight: bold;
+            color: #fbbf24;
+            margin-bottom: 8px;
+        }
+
+        .header p {
+            color: #d1d5db;
+            font-size: 1rem;
+        }
+
+        .init-button {
+            display: block;
+            margin: 40px auto;
+            padding: 16px 32px;
+            background: #fbbf24;
+            color: #000;
+            border: none;
+            border-radius: 12px;
+            font-size: 1.125rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .init-button:hover {
+            transform: scale(1.05);
+            box-shadow: 0 10px 25px -5px rgba(251, 191, 36, 0.5);
+        }
+
+        .init-button:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .zones-container {
+            display: none;
+        }
+
+        .zones-container.active {
+            display: block;
+        }
+
+        .zones-grid {
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+            margin-bottom: 24px;
+        }
+
+        .zone-card {
+            border: 2px solid #4b5563;
+            border-radius: 12px;
+            padding: 20px;
+            transition: all 0.3s ease;
+            cursor: pointer;
+            background: rgba(17, 24, 39, 0.3);
+            position: relative;
+            overflow: hidden;
+        }
+
+        .zone-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: linear-gradient(90deg, transparent, rgba(251, 191, 36, 0.1), transparent);
+            transform: translateX(-100%);
+            transition: transform 0.6s ease;
+        }
+
+        .zone-card:hover {
+            border-color: #9ca3af;
+            transform: translateY(-2px);
+        }
+
+        .zone-card:hover::before {
+            transform: translateX(100%);
+        }
+
+        .zone-card.active {
+            border-color: #fbbf24;
+            background: linear-gradient(90deg, rgba(126, 34, 206, 0.2) 0%, rgba(79, 70, 229, 0.2) 100%);
+            box-shadow: 0 10px 25px -5px rgba(251, 191, 36, 0.3);
+        }
+
+        .zone-content {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .zone-info {
+            flex: 1;
+        }
+
+        .zone-header {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            margin-bottom: 8px;
+        }
+
+        .zone-icon {
+            font-size: 2rem;
+        }
+
+        .zone-name {
+            font-size: 1.25rem;
+            font-weight: 600;
+        }
+
+        .zone-description {
+            color: #9ca3af;
+            font-size: 0.875rem;
+            margin-left: 48px;
+        }
+
+        .zone-meta {
+            display: flex;
+            align-items: center;
+            gap: 16px;
+            margin-top: 8px;
+            margin-left: 48px;
+            font-size: 0.75rem;
+            color: #6b7280;
+        }
+
+        .play-button {
+            width: 48px;
+            height: 48px;
+            border-radius: 50%;
+            border: none;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            font-size: 1.2rem;
+            background: #374151;
+            color: #d1d5db;
+        }
+
+        .play-button:hover {
+            background: #4b5563;
+            transform: scale(1.1);
+        }
+
+        .play-button.active {
+            background: #fbbf24;
+            color: #000000;
+        }
+
+        .play-button:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        .play-button .spinner {
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+            from { transform: rotate(0deg); }
+            to { transform: rotate(360deg); }
+        }
+
+        .volume-control {
+            background: rgba(17, 24, 39, 0.5);
+            border-radius: 12px;
+            padding: 20px;
+            border: 1px solid #374151;
+        }
+
+        .volume-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 12px;
+        }
+
+        .volume-label {
+            color: #d1d5db;
+            font-size: 0.875rem;
+        }
+
+        .volume-value {
+            color: #fbbf24;
+            font-size: 0.875rem;
+        }
+
+        .volume-slider {
+            -webkit-appearance: none;
+            width: 100%;
+            height: 8px;
+            border-radius: 4px;
+            background: #374151;
+            outline: none;
+            cursor: pointer;
+            position: relative;
+        }
+
+        .volume-slider::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 16px;
+            height: 16px;
+            border-radius: 50%;
+            background: #fbbf24;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+
+        .volume-slider::-webkit-slider-thumb:hover {
+            transform: scale(1.2);
+            box-shadow: 0 0 10px rgba(251, 191, 36, 0.5);
+        }
+
+        .volume-slider::-moz-range-thumb {
+            width: 16px;
+            height: 16px;
+            border-radius: 50%;
+            background: #fbbf24;
+            cursor: pointer;
+            border: none;
+            transition: all 0.2s ease;
+        }
+
+        .volume-slider::-moz-range-thumb:hover {
+            transform: scale(1.2);
+            box-shadow: 0 0 10px rgba(251, 191, 36, 0.5);
+        }
+
+        .note-box {
+            margin-top: 24px;
+            padding: 20px;
+            background: rgba(254, 240, 138, 0.1);
+            border-radius: 12px;
+            border: 1px solid rgba(252, 211, 77, 0.3);
+        }
+
+        .note-box p {
+            color: #fbbf24;
+            font-size: 0.875rem;
+            line-height: 1.5;
+        }
+
+        .note-box strong {
+            font-weight: 600;
+        }
+
+        .error-message {
+            background: rgba(239, 68, 68, 0.1);
+            border: 1px solid rgba(239, 68, 68, 0.5);
+            color: #ef4444;
+            padding: 16px;
+            border-radius: 8px;
+            margin: 20px 0;
+            text-align: center;
+        }
+
+        @media (max-width: 640px) {
+            .container {
+                padding: 20px;
+            }
+            
+            .header h1 {
+                font-size: 1.5rem;
+            }
+            
+            .zone-description {
+                margin-left: 0;
+                margin-top: 8px;
+            }
+            
+            .zone-meta {
+                margin-left: 0;
+                flex-wrap: wrap;
+            }
+        }
+
+        /* Визуализатор */
+        .visualizer {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            z-index: -1;
+            opacity: 0.3;
+        }
+    </style>
+</head>
+<body>
+    <canvas class="visualizer" id="visualizer"></canvas>
+    
+    <div class="container">
+        <div class="header">
+            <h1>🎵 Музыкальные ландшафты Сада согласований</h1>
+            <p>Каждая зона сада имеет свою уникальную звуковую атмосферу</p>
+        </div>
+
+        <button class="init-button" id="initButton" onclick="startAudioSystem()">
+            🎵 Начать музыкальное путешествие
+        </button>
+
+        <div id="errorMessage" style="display: none;" class="error-message"></div>
+
+        <div class="zones-container" id="zonesContainer">
+            <div class="zones-grid" id="zonesGrid">
+                <!-- Зоны будут добавлены через JavaScript -->
+            </div>
+
+            <div class="volume-control">
+                <div class="volume-header">
+                    <label class="volume-label">Громкость</label>
+                    <span class="volume-value" id="volumeValue">70%</span>
+                </div>
+                <input 
+                    type="range" 
+                    class="volume-slider" 
+                    id="volumeSlider"
+                    min="-40" 
+                    max="0" 
+                    value="-12"
+                >
+            </div>
+
+            <div class="note-box">
+                <p>
+                    <strong>Примечание:</strong> Каждая композиция использует генеративные алгоритмы, 
+                    основанные на символических частотах и числовых соответствиях каждой зоны. 
+                    Музыка эволюционирует во времени, отражая путешествие через философские пространства сада.
+                </p>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Глобальные переменные
+        let isPlaying = false;
+        let currentZone = null;
+        let loading = false;
+        let synths = {};
+        let sequences = {};
+        let effects = {};
+        let isInitialized = false;
+
+        // Определение музыкальных зон
+        const zones = {
+            centralAxis: {
+                name: 'Центральная ось',
+                icon: '🔮',
+                description: 'Космическая сингулярность - от квантового хаоса к трансценденции',
+                baseFreq: 111,
+                color: '#ffd700',
+                tempo: 60
+            },
+            genesisCircle: {
+                name: 'Круг Бытия',
+                icon: '🌀',
+                description: 'Семь дней творения в концентрических кругах',
+                baseFreq: 528,
+                color: '#4ecdc4',
+                tempo: 72
+            },
+            covenantTerraces: {
+                name: 'Террасы Завета',
+                icon: '⛰️',
+                description: 'Десять заповедей, восходящих к небу',
+                baseFreq: 396,
+                color: '#8b7355',
+                tempo: 80
+            },
+            incarnationLabyrinth: {
+                name: 'Лабиринт Воплощения',
+                icon: '🌟',
+                description: '33 станции христологического пути',
+                baseFreq: 639,
+                color: '#ff6b6b',
+                tempo: 66
+            },
+            apocalypseGates: {
+                name: 'Врата Откровения',
+                icon: '🚪',
+                description: 'Эсхатологический портал в будущее',
+                baseFreq: 852,
+                color: '#9b59b6',
+                tempo: 120
+            }
+        };
+
+        // Функция показа ошибки
+        function showError(message) {
+            const errorEl = document.getElementById('errorMessage');
+            errorEl.textContent = message;
+            errorEl.style.display = 'block';
+            setTimeout(() => {
+                errorEl.style.display = 'none';
+            }, 5000);
+        }
+
+        // Главная функция запуска
+        async function startAudioSystem() {
+            const button = document.getElementById('initButton');
+            button.disabled = true;
+            button.textContent = 'Инициализация...';
+            
+            try {
+                // Проверка поддержки Tone.js
+                if (typeof Tone === 'undefined') {
+                    throw new Error('Tone.js не загружен. Проверьте интернет-соединение.');
+                }
+                
+                // Инициализация аудио контекста
+                await Tone.start();
+                console.log('✅ Tone.js инициализирован');
+                
+                // Создание эффектов
+                await setupEffects();
+                console.log('✅ Эффекты созданы');
+                
+                // Создание синтезаторов
+                await setupSynths();
+                console.log('✅ Синтезаторы созданы');
+                
+                // Создание UI
+                createZoneCards();
+                setupVolumeControl();
+                
+                // Показать зоны
+                document.getElementById('zonesContainer').classList.add('active');
+                button.style.display = 'none';
+                
+                // Инициализация визуализатора
+                initVisualizer();
+                
+                isInitialized = true;
+                console.log('✅ Система готова к работе');
+                
+            } catch (error) {
+                console.error('Ошибка инициализации:', error);
+                showError('Ошибка инициализации аудио: ' + error.message);
+                button.disabled = false;
+                button.textContent = '🎵 Попробовать снова';
+            }
+        }
+
+        // Настройка эффектов
+        async function setupEffects() {
+            return new Promise((resolve, reject) => {
+                try {
+                    effects.reverb = new Tone.Reverb({ 
+                        decay: 8, 
+                        wet: 0.3,
+                        preDelay: 0.1
+                    }).toDestination();
+                    
+                    effects.delay = new Tone.FeedbackDelay({
+                        delayTime: "8n", 
+                        feedback: 0.3,
+                        wet: 0.3
+                    }).connect(effects.reverb);
+                    
+                    effects.chorus = new Tone.Chorus({
+                        frequency: 4,
+                        delayTime: 2.5,
+                        depth: 0.5,
+                        wet: 0.5
+                    }).connect(effects.delay);
+                    
+                    resolve();
+                } catch (error) {
+                    reject(error);
+                }
+            });
+        }
+
+        // Настройка синтезаторов
+        async function setupSynths() {
+            return new Promise((resolve, reject) => {
+                try {
+                    Object.keys(zones).forEach(zoneKey => {
+                        synths[zoneKey] = {
+                            drone: new Tone.PolySynth(Tone.AMSynth, {
+                                oscillator: { type: "sine" },
+                                envelope: { 
+                                    attack: 2, 
+                                    decay: 1, 
+                                    sustain: 0.8, 
+                                    release: 4 
+                                },
+                                volume: -10
+                            }).connect(effects.chorus),
+                            
+                            melody: new Tone.PolySynth(Tone.FMSynth, {
+                                oscillator: { type: "triangle" },
+                                envelope: { 
+                                    attack: 0.5, 
+                                    decay: 0.3, 
+                                    sustain: 0.5, 
+                                    release: 2 
+                                },
+                                modulation: { type: "sine" },
+                                volume: -12
+                            }).connect(effects.delay),
+                            
+                            bass: new Tone.MonoSynth({
+                                oscillator: { type: "sawtooth" },
+                                envelope: { 
+                                    attack: 0.1, 
+                                    decay: 0.3, 
+                                    sustain: 0.4, 
+                                    release: 0.5 
+                                },
+                                filter: { 
+                                    Q: 2, 
+                                    frequency: 200, 
+                                    type: "lowpass" 
+                                },
+                                volume: -8
+                            }).connect(effects.chorus),
+                            
+                            ambient: new Tone.PolySynth(Tone.Synth, {
+                                oscillator: { type: "sine" },
+                                envelope: { 
+                                    attack: 4, 
+                                    decay: 2, 
+                                    sustain: 0.6, 
+                                    release: 8 
+                                },
+                                volume: -15
+                            }).connect(effects.reverb)
+                        };
+                    });
+                    
+                    resolve();
+                } catch (error) {
+                    reject(error);
+                }
+            });
+        }
+
+        // Создание музыки для зоны
+        function createZoneMusic(zoneKey) {
+        const zone = zones[zoneKey];
+        const zoneSynths = synths[zoneKey];
+        
+        if (!zoneSynths) {
+            console.error('Синтезаторы не найдены для зоны:', zoneKey);
+            return;
+        }
+    
+        try {
+            // Установка темпа
+            Tone.Transport.bpm.value = zone.tempo;
+    
+            // Очистка предыдущих последовательностей
+            if (sequences[zoneKey]) {
+                Object.values(sequences[zoneKey]).forEach(seq => {
+                    seq.stop();
+                    seq.dispose();
+                });
+            }
+    
+            let zoneSequences = {};
+    
+            switch (zoneKey) {
+                case 'centralAxis':
+                    // Космическая музыка
+                    zoneSequences.drone = new Tone.Pattern((time, note) => {
+                        if (note) zoneSynths.drone.triggerAttackRelease(note + "Hz", "2n", time);
+                    }, [zone.baseFreq, zone.baseFreq * 1.5, zone.baseFreq * 2], "up");
+    
+                    zoneSequences.melody = new Tone.Sequence((time, note) => {
+                        if (note) zoneSynths.melody.triggerAttackRelease(note + "Hz", "8n", time);
+                    }, [
+                        zone.baseFreq * 2, null, zone.baseFreq * 2.25, zone.baseFreq * 2.5,
+                        zone.baseFreq * 3, null, zone.baseFreq * 2.75, null,
+                        zone.baseFreq * 4, zone.baseFreq * 3.5, null, zone.baseFreq * 3,
+                        null, zone.baseFreq * 4.5, zone.baseFreq * 5, null
+                    ], "8n");
+    
+                    zoneSequences.ambient = new Tone.Loop((time) => {
+                        const freq = zone.baseFreq * (1 + Math.random() * 4);
+                        zoneSynths.ambient.triggerAttackRelease(freq + "Hz", "1n", time);
+                    }, "1n");
+                    break;
+    
+                case 'genesisCircle':
+                    // Циклическая музыка семи дней
+                    const sevenNotes = [1, 9/8, 5/4, 4/3, 3/2, 5/3, 15/8].map(r => zone.baseFreq * r);
+                    
+                    zoneSequences.drone = new Tone.Sequence((time, note) => {
+                        zoneSynths.drone.triggerAttackRelease([note + "Hz", (note * 1.5) + "Hz"], "1n", time);
+                    }, sevenNotes, "2n");
+    
+                    zoneSequences.melody = new Tone.Pattern((time, note) => {
+                        zoneSynths.melody.triggerAttackRelease(note + "Hz", "4n", time);
+                    }, sevenNotes.map(n => n * 2), "random");
+    
+                    zoneSequences.bass = new Tone.Loop((time) => {
+                        const day = Math.floor((Tone.Transport.seconds / 4) % 7);
+                        zoneSynths.bass.triggerAttackRelease((sevenNotes[day] / 2) + "Hz", "2n", time);
+                    }, "2n");
+                    break;
+    
+                case 'covenantTerraces':
+                    // Торжественная музыка
+                    const commandments = Array.from({length: 10}, (_, i) => 
+                        zone.baseFreq * Math.pow(2, i/12)
+                    );
+    
+                    zoneSequences.drone = new Tone.Loop((time) => {
+                        zoneSynths.drone.triggerAttackRelease(
+                            [zone.baseFreq + "Hz", (zone.baseFreq * 1.5) + "Hz", (zone.baseFreq * 2) + "Hz"],
+                            "1n", time
+                        );
+                    }, "1n");
+    
+                    zoneSequences.melody = new Tone.Sequence((time, notes) => {
+                        notes.forEach((note, i) => {
+                            zoneSynths.melody.triggerAttackRelease(
+                                note + "Hz", "16n", time + i * 0.125
+                            );
+                        });
+                    }, [
+                        commandments.slice(0, 4),
+                        commandments.slice(2, 6),
+                        commandments.slice(4, 8),
+                        commandments.slice(6, 10)
+                    ], "2n");
+    
+                    zoneSequences.bass = new Tone.Pattern((time, note) => {
+                        zoneSynths.bass.triggerAttackRelease(note + "Hz", "4n", time);
+                    }, [zone.baseFreq/2, zone.baseFreq/1.5, zone.baseFreq/2, zone.baseFreq/2.5], "up");
+                    break;
+    
+                case 'incarnationLabyrinth':
+                    // Мистическая музыка
+                    zoneSequences.drone = new Tone.Loop((time) => {
+                        const station = Math.floor((Tone.Transport.seconds / 2) % 33);
+                        const freq = zone.baseFreq * (1 + station / 33);
+                        zoneSynths.drone.triggerAttackRelease([freq + "Hz", (freq * 1.5) + "Hz"], "2n", time);
+                    }, "2n");
+    
+                    zoneSequences.melody = new Tone.Pattern((time, note) => {
+                        zoneSynths.melody.triggerAttackRelease(note + "Hz", "8n", time);
+                    }, [
+                        zone.baseFreq * 2,
+                        zone.baseFreq * 1.875,
+                        zone.baseFreq * 1.75,
+                        zone.baseFreq * 1.5,
+                        zone.baseFreq * 1.75,
+                        zone.baseFreq * 2.25,
+                        zone.baseFreq * 2
+                    ], "random");
+    
+                    zoneSequences.ambient = new Tone.Loop((time) => {
+                        if (Math.random() > 0.7) {
+                            const note = zone.baseFreq * (2 + Math.random() * 2);
+                            zoneSynths.ambient.triggerAttackRelease(note + "Hz", "4n", time);
+                        }
+                    }, "8n");
+                    break;
+    
+                case 'apocalypseGates':
+                    // Эпическая музыка
+                    zoneSequences.drone = new Tone.Loop((time) => {
+                        zoneSynths.drone.triggerAttackRelease(
+                            [zone.baseFreq + "Hz", (zone.baseFreq * 1.25) + "Hz", (zone.baseFreq * 1.5) + "Hz", (zone.baseFreq * 2) + "Hz"],
+                            "1n", time
+                        );
+                    }, "2n");
+    
+                    zoneSequences.melody = new Tone.Sequence((time, notes) => {
+                        notes.forEach((note, i) => {
+                            if (note) {
+                                zoneSynths.melody.triggerAttackRelease(
+                                    note + "Hz", "16n", time + i * 0.0625
+                                );
+                            }
+                        });
+                    }, [
+                        [zone.baseFreq * 4, null, zone.baseFreq * 3, zone.baseFreq * 4],
+                        [zone.baseFreq * 5, zone.baseFreq * 4, null, zone.baseFreq * 3],
+                        [zone.baseFreq * 6, null, zone.baseFreq * 5, zone.baseFreq * 4],
+                        [zone.baseFreq * 8, zone.baseFreq * 6, zone.baseFreq * 5, zone.baseFreq * 4]
+                    ], "4n");
+    
+                    zoneSequences.bass = new Tone.Loop((time) => {
+                        zoneSynths.bass.triggerAttackRelease((zone.baseFreq / 2) + "Hz", "4n", time);
+                        zoneSynths.bass.triggerAttackRelease((zone.baseFreq / 4) + "Hz", "4n", time + 0.125);
+                    }, "2n");
+    
+                    zoneSequences.ambient = new Tone.Pattern((time, note) => {
+                        zoneSynths.ambient.triggerAttackRelease([note + "Hz", (note * 1.5) + "Hz", (note * 2) + "Hz"], "2n", time);
+                    }, [
+                        zone.baseFreq * 2,
+                        zone.baseFreq * 2.5,
+                        zone.baseFreq * 3,
+                        zone.baseFreq * 4
+                    ], "random");
+                    break;
+            }
+    
+            // Запуск всех последовательностей
+            Object.values(zoneSequences).forEach(seq => seq.start(0));
+            sequences[zoneKey] = zoneSequences;
+            
+        } catch (error) {
+            console.error('Ошибка создания музыки:', error);
+            showError('Ошибка создания музыки: ' + error.message);
+        }
+    }
+
+        // Переключение воспроизведения
+        async function togglePlay(zoneKey) {
+            if (!isInitialized) {
+                showError('Сначала инициализируйте систему');
+                return;
+            }
+            
+            loading = true;
+            updateUI();
+            
+            try {
+                if (isPlaying && currentZone === zoneKey) {
+                    // Остановка
+                    await Tone.Transport.stop();
+                    await Tone.Transport.cancel();
+                    isPlaying = false;
+                    currentZone = null;
+                } else {
+                    // Остановка предыдущей зоны
+                    if (isPlaying) {
+                        await Tone.Transport.stop();
+                        await Tone.Transport.cancel();
+                    }
+                    
+                    // Запуск новой зоны
+                    createZoneMusic(zoneKey);
+                    await Tone.Transport.start();
+                    isPlaying = true;
+                    currentZone = zoneKey;
+                }
+            } catch (error) {
+                console.error('Ошибка воспроизведения:', error);
+                showError('Ошибка воспроизведения: ' + error.message);
+            } finally {
+                loading = false;
+                updateUI();
+            }
+        }
+
+        // Обновление UI
+        function updateUI() {
+            document.querySelectorAll('.zone-card').forEach(card => {
+                const zoneKey = card.dataset.zone;
+                const button = card.querySelector('.play-button');
+                const isActive = isPlaying && currentZone === zoneKey;
+                
+                if (isActive) {
+                    card.classList.add('active');
+                    button.classList.add('active');
+                } else {
+                    card.classList.remove('active');
+                    button.classList.remove('active');
+                }
+                
+                if (loading && currentZone === zoneKey) {
+                    button.innerHTML = '<span class="spinner">⚡</span>';
+                    button.disabled = true;
+                } else {
+                    button.innerHTML = isActive ? '⏸️' : '▶️';
+                    button.disabled = false;
+                }
+            });
+        }
+
+        // Создание карточек зон
+        function createZoneCards() {
+            const grid = document.getElementById('zonesGrid');
+            
+            Object.entries(zones).forEach(([key, zone]) => {
+                const card = document.createElement('div');
+                card.className = 'zone-card';
+                card.dataset.zone = key;
+                
+                card.innerHTML = `
+                    <div class="zone-content">
+                        <div class="zone-info">
+                            <div class="zone-header">
+                                <span class="zone-icon">${zone.icon}</span>
+                                <h3 class="zone-name" style="color: ${zone.color}">${zone.name}</h3>
+                            </div>
+                            <p class="zone-description">${zone.description}</p>
+                            <div class="zone-meta">
+                                <span>Частота: ${zone.baseFreq} Гц</span>
+                                <span>Темп: ${zone.tempo} BPM</span>
+                            </div>
+                        </div>
+                        <button class="play-button" onclick="togglePlay('${key}')">▶️</button>
+                    </div>
+                `;
+                
+                grid.appendChild(card);
+            });
+        }
+
+        // Управление громкостью
+        function setupVolumeControl() {
+            const slider = document.getElementById('volumeSlider');
+            const valueDisplay = document.getElementById('volumeValue');
+            
+            function updateVolume() {
+                const volume = Number(slider.value);
+                if (Tone.Destination) {
+                    Tone.Destination.volume.value = volume;
+                }
+                valueDisplay.textContent = Math.round(volume + 40) + '%';
+                
+                const percent = ((volume + 40) / 40) * 100;
+                slider.style.background = `linear-gradient(to right, #fbbf24 0%, #fbbf24 ${percent}%, #374151 ${percent}%, #374151 100%)`;
+            }
+            
+            slider.addEventListener('input', updateVolume);
+            updateVolume();
+        }
+
+        // Визуализатор
+        function initVisualizer() {
+            const canvas = document.getElementById('visualizer');
+            const ctx = canvas.getContext('2d');
+            
+            function resize() {
+                canvas.width = window.innerWidth;
+                canvas.height = window.innerHeight;
+            }
+            
+            window.addEventListener('resize', resize);
+            resize();
+            
+            const particles = [];
+            const particleCount = 50;
+            
+            for (let i = 0; i < particleCount; i++) {
+                particles.push({
+                    x: Math.random() * canvas.width,
+                    y: Math.random() * canvas.height,
+                    vx: (Math.random() - 0.5) * 0.5,
+                    vy: (Math.random() - 0.5) * 0.5,
+                    size: Math.random() * 3 + 1,
+                    hue: Math.random() * 60 + 30
+                });
+            }
+            
+            function animate() {
+                ctx.fillStyle = 'rgba(0, 0, 0, 0.05)';
+                ctx.fillRect(0, 0, canvas.width, canvas.height);
+                
+                particles.forEach(p => {
+                    p.x += p.vx;
+                    p.y += p.vy;
+                    
+                    if (p.x < 0 || p.x > canvas.width) p.vx *= -1;
+                    if (p.y < 0 || p.y > canvas.height) p.vy *= -1;
+                    
+                    if (isPlaying) {
+                        p.size = Math.sin(Date.now() * 0.001) * 2 + 3;
+                    }
+                    
+                    ctx.beginPath();
+                    ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
+                    ctx.fillStyle = `hsl(${p.hue}, 100%, 50%)`;
+                    ctx.fill();
+                });
+                
+                requestAnimationFrame(animate);
+            }
+            
+            animate();
+        }
+
+        // Cleanup при закрытии страницы
+        window.addEventListener('beforeunload', () => {
+            if (isInitialized) {
+                Tone.Transport.stop();
+                Tone.Transport.cancel();
+                
+                // Очистка последовательностей
+                Object.values(sequences).forEach(zoneSeqs => {
+                    Object.values(zoneSeqs).forEach(seq => {
+                        seq.stop();
+                        seq.dispose();
+                    });
+                });
+                
+                // Очистка синтезаторов
+                Object.values(synths).forEach(zoneSynths => {
+                    Object.values(zoneSynths).forEach(synth => synth.dispose());
+                });
+                
+                // Очистка эффектов
+                Object.values(effects).forEach(effect => effect.dispose());
+            }
+        });
+    </script>
+</body>
+</html>

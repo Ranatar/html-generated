@@ -1,0 +1,907 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Персонометр-ПЛ7 «Душепродавец»</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 20px;
+            background: linear-gradient(135deg, #1a1a2e 0%, #0f3460 100%);
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-family: 'Courier New', monospace;
+            color: #fff;
+            overflow-x: hidden;
+        }
+
+        .device-container {
+            perspective: 1000px;
+            position: relative;
+        }
+
+        .device {
+            width: 360px;
+            height: 600px;
+            background: linear-gradient(145deg, #2a2a2a, #1a1a1a);
+            border-radius: 20px;
+            box-shadow: 
+                0 20px 40px rgba(0,0,0,0.8),
+                inset 0 2px 5px rgba(255,255,255,0.1),
+                inset 0 -2px 5px rgba(0,0,0,0.5);
+            padding: 20px;
+            position: relative;
+            transform-style: preserve-3d;
+            transition: transform 0.3s ease;
+            overflow: hidden;
+        }
+
+        .device.shake {
+            animation: shake 0.5s ease-in-out;
+        }
+
+        @keyframes shake {
+            0%, 100% { transform: translateX(0); }
+            25% { transform: translateX(-10px) rotateZ(-2deg); }
+            75% { transform: translateX(10px) rotateZ(2deg); }
+        }
+
+        .device:hover {
+            transform: rotateY(5deg) rotateX(-5deg);
+        }
+
+        .device::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-image: 
+                repeating-linear-gradient(45deg, transparent, transparent 10px, rgba(255,255,255,0.03) 10px, rgba(255,255,255,0.03) 20px),
+                url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><text x="10" y="20" font-size="8" fill="rgba(255,255,255,0.05)" transform="rotate(-45 50 50)">ЗНАМЯ</text><text x="10" y="40" font-size="8" fill="rgba(255,255,255,0.05)" transform="rotate(-45 50 50)">НОВЫЙ МИР</text><text x="10" y="60" font-size="8" fill="rgba(255,255,255,0.05)" transform="rotate(-45 50 50)">ОКТЯБРЬ</text></svg>');
+            pointer-events: none;
+            border-radius: 20px;
+        }
+
+        .brand {
+            text-align: center;
+            margin-bottom: 15px;
+        }
+
+        .brand h1 {
+            font-size: 18px;
+            margin: 0;
+            color: #ff6b6b;
+            text-shadow: 0 0 10px rgba(255,107,107,0.5);
+            letter-spacing: 2px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .brand h1:hover {
+            transform: scale(1.1);
+            text-shadow: 0 0 20px rgba(255,107,107,0.8);
+        }
+
+        .brand p {
+            font-size: 10px;
+            margin: 5px 0 0 0;
+            color: #666;
+            font-style: italic;
+        }
+
+        .screen {
+            width: 100%;
+            height: 220px;
+            background: #0a0a0a;
+            border: 2px solid #333;
+            border-radius: 10px;
+            position: relative;
+            overflow: hidden;
+            box-shadow: inset 0 0 20px rgba(0,0,0,0.8);
+            cursor: crosshair;
+        }
+
+        .screen.analyzing {
+            animation: screenFlicker 0.1s ease-in-out infinite;
+        }
+
+        @keyframes screenFlicker {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.9; }
+        }
+
+        .scale {
+            position: absolute;
+            bottom: 10px;
+            left: 10px;
+            right: 10px;
+            height: 40px;
+        }
+
+        .scale-bar {
+            width: 100%;
+            height: 10px;
+            background: linear-gradient(to right, 
+                #00ff00 0%, 
+                #ffff00 25%, 
+                #ff9900 50%, 
+                #ff3300 75%, 
+                #990000 100%);
+            border-radius: 5px;
+            position: relative;
+        }
+
+        .scale-labels {
+            display: flex;
+            justify-content: space-between;
+            margin-top: 5px;
+            font-size: 8px;
+            color: #666;
+        }
+
+        .needle {
+            position: absolute;
+            top: -15px;
+            left: 10%;
+            width: 2px;
+            height: 25px;
+            background: #ff0000;
+            box-shadow: 0 0 10px rgba(255,0,0,0.8);
+            transition: left 0.5s ease;
+        }
+
+        .display-text {
+            position: absolute;
+            top: 20px;
+            left: 10px;
+            right: 10px;
+            font-size: 12px;
+            color: #00ff00;
+            text-shadow: 0 0 5px rgba(0,255,0,0.5);
+        }
+
+        .running-text {
+            position: absolute;
+            top: 60px;
+            left: 0;
+            width: 100%;
+            height: 20px;
+            overflow: hidden;
+        }
+
+        .running-text span {
+            position: absolute;
+            white-space: nowrap;
+            color: #ff9900;
+            font-size: 10px;
+            animation: marquee 15s linear infinite;
+        }
+
+        @keyframes marquee {
+            from { transform: translateX(100%); }
+            to { transform: translateX(-100%); }
+        }
+
+        .current-mode {
+            font-size: 10px;
+            color: #ff9900;
+            margin-top: 10px;
+        }
+
+        .poem-input {
+            position: absolute;
+            bottom: 60px;
+            left: 10px;
+            right: 10px;
+            display: none;
+        }
+
+        .poem-input textarea {
+            width: 100%;
+            height: 60px;
+            background: rgba(0,255,0,0.1);
+            border: 1px solid #00ff00;
+            color: #00ff00;
+            font-family: 'Courier New', monospace;
+            font-size: 10px;
+            padding: 5px;
+            border-radius: 5px;
+            resize: none;
+        }
+
+        .controls {
+            margin-top: 20px;
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 10px;
+        }
+
+        .button {
+            padding: 12px;
+            background: linear-gradient(145deg, #3a3a3a, #2a2a2a);
+            border: none;
+            border-radius: 10px;
+            color: #aaa;
+            font-size: 11px;
+            cursor: pointer;
+            position: relative;
+            overflow: hidden;
+            transition: all 0.3s ease;
+            box-shadow: 
+                2px 2px 5px rgba(0,0,0,0.5),
+                -2px -2px 5px rgba(255,255,255,0.05);
+        }
+
+        .button:hover {
+            color: #fff;
+            transform: translateY(-2px);
+            box-shadow: 
+                4px 4px 10px rgba(0,0,0,0.5),
+                -2px -2px 5px rgba(255,255,255,0.1);
+        }
+
+        .button:active {
+            transform: translateY(0);
+            box-shadow: 
+                inset 2px 2px 5px rgba(0,0,0,0.5),
+                inset -2px -2px 5px rgba(255,255,255,0.05);
+        }
+
+        .button.active {
+            background: linear-gradient(145deg, #4a3a3a, #3a2a2a);
+            color: #ff6b6b;
+        }
+
+        .button.danger {
+            animation: pulseRed 2s ease-in-out infinite;
+        }
+
+        @keyframes pulseRed {
+            0%, 100% { box-shadow: 0 0 10px rgba(255,0,0,0.3); }
+            50% { box-shadow: 0 0 20px rgba(255,0,0,0.6); }
+        }
+
+        .emergency-button {
+            grid-column: 1 / -1;
+            background: linear-gradient(145deg, #5a1a1a, #4a0a0a);
+            color: #ff3333;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .emergency-button::before {
+            content: '⚠️ ЭКСТРЕННАЯ РЕАНИМАЦИЯ ЛИЧНОСТИ ⚠️';
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            white-space: nowrap;
+            font-size: 9px;
+            opacity: 0;
+            transition: opacity 0.3s ease;
+        }
+
+        .emergency-button:hover::before {
+            opacity: 1;
+        }
+
+        .indicators {
+            margin-top: 20px;
+            display: flex;
+            justify-content: space-around;
+        }
+
+        .indicator {
+            text-align: center;
+            cursor: pointer;
+            transition: transform 0.3s ease;
+        }
+
+        .indicator:hover {
+            transform: scale(1.1);
+        }
+
+        .led {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            margin: 0 auto 5px;
+            background: #1a1a1a;
+            box-shadow: inset 0 0 3px rgba(0,0,0,0.5);
+            transition: all 0.3s ease;
+        }
+
+        .led.red {
+            background: #ff3333;
+            box-shadow: 0 0 15px rgba(255,51,51,0.8);
+            animation: blink 1s ease-in-out infinite;
+        }
+
+        .led.green {
+            background: #33ff33;
+            box-shadow: 0 0 15px rgba(51,255,51,0.8);
+        }
+
+        .led.yellow {
+            background: #ffff33;
+            box-shadow: 0 0 15px rgba(255,255,51,0.8);
+            animation: pulse 2s ease-in-out infinite;
+        }
+
+        @keyframes blink {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.3; }
+        }
+
+        @keyframes pulse {
+            0%, 100% { transform: scale(1); }
+            50% { transform: scale(1.2); }
+        }
+
+        .indicator-label {
+            font-size: 8px;
+            color: #666;
+        }
+
+        .ports {
+            position: absolute;
+            bottom: 20px;
+            left: 20px;
+            right: 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .port {
+            width: 40px;
+            height: 15px;
+            background: #0a0a0a;
+            border: 1px solid #333;
+            border-radius: 3px;
+            position: relative;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .port:hover {
+            border-color: #666;
+            transform: scale(1.1);
+        }
+
+        .port.connected {
+            border-color: #00ff00;
+            animation: portGlow 1s ease-in-out infinite;
+        }
+
+        @keyframes portGlow {
+            0%, 100% { box-shadow: 0 0 5px rgba(0,255,0,0.5); }
+            50% { box-shadow: 0 0 15px rgba(0,255,0,0.8); }
+        }
+
+        .port::after {
+            content: '';
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 30px;
+            height: 8px;
+            background: #1a1a1a;
+            border-radius: 2px;
+        }
+
+        .port-label {
+            position: absolute;
+            bottom: -15px;
+            left: 50%;
+            transform: translateX(-50%);
+            font-size: 8px;
+            color: #444;
+            white-space: nowrap;
+        }
+
+        .warning-sticker {
+            position: absolute;
+            bottom: 80px;
+            right: 20px;
+            background: #ffff00;
+            color: #000;
+            padding: 5px 10px;
+            font-size: 8px;
+            border-radius: 3px;
+            transform: rotate(-5deg);
+            box-shadow: 0 2px 5px rgba(0,0,0,0.3);
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .warning-sticker:hover {
+            transform: rotate(-5deg) scale(1.1);
+            box-shadow: 0 4px 10px rgba(0,0,0,0.5);
+        }
+
+        .glitch {
+            animation: glitch 0.5s ease-in-out;
+        }
+
+        @keyframes glitch {
+            0%, 100% { transform: translateX(0); }
+            20% { transform: translateX(-2px); }
+            40% { transform: translateX(2px); }
+            60% { transform: translateX(-1px); }
+            80% { transform: translateX(1px); }
+        }
+
+        .popup {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: rgba(255,0,0,0.9);
+            color: #fff;
+            padding: 20px;
+            border-radius: 10px;
+            display: none;
+            z-index: 1000;
+            animation: popupAppear 0.3s ease-out;
+        }
+
+        @keyframes popupAppear {
+            from { 
+                opacity: 0;
+                transform: translate(-50%, -50%) scale(0.8);
+            }
+            to { 
+                opacity: 1;
+                transform: translate(-50%, -50%) scale(1);
+            }
+        }
+
+        .smoke {
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            height: 100px;
+            background: linear-gradient(to top, rgba(100,100,100,0.3), transparent);
+            opacity: 0;
+            pointer-events: none;
+            animation: smoke 3s ease-out;
+        }
+
+        @keyframes smoke {
+            0% { opacity: 0; transform: translateY(0); }
+            50% { opacity: 1; }
+            100% { opacity: 0; transform: translateY(-50px); }
+        }
+
+        .sparks {
+            position: absolute;
+            width: 4px;
+            height: 4px;
+            background: #ffff00;
+            border-radius: 50%;
+            animation: spark 1s ease-out;
+            pointer-events: none;
+        }
+
+        @keyframes spark {
+            0% {
+                transform: translate(0, 0);
+                opacity: 1;
+            }
+            100% {
+                transform: translate(var(--x), var(--y));
+                opacity: 0;
+            }
+        }
+
+        .mini-printer {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            width: 30px;
+            height: 20px;
+            background: #333;
+            border: 1px solid #555;
+            border-radius: 3px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .mini-printer:hover {
+            transform: scale(1.2);
+            border-color: #888;
+        }
+
+        .paper {
+            position: absolute;
+            top: 5px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 20px;
+            height: 0;
+            background: #fff;
+            transition: height 0.5s ease;
+        }
+
+        .mini-printer.printing .paper {
+            height: 30px;
+        }
+
+        .paper-text {
+            font-size: 4px;
+            color: #000;
+            padding: 2px;
+            line-height: 1.2;
+        }
+    </style>
+</head>
+<body>
+    <div class="device-container">
+        <div class="device" id="device">
+            <div class="mini-printer" id="printer" onclick="printDiagnosis()">
+                <div class="paper" id="paper">
+                    <div class="paper-text" id="paperText"></div>
+                </div>
+            </div>
+
+            <div class="brand" onclick="selfTest()">
+                <h1>ПЕРСОНОМЕТР-ПЛ7</h1>
+                <p>"Душепродавец"</p>
+            </div>
+
+            <div class="screen" id="screen" onclick="screenClick(event)">
+                <div class="display-text">
+                    <div>АНАЛИЗ ЛИЧНОСТИ: <span id="status">ГОТОВ К РАБОТЕ</span></div>
+                    <div class="current-mode">Режим: <span id="mode">ОЖИДАНИЕ</span></div>
+                </div>
+                <div class="running-text">
+                    <span id="runningText">ВНИМАНИЕ: Длительное использование может привести к полной потере творческой индивидуальности...</span>
+                </div>
+                <div class="poem-input" id="poemInput">
+                    <textarea id="poemText" placeholder="Вставьте сюда свой стих для анализа..."></textarea>
+                </div>
+                <div class="scale">
+                    <div class="scale-bar">
+                        <div class="needle" id="needle"></div>
+                    </div>
+                    <div class="scale-labels">
+                        <span>Подпольный<br>гений</span>
+                        <span>Самиздат</span>
+                        <span>Литобъед.</span>
+                        <span>Грантоед</span>
+                        <span>Член СП</span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="controls">
+                <button class="button" onclick="activateMode('journal')">Толстый журнал</button>
+                <button class="button" onclick="activateMode('bar')">Барное чтение</button>
+                <button class="button" onclick="activateMode('grant')">Детектор грантов</button>
+                <button class="button" onclick="activateMode('network')">Нетворкинг</button>
+                <button class="button emergency-button" onclick="emergency()">АВАРИЙНЫЙ СБРОС</button>
+            </div>
+
+            <div class="indicators">
+                <div class="indicator" onclick="indicatorClick('sincerity')">
+                    <div class="led" id="sincerity"></div>
+                    <div class="indicator-label">Искренность</div>
+                </div>
+                <div class="indicator" onclick="indicatorClick('conformity')">
+                    <div class="led" id="conformity"></div>
+                    <div class="indicator-label">Конформизм</div>
+                </div>
+                <div class="indicator" onclick="indicatorClick('soul')">
+                    <div class="led" id="soul"></div>
+                    <div class="indicator-label">Душа</div>
+                </div>
+            </div>
+
+            <div class="warning-sticker" onclick="showWarning()">
+                ВНИМАНИЕ!<br>
+                Госпремия<br>
+                аннулирует<br>
+                гарантию
+            </div>
+
+            <div class="ports">
+                <div class="port" id="port1" onclick="connectPort('grant')">
+                    <div class="port-label">USB-Грант</div>
+                </div>
+                <div class="port" id="port2" onclick="connectPort('alco')">
+                    <div class="port-label">Алкотест</div>
+                </div>
+                <div class="port" id="port3" onclick="connectPort('audio')">
+                    <div class="port-label">Аудио</div>
+                </div>
+            </div>
+
+            <div class="popup" id="popup">
+                <h3>КРИТИЧЕСКАЯ ОШИБКА!</h3>
+                <p></p>
+                <button onclick="closePopup()">OK</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let currentMode = null;
+        let personalityLevel = 50;
+        let isAnalyzing = false;
+        
+        const needle = document.getElementById('needle');
+        const status = document.getElementById('status');
+        const mode = document.getElementById('mode');
+        const sincerity = document.getElementById('sincerity');
+        const conformity = document.getElementById('conformity');
+        const soul = document.getElementById('soul');
+        const device = document.getElementById('device');
+        const screen = document.getElementById('screen');
+        const popup = document.getElementById('popup');
+        const runningText = document.getElementById('runningText');
+        const poemInput = document.getElementById('poemInput');
+        const poemText = document.getElementById('poemText');
+
+        const messages = [
+            "ВНИМАНИЕ: Длительное использование может привести к полной потере творческой индивидуальности...",
+            "Обнаружен повышенный уровень клише в последнем тексте...",
+            "Рекомендуется перечитать раннего Мандельштама...",
+            "Уровень оригинальности критически низок...",
+            "Обнаружены следы влияния грантовых заявок...",
+            "Синдром 'важного поэта' прогрессирует...",
+            "Рифма 'любовь-кровь' превысила допустимые нормы...",
+            "Метафоры изношены на 87%..."
+        ];
+
+        let messageIndex = 0;
+
+        setInterval(() => {
+            messageIndex = (messageIndex + 1) % messages.length;
+            runningText.textContent = messages[messageIndex];
+        }, 5000);
+
+        function activateMode(modeType) {
+            if (isAnalyzing) return;
+            
+            document.querySelectorAll('.button').forEach(btn => btn.classList.remove('active'));
+            event.target.classList.add('active');
+            
+            device.classList.add('glitch');
+            setTimeout(() => device.classList.remove('glitch'), 500);
+
+            screen.classList.add('analyzing');
+            isAnalyzing = true;
+            status.textContent = 'АНАЛИЗ...';
+
+            setTimeout(() => {
+                screen.classList.remove('analyzing');
+                isAnalyzing = false;
+
+                switch(modeType) {
+                    case 'journal':
+                        mode.textContent = 'ТОЛСТЫЙ ЖУРНАЛ';
+                        status.textContent = 'КРИТИЧНО';
+                        personalityLevel = 85;
+                        sincerity.className = 'led red';
+                        conformity.className = 'led green';
+                        soul.className = 'led';
+                        poemInput.style.display = 'block';
+                        break;
+                    case 'bar':
+                        mode.textContent = 'БАРНОЕ ЧТЕНИЕ';
+                        status.textContent = 'ОПАСНО';
+                        personalityLevel = 65;
+                        sincerity.className = 'led yellow';
+                        conformity.className = 'led yellow';
+                        soul.className = 'led red';
+                        createSparks();
+                        break;
+                    case 'grant':
+                        mode.textContent = 'ДЕТЕКТОР ГРАНТОВ';
+                        status.textContent = 'ПРОДАНО';
+                        personalityLevel = 95;
+                        sincerity.className = 'led';
+                        conformity.className = 'led green';
+                        soul.className = 'led red';
+                        event.target.classList.add('danger');
+                        break;
+                    case 'network':
+                        mode.textContent = 'НЕТВОРКИНГ';
+                        status.textContent = 'ПОТЕРЯ 75%';
+                        personalityLevel = 75;
+                        sincerity.className = 'led red';
+                        conformity.className = 'led green';
+                        soul.className = 'led yellow';
+                        break;
+                }
+                
+                needle.style.left = personalityLevel + '%';
+            }, 1500);
+        }
+
+        // Анализ стихотворения
+        poemText.addEventListener('input', () => {
+            const text = poemText.value.toLowerCase();
+            let penalty = 0;
+            
+            // Проверка на клише
+            const cliches = ['любовь', 'кровь', 'душа', 'сердце', 'слеза', 'мечта', 'звезда'];
+            cliches.forEach(cliche => {
+                if (text.includes(cliche)) penalty += 5;
+            });
+            
+            // Проверка на модные слова
+            const trendy = ['дискурс', 'контекст', 'деконструкция', 'нарратив'];
+            trendy.forEach(word => {
+                if (text.includes(word)) penalty += 10;
+            });
+            
+            personalityLevel = Math.min(95, 85 + penalty);
+            needle.style.left = personalityLevel + '%';
+            
+            if (penalty > 20) {
+                status.textContent = 'БЕЗНАДЕЖНО';
+                device.classList.add('shake');
+                setTimeout(() => device.classList.remove('shake'), 500);
+            }
+        });
+
+        function emergency() {
+            device.classList.add('shake');
+            createSmoke();
+            
+            setTimeout(() => {
+                device.classList.remove('shake');
+                personalityLevel = 10;
+                needle.style.left = personalityLevel + '%';
+                status.textContent = 'РЕАНИМИРОВАН';
+                mode.textContent = 'ВОССТАНОВЛЕНИЕ';
+                sincerity.className = 'led green';
+                conformity.className = 'led';
+                soul.className = 'led green';
+                document.querySelectorAll('.button').forEach(btn => {
+                    btn.classList.remove('active', 'danger');
+                });
+                poemInput.style.display = 'none';
+                poemText.value = '';
+            }, 1000);
+        }
+
+        function connectPort(type) {
+            const port = event.target.closest('.port');
+            port.classList.toggle('connected');
+            
+            if (port.classList.contains('connected')) {
+                switch(type) {
+                    case 'grant':
+                        showPopup('ПОДКЛЮЧЕНИЕ К БАЗЕ ГРАНТОВ', 'Обнаружено 47 доступных грантов. Личность будет утрачена через 3... 2... 1...');
+                        personalityLevel = Math.min(95, personalityLevel + 20);
+                        break;
+                    case 'alco':
+                        showPopup('АЛКОТЕСТЕР АКТИВИРОВАН', 'Уровень алкоголя оптимален для поэтического вечера. Рекомендуется добавить пафоса.');
+                        break;
+                    case 'audio':
+                        showPopup('АУДИО ПОДКЛЮЧЕНО', 'Проигрывается: "Звуки внутреннего голоса (ремикс DJ Культурный Капитал)"');
+                        break;
+                }
+                needle.style.left = personalityLevel + '%';
+            }
+        }
+
+        function indicatorClick(type) {
+            createSparks(event.pageX, event.pageY);
+            
+            switch(type) {
+                case 'sincerity':
+                    showPopup('ИСКРЕННОСТЬ', 'Последний раз замечена в 2019 году. Статус: В РОЗЫСКЕ');
+                    break;
+                case 'conformity':
+                    showPopup('КОНФОРМИЗМ', 'Уровень: ЗАШКАЛИВАЕТ. Рекомендуется срочная деинсталляция социальных сетей.');
+                    break;
+                case 'soul':
+                    showPopup('ДУША', 'ОШИБКА 404: Душа не найдена. Возможно, была обменяна на публикацию в "Новом мире".');
+                    break;
+            }
+        }
+
+        function selfTest() {
+            status.textContent = 'САМОДИАГНОСТИКА...';
+            device.classList.add('shake');
+            screen.classList.add('analyzing');
+            
+            setTimeout(() => {
+                device.classList.remove('shake');
+                screen.classList.remove('analyzing');
+                showPopup('РЕЗУЛЬТАТ САМОДИАГНОСТИКИ', 'Прибор исправен. Поэты - нет.');
+            }, 2000);
+        }
+
+        function showWarning() {
+            showPopup('ПРЕДУПРЕЖДЕНИЕ!', 'При получении государственной премии прибор автоматически показывает 100% потерю личности. Возврату не подлежит.');
+        }
+
+        function printDiagnosis() {
+            const printer = document.getElementById('printer');
+            const paper = document.getElementById('paper');
+            const paperText = document.getElementById('paperText');
+            
+            printer.classList.add('printing');
+            paperText.innerHTML = `ДИАГНОЗ:<br>Личность: ${100-personalityLevel}%<br>Прогноз:<br>ПЛОХОЙ`;
+            
+            setTimeout(() => {
+                printer.classList.remove('printing');
+            }, 3000);
+        }
+
+        function createSmoke() {
+            const smoke = document.createElement('div');
+            smoke.className = 'smoke';
+            device.appendChild(smoke);
+            setTimeout(() => smoke.remove(), 3000);
+        }
+
+        function createSparks(x, y) {
+            const rect = device.getBoundingClientRect();
+            x = x || rect.left + rect.width / 2;
+            y = y || rect.top + rect.height / 2;
+            
+            for (let i = 0; i < 10; i++) {
+                const spark = document.createElement('div');
+                spark.className = 'sparks';
+                spark.style.left = (x - rect.left) + 'px';
+                spark.style.top = (y - rect.top) + 'px';
+                spark.style.setProperty('--x', (Math.random() - 0.5) * 100 + 'px');
+                spark.style.setProperty('--y', (Math.random() - 0.5) * 100 + 'px');
+                device.appendChild(spark);
+                setTimeout(() => spark.remove(), 1000);
+            }
+        }
+
+        function screenClick(event) {
+            if (event.target.closest('.poem-input')) return;
+            createSparks(event.pageX, event.pageY);
+        }
+
+        function showPopup(title, text) {
+            popup.querySelector('h3').textContent = title;
+            popup.querySelector('p').textContent = text;
+            popup.style.display = 'block';
+        }
+
+        function closePopup() {
+            popup.style.display = 'none';
+        }
+
+        // Случайные сбои
+        setInterval(() => {
+            if (Math.random() > 0.9 && currentMode) {
+                device.classList.add('glitch');
+                setTimeout(() => device.classList.remove('glitch'), 200);
+                
+                if (Math.random() > 0.7) {
+                    status.textContent = 'СБОЙ #' + Math.floor(Math.random() * 999);
+                    setTimeout(() => {
+                        status.textContent = 'РАБОТАЕТ';
+                    }, 1000);
+                }
+            }
+        }, 5000);
+
+        // Движение стрелки
+        setInterval(() => {
+            if (personalityLevel > 10) {
+                const variation = (Math.random() - 0.5) * 3;
+                needle.style.left = (personalityLevel + variation) + '%';
+            }
+        }, 500);
+    </script>
+</body>
+</html>

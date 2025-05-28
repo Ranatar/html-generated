@@ -1,0 +1,1767 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Анимационные методы</title>
+    <style>
+        body {
+            font-family: 'Arial', sans-serif;
+            line-height: 1.6;
+            color: #333;
+            max-width: 1000px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        h1 {
+            color: #2c3e50;
+            text-align: center;
+            margin-bottom: 30px;
+        }
+        h2 {
+            color: #3498db;
+            margin-top: 30px;
+        }
+        .canvas-container {
+            display: flex;
+            justify-content: center;
+            margin: 20px 0;
+            flex-wrap: wrap;
+            gap: 20px;
+        }
+        canvas {
+            border: 1px solid #ddd;
+        }
+        .controls {
+            background-color: #f5f5f5;
+            padding: 15px;
+            border-radius: 5px;
+            margin: 20px 0;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 15px;
+            align-items: center;
+        }
+        .advantages-disadvantages {
+            display: flex;
+            justify-content: space-between;
+            margin-top: 30px;
+        }
+        .advantages, .disadvantages {
+            width: 48%;
+            padding: 15px;
+            border-radius: 5px;
+        }
+        .advantages {
+            background-color: #e8f8f5;
+            border-left: 5px solid #1abc9c;
+        }
+        .disadvantages {
+            background-color: #fef5e7;
+            border-left: 5px solid #f39c12;
+        }
+        ul {
+            padding-left: 20px;
+        }
+        .explanation {
+            margin-top: 20px;
+            padding: 15px;
+            background-color: #eaf2f8;
+            border-radius: 5px;
+        }
+        .control-group {
+            margin-right: 15px;
+        }
+        .canvas-label {
+            text-align: center;
+            font-weight: bold;
+            margin-top: 5px;
+        }
+        .canvas-wrapper {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+        .animation-controls {
+            display: flex;
+            gap: 10px;
+            margin-top: 10px;
+        }
+        .animation-button {
+            padding: 8px 15px;
+            background-color: #3498db;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+        .animation-button:hover {
+            background-color: #2980b9;
+        }
+        .animation-button.active {
+            background-color: #27ae60;
+        }
+        .animation-button:disabled {
+            background-color: #bdc3c7;
+            cursor: not-allowed;
+        }
+        .range-control {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        .range-control input {
+            width: 150px;
+        }
+        .animation-tabs {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 15px;
+        }
+        .animation-tab {
+            padding: 8px 15px;
+            background-color: #eee;
+            border: 1px solid #ddd;
+            border-radius: 5px 5px 0 0;
+            cursor: pointer;
+        }
+        .animation-tab.active {
+            background-color: #3498db;
+            color: white;
+            border-color: #3498db;
+        }
+        .tab-content {
+            display: none;
+        }
+        .tab-content.active {
+            display: block;
+        }
+        .info-panel {
+            background-color: #e8f4fc;
+            padding: 15px;
+            border-radius: 5px;
+            margin-top: 20px;
+            border-left: 5px solid #3498db;
+        }
+        .info-panel h3 {
+            margin-top: 0;
+            color: #3498db;
+        }
+        .parameter-display {
+            font-weight: bold;
+            color: #2980b9;
+        }
+    </style>
+</head>
+<body>
+    <h1>Анимационные методы визуализации функций комплексного переменного</h1>
+    
+    <p>
+        Анимационные методы используют временную переменную для визуализации дополнительных аспектов функций комплексного переменного. 
+        Это позволяет наглядно показать эволюцию, динамику и взаимосвязи, которые сложно представить на статических изображениях.
+    </p>
+
+    <div class="animation-tabs">
+        <div class="animation-tab active" data-tab="parametric">Параметрические семейства</div>
+        <div class="animation-tab" data-tab="evolution">Эволюция точек</div>
+        <div class="animation-tab" data-tab="principle">Принцип аргумента</div>
+    </div>
+
+    <div class="tab-content active" id="parametric-tab">
+        <div class="controls">
+            <div class="control-group">
+                <label for="parametric-function">Параметрическое семейство: </label>
+                <select id="parametric-function">
+                    <option value="z_plus_c">f(z,t) = z + te^(iφ)</option>
+                    <option value="z_mul_c">f(z,t) = z·e^(it)</option>
+                    <option value="moebius">f(z,t) = (z·cos(t) + sin(t))/(z·sin(t) + cos(t))</option>
+                    <option value="morph">f(z,t) = (1-t)·z + t·z²</option>
+                </select>
+            </div>
+            
+            <div class="control-group range-control">
+                <label for="parameter-value">Значение параметра t: </label>
+                <input type="range" id="parameter-value" min="0" max="100" value="0">
+                <span id="parameter-display">0.00</span>
+            </div>
+        </div>
+        
+        <div class="animation-controls">
+            <button id="start-parametric" class="animation-button">Запустить анимацию</button>
+            <button id="pause-parametric" class="animation-button" disabled>Пауза</button>
+            <button id="reset-parametric" class="animation-button">Сбросить</button>
+        </div>
+        
+        <div class="canvas-container">
+            <div class="canvas-wrapper">
+                <canvas id="parametric-domain-canvas" width="400" height="400"></canvas>
+                <div class="canvas-label">Исходная область (z-плоскость)</div>
+            </div>
+            <div class="canvas-wrapper">
+                <canvas id="parametric-image-canvas" width="400" height="400"></canvas>
+                <div class="canvas-label">Образ функции (w-плоскость)</div>
+            </div>
+        </div>
+        
+        <div class="info-panel" id="parametric-info">
+            <h3>Параметрическое семейство функций</h3>
+            <p>
+                Наблюдайте, как изменяется отображение при изменении параметра t от 0 до 1. 
+                Текущее значение параметра: <span class="parameter-display" id="parametric-display">0.00</span>
+            </p>
+            <div id="parametric-description">
+                <p>
+                    Сейчас выбрана функция f(z,t) = z + te^(iφ), которая представляет собой сдвиг комплексной плоскости. 
+                    При t = 0 функция является тождественным отображением f(z) = z, а при увеличении t происходит 
+                    смещение всех точек плоскости на вектор te^(iφ).
+                </p>
+            </div>
+        </div>
+    </div>
+
+    <div class="tab-content" id="evolution-tab">
+        <div class="controls">
+            <div class="control-group">
+                <label for="evolution-function">Функция: </label>
+                <select id="evolution-function">
+                    <option value="z2">f(z) = z²</option>
+                    <option value="exp">f(z) = e^z</option>
+                    <option value="sin">f(z) = sin(z)</option>
+                    <option value="inv">f(z) = 1/z</option>
+                </select>
+            </div>
+            
+            <div class="control-group">
+                <label for="iterations">Количество итераций: </label>
+                <input type="number" id="iterations" min="1" max="10" value="5">
+            </div>
+            
+            <div class="control-group range-control">
+                <label for="evolution-time">Время: </label>
+                <input type="range" id="evolution-time" min="0" max="100" value="0">
+                <span id="evolution-time-display">0.00</span>
+            </div>
+        </div>
+        
+        <div class="animation-controls">
+            <button id="start-evolution" class="animation-button">Запустить анимацию</button>
+            <button id="pause-evolution" class="animation-button" disabled>Пауза</button>
+            <button id="reset-evolution" class="animation-button">Сбросить</button>
+        </div>
+        
+        <div class="canvas-container">
+            <canvas id="evolution-canvas" width="600" height="600"></canvas>
+        </div>
+        
+        <div class="info-panel" id="evolution-info">
+            <h3>Эволюция точек при итерации функции</h3>
+            <p>
+                Наблюдайте, как изменяются положения точек при многократном применении функции f(z).
+                Различные цвета соответствуют разным итерациям, от исходного положения (синий) до конечного (красный).
+            </p>
+            <div id="evolution-description">
+                <p>
+                    Сейчас выбрана функция f(z) = z², которая отображает каждую точку z в точку z².
+                    При многократном применении функции точки с |z| < 1 стремятся к 0, точки с |z| > 1 
+                    удаляются в бесконечность, а точки на единичной окружности |z| = 1 остаются на окружности.
+                </p>
+            </div>
+        </div>
+    </div>
+
+    <div class="tab-content" id="principle-tab">
+        <div class="controls">
+            <div class="control-group">
+                <label for="principle-function">Функция: </label>
+                <select id="principle-function">
+                    <option value="poly3">f(z) = z³ - 1</option>
+                    <option value="poly4">f(z) = z⁴ - 1</option>
+                    <option value="rational">f(z) = (z² - 1)/(z² + 1)</option>
+                    <option value="sin">f(z) = sin(z)</option>
+                </select>
+            </div>
+            
+            <div class="control-group">
+                <label for="contour-type">Тип контура: </label>
+                <select id="contour-type">
+                    <option value="circle">Окружность</option>
+                    <option value="rectangle">Прямоугольник</option>
+                    <option value="custom">Произвольный контур</option>
+                </select>
+            </div>
+            
+            <div class="control-group range-control">
+                <label for="principle-time">Прогресс обхода: </label>
+                <input type="range" id="principle-time" min="0" max="100" value="0">
+                <span id="principle-time-display">0%</span>
+            </div>
+        </div>
+        
+        <div class="animation-controls">
+            <button id="start-principle" class="animation-button">Запустить анимацию</button>
+            <button id="pause-principle" class="animation-button" disabled>Пауза</button>
+            <button id="reset-principle" class="animation-button">Сбросить</button>
+        </div>
+        
+        <div class="canvas-container">
+            <div class="canvas-wrapper">
+                <canvas id="principle-domain-canvas" width="400" height="400"></canvas>
+                <div class="canvas-label">Контур в z-плоскости</div>
+            </div>
+            <div class="canvas-wrapper">
+                <canvas id="principle-image-canvas" width="400" height="400"></canvas>
+                <div class="canvas-label">Образ контура в w-плоскости</div>
+            </div>
+        </div>
+        
+        <div class="info-panel" id="principle-info">
+            <h3>Визуализация принципа аргумента</h3>
+            <p>
+                Принцип аргумента связывает количество нулей и полюсов функции внутри замкнутого контура 
+                с изменением аргумента функции при обходе этого контура.
+            </p>
+            <p>
+                Прогресс обхода контура: <span class="parameter-display" id="principle-progress">0%</span>
+            </p>
+            <p>
+                Изменение аргумента: <span class="parameter-display" id="arg-change">0°</span>
+            </p>
+            <div id="principle-description">
+                <p>
+                    Сейчас выбрана функция f(z) = z³ - 1, которая имеет три нуля внутри стандартного контура.
+                    При обходе контура аргумент функции изменится на 6π (1080°), что соответствует 3 нулям 
+                    первого порядка внутри контура.
+                </p>
+            </div>
+        </div>
+    </div>
+
+    <div class="explanation">
+        <h2>Интерпретация анимационных методов</h2>
+        <p>
+            Анимационные методы визуализации функций комплексного переменного позволяют наблюдать динамические 
+            аспекты этих функций, которые трудно представить с помощью статических изображений.
+        </p>
+        
+        <p>
+            <strong>Основные типы анимационных методов:</strong>
+        </p>
+        <ul>
+            <li><strong>Параметрические семейства</strong> — визуализация плавного изменения функции при изменении параметра</li>
+            <li><strong>Эволюция точек</strong> — отслеживание траекторий точек при многократном применении функции</li>
+            <li><strong>Демонстрация принципа аргумента</strong> — наглядное представление связи между изменением аргумента функции
+                при обходе замкнутого контура и количеством нулей и полюсов внутри контура</li>
+        </ul>
+        
+        <p>
+            <strong>На визуализациях можно наблюдать:</strong>
+        </p>
+        <ul>
+            <li><strong>Непрерывные деформации областей</strong> — наглядная демонстрация конформных свойств функций</li>
+            <li><strong>Динамическое поведение</strong> — эволюция точек и областей во времени</li>
+            <li><strong>Топологические свойства</strong> — обход особых точек и наблюдение за изменением аргумента</li>
+            <li><strong>Глобальное поведение функций</strong> — изменение всей комплексной плоскости во времени</li>
+        </ul>
+    </div>
+
+    <div class="advantages-disadvantages">
+        <div class="advantages">
+            <h2>Преимущества</h2>
+            <ul>
+                <li>Добавляет дополнительное измерение для визуализации</li>
+                <li>Позволяет интуитивно понять сложные трансформации</li>
+                <li>Эффективно демонстрирует эволюцию и динамику</li>
+                <li>Наглядно показывает непрерывность и связность</li>
+                <li>Улучшает понимание топологических свойств</li>
+                <li>Делает абстрактные концепции более доступными</li>
+                <li>Позволяет наблюдать глобальное поведение функции</li>
+            </ul>
+        </div>
+        <div class="disadvantages">
+            <h2>Недостатки</h2>
+            <ul>
+                <li>Требует специальных технических средств</li>
+                <li>Сложность создания и воспроизведения</li>
+                <li>Трудности с фиксацией отдельных состояний</li>
+                <li>Может быть ресурсоемким для сложных функций</li>
+                <li>Сложнее для количественного анализа</li>
+                <li>Ограничения в одновременном представлении всех свойств функции</li>
+                <li>Требует специальных знаний для создания анимаций</li>
+            </ul>
+        </div>
+    </div>
+
+    <script>
+        // Функции для комплексных чисел
+        const complex = (re, im) => ({ re, im });
+        
+        const complexAdd = (a, b) => complex(a.re + b.re, a.im + b.im);
+        
+        const complexSub = (a, b) => complex(a.re - b.re, a.im - b.im);
+        
+        const complexMul = (a, b) => complex(
+            a.re * b.re - a.im * b.im,
+            a.re * b.im + a.im * b.re
+        );
+        
+        const complexDiv = (a, b) => {
+            const denom = b.re * b.re + b.im * b.im;
+            if (denom < 1e-10) return complex(NaN, NaN);
+            return complex(
+                (a.re * b.re + a.im * b.im) / denom,
+                (a.im * b.re - a.re * b.im) / denom
+            );
+        };
+        
+        const complexExp = (z) => {
+            const e_re = Math.exp(z.re);
+            return complex(
+                e_re * Math.cos(z.im),
+                e_re * Math.sin(z.im)
+            );
+        };
+        
+        const complexSin = (z) => complex(
+            Math.sin(z.re) * Math.cosh(z.im),
+            Math.cos(z.re) * Math.sinh(z.im)
+        );
+        
+        const complexPolar = (r, theta) => complex(
+            r * Math.cos(theta),
+            r * Math.sin(theta)
+        );
+        
+        const complexAbs = (z) => Math.sqrt(z.re * z.re + z.im * z.im);
+        
+        const complexArg = (z) => Math.atan2(z.im, z.re);
+        
+        // Функция для преобразования комплексных координат в координаты холста
+        function complexToCanvas(z, canvas, scale = 3) {
+            const x = canvas.width / 2 + (z.re * canvas.width) / (2 * scale);
+            const y = canvas.height / 2 - (z.im * canvas.height) / (2 * scale);
+            return { x, y };
+        }
+        
+        function canvasToComplex(x, y, canvas, scale = 3) {
+            const re = ((x - canvas.width / 2) * 2 * scale) / canvas.width;
+            const im = -((y - canvas.height / 2) * 2 * scale) / canvas.height;
+            return complex(re, im);
+        }
+        
+        // Функция для рисования осей координат
+        function drawAxes(ctx, scale = 3) {
+            const width = ctx.canvas.width;
+            const height = ctx.canvas.height;
+            
+            ctx.clearRect(0, 0, width, height);
+            
+            // Рисуем оси координат
+            ctx.strokeStyle = 'rgba(0, 0, 0, 0.5)';
+            ctx.lineWidth = 1;
+            
+            // Ось x
+            ctx.beginPath();
+            ctx.moveTo(0, height / 2);
+            ctx.lineTo(width, height / 2);
+            ctx.stroke();
+            
+            // Ось y
+            ctx.beginPath();
+            ctx.moveTo(width / 2, 0);
+            ctx.lineTo(width / 2, height);
+            ctx.stroke();
+            
+            // Рисуем единичную окружность (|z| = 1)
+            ctx.beginPath();
+            ctx.strokeStyle = 'rgba(0, 0, 0, 0.2)';
+            ctx.arc(width / 2, height / 2, width / (2 * scale), 0, 2 * Math.PI);
+            ctx.stroke();
+            
+            // Рисуем метки на осях
+            ctx.fillStyle = 'rgba(0, 0, 0, 0.7)';
+            ctx.font = '10px Arial';
+            ctx.textAlign = 'center';
+            
+            // Метки на оси x
+            for (let x = -scale; x <= scale; x++) {
+                if (x === 0) continue;
+                const canvasX = width / 2 + (x * width) / (2 * scale);
+                ctx.beginPath();
+                ctx.moveTo(canvasX, height / 2 - 5);
+                ctx.lineTo(canvasX, height / 2 + 5);
+                ctx.stroke();
+                ctx.fillText(x.toString(), canvasX, height / 2 + 15);
+            }
+            
+            // Метки на оси y
+            ctx.textAlign = 'right';
+            for (let y = -scale; y <= scale; y++) {
+                if (y === 0) continue;
+                const canvasY = height / 2 - (y * height) / (2 * scale);
+                ctx.beginPath();
+                ctx.moveTo(width / 2 - 5, canvasY);
+                ctx.lineTo(width / 2 + 5, canvasY);
+                ctx.stroke();
+                ctx.fillText(y.toString(), width / 2 - 8, canvasY + 4);
+            }
+            
+            // Рисуем нуль
+            ctx.textAlign = 'right';
+            ctx.fillText('0', width / 2 - 8, height / 2 + 12);
+        }
+        
+        // ==========================
+        // Параметрические семейства
+        // ==========================
+        
+        // Получаем элементы для параметрических семейств
+        const parametricDomainCanvas = document.getElementById('parametric-domain-canvas');
+        const parametricImageCanvas = document.getElementById('parametric-image-canvas');
+        const parametricDomainCtx = parametricDomainCanvas.width > 0 ? 
+            parametricDomainCanvas.getContext('2d') : null;
+        const parametricImageCtx = parametricImageCanvas.width > 0 ? 
+            parametricImageCanvas.getContext('2d') : null;
+        
+        // Параметры анимации
+        let parametricAnimationId = null;
+        let parametricParameter = 0;
+        let parametricAnimating = false;
+        
+        // Функции для параметрических семейств
+        const parametricFunctions = {
+            z_plus_c: (z, t) => {
+                const shift = complexPolar(t, Math.PI / 4); // e^(iπ/4) = (1+i)/√2
+                return complexAdd(z, shift);
+            },
+            z_mul_c: (z, t) => {
+                const rotation = complexPolar(1, t * 2 * Math.PI);
+                return complexMul(z, rotation);
+            },
+            moebius: (z, t) => {
+                const a = Math.cos(t * Math.PI);
+                const b = Math.sin(t * Math.PI);
+                const num = complexAdd(
+                    complexMul(z, complex(a, 0)),
+                    complex(b, 0)
+                );
+                const denom = complexAdd(
+                    complexMul(z, complex(b, 0)),
+                    complex(a, 0)
+                );
+                return complexDiv(num, denom);
+            },
+            morph: (z, t) => {
+                const z2 = complexMul(z, z);
+                return complexAdd(
+                    complexMul(z, complex(1 - t, 0)),
+                    complexMul(z2, complex(t, 0))
+                );
+            }
+        };
+        
+        // Описания параметрических семейств
+        const parametricDescriptions = {
+            z_plus_c: `
+                <p>
+                    Функция f(z,t) = z + te^(iπ/4) представляет собой сдвиг комплексной плоскости. 
+                    При t = 0 функция является тождественным отображением f(z) = z, а при увеличении t происходит 
+                    смещение всех точек плоскости в направлении вектора (1+i)/√2.
+                </p>
+                <p>
+                    Обратите внимание, что при анимации вся сетка движется как единое целое без деформаций,
+                    что характерно для сдвига.
+                </p>
+            `,
+            z_mul_c: `
+                <p>
+                    Функция f(z,t) = z·e^(it) представляет собой вращение комплексной плоскости. 
+                    При t = 0 функция является тождественным отображением f(z) = z, а при увеличении t происходит 
+                    поворот всех точек плоскости вокруг начала координат на угол t.
+                </p>
+                <p>
+                    Обратите внимание на сохранение расстояний от начала координат и равномерное вращение всех точек.
+                    Точка z = 0 является неподвижной при любом значении параметра t.
+                </p>
+            `,
+            moebius: `
+                <p>
+                    Функция f(z,t) = (z·cos(πt) + sin(πt))/(z·sin(πt) + cos(πt)) представляет собой параметрическое 
+                    семейство дробно-линейных (мёбиусовых) преобразований. 
+                </p>
+                <p>
+                    При t = 0 функция является тождественным отображением f(z) = z, а при t = 1 функция становится 
+                    f(z) = 1/z (инверсия). Промежуточные значения t дают плавный переход между этими функциями.
+                </p>
+                <p>
+                    Обратите внимание, как прямые и окружности отображаются снова в прямые и окружности,
+                    что является характерным свойством дробно-линейных преобразований.
+                </p>
+            `,
+            morph: `
+                <p>
+                    Функция f(z,t) = (1-t)·z + t·z² представляет собой плавный переход от линейной функции 
+                    f(z) = z при t = 0 к квадратичной функции f(z) = z² при t = 1.
+                </p>
+                <p>
+                    Наблюдайте, как по мере увеличения t сетка постепенно деформируется, 
+                    превращаясь из равномерной в параболическую. Точка z = 0 остаётся неподвижной,
+                    а точка z = 1 всегда отображается в саму себя.
+                </p>
+            `
+        };
+        
+        // Функция для отрисовки сетки в исходной области
+        function drawParametricDomain() {
+            if (!parametricDomainCtx) return;
+            
+            drawAxes(parametricDomainCtx);
+            
+            // Рисуем сетку
+            const gridStep = 0.5;
+            const scale = 3;
+            
+            // Рисуем горизонтальные линии сетки
+            for (let y = -scale; y <= scale; y += gridStep) {
+                parametricDomainCtx.beginPath();
+                parametricDomainCtx.strokeStyle = 'rgba(0, 0, 255, 0.3)';
+                
+                for (let x = -scale; x <= scale; x += 0.05) {
+                    const z = complex(x, y);
+                    const point = complexToCanvas(z, parametricDomainCanvas);
+                    
+                    if (x === -scale) {
+                        parametricDomainCtx.moveTo(point.x, point.y);
+                    } else {
+                        parametricDomainCtx.lineTo(point.x, point.y);
+                    }
+                }
+                
+                parametricDomainCtx.stroke();
+            }
+            
+            // Рисуем вертикальные линии сетки
+            for (let x = -scale; x <= scale; x += gridStep) {
+                parametricDomainCtx.beginPath();
+                parametricDomainCtx.strokeStyle = 'rgba(255, 0, 0, 0.3)';
+                
+                for (let y = -scale; y <= scale; y += 0.05) {
+                    const z = complex(x, y);
+                    const point = complexToCanvas(z, parametricDomainCanvas);
+                    
+                    if (y === -scale) {
+                        parametricDomainCtx.moveTo(point.x, point.y);
+                    } else {
+                        parametricDomainCtx.lineTo(point.x, point.y);
+                    }
+                }
+                
+                parametricDomainCtx.stroke();
+            }
+            
+            // Рисуем несколько тестовых точек
+            const testPoints = [
+                complex(1, 0),
+                complex(0, 1),
+                complex(1, 1),
+                complex(-1, -1),
+                complex(2, 0)
+            ];
+            
+            parametricDomainCtx.fillStyle = 'rgba(0, 0, 0, 0.7)';
+            
+            for (const z of testPoints) {
+                const point = complexToCanvas(z, parametricDomainCanvas);
+                
+                parametricDomainCtx.beginPath();
+                parametricDomainCtx.arc(point.x, point.y, 4, 0, 2 * Math.PI);
+                parametricDomainCtx.fill();
+            }
+        }
+        
+        // Функция для отрисовки образа сетки
+        function drawParametricImage() {
+            if (!parametricImageCtx) return;
+            
+            drawAxes(parametricImageCtx);
+            
+            // Получаем текущую функцию
+            const functionName = document.getElementById('parametric-function').value;
+            const f = parametricFunctions[functionName];
+            
+            // Рисуем образ сетки
+            const gridStep = 0.5;
+            const scale = 3;
+            
+            // Рисуем образы горизонтальных линий
+            for (let y = -scale; y <= scale; y += gridStep) {
+                parametricImageCtx.beginPath();
+                parametricImageCtx.strokeStyle = 'rgba(0, 0, 255, 0.3)';
+                
+                let firstPoint = true;
+                
+                for (let x = -scale; x <= scale; x += 0.05) {
+                    const z = complex(x, y);
+                    const w = f(z, parametricParameter);
+                    
+                    // Проверяем, что образ находится в пределах видимой области
+                    if (Math.abs(w.re) > scale * 2 || Math.abs(w.im) > scale * 2) {
+                        firstPoint = true;
+                        continue;
+                    }
+                    
+                    const point = complexToCanvas(w, parametricImageCanvas);
+                    
+                    if (firstPoint) {
+                        parametricImageCtx.moveTo(point.x, point.y);
+                        firstPoint = false;
+                    } else {
+                        parametricImageCtx.lineTo(point.x, point.y);
+                    }
+                }
+                
+                parametricImageCtx.stroke();
+            }
+            
+            // Рисуем образы вертикальных линий
+            for (let x = -scale; x <= scale; x += gridStep) {
+                parametricImageCtx.beginPath();
+                parametricImageCtx.strokeStyle = 'rgba(255, 0, 0, 0.3)';
+                
+                let firstPoint = true;
+                
+                for (let y = -scale; y <= scale; y += 0.05) {
+                    const z = complex(x, y);
+                    const w = f(z, parametricParameter);
+                    
+                    // Проверяем, что образ находится в пределах видимой области
+                    if (Math.abs(w.re) > scale * 2 || Math.abs(w.im) > scale * 2) {
+                        firstPoint = true;
+                        continue;
+                    }
+                    
+                    const point = complexToCanvas(w, parametricImageCanvas);
+                    
+                    if (firstPoint) {
+                        parametricImageCtx.moveTo(point.x, point.y);
+                        firstPoint = false;
+                    } else {
+                        parametricImageCtx.lineTo(point.x, point.y);
+                    }
+                }
+                
+                parametricImageCtx.stroke();
+            }
+            
+            // Рисуем образы тестовых точек
+            const testPoints = [
+                complex(1, 0),
+                complex(0, 1),
+                complex(1, 1),
+                complex(-1, -1),
+                complex(2, 0)
+            ];
+            
+            parametricImageCtx.fillStyle = 'rgba(0, 0, 0, 0.7)';
+            
+            for (const z of testPoints) {
+                const w = f(z, parametricParameter);
+                
+                // Проверяем, что образ находится в пределах видимой области
+                if (Math.abs(w.re) > scale * 2 || Math.abs(w.im) > scale * 2) {
+                    continue;
+                }
+                
+                const point = complexToCanvas(w, parametricImageCanvas);
+                
+                parametricImageCtx.beginPath();
+                parametricImageCtx.arc(point.x, point.y, 4, 0, 2 * Math.PI);
+                parametricImageCtx.fill();
+            }
+            
+            // Обновляем отображение значения параметра
+            document.getElementById('parametric-display').textContent = parametricParameter.toFixed(2);
+            document.getElementById('parameter-display').textContent = parametricParameter.toFixed(2);
+        }
+        
+        // Функция для обновления описания параметрического семейства
+        function updateParametricDescription() {
+            const functionName = document.getElementById('parametric-function').value;
+            const description = parametricDescriptions[functionName];
+            document.getElementById('parametric-description').innerHTML = description;
+        }
+        
+        // Функция для анимации параметрического семейства
+        function animateParametric() {
+            if (!parametricAnimating) return;
+            
+            // Увеличиваем параметр
+            parametricParameter += 0.01;
+            if (parametricParameter > 1) {
+                parametricParameter = 0;
+            }
+            
+            // Обновляем положение ползунка
+            document.getElementById('parameter-value').value = parametricParameter * 100;
+            
+            // Перерисовываем образ
+            drawParametricImage();
+            
+            // Продолжаем анимацию
+            parametricAnimationId = requestAnimationFrame(animateParametric);
+        }
+        
+        // Обработчики событий для параметрических семейств
+        document.getElementById('parametric-function').addEventListener('change', function() {
+            updateParametricDescription();
+            drawParametricImage();
+        });
+        
+        document.getElementById('parameter-value').addEventListener('input', function() {
+            parametricParameter = this.value / 100;
+            drawParametricImage();
+        });
+        
+        document.getElementById('start-parametric').addEventListener('click', function() {
+            if (parametricAnimating) return;
+            
+            parametricAnimating = true;
+            this.disabled = true;
+            document.getElementById('pause-parametric').disabled = false;
+            
+            animateParametric();
+        });
+        
+        document.getElementById('pause-parametric').addEventListener('click', function() {
+            parametricAnimating = false;
+            this.disabled = true;
+            document.getElementById('start-parametric').disabled = false;
+            
+            if (parametricAnimationId) {
+                cancelAnimationFrame(parametricAnimationId);
+                parametricAnimationId = null;
+            }
+        });
+        
+        document.getElementById('reset-parametric').addEventListener('click', function() {
+            parametricAnimating = false;
+            document.getElementById('start-parametric').disabled = false;
+            document.getElementById('pause-parametric').disabled = true;
+            
+            if (parametricAnimationId) {
+                cancelAnimationFrame(parametricAnimationId);
+                parametricAnimationId = null;
+            }
+            
+            parametricParameter = 0;
+            document.getElementById('parameter-value').value = 0;
+            
+            drawParametricDomain();
+            drawParametricImage();
+        });
+        
+        // ==========================
+        // Эволюция точек
+        // ==========================
+        
+        // Получаем элементы для эволюции точек
+        const evolutionCanvas = document.getElementById('evolution-canvas');
+        const evolutionCtx = evolutionCanvas.width > 0 ? 
+            evolutionCanvas.getContext('2d') : null;
+        
+        // Параметры анимации эволюции
+        let evolutionAnimationId = null;
+        let evolutionTime = 0;
+        let evolutionAnimating = false;
+        
+        // Функции для эволюции
+        const evolutionFunctions = {
+            z2: z => complexMul(z, z),
+            exp: complexExp,
+            sin: complexSin,
+            inv: z => complexDiv(complex(1, 0), z)
+        };
+        
+        // Описания для эволюции
+        const evolutionDescriptions = {
+            z2: `
+                <p>
+                    Функция f(z) = z² отображает каждую точку z в точку z².
+                    При многократном применении функции точки с |z| < 1 стремятся к 0, точки с |z| > 1 
+                    удаляются в бесконечность, а точки на единичной окружности |z| = 1 остаются на окружности, 
+                    но перемещаются вдоль неё.
+                </p>
+                <p>
+                    На анимации видно, как внутренность единичного круга сжимается к началу координат,
+                    а внешность — растягивается к бесконечности. Точки на единичной окружности двигаются вдоль неё, 
+                    причём угловая скорость удваивается с каждой итерацией.
+                </p>
+            `,
+            exp: `
+                <p>
+                    Функция f(z) = e^z отображает каждую точку z в точку e^z.
+                    При многократном применении функции точки в полуплоскости Re(z) < 0 стремятся к 0,
+                    а точки в полуплоскости Re(z) > 0 удаляются в бесконечность.
+                </p>
+                <p>
+                    На анимации видно, как точки с отрицательной действительной частью стремятся к 0,
+                    а точки с положительной действительной частью быстро удаляются в бесконечность.
+                    Вертикальные полосы шириной 2π отображаются в полные обороты вокруг начала координат.
+                </p>
+            `,
+            sin: `
+                <p>
+                    Функция f(z) = sin(z) отображает каждую точку z в точку sin(z).
+                    При многократном применении функции точки демонстрируют сложное хаотическое поведение.
+                </p>
+                <p>
+                    На анимации видно, как точки перемещаются в сложной хаотической манере. Функция sin(z) 
+                    ограничена на действительной оси, но не ограничена в комплексной плоскости, что приводит
+                    к интересной динамике при итерациях.
+                </p>
+            `,
+            inv: `
+                <p>
+                    Функция f(z) = 1/z отображает каждую точку z в точку 1/z (комплексное сопряжение).
+                    При повторном применении функции точка возвращается в исходное положение, т.е. f(f(z)) = z.
+                </p>
+                <p>
+                    На анимации видно, как точки внутри единичного круга отображаются во внешность круга
+                    и наоборот. Точки на единичной окружности остаются на ней. При повторном применении 
+                    функции все точки возвращаются в исходное положение.
+                </p>
+            `
+        };
+        
+        // Функция для генерации сетки точек
+        function generateGrid(density = 10) {
+            const scale = 3;
+            const step = (2 * scale) / density;
+            
+            const points = [];
+            
+            for (let x = -scale; x <= scale; x += step) {
+                for (let y = -scale; y <= scale; y += step) {
+                    points.push(complex(x, y));
+                }
+            }
+            
+            return points;
+        }
+        
+        // Функция для вычисления итераций
+        function calculateIterations(points, f, iterations) {
+            const allIterations = [];
+            
+            // Добавляем исходные точки
+            allIterations.push([...points]);
+            
+            // Вычисляем итерации
+            let currentPoints = [...points];
+            
+            for (let i = 0; i < iterations; i++) {
+                const nextPoints = [];
+                
+                for (const z of currentPoints) {
+                    const nextZ = f(z);
+                    
+                    // Отбрасываем точки, которые уходят в бесконечность
+                    if (isNaN(nextZ.re) || isNaN(nextZ.im) || 
+                        Math.abs(nextZ.re) > 1000 || Math.abs(nextZ.im) > 1000) {
+                        nextPoints.push(complex(NaN, NaN));
+                    } else {
+                        nextPoints.push(nextZ);
+                    }
+                }
+                
+                allIterations.push(nextPoints);
+                currentPoints = nextPoints;
+            }
+            
+            return allIterations;
+        }
+        
+        // Функция для отрисовки эволюции точек
+        function drawEvolution() {
+            if (!evolutionCtx) return;
+            
+            drawAxes(evolutionCtx, 3);
+            
+            // Получаем текущую функцию и количество итераций
+            const functionName = document.getElementById('evolution-function').value;
+            const iterations = parseInt(document.getElementById('iterations').value);
+            const f = evolutionFunctions[functionName];
+            
+            // Генерируем сетку точек
+            const gridPoints = generateGrid(15);
+            
+            // Вычисляем итерации
+            const allIterations = calculateIterations(gridPoints, f, iterations);
+            
+            // Рисуем точки с интерполяцией между итерациями
+            const currentIteration = Math.floor(evolutionTime * iterations);
+            const nextIteration = Math.min(currentIteration + 1, iterations);
+            const t = evolutionTime * iterations - currentIteration;
+            
+            for (let i = 0; i < gridPoints.length; i++) {
+                const currentPoint = allIterations[currentIteration][i];
+                const nextPoint = allIterations[nextIteration][i];
+                
+                // Пропускаем точки, которые уходят в бесконечность
+                if (isNaN(currentPoint.re) || isNaN(currentPoint.im) || 
+                    isNaN(nextPoint.re) || isNaN(nextPoint.im)) {
+                    continue;
+                }
+                
+                // Интерполируем между текущей и следующей итерацией
+                const interpolatedPoint = complex(
+                    currentPoint.re * (1 - t) + nextPoint.re * t,
+                    currentPoint.im * (1 - t) + nextPoint.im * t
+                );
+                
+                // Проверяем, что точка находится в пределах видимой области
+                if (Math.abs(interpolatedPoint.re) > 3 || Math.abs(interpolatedPoint.im) > 3) {
+                    continue;
+                }
+                
+                const canvasPoint = complexToCanvas(interpolatedPoint, evolutionCanvas);
+                
+                // Определяем цвет точки в зависимости от итерации
+                const hue = (currentIteration + t) / iterations * 240;
+                evolutionCtx.fillStyle = `hsl(${hue}, 100%, 50%)`;
+                
+                // Рисуем точку
+                evolutionCtx.beginPath();
+                evolutionCtx.arc(canvasPoint.x, canvasPoint.y, 2, 0, 2 * Math.PI);
+                evolutionCtx.fill();
+            }
+            
+            // Рисуем траектории некоторых ключевых точек
+            const keyPoints = [
+                complex(0.5, 0),
+                complex(1, 0),
+                complex(1.5, 0),
+                complex(0, 0.5),
+                complex(0, 1),
+                complex(0, 1.5),
+                complex(0.7, 0.7),
+                complex(-0.7, 0.7)
+            ];
+            
+            const keyPointIterations = calculateIterations(keyPoints, f, iterations);
+            
+            for (let i = 0; i < keyPoints.length; i++) {
+                evolutionCtx.beginPath();
+                evolutionCtx.strokeStyle = `hsl(${i * 45}, 100%, 50%)`;
+                evolutionCtx.lineWidth = 1.5;
+                
+                let firstPoint = true;
+                
+                for (let j = 0; j <= currentIteration; j++) {
+                    const point = keyPointIterations[j][i];
+                    
+                    // Пропускаем точки, которые уходят в бесконечность
+                    if (isNaN(point.re) || isNaN(point.im) || 
+                        Math.abs(point.re) > 3 || Math.abs(point.im) > 3) {
+                        firstPoint = true;
+                        continue;
+                    }
+                    
+                    const canvasPoint = complexToCanvas(point, evolutionCanvas);
+                    
+                    if (firstPoint) {
+                        evolutionCtx.moveTo(canvasPoint.x, canvasPoint.y);
+                        firstPoint = false;
+                    } else {
+                        evolutionCtx.lineTo(canvasPoint.x, canvasPoint.y);
+                    }
+                }
+                
+                // Добавляем последнюю интерполированную точку
+                if (currentIteration < iterations && !firstPoint) {
+                    const currentPoint = keyPointIterations[currentIteration][i];
+                    const nextPoint = keyPointIterations[nextIteration][i];
+                    
+                    // Проверяем, что точки существуют
+                    if (!isNaN(currentPoint.re) && !isNaN(currentPoint.im) &&
+                        !isNaN(nextPoint.re) && !isNaN(nextPoint.im)) {
+                        
+                        // Интерполируем между текущей и следующей итерацией
+                        const interpolatedPoint = complex(
+                            currentPoint.re * (1 - t) + nextPoint.re * t,
+                            currentPoint.im * (1 - t) + nextPoint.im * t
+                        );
+                        
+                        // Проверяем, что точка находится в пределах видимой области
+                        if (Math.abs(interpolatedPoint.re) <= 3 && Math.abs(interpolatedPoint.im) <= 3) {
+                            const canvasPoint = complexToCanvas(interpolatedPoint, evolutionCanvas);
+                            evolutionCtx.lineTo(canvasPoint.x, canvasPoint.y);
+                        }
+                    }
+                }
+                
+                evolutionCtx.stroke();
+            }
+            
+            // Обновляем отображение времени
+            document.getElementById('evolution-time-display').textContent = evolutionTime.toFixed(2);
+        }
+        
+        // Функция для обновления описания эволюции
+        function updateEvolutionDescription() {
+            const functionName = document.getElementById('evolution-function').value;
+            const description = evolutionDescriptions[functionName];
+            document.getElementById('evolution-description').innerHTML = description;
+        }
+        
+        // Функция для анимации эволюции
+        function animateEvolution() {
+            if (!evolutionAnimating) return;
+            
+            // Увеличиваем время
+            evolutionTime += 0.01;
+            if (evolutionTime > 1) {
+                evolutionTime = 0;
+            }
+            
+            // Обновляем положение ползунка
+            document.getElementById('evolution-time').value = evolutionTime * 100;
+            
+            // Перерисовываем эволюцию
+            drawEvolution();
+            
+            // Продолжаем анимацию
+            evolutionAnimationId = requestAnimationFrame(animateEvolution);
+        }
+        
+        // Обработчики событий для эволюции
+        document.getElementById('evolution-function').addEventListener('change', function() {
+            updateEvolutionDescription();
+            drawEvolution();
+        });
+        
+        document.getElementById('iterations').addEventListener('change', function() {
+            drawEvolution();
+        });
+        
+        document.getElementById('evolution-time').addEventListener('input', function() {
+            evolutionTime = this.value / 100;
+            drawEvolution();
+        });
+        
+        document.getElementById('start-evolution').addEventListener('click', function() {
+            if (evolutionAnimating) return;
+            
+            evolutionAnimating = true;
+            this.disabled = true;
+            document.getElementById('pause-evolution').disabled = false;
+            
+            animateEvolution();
+        });
+        
+        document.getElementById('pause-evolution').addEventListener('click', function() {
+            evolutionAnimating = false;
+            this.disabled = true;
+            document.getElementById('start-evolution').disabled = false;
+            
+            if (evolutionAnimationId) {
+                cancelAnimationFrame(evolutionAnimationId);
+                evolutionAnimationId = null;
+            }
+        });
+        
+        document.getElementById('reset-evolution').addEventListener('click', function() {
+            evolutionAnimating = false;
+            document.getElementById('start-evolution').disabled = false;
+            document.getElementById('pause-evolution').disabled = true;
+            
+            if (evolutionAnimationId) {
+                cancelAnimationFrame(evolutionAnimationId);
+                evolutionAnimationId = null;
+            }
+            
+            evolutionTime = 0;
+            document.getElementById('evolution-time').value = 0;
+            
+            drawEvolution();
+        });
+        
+        // ==========================
+        // Принцип аргумента
+        // ==========================
+        
+        // Получаем элементы для принципа аргумента
+        const principleDomainCanvas = document.getElementById('principle-domain-canvas');
+        const principleImageCanvas = document.getElementById('principle-image-canvas');
+        const principleDomainCtx = principleDomainCanvas.width > 0 ? 
+            principleDomainCanvas.getContext('2d') : null;
+        const principleImageCtx = principleImageCanvas.width > 0 ? 
+            principleImageCanvas.getContext('2d') : null;
+        
+        // Параметры анимации
+        let principleAnimationId = null;
+        let principleProgress = 0;
+        let principleAnimating = false;
+        
+        // Функции для принципа аргумента
+        const principleFunctions = {
+            poly3: z => {
+                const z2 = complexMul(z, z);
+                const z3 = complexMul(z2, z);
+                return complexSub(z3, complex(1, 0));
+            },
+            poly4: z => {
+                const z2 = complexMul(z, z);
+                const z4 = complexMul(z2, z2);
+                return complexSub(z4, complex(1, 0));
+            },
+            rational: z => {
+                const z2 = complexMul(z, z);
+                const num = complexSub(z2, complex(1, 0));
+                const denom = complexAdd(z2, complex(1, 0));
+                return complexDiv(num, denom);
+            },
+            sin: complexSin
+        };
+        
+        // Описания функций для принципа аргумента
+        const principleDescriptions = {
+            poly3: {
+                text: `
+                    <p>
+                        Функция f(z) = z³ - 1 имеет три нуля внутри стандартного контура: 
+                        z = 1, z = -1/2 + i√3/2, z = -1/2 - i√3/2 (кубические корни из единицы).
+                    </p>
+                    <p>
+                        При обходе контура аргумент функции изменится на 6π (1080°), что соответствует 
+                        3 нулям первого порядка внутри контура согласно принципу аргумента.
+                    </p>
+                `,
+                zeros: [
+                    complex(1, 0),
+                    complex(-0.5, 0.866),
+                    complex(-0.5, -0.866)
+                ],
+                poles: [],
+                argChange: 6 * Math.PI
+            },
+            poly4: {
+                text: `
+                    <p>
+                        Функция f(z) = z⁴ - 1 имеет четыре нуля внутри стандартного контура: 
+                        z = 1, z = -1, z = i, z = -i (четвертые корни из единицы).
+                    </p>
+                    <p>
+                        При обходе контура аргумент функции изменится на 8π (1440°), что соответствует 
+                        4 нулям первого порядка внутри контура согласно принципу аргумента.
+                    </p>
+                `,
+                zeros: [
+                    complex(1, 0),
+                    complex(-1, 0),
+                    complex(0, 1),
+                    complex(0, -1)
+                ],
+                poles: [],
+                argChange: 8 * Math.PI
+            },
+            rational: {
+                text: `
+                    <p>
+                        Функция f(z) = (z² - 1)/(z² + 1) имеет два нуля (z = 1 и z = -1) и два полюса 
+                        (z = i и z = -i) внутри стандартного контура.
+                    </p>
+                    <p>
+                        При обходе контура аргумент функции изменится на 0, так как вклад двух нулей (+4π) 
+                        компенсируется вкладом двух полюсов (-4π).
+                    </p>
+                `,
+                zeros: [
+                    complex(1, 0),
+                    complex(-1, 0)
+                ],
+                poles: [
+                    complex(0, 1),
+                    complex(0, -1)
+                ],
+                argChange: 0
+            },
+            sin: {
+                text: `
+                    <p>
+                        Функция f(z) = sin(z) имеет бесконечно много нулей, расположенных в точках 
+                        z = nπ, где n — целое число. Внутри стандартного контура находится один нуль: z = 0.
+                    </p>
+                    <p>
+                        При обходе контура аргумент функции изменится на 2π (360°), что соответствует 
+                        1 нулю первого порядка внутри контура согласно принципу аргумента.
+                    </p>
+                `,
+                zeros: [
+                    complex(0, 0)
+                ],
+                poles: [],
+                argChange: 2 * Math.PI
+            }
+        };
+        
+        // Функция для создания контура
+        function createContour(type, scale = 1.5) {
+            const points = [];
+            
+            switch (type) {
+                case 'circle':
+                    // Круговой контур
+                    for (let theta = 0; theta <= 2 * Math.PI; theta += 0.01) {
+                        points.push(complex(
+                            scale * Math.cos(theta),
+                            scale * Math.sin(theta)
+                        ));
+                    }
+                    break;
+                    
+                case 'rectangle':
+                    // Прямоугольный контур
+                    const s = scale;
+                    
+                    // Нижняя сторона
+                    for (let x = -s; x <= s; x += 0.05) {
+                        points.push(complex(x, -s));
+                    }
+                    
+                    // Правая сторона
+                    for (let y = -s; y <= s; y += 0.05) {
+                        points.push(complex(s, y));
+                    }
+                    
+                    // Верхняя сторона
+                    for (let x = s; x >= -s; x -= 0.05) {
+                        points.push(complex(x, s));
+                    }
+                    
+                    // Левая сторона
+                    for (let y = s; y >= -s; y -= 0.05) {
+                        points.push(complex(-s, y));
+                    }
+                    break;
+                    
+                case 'custom':
+                    // Произвольный контур (в форме звезды)
+                    const numPoints = 5;
+                    const innerRadius = 0.8 * scale;
+                    const outerRadius = 1.5 * scale;
+                    
+                    for (let i = 0; i <= numPoints * 2; i++) {
+                        const theta = i * Math.PI / numPoints;
+                        const radius = i % 2 === 0 ? outerRadius : innerRadius;
+                        
+                        points.push(complex(
+                            radius * Math.cos(theta),
+                            radius * Math.sin(theta)
+                        ));
+                    }
+                    
+                    // Добавляем промежуточные точки для сглаживания
+                    const smoothPoints = [];
+                    
+                    for (let i = 0; i < points.length; i++) {
+                        const current = points[i];
+                        const next = points[(i + 1) % points.length];
+                        
+                        smoothPoints.push(current);
+                        
+                        for (let t = 0.1; t < 1; t += 0.1) {
+                            smoothPoints.push(complex(
+                                current.re * (1 - t) + next.re * t,
+                                current.im * (1 - t) + next.im * t
+                            ));
+                        }
+                    }
+                    
+                    return smoothPoints;
+            }
+            
+            return points;
+        }
+        
+        // Функция для отрисовки контура в исходной области
+        function drawPrincipleDomain() {
+            if (!principleDomainCtx) return;
+            
+            drawAxes(principleDomainCtx);
+            
+            // Получаем тип контура и создаем его
+            const contourType = document.getElementById('contour-type').value;
+            const contour = createContour(contourType);
+            
+            // Получаем текущую функцию и её описание
+            const functionName = document.getElementById('principle-function').value;
+            const description = principleDescriptions[functionName];
+            
+            // Отрисовываем весь контур тонкой линией
+            principleDomainCtx.beginPath();
+            principleDomainCtx.strokeStyle = 'rgba(0, 0, 0, 0.3)';
+            principleDomainCtx.lineWidth = 1;
+            
+            for (let i = 0; i < contour.length; i++) {
+                const point = complexToCanvas(contour[i], principleDomainCanvas);
+                
+                if (i === 0) {
+                    principleDomainCtx.moveTo(point.x, point.y);
+                } else {
+                    principleDomainCtx.lineTo(point.x, point.y);
+                }
+            }
+            
+            principleDomainCtx.closePath();
+            principleDomainCtx.stroke();
+            
+            // Отрисовываем пройденную часть контура толстой линией
+            const numPoints = Math.floor(contour.length * principleProgress);
+            
+            if (numPoints > 1) {
+                principleDomainCtx.beginPath();
+                principleDomainCtx.strokeStyle = 'rgba(0, 0, 255, 0.7)';
+                principleDomainCtx.lineWidth = 2;
+                
+                for (let i = 0; i <= numPoints; i++) {
+                    const point = complexToCanvas(contour[i], principleDomainCanvas);
+                    
+                    if (i === 0) {
+                        principleDomainCtx.moveTo(point.x, point.y);
+                    } else {
+                        principleDomainCtx.lineTo(point.x, point.y);
+                    }
+                }
+                
+                principleDomainCtx.stroke();
+                
+                // Рисуем текущую точку
+                const currentPoint = complexToCanvas(contour[numPoints], principleDomainCanvas);
+                
+                principleDomainCtx.beginPath();
+                principleDomainCtx.fillStyle = 'blue';
+                principleDomainCtx.arc(currentPoint.x, currentPoint.y, 5, 0, 2 * Math.PI);
+                principleDomainCtx.fill();
+            }
+            
+            // Отрисовываем нули и полюса
+            if (description.zeros) {
+                principleDomainCtx.fillStyle = 'rgba(0, 0, 255, 0.7)';
+                
+                for (const zero of description.zeros) {
+                    const point = complexToCanvas(zero, principleDomainCanvas);
+                    
+                    principleDomainCtx.beginPath();
+                    principleDomainCtx.arc(point.x, point.y, 5, 0, 2 * Math.PI);
+                    principleDomainCtx.fill();
+                    
+                    // Добавляем метку
+                    principleDomainCtx.fillStyle = 'black';
+                    principleDomainCtx.font = '12px Arial';
+                    principleDomainCtx.fillText('Z', point.x + 8, point.y + 4);
+                    principleDomainCtx.fillStyle = 'rgba(0, 0, 255, 0.7)';
+                }
+            }
+            
+            if (description.poles) {
+                principleDomainCtx.fillStyle = 'rgba(255, 0, 0, 0.7)';
+                
+                for (const pole of description.poles) {
+                    const point = complexToCanvas(pole, principleDomainCanvas);
+                    
+                    principleDomainCtx.beginPath();
+                    principleDomainCtx.arc(point.x, point.y, 5, 0, 2 * Math.PI);
+                    principleDomainCtx.fill();
+                    
+                    // Добавляем метку
+                    principleDomainCtx.fillStyle = 'black';
+                    principleDomainCtx.font = '12px Arial';
+                    principleDomainCtx.fillText('P', point.x + 8, point.y + 4);
+                    principleDomainCtx.fillStyle = 'rgba(255, 0, 0, 0.7)';
+                }
+            }
+        }
+        
+        // Функция для отрисовки образа контура
+        function drawPrincipleImage() {
+            if (!principleImageCtx) return;
+            
+            drawAxes(principleImageCtx);
+            
+            // Получаем тип контура и создаем его
+            const contourType = document.getElementById('contour-type').value;
+            const contour = createContour(contourType);
+            
+            // Получаем текущую функцию
+            const functionName = document.getElementById('principle-function').value;
+            const f = principleFunctions[functionName];
+            const description = principleDescriptions[functionName];
+            
+            // Вычисляем образы точек контура
+            const imageContour = contour.map(z => f(z));
+            
+            // Отрисовываем весь образ контура тонкой линией
+            principleImageCtx.beginPath();
+            principleImageCtx.strokeStyle = 'rgba(0, 0, 0, 0.3)';
+            principleImageCtx.lineWidth = 1;
+            
+            let firstPoint = true;
+            
+            for (let i = 0; i < imageContour.length; i++) {
+                const w = imageContour[i];
+                
+                // Пропускаем точки, которые уходят в бесконечность или не определены
+                if (isNaN(w.re) || isNaN(w.im) || 
+                    Math.abs(w.re) > 5 || Math.abs(w.im) > 5) {
+                    firstPoint = true;
+                    continue;
+                }
+                
+                const point = complexToCanvas(w, principleImageCanvas);
+                
+                if (firstPoint) {
+                    principleImageCtx.moveTo(point.x, point.y);
+                    firstPoint = false;
+                } else {
+                    principleImageCtx.lineTo(point.x, point.y);
+                }
+            }
+            
+            principleImageCtx.stroke();
+            
+            // Отрисовываем пройденную часть образа контура толстой линией
+            const numPoints = Math.floor(imageContour.length * principleProgress);
+            
+            if (numPoints > 1) {
+                principleImageCtx.beginPath();
+                principleImageCtx.strokeStyle = 'rgba(0, 0, 255, 0.7)';
+                principleImageCtx.lineWidth = 2;
+                
+                firstPoint = true;
+                
+                for (let i = 0; i <= numPoints; i++) {
+                    const w = imageContour[i];
+                    
+                    // Пропускаем точки, которые уходят в бесконечность или не определены
+                    if (isNaN(w.re) || isNaN(w.im) || 
+                        Math.abs(w.re) > 5 || Math.abs(w.im) > 5) {
+                        firstPoint = true;
+                        continue;
+                    }
+                    
+                    const point = complexToCanvas(w, principleImageCanvas);
+                    
+                    if (firstPoint) {
+                        principleImageCtx.moveTo(point.x, point.y);
+                        firstPoint = false;
+                    } else {
+                        principleImageCtx.lineTo(point.x, point.y);
+                    }
+                }
+                
+                principleImageCtx.stroke();
+                
+                // Рисуем текущую точку
+                if (!firstPoint && numPoints < imageContour.length) {
+                    const currentW = imageContour[numPoints];
+                    
+                    // Проверяем, что точка определена и в пределах видимой области
+                    if (!isNaN(currentW.re) && !isNaN(currentW.im) && 
+                        Math.abs(currentW.re) <= 5 && Math.abs(currentW.im) <= 5) {
+                        
+                        const currentPoint = complexToCanvas(currentW, principleImageCanvas);
+                        
+                        principleImageCtx.beginPath();
+                        principleImageCtx.fillStyle = 'blue';
+                        principleImageCtx.arc(currentPoint.x, currentPoint.y, 5, 0, 2 * Math.PI);
+                        principleImageCtx.fill();
+                    }
+                }
+            }
+            
+            // Рисуем начало координат
+            const origin = complexToCanvas(complex(0, 0), principleImageCanvas);
+            
+            principleImageCtx.beginPath();
+            principleImageCtx.fillStyle = 'black';
+            principleImageCtx.arc(origin.x, origin.y, 3, 0, 2 * Math.PI);
+            principleImageCtx.fill();
+            
+            // Обновляем информацию о прогрессе и изменении аргумента
+            document.getElementById('principle-progress').textContent = Math.round(principleProgress * 100) + '%';
+            
+            const argChange = description.argChange * principleProgress;
+            const argChangeDegrees = argChange * 180 / Math.PI;
+            document.getElementById('arg-change').textContent = argChangeDegrees.toFixed(0) + '°';
+        }
+        
+        // Функция для обновления описания принципа аргумента
+        function updatePrincipleDescription() {
+            const functionName = document.getElementById('principle-function').value;
+            const description = principleDescriptions[functionName];
+            document.getElementById('principle-description').innerHTML = description.text;
+        }
+        
+        // Функция для анимации принципа аргумента
+        function animatePrinciple() {
+            if (!principleAnimating) return;
+            
+            // Увеличиваем прогресс
+            principleProgress += 0.005;
+            if (principleProgress > 1) {
+                principleProgress = 0;
+            }
+            
+            // Обновляем положение ползунка
+            document.getElementById('principle-time').value = principleProgress * 100;
+            
+            // Перерисовываем контур и его образ
+            drawPrincipleDomain();
+            drawPrincipleImage();
+            
+            // Продолжаем анимацию
+            principleAnimationId = requestAnimationFrame(animatePrinciple);
+        }
+        
+        // Обработчики событий для принципа аргумента
+        document.getElementById('principle-function').addEventListener('change', function() {
+            updatePrincipleDescription();
+            drawPrincipleDomain();
+            drawPrincipleImage();
+        });
+        
+        document.getElementById('contour-type').addEventListener('change', function() {
+            drawPrincipleDomain();
+            drawPrincipleImage();
+        });
+        
+        document.getElementById('principle-time').addEventListener('input', function() {
+            principleProgress = this.value / 100;
+            drawPrincipleDomain();
+            drawPrincipleImage();
+        });
+        
+        document.getElementById('start-principle').addEventListener('click', function() {
+            if (principleAnimating) return;
+            
+            principleAnimating = true;
+            this.disabled = true;
+            document.getElementById('pause-principle').disabled = false;
+            
+            animatePrinciple();
+        });
+        
+        document.getElementById('pause-principle').addEventListener('click', function() {
+            principleAnimating = false;
+            this.disabled = true;
+            document.getElementById('start-principle').disabled = false;
+            
+            if (principleAnimationId) {
+                cancelAnimationFrame(principleAnimationId);
+                principleAnimationId = null;
+            }
+        });
+        
+        document.getElementById('reset-principle').addEventListener('click', function() {
+            principleAnimating = false;
+            document.getElementById('start-principle').disabled = false;
+            document.getElementById('pause-principle').disabled = true;
+            
+            if (principleAnimationId) {
+                cancelAnimationFrame(principleAnimationId);
+                principleAnimationId = null;
+            }
+            
+            principleProgress = 0;
+            document.getElementById('principle-time').value = 0;
+            
+            drawPrincipleDomain();
+            drawPrincipleImage();
+        });
+        
+        // ==========================
+        // Вкладки
+        // ==========================
+        
+        // Функция для переключения вкладок
+        function switchTab(tabId) {
+            // Скрываем все вкладки
+            document.querySelectorAll('.tab-content').forEach(tab => {
+                tab.classList.remove('active');
+            });
+            
+            // Убираем активность со всех кнопок вкладок
+            document.querySelectorAll('.animation-tab').forEach(button => {
+                button.classList.remove('active');
+            });
+            
+            // Отображаем выбранную вкладку
+            document.getElementById(tabId + '-tab').classList.add('active');
+            
+            // Делаем кнопку вкладки активной
+            document.querySelector(`.animation-tab[data-tab="${tabId}"]`).classList.add('active');
+            
+            // Останавливаем все анимации
+            if (parametricAnimationId) {
+                cancelAnimationFrame(parametricAnimationId);
+                parametricAnimationId = null;
+            }
+            
+            if (evolutionAnimationId) {
+                cancelAnimationFrame(evolutionAnimationId);
+                evolutionAnimationId = null;
+            }
+            
+            if (principleAnimationId) {
+                cancelAnimationFrame(principleAnimationId);
+                principleAnimationId = null;
+            }
+            
+            parametricAnimating = false;
+            evolutionAnimating = false;
+            principleAnimating = false;
+            
+            document.getElementById('start-parametric').disabled = false;
+            document.getElementById('pause-parametric').disabled = true;
+            document.getElementById('start-evolution').disabled = false;
+            document.getElementById('pause-evolution').disabled = true;
+            document.getElementById('start-principle').disabled = false;
+            document.getElementById('pause-principle').disabled = true;
+            
+            // Инициализируем выбранную вкладку
+            switch (tabId) {
+                case 'parametric':
+                    drawParametricDomain();
+                    drawParametricImage();
+                    updateParametricDescription();
+                    break;
+                    
+                case 'evolution':
+                    drawEvolution();
+                    updateEvolutionDescription();
+                    break;
+                    
+                case 'principle':
+                    drawPrincipleDomain();
+                    drawPrincipleImage();
+                    updatePrincipleDescription();
+                    break;
+            }
+        }
+        
+        // Обработчики событий для вкладок
+        document.querySelectorAll('.animation-tab').forEach(tab => {
+            tab.addEventListener('click', function() {
+                const tabId = this.getAttribute('data-tab');
+                switchTab(tabId);
+            });
+        });
+        
+        // Инициализация
+        window.addEventListener('load', function() {
+            // Инициализируем первую вкладку
+            switchTab('parametric');
+        });
+    </script>
+</body>
+</html>

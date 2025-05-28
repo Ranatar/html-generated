@@ -1,0 +1,529 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Трехмерные поверхности</title>
+    <style>
+        body {
+            font-family: 'Arial', sans-serif;
+            line-height: 1.6;
+            color: #333;
+            max-width: 1000px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        h1 {
+            color: #2c3e50;
+            text-align: center;
+            margin-bottom: 30px;
+        }
+        h2 {
+            color: #3498db;
+            margin-top: 30px;
+        }
+        .canvas-container {
+            display: flex;
+            justify-content: center;
+            margin: 20px 0;
+            flex-wrap: wrap;
+        }
+        canvas {
+            border: 1px solid #ddd;
+            margin: 10px;
+        }
+        .controls {
+            background-color: #f5f5f5;
+            padding: 15px;
+            border-radius: 5px;
+            margin: 20px 0;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 15px;
+            align-items: center;
+        }
+        .advantages-disadvantages {
+            display: flex;
+            justify-content: space-between;
+            margin-top: 30px;
+        }
+        .advantages, .disadvantages {
+            width: 48%;
+            padding: 15px;
+            border-radius: 5px;
+        }
+        .advantages {
+            background-color: #e8f8f5;
+            border-left: 5px solid #1abc9c;
+        }
+        .disadvantages {
+            background-color: #fef5e7;
+            border-left: 5px solid #f39c12;
+        }
+        ul {
+            padding-left: 20px;
+        }
+        .explanation {
+            margin-top: 20px;
+            padding: 15px;
+            background-color: #eaf2f8;
+            border-radius: 5px;
+        }
+        .control-group {
+            margin-right: 15px;
+        }
+        .rotation-controls {
+            display: flex;
+            gap: 10px;
+            align-items: center;
+        }
+        .rotation-buttons {
+            display: grid;
+            grid-template-columns: 1fr 1fr 1fr;
+            gap: 5px;
+        }
+        .rotation-button {
+            width: 30px;
+            height: 30px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            background-color: #3498db;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+        .rotation-button:hover {
+            background-color: #2980b9;
+        }
+        .empty-cell {
+            width: 30px;
+            height: 30px;
+        }
+        .demo-area {
+            margin: 20px 0;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+        .range-control {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        .range-control input {
+            width: 150px;
+        }
+    </style>
+</head>
+<body>
+    <h1>Трехмерные поверхности для визуализации функций комплексного переменного</h1>
+    
+    <p>
+        Метод трехмерных поверхностей позволяет представить компоненты функции комплексного 
+        переменного f(z) = u(x,y) + iv(x,y) как поверхности в трехмерном пространстве. 
+        Этот метод дает наглядное и интуитивно понятное представление о локальном поведении функции.
+    </p>
+
+    <div class="controls">
+        <div class="control-group">
+            <label for="function-select">Выберите функцию: </label>
+            <select id="function-select">
+                <option value="z2">f(z) = z²</option>
+                <option value="1_z">f(z) = 1/z</option>
+                <option value="sin_z">f(z) = sin(z)</option>
+                <option value="exp_z">f(z) = exp(z)</option>
+                <option value="z3_minus_1">f(z) = z³ - 1</option>
+            </select>
+        </div>
+        
+        <div class="control-group">
+            <label for="component-select">Компонента: </label>
+            <select id="component-select">
+                <option value="re">Действительная часть (Re)</option>
+                <option value="im">Мнимая часть (Im)</option>
+                <option value="abs">Модуль (|f|)</option>
+            </select>
+        </div>
+        
+        <div class="control-group range-control">
+            <label for="resolution">Детализация: </label>
+            <input type="range" id="resolution" min="10" max="100" value="40">
+            <span id="resolution-value">40</span>
+        </div>
+    </div>
+    
+    <div class="controls">
+        <div class="rotation-controls">
+            <span>Вращение: </span>
+            <div class="rotation-buttons">
+                <div class="empty-cell"></div>
+                <button class="rotation-button" id="rotate-up">↑</button>
+                <div class="empty-cell"></div>
+                <button class="rotation-button" id="rotate-left">←</button>
+                <button class="rotation-button" id="reset-rotation">R</button>
+                <button class="rotation-button" id="rotate-right">→</button>
+                <div class="empty-cell"></div>
+                <button class="rotation-button" id="rotate-down">↓</button>
+                <div class="empty-cell"></div>
+            </div>
+        </div>
+        
+        <div class="control-group range-control">
+            <label for="scale">Масштаб: </label>
+            <input type="range" id="scale" min="0.5" max="2" step="0.1" value="1">
+            <span id="scale-value">1.0</span>
+        </div>
+    </div>
+    
+    <div class="demo-area">
+        <canvas id="surface3dCanvas" width="600" height="400"></canvas>
+    </div>
+
+    <div class="explanation">
+        <h2>Интерпретация трехмерной поверхности</h2>
+        <p>
+            <strong>Оси координат:</strong>
+        </p>
+        <ul>
+            <li><strong>Ось X:</strong> Действительная часть комплексного аргумента z (Re(z))</li>
+            <li><strong>Ось Y:</strong> Мнимая часть комплексного аргумента z (Im(z))</li>
+            <li><strong>Ось Z:</strong> Выбранная компонента функции (Re(f), Im(f) или |f|)</li>
+        </ul>
+        
+        <p>
+            <strong>На поверхности можно наблюдать:</strong>
+        </p>
+        <ul>
+            <li><strong>Нули функции:</strong> точки, где поверхность пересекает плоскость z = 0 (для Re и Im компонент)</li>
+            <li><strong>Полюса:</strong> точки, где поверхность уходит в бесконечность (обычно обрезаются в визуализации)</li>
+            <li><strong>Седловые точки:</strong> точки, где поверхность имеет форму седла</li>
+            <li><strong>Градиент функции:</strong> крутизна поверхности показывает скорость изменения функции</li>
+        </ul>
+        
+        <p>
+            <strong>Для гармонических функций:</strong> Действительная и мнимая части аналитической функции обе 
+            являются гармоническими функциями и удовлетворяют уравнению Лапласа. Визуально это означает, что 
+            их поверхности не имеют локальных максимумов или минимумов внутри области определения.
+        </p>
+    </div>
+
+    <div class="advantages-disadvantages">
+        <div class="advantages">
+            <h2>Преимущества</h2>
+            <ul>
+                <li>Интуитивно понятная визуализация, не требующая специальных знаний для базового понимания</li>
+                <li>Позволяет точно определить значения функции в конкретных точках</li>
+                <li>Хорошо показывает локальное поведение функции и градиент</li>
+                <li>Наглядно демонстрирует нули и критические точки функции</li>
+                <li>Возможность интерактивного вращения для лучшего понимания структуры</li>
+                <li>Эффективен для обучения и начального знакомства с функцией</li>
+            </ul>
+        </div>
+        <div class="disadvantages">
+            <h2>Недостатки</h2>
+            <ul>
+                <li>Отображает только одну компоненту функции за раз (Re, Im или |f|)</li>
+                <li>Сложно визуализировать функции с большим диапазоном значений</li>
+                <li>Полюса создают бесконечно высокие пики, которые трудно отобразить</li>
+                <li>Возможны проблемы с перспективой и затенением</li>
+                <li>Затруднено одновременное понимание действительной и мнимой части</li>
+                <li>Сложно визуализировать функции на большой области</li>
+            </ul>
+        </div>
+    </div>
+
+    <script>
+        // Подключаем библиотеку Three.js из CDN
+        const script = document.createElement('script');
+        script.src = 'https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js';
+        document.head.appendChild(script);
+        
+        script.onload = function() {
+            let scene, camera, renderer;
+            let surface;
+            let rotationX = 0.5;
+            let rotationY = 0.5;
+            const canvas = document.getElementById('surface3dCanvas');
+            
+            // Определяем комплексные функции
+            const functions = {
+                z2: (x, y) => {
+                    const real = x * x - y * y;
+                    const imag = 2 * x * y;
+                    return { real, imag };
+                },
+                z3_minus_1: (x, y) => {
+                    // z^3 - 1
+                    const x2 = x * x;
+                    const y2 = y * y;
+                    const real = x * (x2 - 3 * y2) - 1;
+                    const imag = y * (3 * x2 - y2);
+                    return { real, imag };
+                },
+                exp_z: (x, y) => {
+                    // e^z = e^x * (cos(y) + i*sin(y))
+                    const exp_x = Math.exp(x);
+                    const real = exp_x * Math.cos(y);
+                    const imag = exp_x * Math.sin(y);
+                    return { real, imag };
+                },
+                sin_z: (x, y) => {
+                    // sin(z) = sin(x)cosh(y) + i*cos(x)sinh(y)
+                    const real = Math.sin(x) * Math.cosh(y);
+                    const imag = Math.cos(x) * Math.sinh(y);
+                    return { real, imag };
+                },
+                1_z: (x, y) => {
+                    // 1/z = x/(x^2+y^2) - i*y/(x^2+y^2)
+                    const denom = x * x + y * y;
+                    if (denom < 0.0001) return { real: 1000, imag: 0 }; // Избегаем деления на ноль
+                    const real = x / denom;
+                    const imag = -y / denom;
+                    return { real, imag };
+                }
+            };
+            
+            // Функция для вычисления модуля комплексного числа
+            function complexAbs(z) {
+                return Math.sqrt(z.real * z.real + z.imag * z.imag);
+            }
+            
+            // Инициализация Three.js сцены
+            function init() {
+                // Создаем сцену
+                scene = new THREE.Scene();
+                scene.background = new THREE.Color(0xf0f0f0);
+                
+                // Создаем камеру
+                const aspect = canvas.width / canvas.height;
+                camera = new THREE.PerspectiveCamera(75, aspect, 0.1, 1000);
+                camera.position.z = 5;
+                
+                // Создаем рендерер
+                renderer = new THREE.WebGLRenderer({ canvas: canvas, antialias: true });
+                
+                // Добавляем оси координат
+                const axisHelper = new THREE.AxesHelper(2);
+                scene.add(axisHelper);
+                
+                // Добавляем сетку основания
+                const gridHelper = new THREE.GridHelper(4, 10);
+                gridHelper.rotation.x = Math.PI / 2;
+                scene.add(gridHelper);
+                
+                // Добавляем освещение
+                const ambientLight = new THREE.AmbientLight(0x404040);
+                scene.add(ambientLight);
+                
+                const directionalLight = new THREE.DirectionalLight(0xffffff, 0.5);
+                directionalLight.position.set(1, 1, 1);
+                scene.add(directionalLight);
+                
+                const directionalLight2 = new THREE.DirectionalLight(0xffffff, 0.3);
+                directionalLight2.position.set(-1, -1, -1);
+                scene.add(directionalLight2);
+                
+                // Обновляем камеру
+                updateCamera();
+                
+                // Создаем поверхность
+                createSurface();
+                
+                // Анимация
+                animate();
+            }
+            
+            // Функция для создания поверхности из выбранной функции
+            function createSurface() {
+                // Удаляем предыдущую поверхность, если она существует
+                if (surface) {
+                    scene.remove(surface);
+                }
+                
+                const functionName = document.getElementById('function-select').value;
+                const componentType = document.getElementById('component-select').value;
+                const resolution = parseInt(document.getElementById('resolution').value);
+                const scaleValue = parseFloat(document.getElementById('scale').value);
+                
+                const f = functions[functionName];
+                
+                // Создаем геометрию
+                const geometry = new THREE.BufferGeometry();
+                
+                // Определяем размер визуализируемой области
+                const size = 2 * scaleValue;
+                const step = size / resolution;
+                
+                // Создаем массивы для вершин, цветов и индексов треугольников
+                const vertices = [];
+                const colors = [];
+                const indices = [];
+                
+                // Функция для получения значения компоненты
+                function getComponentValue(f, x, y) {
+                    const result = f(x, y);
+                    switch(componentType) {
+                        case 're': return result.real;
+                        case 'im': return result.imag;
+                        case 'abs': return complexAbs(result);
+                    }
+                }
+                
+                // Находим минимальное и максимальное значения для нормализации цветов
+                let minVal = Infinity;
+                let maxVal = -Infinity;
+                
+                // Создаем двумерный массив для хранения значений z
+                const zValues = [];
+                
+                for (let i = 0; i <= resolution; i++) {
+                    zValues[i] = [];
+                    for (let j = 0; j <= resolution; j++) {
+                        const x = -size/2 + i * step;
+                        const y = -size/2 + j * step;
+                        
+                        const z = getComponentValue(f, x, y);
+                        
+                        // Ограничиваем z для предотвращения слишком больших значений
+                        const limitedZ = Math.max(-5, Math.min(5, z));
+                        zValues[i][j] = limitedZ;
+                        
+                        minVal = Math.min(minVal, limitedZ);
+                        maxVal = Math.max(maxVal, limitedZ);
+                    }
+                }
+                
+                // Создаем вершины и цвета
+                for (let i = 0; i <= resolution; i++) {
+                    for (let j = 0; j <= resolution; j++) {
+                        const x = -size/2 + i * step;
+                        const y = -size/2 + j * step;
+                        const z = zValues[i][j];
+                        
+                        vertices.push(x, y, z);
+                        
+                        // Нормализуем z для цвета
+                        const normalizedZ = (z - minVal) / (maxVal - minVal);
+                        
+                        // Создаем цвет на основе z
+                        // Используем градиент от синего (низкие значения) через зеленый к красному (высокие значения)
+                        let r, g, b;
+                        
+                        if (normalizedZ < 0.5) {
+                            // От синего к зеленому
+                            b = 1 - 2 * normalizedZ;
+                            g = 2 * normalizedZ;
+                            r = 0;
+                        } else {
+                            // От зеленого к красному
+                            b = 0;
+                            g = 2 - 2 * normalizedZ;
+                            r = 2 * normalizedZ - 1;
+                        }
+                        
+                        colors.push(r, g, b);
+                    }
+                }
+                
+                // Создаем индексы треугольников
+                for (let i = 0; i < resolution; i++) {
+                    for (let j = 0; j < resolution; j++) {
+                        const a = i * (resolution + 1) + j;
+                        const b = i * (resolution + 1) + (j + 1);
+                        const c = (i + 1) * (resolution + 1) + j;
+                        const d = (i + 1) * (resolution + 1) + (j + 1);
+                        
+                        // Первый треугольник
+                        indices.push(a, b, c);
+                        // Второй треугольник
+                        indices.push(c, b, d);
+                    }
+                }
+                
+                // Устанавливаем атрибуты геометрии
+                geometry.setAttribute('position', new THREE.Float32BufferAttribute(vertices, 3));
+                geometry.setAttribute('color', new THREE.Float32BufferAttribute(colors, 3));
+                geometry.setIndex(indices);
+                
+                // Вычисляем нормали для правильного освещения
+                geometry.computeVertexNormals();
+                
+                // Создаем материал
+                const material = new THREE.MeshLambertMaterial({ 
+                    vertexColors: true,
+                    side: THREE.DoubleSide,
+                    wireframe: false
+                });
+                
+                // Создаем меш
+                surface = new THREE.Mesh(geometry, material);
+                
+                // Добавляем меш на сцену
+                scene.add(surface);
+            }
+            
+            // Функция для обновления положения камеры
+            function updateCamera() {
+                const radius = 7;
+                
+                // Преобразуем сферические координаты в декартовы
+                camera.position.x = radius * Math.sin(rotationY * Math.PI) * Math.cos(rotationX * 2 * Math.PI);
+                camera.position.y = radius * Math.cos(rotationY * Math.PI);
+                camera.position.z = radius * Math.sin(rotationY * Math.PI) * Math.sin(rotationX * 2 * Math.PI);
+                
+                camera.lookAt(0, 0, 0);
+            }
+            
+            // Функция анимации
+            function animate() {
+                requestAnimationFrame(animate);
+                renderer.render(scene, camera);
+            }
+            
+            // Обработчики событий
+            document.getElementById('function-select').addEventListener('change', createSurface);
+            document.getElementById('component-select').addEventListener('change', createSurface);
+            document.getElementById('resolution').addEventListener('input', function(e) {
+                document.getElementById('resolution-value').textContent = e.target.value;
+                createSurface();
+            });
+            document.getElementById('scale').addEventListener('input', function(e) {
+                document.getElementById('scale-value').textContent = parseFloat(e.target.value).toFixed(1);
+                createSurface();
+            });
+            
+            // Кнопки вращения
+            document.getElementById('rotate-up').addEventListener('click', function() {
+                rotationY = Math.max(0.1, rotationY - 0.1);
+                updateCamera();
+            });
+            
+            document.getElementById('rotate-down').addEventListener('click', function() {
+                rotationY = Math.min(0.9, rotationY + 0.1);
+                updateCamera();
+            });
+            
+            document.getElementById('rotate-left').addEventListener('click', function() {
+                rotationX = (rotationX - 0.1 + 1) % 1;
+                updateCamera();
+            });
+            
+            document.getElementById('rotate-right').addEventListener('click', function() {
+                rotationX = (rotationX + 0.1) % 1;
+                updateCamera();
+            });
+            
+            document.getElementById('reset-rotation').addEventListener('click', function() {
+                rotationX = 0.5;
+                rotationY = 0.5;
+                updateCamera();
+            });
+            
+            // Запускаем инициализацию после загрузки страницы
+            init();
+        };
+    </script>
+</body>
+</html>

@@ -1,0 +1,841 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Линии уровня</title>
+    <style>
+        body {
+            font-family: 'Arial', sans-serif;
+            line-height: 1.6;
+            color: #333;
+            max-width: 1000px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        h1 {
+            color: #2c3e50;
+            text-align: center;
+            margin-bottom: 30px;
+        }
+        h2 {
+            color: #3498db;
+            margin-top: 30px;
+        }
+        .canvas-container {
+            display: flex;
+            justify-content: center;
+            margin: 20px 0;
+            flex-wrap: wrap;
+            gap: 20px;
+        }
+        canvas {
+            border: 1px solid #ddd;
+        }
+        .controls {
+            background-color: #f5f5f5;
+            padding: 15px;
+            border-radius: 5px;
+            margin: 20px 0;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 15px;
+            align-items: center;
+        }
+        .advantages-disadvantages {
+            display: flex;
+            justify-content: space-between;
+            margin-top: 30px;
+        }
+        .advantages, .disadvantages {
+            width: 48%;
+            padding: 15px;
+            border-radius: 5px;
+        }
+        .advantages {
+            background-color: #e8f8f5;
+            border-left: 5px solid #1abc9c;
+        }
+        .disadvantages {
+            background-color: #fef5e7;
+            border-left: 5px solid #f39c12;
+        }
+        ul {
+            padding-left: 20px;
+        }
+        .explanation {
+            margin-top: 20px;
+            padding: 15px;
+            background-color: #eaf2f8;
+            border-radius: 5px;
+        }
+        .control-group {
+            margin-right: 15px;
+        }
+        .canvas-label {
+            text-align: center;
+            font-weight: bold;
+            margin-top: 5px;
+        }
+        .canvas-wrapper {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+        .range-control {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        .range-control input {
+            width: 150px;
+        }
+        .checkbox-group {
+            display: flex;
+            gap: 15px;
+        }
+        .property-highlight {
+            margin-top: 30px;
+            padding: 15px;
+            background-color: #e8f4fc;
+            border-radius: 5px;
+            border-left: 5px solid #3498db;
+        }
+        .property-highlight h3 {
+            margin-top: 0;
+            color: #3498db;
+        }
+        .legend {
+            display: flex;
+            justify-content: center;
+            flex-wrap: wrap;
+            gap: 15px;
+            margin: 15px 0;
+        }
+        .legend-item {
+            display: flex;
+            align-items: center;
+            margin: 0 10px;
+        }
+        .legend-color {
+            width: 20px;
+            height: 20px;
+            margin-right: 5px;
+            border: 1px solid #000;
+        }
+        .grid-columns {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+        }
+        @media (max-width: 800px) {
+            .grid-columns {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+<body>
+    <h1>Линии уровня для визуализации функций комплексного переменного</h1>
+    
+    <p>
+        Метод линий уровня позволяет визуализировать функции комплексного переменного путем построения кривых, 
+        вдоль которых одна из компонент функции (действительная, мнимая часть, модуль или аргумент) остается 
+        постоянной. Это помогает увидеть структуру функции и ее особенности.
+    </p>
+
+    <div class="controls">
+        <div class="control-group">
+            <label for="function-select">Выберите функцию: </label>
+            <select id="function-select">
+                <option value="z2">f(z) = z²</option>
+                <option value="1_z">f(z) = 1/z</option>
+                <option value="sin_z">f(z) = sin(z)</option>
+                <option value="exp_z">f(z) = exp(z)</option>
+                <option value="z3_minus_1">f(z) = z³ - 1</option>
+                <option value="sqrt_z">f(z) = √z</option>
+                <option value="log_z">f(z) = log(z)</option>
+            </select>
+        </div>
+        
+        <div class="control-group range-control">
+            <label for="level-count">Количество линий: </label>
+            <input type="range" id="level-count" min="5" max="30" value="15">
+            <span id="level-count-value">15</span>
+        </div>
+        
+        <div class="checkbox-group">
+            <div>
+                <input type="checkbox" id="show-critical-points" checked>
+                <label for="show-critical-points">Показать особые точки</label>
+            </div>
+        </div>
+    </div>
+    
+    <div class="grid-columns">
+        <div class="canvas-wrapper">
+            <canvas id="real-canvas" width="400" height="400"></canvas>
+            <div class="canvas-label">Линии постоянной действительной части</div>
+        </div>
+        <div class="canvas-wrapper">
+            <canvas id="imag-canvas" width="400" height="400"></canvas>
+            <div class="canvas-label">Линии постоянной мнимой части</div>
+        </div>
+        <div class="canvas-wrapper">
+            <canvas id="modulus-canvas" width="400" height="400"></canvas>
+            <div class="canvas-label">Линии постоянного модуля</div>
+        </div>
+        <div class="canvas-wrapper">
+            <canvas id="arg-canvas" width="400" height="400"></canvas>
+            <div class="canvas-label">Линии постоянного аргумента</div>
+        </div>
+    </div>
+    
+    <div class="property-highlight" id="orthogonality-property">
+        <h3>Свойства линий уровня</h3>
+        <p>
+            Для аналитических функций линии постоянной действительной части и линии постоянной мнимой части 
+            пересекаются под прямым углом. Это является прямым следствием условий Коши-Римана. Обратите внимание 
+            на ортогональность сетки, образованной этими линиями.
+        </p>
+        <p>
+            Линии постоянного модуля (окружности и другие замкнутые кривые) и линии постоянного аргумента (лучи, 
+            исходящие из особых точек) также образуют ортогональную сетку. Эта ортогональность нарушается только 
+            в особых точках функции.
+        </p>
+        <div id="special-properties"></div>
+    </div>
+
+    <div class="explanation">
+        <h2>Интерпретация линий уровня</h2>
+        <p>
+            Линии уровня позволяют визуализировать поведение различных компонент комплексной функции. 
+            Для функции f(z) = u(x,y) + iv(x,y) можно построить четыре типа линий уровня:
+        </p>
+        
+        <ul>
+            <li><strong>Линии постоянной действительной части</strong> (Re[f(z)] = const) — показывают, где функция имеет одинаковую действительную часть</li>
+            <li><strong>Линии постоянной мнимой части</strong> (Im[f(z)] = const) — показывают, где функция имеет одинаковую мнимую часть</li>
+            <li><strong>Линии постоянного модуля</strong> (|f(z)| = const) — показывают, где функция имеет одинаковую величину</li>
+            <li><strong>Линии постоянного аргумента</strong> (arg[f(z)] = const) — показывают, где функция имеет одинаковую фазу</li>
+        </ul>
+        
+        <p>
+            <strong>На визуализации можно наблюдать:</strong>
+        </p>
+        <ul>
+            <li><strong>Нули функции:</strong> точки, где сходятся линии постоянного аргумента и где линии постоянного модуля стягиваются в точку</li>
+            <li><strong>Полюса:</strong> точки, где сходятся линии постоянного аргумента и где линии постоянного модуля уходят в бесконечность</li>
+            <li><strong>Критические точки:</strong> точки, где линии действительной или мнимой части пересекаются или имеют особенности</li>
+            <li><strong>Разрезы многозначных функций:</strong> линии, где происходит скачок фазы или где нарушается аналитичность</li>
+        </ul>
+    </div>
+
+    <div class="advantages-disadvantages">
+        <div class="advantages">
+            <h2>Преимущества</h2>
+            <ul>
+                <li>Четкое представление структуры функции</li>
+                <li>Возможность количественной оценки значений функции</li>
+                <li>Хорошо показывает градиент функции</li>
+                <li>Позволяет легко идентифицировать критические точки</li>
+                <li>Наглядно демонстрирует ортогональные свойства аналитических функций</li>
+                <li>Сравнительно простая реализация</li>
+            </ul>
+        </div>
+        <div class="disadvantages">
+            <h2>Недостатки</h2>
+            <ul>
+                <li>Отображает только частичную информацию о функции в каждом представлении</li>
+                <li>Может быть сложно интерпретировать в областях с большим градиентом</li>
+                <li>Требует построения достаточного количества линий уровня для полноты картины</li>
+                <li>Сложно одновременно визуализировать области с сильно различающимися значениями</li>
+                <li>Трудности с визуализацией вблизи особенностей</li>
+                <li>Необходимость анализировать несколько графиков для полного понимания</li>
+            </ul>
+        </div>
+    </div>
+
+    <script>
+        // Получаем холсты и их контексты
+        const realCanvas = document.getElementById('real-canvas');
+        const imagCanvas = document.getElementById('imag-canvas');
+        const modulusCanvas = document.getElementById('modulus-canvas');
+        const argCanvas = document.getElementById('arg-canvas');
+        
+        const realCtx = realCanvas.getContext('2d');
+        const imagCtx = imagCanvas.getContext('2d');
+        const modulusCtx = modulusCanvas.getContext('2d');
+        const argCtx = argCanvas.getContext('2d');
+        
+        // Определяем размеры холстов
+        const width = realCanvas.width;
+        const height = realCanvas.height;
+        
+        // Определяем область визуализации
+        const viewScale = 3; // Масштаб области: от -viewScale до +viewScale
+        
+        // Вспомогательные функции для преобразования координат
+        function complexToCanvas(z, canvas) {
+            const x = canvas.width / 2 + (z.re * canvas.width) / (2 * viewScale);
+            const y = canvas.height / 2 - (z.im * canvas.height) / (2 * viewScale);
+            return { x, y };
+        }
+        
+        function canvasToComplex(x, y, canvas) {
+            const re = ((x - canvas.width / 2) * 2 * viewScale) / canvas.width;
+            const im = -((y - canvas.height / 2) * 2 * viewScale) / canvas.height;
+            return { re, im };
+        }
+        
+        // Определяем комплексные функции
+        function complex(re, im) {
+            return { re, im };
+        }
+        
+        function complexAdd(a, b) {
+            return { re: a.re + b.re, im: a.im + b.im };
+        }
+        
+        function complexMul(a, b) {
+            return {
+                re: a.re * b.re - a.im * b.im,
+                im: a.re * b.im + a.im * b.re
+            };
+        }
+        
+        function complexDiv(a, b) {
+            const denom = b.re * b.re + b.im * b.im;
+            if (denom < 1e-10) return { re: NaN, im: NaN };
+            return {
+                re: (a.re * b.re + a.im * b.im) / denom,
+                im: (a.im * b.re - a.re * b.im) / denom
+            };
+        }
+        
+        function complexAbs(z) {
+            return Math.sqrt(z.re * z.re + z.im * z.im);
+        }
+        
+        function complexArg(z) {
+            return Math.atan2(z.im, z.re);
+        }
+        
+        function complexExp(z) {
+            const exp_re = Math.exp(z.re);
+            return {
+                re: exp_re * Math.cos(z.im),
+                im: exp_re * Math.sin(z.im)
+            };
+        }
+        
+        function complexSin(z) {
+            return {
+                re: Math.sin(z.re) * Math.cosh(z.im),
+                im: Math.cos(z.re) * Math.sinh(z.im)
+            };
+        }
+        
+        function complexLog(z) {
+            const r = complexAbs(z);
+            const theta = complexArg(z);
+            return {
+                re: Math.log(r),
+                im: theta
+            };
+        }
+        
+        function complexSqrt(z) {
+            const r = complexAbs(z);
+            const theta = complexArg(z);
+            return {
+                re: Math.sqrt(r) * Math.cos(theta / 2),
+                im: Math.sqrt(r) * Math.sin(theta / 2)
+            };
+        }
+        
+        // Определяем функции для вычисления
+        const functions = {
+            z2: z => complexMul(z, z),
+            z3_minus_1: z => {
+                const z2 = complexMul(z, z);
+                const z3 = complexMul(z2, z);
+                return complexAdd(z3, { re: -1, im: 0 });
+            },
+            exp_z: complexExp,
+            sin_z: complexSin,
+            1_z: z => complexDiv({ re: 1, im: 0 }, z),
+            sqrt_z: complexSqrt,
+            log_z: complexLog
+        };
+        
+        // Информация об особых точках функций
+        const criticalPoints = {
+            z2: [
+                { re: 0, im: 0, type: "нуль", order: 2 }
+            ],
+            z3_minus_1: [
+                { re: 1, im: 0, type: "нуль", order: 1 },
+                { re: -0.5, im: 0.866, type: "нуль", order: 1 },
+                { re: -0.5, im: -0.866, type: "нуль", order: 1 }
+            ],
+            exp_z: [],
+            sin_z: [
+                { re: 0, im: 0, type: "нуль", order: 1 },
+                { re: Math.PI, im: 0, type: "нуль", order: 1 },
+                { re: -Math.PI, im: 0, type: "нуль", order: 1 }
+            ],
+            "1_z": [
+                { re: 0, im: 0, type: "полюс", order: 1 }
+            ],
+            sqrt_z: [
+                { re: 0, im: 0, type: "точка ветвления", order: 2 }
+            ],
+            log_z: [
+                { re: 0, im: 0, type: "точка ветвления", order: "∞" }
+            ]
+        };
+        
+        // Функция для рисования осей координат
+        function drawAxes(ctx) {
+            // Очищаем холст
+            ctx.clearRect(0, 0, width, height);
+            
+            // Рисуем оси координат
+            ctx.strokeStyle = 'rgba(0, 0, 0, 0.5)';
+            ctx.lineWidth = 1;
+            
+            // Ось x
+            ctx.beginPath();
+            ctx.moveTo(0, height / 2);
+            ctx.lineTo(width, height / 2);
+            ctx.stroke();
+            
+            // Ось y
+            ctx.beginPath();
+            ctx.moveTo(width / 2, 0);
+            ctx.lineTo(width / 2, height);
+            ctx.stroke();
+            
+            // Рисуем метки на осях
+            ctx.fillStyle = 'rgba(0, 0, 0, 0.7)';
+            ctx.font = '10px Arial';
+            ctx.textAlign = 'center';
+            
+            // Метки на оси x
+            for (let x = -viewScale; x <= viewScale; x++) {
+                if (x === 0) continue;
+                const canvasX = width / 2 + (x * width) / (2 * viewScale);
+                ctx.beginPath();
+                ctx.moveTo(canvasX, height / 2 - 5);
+                ctx.lineTo(canvasX, height / 2 + 5);
+                ctx.stroke();
+                ctx.fillText(x.toString(), canvasX, height / 2 + 15);
+            }
+            
+            // Метки на оси y
+            ctx.textAlign = 'right';
+            for (let y = -viewScale; y <= viewScale; y++) {
+                if (y === 0) continue;
+                const canvasY = height / 2 - (y * height) / (2 * viewScale);
+                ctx.beginPath();
+                ctx.moveTo(width / 2 - 5, canvasY);
+                ctx.lineTo(width / 2 + 5, canvasY);
+                ctx.stroke();
+                ctx.fillText(y.toString(), width / 2 - 8, canvasY + 4);
+            }
+            
+            // Рисуем нуль
+            ctx.textAlign = 'right';
+            ctx.fillText('0', width / 2 - 8, height / 2 + 12);
+        }
+        
+        // Функция для рисования линий уровня
+        function drawContours() {
+            // Получаем параметры
+            const functionName = document.getElementById('function-select').value;
+            const levelCount = parseInt(document.getElementById('level-count').value);
+            const showCriticalPoints = document.getElementById('show-critical-points').checked;
+            
+            // Выбираем функцию
+            const f = functions[functionName];
+            
+            // Рисуем оси на всех холстах
+            drawAxes(realCtx);
+            drawAxes(imagCtx);
+            drawAxes(modulusCtx);
+            drawAxes(argCtx);
+            
+            // Вычисляем диапазоны значений для выбора уровней
+            let minRe = Infinity, maxRe = -Infinity;
+            let minIm = Infinity, maxIm = -Infinity;
+            let minMod = Infinity, maxMod = 0;
+            
+            // Вычисляем значения функции на сетке для оценки диапазонов
+            const gridSize = 50;
+            const step = (2 * viewScale) / gridSize;
+            
+            for (let i = 0; i <= gridSize; i++) {
+                for (let j = 0; j <= gridSize; j++) {
+                    const re = -viewScale + i * step;
+                    const im = -viewScale + j * step;
+                    
+                    // Избегаем точек с особенностями
+                    if (functionName === "1_z" && Math.abs(re) < 0.1 && Math.abs(im) < 0.1) continue;
+                    if ((functionName === "sqrt_z" || functionName === "log_z") && 
+                        Math.abs(re) < 0.1 && Math.abs(im) < 0.1) continue;
+                    
+                    const z = { re, im };
+                    const value = f(z);
+                    
+                    if (!isNaN(value.re) && !isNaN(value.im)) {
+                        minRe = Math.min(minRe, value.re);
+                        maxRe = Math.max(maxRe, value.re);
+                        minIm = Math.min(minIm, value.im);
+                        maxIm = Math.max(maxIm, value.im);
+                        
+                        const mod = complexAbs(value);
+                        if (mod < 10) { // Ограничиваем модуль для избежания слишком больших значений
+                            minMod = Math.min(minMod, mod);
+                            maxMod = Math.max(maxMod, mod);
+                        }
+                    }
+                }
+            }
+            
+            // Корректируем диапазоны
+            // Если диапазон слишком мал или функция константная
+            if (maxRe - minRe < 0.1) {
+                minRe -= 1;
+                maxRe += 1;
+            }
+            if (maxIm - minIm < 0.1) {
+                minIm -= 1;
+                maxIm += 1;
+            }
+            if (maxMod - minMod < 0.1) {
+                maxMod = minMod + 2;
+            }
+            
+            // Определяем уровни для каждой компоненты
+            const reLevels = Array.from({ length: levelCount }, (_, i) => 
+                minRe + (maxRe - minRe) * i / (levelCount - 1));
+            
+            const imLevels = Array.from({ length: levelCount }, (_, i) => 
+                minIm + (maxIm - minIm) * i / (levelCount - 1));
+            
+            // Для модуля используем логарифмическую шкалу
+            const logMinMod = Math.log10(minMod > 0 ? minMod : 0.01);
+            const logMaxMod = Math.log10(maxMod);
+            
+            const modLevels = Array.from({ length: levelCount }, (_, i) => {
+                const logValue = logMinMod + (logMaxMod - logMinMod) * i / (levelCount - 1);
+                return Math.pow(10, logValue);
+            });
+            
+            // Для аргумента используем равномерное распределение от -π до π
+            const argLevels = Array.from({ length: 12 }, (_, i) => 
+                -Math.PI + 2 * Math.PI * i / 12);
+            
+            // Рисуем линии уровня для действительной части
+            drawLevelLines(realCtx, f, 'real', reLevels);
+            
+            // Рисуем линии уровня для мнимой части
+            drawLevelLines(imagCtx, f, 'imag', imLevels);
+            
+            // Рисуем линии уровня для модуля
+            drawLevelLines(modulusCtx, f, 'modulus', modLevels);
+            
+            // Рисуем линии уровня для аргумента
+            drawLevelLines(argCtx, f, 'arg', argLevels);
+            
+            // Если нужно, рисуем особые точки
+            if (showCriticalPoints && criticalPoints[functionName]) {
+                drawCriticalPoints(realCtx, criticalPoints[functionName]);
+                drawCriticalPoints(imagCtx, criticalPoints[functionName]);
+                drawCriticalPoints(modulusCtx, criticalPoints[functionName]);
+                drawCriticalPoints(argCtx, criticalPoints[functionName]);
+            }
+            
+            // Обновляем описание свойств функции
+            updateSpecialProperties(functionName);
+        }
+        
+        // Функция для рисования линий уровня конкретной компоненты
+        function drawLevelLines(ctx, f, component, levels) {
+            // Определяем количество точек для выборки
+            const resolution = 200;
+            const step = (2 * viewScale) / resolution;
+            
+            // Создаем таблицу значений функции
+            const values = new Array(resolution + 1);
+            for (let i = 0; i <= resolution; i++) {
+                values[i] = new Array(resolution + 1);
+                for (let j = 0; j <= resolution; j++) {
+                    const re = -viewScale + i * step;
+                    const im = -viewScale + j * step;
+                    const z = { re, im };
+                    
+                    try {
+                        const value = f(z);
+                        
+                        // Выбираем нужную компоненту
+                        let componentValue;
+                        switch (component) {
+                            case 'real': componentValue = value.re; break;
+                            case 'imag': componentValue = value.im; break;
+                            case 'modulus': componentValue = complexAbs(value); break;
+                            case 'arg': componentValue = complexArg(value); break;
+                        }
+                        
+                        values[i][j] = componentValue;
+                    } catch (e) {
+                        values[i][j] = NaN;
+                    }
+                }
+            }
+            
+            // Определяем цвета для линий
+            let colors;
+            
+            if (component === 'real') {
+                colors = levels.map((_, i) => `hsl(240, 100%, ${30 + 50 * i / (levels.length - 1)}%)`);
+            } else if (component === 'imag') {
+                colors = levels.map((_, i) => `hsl(0, 100%, ${30 + 50 * i / (levels.length - 1)}%)`);
+            } else if (component === 'modulus') {
+                colors = levels.map((_, i) => `hsl(120, 100%, ${30 + 50 * i / (levels.length - 1)}%)`);
+            } else { // arg
+                colors = levels.map((level, i) => {
+                    const hue = ((level + Math.PI) / (2 * Math.PI)) * 360;
+                    return `hsl(${hue}, 100%, 50%)`;
+                });
+            }
+            
+            // Рисуем линии уровня методом марширующих квадратов
+            for (let i = 0; i < resolution; i++) {
+                for (let j = 0; j < resolution; j++) {
+                    const x1 = -viewScale + i * step;
+                    const y1 = -viewScale + j * step;
+                    const x2 = x1 + step;
+                    const y2 = y1 + step;
+                    
+                    const v11 = values[i][j];
+                    const v12 = values[i][j + 1];
+                    const v21 = values[i + 1][j];
+                    const v22 = values[i + 1][j + 1];
+                    
+                    // Пропускаем ячейки с особенностями
+                    if (isNaN(v11) || isNaN(v12) || isNaN(v21) || isNaN(v22)) {
+                        continue;
+                    }
+                    
+                    // Для каждого уровня проверяем, пересекает ли он текущую ячейку
+                    for (let k = 0; k < levels.length; k++) {
+                        const level = levels[k];
+                        const color = colors[k];
+                        
+                        // Проверяем, пересекает ли уровень стороны ячейки
+                        let intersections = [];
+                        
+                        // Нижняя сторона
+                        if ((v11 <= level && v21 >= level) || (v11 >= level && v21 <= level)) {
+                            const t = (level - v11) / (v21 - v11);
+                            intersections.push({
+                                x: x1 + t * step,
+                                y: y1
+                            });
+                        }
+                        
+                        // Правая сторона
+                        if ((v21 <= level && v22 >= level) || (v21 >= level && v22 <= level)) {
+                            const t = (level - v21) / (v22 - v21);
+                            intersections.push({
+                                x: x2,
+                                y: y1 + t * step
+                            });
+                        }
+                        
+                        // Верхняя сторона
+                        if ((v12 <= level && v22 >= level) || (v12 >= level && v22 <= level)) {
+                            const t = (level - v12) / (v22 - v12);
+                            intersections.push({
+                                x: x1 + t * step,
+                                y: y2
+                            });
+                        }
+                        
+                        // Левая сторона
+                        if ((v11 <= level && v12 >= level) || (v11 >= level && v12 <= level)) {
+                            const t = (level - v11) / (v12 - v11);
+                            intersections.push({
+                                x: x1,
+                                y: y1 + t * step
+                            });
+                        }
+                        
+                        // Если нашли две точки пересечения, рисуем линию
+                        if (intersections.length === 2) {
+                            ctx.beginPath();
+                            ctx.strokeStyle = color;
+                            ctx.lineWidth = 1;
+                            
+                            const p1 = complexToCanvas({ re: intersections[0].x, im: intersections[0].y }, ctx.canvas);
+                            const p2 = complexToCanvas({ re: intersections[1].x, im: intersections[1].y }, ctx.canvas);
+                            
+                            ctx.moveTo(p1.x, p1.y);
+                            ctx.lineTo(p2.x, p2.y);
+                            ctx.stroke();
+                        }
+                    }
+                }
+            }
+            
+            // Добавляем подписи к линиям уровня
+            ctx.fillStyle = 'black';
+            ctx.font = '10px Arial';
+            
+            for (let k = 0; k < levels.length; k++) {
+                const level = levels[k];
+                const formattedLevel = component === 'modulus' ? 
+                    level.toExponential(1) : level.toFixed(1);
+                
+                // Размещаем подписи в правой части холста
+                const y = 20 + k * 16;
+                
+                ctx.fillStyle = colors[k];
+                ctx.fillText(formattedLevel, ctx.canvas.width - 40, y);
+            }
+        }
+        
+        // Функция для рисования особых точек
+        function drawCriticalPoints(ctx, points) {
+            ctx.lineWidth = 1;
+            
+            for (const point of points) {
+                const canvasPoint = complexToCanvas(point, ctx.canvas);
+                
+                // Выбираем цвет в зависимости от типа точки
+                let color, radius;
+                switch (point.type) {
+                    case 'нуль':
+                        color = 'rgba(0, 0, 255, 0.7)';
+                        radius = 5;
+                        break;
+                    case 'полюс':
+                        color = 'rgba(255, 0, 0, 0.7)';
+                        radius = 5;
+                        break;
+                    case 'точка ветвления':
+                        color = 'rgba(128, 0, 128, 0.7)';
+                        radius = 5;
+                        break;
+                    default:
+                        color = 'rgba(128, 128, 128, 0.7)';
+                        radius = 5;
+                }
+                
+                // Рисуем круг
+                ctx.beginPath();
+                ctx.fillStyle = color;
+                ctx.arc(canvasPoint.x, canvasPoint.y, radius, 0, 2 * Math.PI);
+                ctx.fill();
+                
+                // Рисуем обводку
+                ctx.beginPath();
+                ctx.strokeStyle = 'black';
+                ctx.arc(canvasPoint.x, canvasPoint.y, radius, 0, 2 * Math.PI);
+                ctx.stroke();
+            }
+        }
+        
+        // Функция для обновления описания свойств функции
+        function updateSpecialProperties(functionName) {
+            const specialPropsElement = document.getElementById('special-properties');
+            let html = '';
+            
+            switch (functionName) {
+                case 'z2':
+                    html = `
+                        <p>Для функции f(z) = z² линии постоянной действительной части являются гиперболами, 
+                        а линии постоянной мнимой части — перпендикулярными гиперболами. Точка z = 0 является 
+                        нулем второго порядка.</p>
+                        <p>Линии постоянного модуля образуют концентрические окружности вокруг начала координат,
+                        а линии постоянного аргумента — прямые, исходящие из начала координат.</p>
+                    `;
+                    break;
+                    
+                case '1_z':
+                    html = `
+                        <p>Для функции f(z) = 1/z линии постоянной действительной и мнимой части образуют 
+                        семейства окружностей, проходящих через начало координат. Точка z = 0 является полюсом 
+                        первого порядка.</p>
+                        <p>Примечательно, что функция 1/z отображает окружности в окружности (или прямые), 
+                        а прямые в окружности (или прямые). Это свойство известно как инверсия.</p>
+                    `;
+                    break;
+                    
+                case 'sin_z':
+                    html = `
+                        <p>Для функции f(z) = sin(z) линии постоянной действительной и мнимой части образуют 
+                        периодическую структуру. Функция имеет бесконечно много нулей в точках z = nπ, где n — целое число.</p>
+                        <p>Интересно, что |sin(z)| растет экспоненциально при увеличении |Im(z)|, это видно по 
+                        линиям постоянного модуля, которые сгущаются при удалении от действительной оси.</p>
+                    `;
+                    break;
+                    
+                case 'exp_z':
+                    html = `
+                        <p>Для функции f(z) = exp(z) линии постоянной действительной и мнимой части образуют 
+                        ортогональную сетку. Линии постоянного модуля — это горизонтальные прямые (Im(z) = const),
+                        а линии постоянного аргумента — вертикальные прямые (Re(z) = const).</p>
+                        <p>Функция exp(z) периодична вдоль мнимой оси с периодом 2πi и не имеет нулей или полюсов.</p>
+                    `;
+                    break;
+                    
+                case 'z3_minus_1':
+                    html = `
+                        <p>Функция f(z) = z³ - 1 имеет три нуля: z = 1, z = -1/2 + i√3/2, z = -1/2 - i√3/2 
+                        (кубические корни из единицы). Эти нули хорошо видны как точки пересечения линий уровня.</p>
+                        <p>В окрестности каждого нуля линии постоянного аргумента образуют характерную структуру 
+                        "трехлучевой звезды", что является следствием того, что это нули первого порядка функции третьей степени.</p>
+                    `;
+                    break;
+                    
+                case 'sqrt_z':
+                    html = `
+                        <p>Функция f(z) = √z имеет точку ветвления при z = 0. Линия разреза обычно проводится 
+                        вдоль отрицательной действительной полуоси. При пересечении линии разреза происходит скачок 
+                        фазы на π.</p>
+                        <p>Обратите внимание, что линии постоянного аргумента имеют разрыв на отрицательной 
+                        действительной полуоси, где аргумент скачком меняется от π до -π.</p>
+                    `;
+                    break;
+                    
+                case 'log_z':
+                    html = `
+                        <p>Функция f(z) = log(z) имеет точку ветвления при z = 0 и линию разреза вдоль 
+                        отрицательной действительной полуоси. Линии постоянной действительной части — это 
+                        окружности с центром в начале координат, а линии постоянной мнимой части — лучи, 
+                        исходящие из начала координат.</p>
+                        <p>Значения мнимой части log(z) соответствуют аргументу z, что объясняет, почему линии 
+                        постоянной мнимой части идентичны линиям постоянного аргумента для z.</p>
+                    `;
+                    break;
+            }
+            
+            specialPropsElement.innerHTML = html;
+        }
+        
+        // Обработчики событий
+        document.getElementById('function-select').addEventListener('change', drawContours);
+        document.getElementById('level-count').addEventListener('input', function() {
+            document.getElementById('level-count-value').textContent = this.value;
+            drawContours();
+        });
+        document.getElementById('show-critical-points').addEventListener('change', drawContours);
+        
+        // Начальный рендеринг
+        drawContours();
+    </script>
+</body>
+</html>
