@@ -1,0 +1,1262 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Философометр-ФМ9 «Мыслеизмеритель»</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 20px;
+            background: linear-gradient(135deg, #0a0a0a 0%, #1a0f2e 100%);
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-family: 'Courier New', monospace;
+            color: #fff;
+            overflow-x: hidden;
+        }
+
+        .device-container {
+            perspective: 1000px;
+            position: relative;
+        }
+
+        .device {
+            width: 380px;
+            height: 640px;
+            background: linear-gradient(145deg, #2a2a3e, #16213e);
+            border-radius: 20px;
+            box-shadow: 
+                0 20px 40px rgba(0,0,0,0.8),
+                inset 0 2px 5px rgba(255,255,255,0.1),
+                inset 0 -2px 5px rgba(0,0,0,0.5);
+            padding: 20px;
+            position: relative;
+            transform-style: preserve-3d;
+            transition: transform 0.3s ease;
+            overflow: hidden;
+        }
+
+        .device.shake {
+            animation: shake 0.5s ease-in-out;
+        }
+
+        @keyframes shake {
+            0%, 100% { transform: translateX(0); }
+            25% { transform: translateX(-10px) rotateZ(-2deg); }
+            75% { transform: translateX(10px) rotateZ(2deg); }
+        }
+
+        .device:hover {
+            transform: rotateY(5deg) rotateX(-5deg);
+        }
+
+        .device::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-image: 
+                repeating-linear-gradient(45deg, transparent, transparent 10px, rgba(255,255,255,0.03) 10px, rgba(255,255,255,0.03) 20px),
+                url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><text x="10" y="20" font-size="6" fill="rgba(255,255,255,0.05)" transform="rotate(-45 50 50)">ЛОГОС</text><text x="10" y="40" font-size="6" fill="rgba(255,255,255,0.05)" transform="rotate(-45 50 50)">DASEIN</text><text x="10" y="60" font-size="6" fill="rgba(255,255,255,0.05)" transform="rotate(-45 50 50)">ЭПИСТЕМА</text></svg>');
+            pointer-events: none;
+            border-radius: 20px;
+        }
+
+        .brand {
+            text-align: center;
+            margin-bottom: 15px;
+        }
+
+        .brand h1 {
+            font-size: 18px;
+            margin: 0;
+            color: #9b59b6;
+            text-shadow: 0 0 10px rgba(155,89,182,0.5);
+            letter-spacing: 2px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .brand h1:hover {
+            transform: scale(1.1);
+            text-shadow: 0 0 20px rgba(155,89,182,0.8);
+        }
+
+        .brand p {
+            font-size: 10px;
+            margin: 5px 0 0 0;
+            color: #666;
+            font-style: italic;
+        }
+
+        .screen {
+            width: 100%;
+            height: 240px;
+            background: #0a0a0a;
+            border: 2px solid #333;
+            border-radius: 10px;
+            position: relative;
+            overflow: hidden;
+            box-shadow: inset 0 0 20px rgba(0,0,0,0.8);
+            cursor: crosshair;
+        }
+
+        .screen.analyzing {
+            animation: screenFlicker 0.1s ease-in-out infinite;
+        }
+
+        @keyframes screenFlicker {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.9; }
+        }
+
+        .scale {
+            position: absolute;
+            bottom: 10px;
+            left: 10px;
+            right: 10px;
+            height: 40px;
+        }
+
+        .scale-bar {
+            width: 100%;
+            height: 10px;
+            background: linear-gradient(to right, 
+                #00ff00 0%, 
+                #3498db 25%, 
+                #9b59b6 50%, 
+                #e74c3c 75%, 
+                #c0392b 100%);
+            border-radius: 5px;
+            position: relative;
+        }
+
+        .scale-labels {
+            display: flex;
+            justify-content: space-between;
+            margin-top: 5px;
+            font-size: 7px;
+            color: #666;
+        }
+
+        .needle {
+            position: absolute;
+            top: -15px;
+            left: 10%;
+            width: 2px;
+            height: 25px;
+            background: #e74c3c;
+            box-shadow: 0 0 10px rgba(231,76,60,0.8);
+            transition: left 0.5s ease;
+        }
+
+        .display-text {
+            position: absolute;
+            top: 20px;
+            left: 10px;
+            right: 10px;
+            font-size: 12px;
+            color: #3498db;
+            text-shadow: 0 0 5px rgba(52,152,219,0.5);
+        }
+
+        .running-text {
+            position: absolute;
+            top: 60px;
+            left: 0;
+            width: 100%;
+            height: 20px;
+            overflow: hidden;
+        }
+
+        .running-text span {
+            position: absolute;
+            white-space: nowrap;
+            color: #9b59b6;
+            font-size: 10px;
+            animation: marquee 15s linear infinite;
+        }
+
+        @keyframes marquee {
+            from { transform: translateX(100%); }
+            to { transform: translateX(-100%); }
+        }
+
+        .current-mode {
+            font-size: 10px;
+            color: #e74c3c;
+            margin-top: 10px;
+        }
+
+        .text-input {
+            position: absolute;
+            bottom: 60px;
+            left: 10px;
+            right: 10px;
+            display: none;
+        }
+
+        .text-input textarea {
+            width: 100%;
+            height: 70px;
+            background: rgba(52,152,219,0.1);
+            border: 1px solid #3498db;
+            color: #3498db;
+            font-family: 'Courier New', monospace;
+            font-size: 10px;
+            padding: 5px;
+            border-radius: 5px;
+            resize: none;
+            transition: all 0.3s ease;
+        }
+
+        .text-input textarea.danger {
+            background: rgba(231,76,60,0.1);
+            border-color: #e74c3c;
+            color: #e74c3c;
+            animation: textPulse 1s ease-in-out infinite;
+        }
+
+        .text-input textarea.warning {
+            background: rgba(155,89,182,0.1);
+            border-color: #9b59b6;
+            color: #9b59b6;
+        }
+
+        @keyframes textPulse {
+            0%, 100% { box-shadow: 0 0 5px rgba(231,76,60,0.5); }
+            50% { box-shadow: 0 0 20px rgba(231,76,60,0.8); }
+        }
+
+        .analysis-result {
+            position: absolute;
+            top: 90px;
+            left: 10px;
+            right: 10px;
+            font-size: 9px;
+            color: #ecf0f1;
+            background: rgba(0,0,0,0.7);
+            padding: 5px;
+            border-radius: 5px;
+            display: none;
+            max-height: 50px;
+            overflow-y: auto;
+        }
+
+        .diagnosis-meter {
+            position: absolute;
+            top: 145px;
+            left: 10px;
+            right: 10px;
+            height: 20px;
+            display: none;
+        }
+
+        .diagnosis-meter .meter-fill {
+            height: 100%;
+            background: linear-gradient(to right, #2ecc71, #9b59b6, #e74c3c);
+            border-radius: 10px;
+            width: 0%;
+            transition: width 0.5s ease;
+        }
+
+        .controls {
+            margin-top: 20px;
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 10px;
+        }
+
+        .button {
+            padding: 12px;
+            background: linear-gradient(145deg, #34495e, #2c3e50);
+            border: none;
+            border-radius: 10px;
+            color: #ecf0f1;
+            font-size: 11px;
+            cursor: pointer;
+            position: relative;
+            overflow: hidden;
+            transition: all 0.3s ease;
+            box-shadow: 
+                2px 2px 5px rgba(0,0,0,0.5),
+                -2px -2px 5px rgba(255,255,255,0.05);
+        }
+
+        .button:hover {
+            color: #fff;
+            transform: translateY(-2px);
+            box-shadow: 
+                4px 4px 10px rgba(0,0,0,0.5),
+                -2px -2px 5px rgba(255,255,255,0.1);
+        }
+
+        .button:active {
+            transform: translateY(0);
+            box-shadow: 
+                inset 2px 2px 5px rgba(0,0,0,0.5),
+                inset -2px -2px 5px rgba(255,255,255,0.05);
+        }
+
+        .button.active {
+            background: linear-gradient(145deg, #8e44ad, #9b59b6);
+            color: #fff;
+        }
+
+        .button.danger {
+            animation: pulseRed 2s ease-in-out infinite;
+        }
+
+        @keyframes pulseRed {
+            0%, 100% { box-shadow: 0 0 10px rgba(231,76,60,0.3); }
+            50% { box-shadow: 0 0 20px rgba(231,76,60,0.6); }
+        }
+
+        .emergency-button {
+            grid-column: 1 / -1;
+            background: linear-gradient(145deg, #c0392b, #e74c3c);
+            color: #fff;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .emergency-button::before {
+            content: '⚠️ ДЕКОНСТРУКЦИЯ ВСЕХ КОНЦЕПЦИЙ ⚠️';
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            white-space: nowrap;
+            font-size: 9px;
+            opacity: 0;
+            transition: opacity 0.3s ease;
+        }
+
+        .emergency-button:hover::before {
+            opacity: 1;
+        }
+
+        .indicators {
+            margin-top: 20px;
+            display: flex;
+            justify-content: space-around;
+        }
+
+        .indicator {
+            text-align: center;
+            cursor: pointer;
+            transition: transform 0.3s ease;
+        }
+
+        .indicator:hover {
+            transform: scale(1.1);
+        }
+
+        .led {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            margin: 0 auto 5px;
+            background: #1a1a1a;
+            box-shadow: inset 0 0 3px rgba(0,0,0,0.5);
+            transition: all 0.3s ease;
+        }
+
+        .led.red {
+            background: #e74c3c;
+            box-shadow: 0 0 15px rgba(231,76,60,0.8);
+            animation: blink 1s ease-in-out infinite;
+        }
+
+        .led.green {
+            background: #2ecc71;
+            box-shadow: 0 0 15px rgba(46,204,113,0.8);
+        }
+
+        .led.yellow {
+            background: #f39c12;
+            box-shadow: 0 0 15px rgba(243,156,18,0.8);
+            animation: pulse 2s ease-in-out infinite;
+        }
+
+        @keyframes blink {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.3; }
+        }
+
+        @keyframes pulse {
+            0%, 100% { transform: scale(1); }
+            50% { transform: scale(1.2); }
+        }
+
+        .indicator-label {
+            font-size: 8px;
+            color: #7f8c8d;
+        }
+
+        .ports {
+            position: absolute;
+            bottom: 20px;
+            left: 20px;
+            right: 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .port {
+            width: 40px;
+            height: 15px;
+            background: #0a0a0a;
+            border: 1px solid #333;
+            border-radius: 3px;
+            position: relative;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .port:hover {
+            border-color: #666;
+            transform: scale(1.1);
+        }
+
+        .port.connected {
+            border-color: #9b59b6;
+            animation: portGlow 1s ease-in-out infinite;
+        }
+
+        @keyframes portGlow {
+            0%, 100% { box-shadow: 0 0 5px rgba(155,89,182,0.5); }
+            50% { box-shadow: 0 0 15px rgba(155,89,182,0.8); }
+        }
+
+        .port::after {
+            content: '';
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 30px;
+            height: 8px;
+            background: #1a1a1a;
+            border-radius: 2px;
+        }
+
+        .port-label {
+            position: absolute;
+            bottom: -15px;
+            left: 50%;
+            transform: translateX(-50%);
+            font-size: 8px;
+            color: #7f8c8d;
+            white-space: nowrap;
+        }
+
+        .warning-sticker {
+            position: absolute;
+            bottom: 80px;
+            right: 20px;
+            background: #9b59b6;
+            color: #fff;
+            padding: 5px 10px;
+            font-size: 8px;
+            border-radius: 3px;
+            transform: rotate(-5deg);
+            box-shadow: 0 2px 5px rgba(0,0,0,0.3);
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .warning-sticker:hover {
+            transform: rotate(-5deg) scale(1.1);
+            box-shadow: 0 4px 10px rgba(0,0,0,0.5);
+        }
+
+        .glitch {
+            animation: glitch 0.5s ease-in-out;
+        }
+
+        @keyframes glitch {
+            0%, 100% { transform: translateX(0); }
+            20% { transform: translateX(-2px); }
+            40% { transform: translateX(2px); }
+            60% { transform: translateX(-1px); }
+            80% { transform: translateX(1px); }
+        }
+
+        .popup {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: rgba(155,89,182,0.95);
+            color: #fff;
+            padding: 20px;
+            border-radius: 10px;
+            display: none;
+            z-index: 1000;
+            animation: popupAppear 0.3s ease-out;
+            max-width: 300px;
+        }
+
+        @keyframes popupAppear {
+            from { 
+                opacity: 0;
+                transform: translate(-50%, -50%) scale(0.8);
+            }
+            to { 
+                opacity: 1;
+                transform: translate(-50%, -50%) scale(1);
+            }
+        }
+
+        .smoke {
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            height: 100px;
+            background: linear-gradient(to top, rgba(155,89,182,0.3), transparent);
+            opacity: 0;
+            pointer-events: none;
+            animation: smoke 3s ease-out;
+        }
+
+        @keyframes smoke {
+            0% { opacity: 0; transform: translateY(0); }
+            50% { opacity: 1; }
+            100% { opacity: 0; transform: translateY(-50px); }
+        }
+
+        .sparks {
+            position: absolute;
+            width: 4px;
+            height: 4px;
+            background: #9b59b6;
+            border-radius: 50%;
+            animation: spark 1s ease-out;
+            pointer-events: none;
+        }
+
+        @keyframes spark {
+            0% {
+                transform: translate(0, 0);
+                opacity: 1;
+            }
+            100% {
+                transform: translate(var(--x), var(--y));
+                opacity: 0;
+            }
+        }
+
+        .mini-printer {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            width: 30px;
+            height: 20px;
+            background: #34495e;
+            border: 1px solid #555;
+            border-radius: 3px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .mini-printer:hover {
+            transform: scale(1.2);
+            border-color: #888;
+        }
+
+        .paper {
+            position: absolute;
+            top: 5px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 20px;
+            height: 0;
+            background: #ecf0f1;
+            transition: height 0.5s ease;
+        }
+
+        .mini-printer.printing .paper {
+            height: 30px;
+        }
+
+        .paper-text {
+            font-size: 4px;
+            color: #2c3e50;
+            padding: 2px;
+            line-height: 1.2;
+        }
+    </style>
+</head>
+<body>
+    <div class="device-container">
+        <div class="device" id="device">
+            <div class="mini-printer" id="printer" onclick="printDiagnosis()">
+                <div class="paper" id="paper">
+                    <div class="paper-text" id="paperText"></div>
+                </div>
+            </div>
+
+            <div class="brand" onclick="selfTest()">
+                <h1>ФИЛОСОФОМЕТР-ФМ9</h1>
+                <p>"Мыслеизмеритель"</p>
+            </div>
+
+            <div class="screen" id="screen" onclick="screenClick(event)">
+                <div class="display-text">
+                    <div>АНАЛИЗ МЫШЛЕНИЯ: <span id="status">ГОТОВ К РАБОТЕ</span></div>
+                    <div class="current-mode">Режим: <span id="mode">ОЖИДАНИЕ</span></div>
+                </div>
+                <div class="running-text">
+                    <span id="runningText">ВНИМАНИЕ: Длительное использование может привести к полной утрате способности к простым суждениям...</span>
+                </div>
+                <div class="text-input" id="textInput">
+                    <textarea id="philosophyText" placeholder="Вставьте сюда ваш философский текст для анализа..."></textarea>
+                </div>
+                <div class="analysis-result" id="analysisResult"></div>
+                <div class="diagnosis-meter" id="diagnosisMeter">
+                    <div class="meter-fill" id="meterFill"></div>
+                </div>
+                <div class="scale">
+                    <div class="scale-bar">
+                        <div class="needle" id="needle"></div>
+                    </div>
+                    <div class="scale-labels">
+                        <span>Сократ</span>
+                        <span>Студент</span>
+                        <span>Диссертант</span>
+                        <span>Популяризатор</span>
+                        <span>Шарлатан</span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="controls">
+                <button class="button" onclick="activateMode('academic', event)">Академический</button>
+                <button class="button" onclick="activateMode('youtube', event)">YouTube-философ</button>
+                <button class="button" onclick="activateMode('postmodern', event)">Постмодернизм</button>
+                <button class="button" onclick="activateMode('coaching', event)">Коучинг</button>
+                <button class="button emergency-button" onclick="emergency()">ТАБУЛА РАСА</button>
+                <button class="button" style="grid-column: 1 / -1; font-size: 9px;" onclick="insertSampleText()">
+                    Вставить образец псевдофилософии
+                </button>
+            </div>
+
+            <div class="indicators">
+                <div class="indicator" onclick="indicatorClick('clarity', event)">
+                    <div class="led" id="clarity"></div>
+                    <div class="indicator-label">Ясность</div>
+                </div>
+                <div class="indicator" onclick="indicatorClick('depth', event)">
+                    <div class="led" id="depth"></div>
+                    <div class="indicator-label">Глубина</div>
+                </div>
+                <div class="indicator" onclick="indicatorClick('logic', event)">
+                    <div class="led" id="logic"></div>
+                    <div class="indicator-label">Логика</div>
+                </div>
+            </div>
+
+            <div class="warning-sticker" onclick="showWarning()">
+                ВНИМАНИЕ!<br>
+                Чтение Хайдеггера<br>
+                может вызвать<br>
+                зависимость
+            </div>
+
+            <div class="ports">
+                <div class="port" id="port1" onclick="connectPort('hegel', event)">
+                    <div class="port-label">Гегель-порт</div>
+                </div>
+                <div class="port" id="port2" onclick="connectPort('nietzsche', event)">
+                    <div class="port-label">Ницше-разъём</div>
+                </div>
+                <div class="port" id="port3" onclick="connectPort('zen', event)">
+                    <div class="port-label">Дзен-вход</div>
+                </div>
+            </div>
+
+            <div class="popup" id="popup">
+                <h3>ФИЛОСОФСКАЯ ОШИБКА!</h3>
+                <p></p>
+                <button onclick="closePopup()">OK</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let currentMode = null;
+        let pseudoLevel = 10;
+        let isAnalyzing = false;
+        
+        const needle = document.getElementById('needle');
+        const status = document.getElementById('status');
+        const mode = document.getElementById('mode');
+        const clarity = document.getElementById('clarity');
+        const depth = document.getElementById('depth');
+        const logic = document.getElementById('logic');
+        const device = document.getElementById('device');
+        const screen = document.getElementById('screen');
+        const popup = document.getElementById('popup');
+        const runningText = document.getElementById('runningText');
+        const textInput = document.getElementById('textInput');
+        const philosophyText = document.getElementById('philosophyText');
+
+        const messages = [
+            "ВНИМАНИЕ: Длительное использование может привести к полной утрате способности к простым суждениям...",
+            "Обнаружен критический уровень терминологической инфляции...",
+            "Рекомендуется перечитать диалоги Платона...",
+            "Уровень абстракции превысил человеческое понимание...",
+            "Детектор смысла не обнаружил содержания...",
+            "Синдром 'всё относительно' прогрессирует...",
+            "Злоупотребление термином 'парадигма' зафиксировано...",
+            "Логические связи изношены на 93%..."
+        ];
+
+        let messageIndex = 0;
+
+        setInterval(() => {
+            messageIndex = (messageIndex + 1) % messages.length;
+            runningText.textContent = messages[messageIndex];
+        }, 5000);
+
+        window.activateMode = function(modeType, event) {
+            if (isAnalyzing) return;
+            
+            document.querySelectorAll('.button').forEach(btn => btn.classList.remove('active'));
+            if (event && event.target) {
+                event.target.classList.add('active');
+            }
+            
+            device.classList.add('glitch');
+            setTimeout(() => device.classList.remove('glitch'), 500);
+
+            screen.classList.add('analyzing');
+            isAnalyzing = true;
+            status.textContent = 'АНАЛИЗ...';
+
+            setTimeout(() => {
+                screen.classList.remove('analyzing');
+                isAnalyzing = false;
+
+                switch(modeType) {
+                    case 'academic':
+                        mode.textContent = 'АКАДЕМИЧЕСКИЙ';
+                        status.textContent = 'ТУМАННО';
+                        pseudoLevel = 75;
+                        clarity.className = 'led red';
+                        depth.className = 'led yellow';
+                        logic.className = 'led yellow';
+                        textInput.style.display = 'block';
+                        break;
+                    case 'youtube':
+                        mode.textContent = 'YOUTUBE-ФИЛОСОФ';
+                        status.textContent = 'УПРОЩЕНО';
+                        pseudoLevel = 65;
+                        clarity.className = 'led yellow';
+                        depth.className = 'led red';
+                        logic.className = 'led red';
+                        createSparks();
+                        textInput.style.display = 'none';
+                        document.getElementById('analysisResult').style.display = 'none';
+                        document.getElementById('diagnosisMeter').style.display = 'none';
+                        break;
+                    case 'postmodern':
+                        mode.textContent = 'ПОСТМОДЕРНИЗМ';
+                        status.textContent = 'ДЕКОНСТРУИРОВАНО';
+                        pseudoLevel = 95;
+                        clarity.className = 'led red';
+                        depth.className = 'led';
+                        logic.className = 'led red';
+                        if (event && event.target) {
+                            event.target.classList.add('danger');
+                        }
+                        textInput.style.display = 'none';
+                        document.getElementById('analysisResult').style.display = 'none';
+                        document.getElementById('diagnosisMeter').style.display = 'none';
+                        break;
+                    case 'coaching':
+                        mode.textContent = 'КОУЧИНГ';
+                        status.textContent = 'МОТИВИРОВАНО';
+                        pseudoLevel = 85;
+                        clarity.className = 'led green';
+                        depth.className = 'led red';
+                        logic.className = 'led yellow';
+                        textInput.style.display = 'none';
+                        document.getElementById('analysisResult').style.display = 'none';
+                        document.getElementById('diagnosisMeter').style.display = 'none';
+                        break;
+                }
+                
+                needle.style.left = pseudoLevel + '%';
+            }, 1500);
+        }
+
+        // Анализ философского текста
+        let analysisTimeout;
+        let lastAnalysis = '';
+        
+        philosophyText.addEventListener('input', () => {
+            clearTimeout(analysisTimeout);
+            analysisTimeout = setTimeout(() => analyzePhilosophy(), 500);
+        });
+
+        function analyzePhilosophy() {
+            const text = philosophyText.value;
+            if (!text || text === lastAnalysis) return;
+            lastAnalysis = text;
+            
+            const analysis = performPhilosophicalAnalysis(text);
+            updateDeviceState(analysis);
+        }
+
+        function performPhilosophicalAnalysis(text) {
+            const lower = text.toLowerCase();
+            const sentences = text.match(/[^.!?]+[.!?]+/g) || [];
+            const words = lower.split(/\s+/).filter(w => w.length > 0);
+            
+            let score = 10;
+            let diagnosis = [];
+            let severity = 0;
+
+            // 1. Анализ псевдо-умных терминов
+            const pretentiousTerms = {
+                'парадигма': 8, 'дискурс': 7, 'нарратив': 8, 'эпистема': 10,
+                'онтология': 6, 'экзистенция': 7, 'трансцендентный': 9,
+                'имманентный': 9, 'диалектика': 7, 'деконструкция': 12,
+                'симулякр': 15, 'ризома': 18, 'differance': 20,
+                'dasein': 10, 'апперцепция': 12, 'интенциональность': 11,
+                'квалиа': 13, 'эмерджентность': 14, 'холизм': 8,
+                'редукционизм': 7, 'солипсизм': 9, 'феноменология': 8
+            };
+            
+            let termCount = 0;
+            let termsUsed = [];
+            for (let [term, penalty] of Object.entries(pretentiousTerms)) {
+                const count = (lower.match(new RegExp(term, 'g')) || []).length;
+                if (count > 0) {
+                    score += penalty * count;
+                    termCount += count;
+                    termsUsed.push(term);
+                }
+            }
+            
+            if (termCount > 3) {
+                diagnosis.push(`Терминологическая перегрузка: ${termCount} умных слов! Обнаружены: ${termsUsed.slice(0, 3).join(', ')}...`);
+                severity += 3;
+            }
+
+            // 2. Проверка на банальности
+            const banalities = {
+                'всё относительно': 15, 'у каждого своя правда': 18,
+                'нет абсолютной истины': 16, 'всё субъективно': 14,
+                'время покажет': 10, 'такова жизнь': 12,
+                'всё познаётся в сравнении': 13, 'истина где-то посередине': 15,
+                'философия - это': 8, 'смысл жизни': 10,
+                'бытие определяет сознание': 12, 'сознание определяет бытие': 12
+            };
+            
+            for (let [phrase, penalty] of Object.entries(banalities)) {
+                if (lower.includes(phrase)) {
+                    score += penalty;
+                    diagnosis.push(`Банальность уровня "кухонный философ": "${phrase}"`);
+                    severity += 2;
+                }
+            }
+
+            // 3. Анализ псевдо-глубокомыслия
+            const deepityIndicators = [
+                /(.+) есть (.+), а (.+) есть (.+)/,
+                /с одной стороны.+с другой стороны/,
+                /если подумать.+то/,
+                /на самом деле/g,
+                /по сути/g,
+                /в конечном счёте/g,
+                /так или иначе/g
+            ];
+            
+            let deepityCount = 0;
+            deepityIndicators.forEach(pattern => {
+                const matches = text.match(pattern);
+                if (matches) deepityCount += matches.length;
+            });
+            
+            if (deepityCount > 2) {
+                diagnosis.push(`Псевдоглубокомыслие: ${deepityCount} попыток казаться умным`);
+                score += deepityCount * 5;
+                severity += 2;
+            }
+
+            // 4. Проверка длины предложений
+            const avgSentenceLength = words.length / (sentences.length || 1);
+            if (avgSentenceLength > 40) {
+                diagnosis.push(`Средняя длина предложения: ${Math.round(avgSentenceLength)} слов. Гегель одобряет, читатели страдают.`);
+                score += 15;
+                severity += 2;
+            }
+
+            // 5. Анализ цитирования
+            const citations = {
+                'кант': 5, 'гегель': 8, 'ницше': 10, 'хайдеггер': 12,
+                'деррида': 15, 'делёз': 16, 'фуко': 14, 'бодрийяр': 17,
+                'жижек': 13, 'батлер': 11, 'агамбен': 14
+            };
+            
+            let citationCount = 0;
+            for (let [name, penalty] of Object.entries(citations)) {
+                if (lower.includes(name)) {
+                    citationCount++;
+                    score += penalty;
+                }
+            }
+            
+            if (citationCount > 3) {
+                diagnosis.push(`Синдром name-dropping: ${citationCount} философов упомянуто без необходимости`);
+                severity += 2;
+            }
+
+            // 6. Проверка на тавтологии
+            const tautologies = [
+                /бытие есть бытие/i,
+                /сущее есть сущее/i,
+                /вещь есть вещь/i,
+                /а есть а/i,
+                /что есть, то есть/i
+            ];
+            
+            for (let pattern of tautologies) {
+                if (pattern.test(text)) {
+                    diagnosis.push('Тавтология обнаружена! Логика покинула чат.');
+                    score += 20;
+                    severity += 3;
+                    break;
+                }
+            }
+
+            // 7. Специальные случаи
+            if (lower.includes('квантовая') && (lower.includes('сознание') || lower.includes('философия'))) {
+                diagnosis.push('Квантовая псевдонаука детектирована! Дипак Чопра аплодирует.');
+                score += 25;
+                severity += 4;
+            }
+            
+            if (text.includes('???????')) {
+                diagnosis.push('Передозировка вопросительными знаками. Сократ в шоке.');
+                score += 10;
+                severity += 1;
+            }
+
+            if (lower.includes('матрица') && lower.includes('реальность')) {
+                diagnosis.push('Синдром "посмотрел Матрицу". Рекомендуется почитать Платона.');
+                score += 15;
+                severity += 2;
+            }
+
+            // 8. Проверка соотношения терминов к обычным словам
+            const termRatio = termCount / (words.length / 100);
+            if (termRatio > 5) {
+                diagnosis.push(`Концентрация терминологии: ${termRatio.toFixed(1)}%. Требуется разбавление простым языком.`);
+                score += 10;
+                severity += 1;
+            }
+
+            // Финальная оценка
+            const finalScore = Math.min(95, score);
+            
+            return {
+                score: finalScore,
+                diagnosis: diagnosis,
+                severity: severity,
+                wordCount: words.length,
+                sentenceCount: sentences.length
+            };
+        }
+
+        function updateDeviceState(analysis) {
+            pseudoLevel = analysis.score;
+            needle.style.left = pseudoLevel + '%';
+            
+            // Обновление статуса
+            if (analysis.severity === 0) {
+                status.textContent = 'ПРИЕМЛЕМО';
+            } else if (analysis.severity <= 3) {
+                status.textContent = 'ПОДОЗРИТЕЛЬНО';
+            } else if (analysis.severity <= 6) {
+                status.textContent = 'ПСЕВДОФИЛОСОФИЯ';
+            } else {
+                status.textContent = 'ШАРЛАТАНСТВО';
+            }
+            
+            // Визуальные эффекты для текстового поля
+            if (analysis.score > 70) {
+                philosophyText.className = 'danger';
+            } else if (analysis.score > 40) {
+                philosophyText.className = 'warning';
+            } else {
+                philosophyText.className = '';
+            }
+            
+            // Показ результатов анализа
+            const analysisResult = document.getElementById('analysisResult');
+            const diagnosisMeter = document.getElementById('diagnosisMeter');
+            const meterFill = document.getElementById('meterFill');
+            
+            if (analysis.diagnosis.length > 0) {
+                analysisResult.style.display = 'block';
+                analysisResult.textContent = analysis.diagnosis[0];
+                
+                diagnosisMeter.style.display = 'block';
+                meterFill.style.width = analysis.score + '%';
+            }
+            
+            // Визуальные эффекты
+            if (analysis.severity > 4) {
+                device.classList.add('shake');
+                setTimeout(() => device.classList.remove('shake'), 500);
+                createSparks();
+            }
+            
+            // Обновление индикаторов
+            if (analysis.score > 70) {
+                clarity.className = 'led red';
+                depth.className = 'led red';
+                logic.className = 'led red';
+            } else if (analysis.score > 40) {
+                clarity.className = 'led yellow';
+                depth.className = 'led yellow';
+                logic.className = 'led yellow';
+            } else {
+                clarity.className = 'led green';
+                depth.className = 'led green';
+                logic.className = 'led green';
+            }
+            
+            // Показ диагноза в бегущей строке
+            if (analysis.diagnosis.length > 0) {
+                let diagIndex = 0;
+                const showNextDiagnosis = () => {
+                    if (diagIndex < analysis.diagnosis.length) {
+                        runningText.textContent = analysis.diagnosis[diagIndex];
+                        diagIndex++;
+                        setTimeout(showNextDiagnosis, 3000);
+                    }
+                };
+                showNextDiagnosis();
+                
+                // Для критических случаев показываем попап
+                if (analysis.severity > 6) {
+                    setTimeout(() => {
+                        showPopup('ДИАГНОЗ ФИЛОСОФОМЕТРА', 
+                                 `${analysis.diagnosis.join(' ')} \n\nРекомендация: срочно перечитать Сократа!`);
+                    }, 1000);
+                }
+            }
+            
+            // Специальные эффекты
+            if (analysis.wordCount > 150) {
+                createSmoke();
+                runningText.textContent = 'ПЕРЕГРЕВ! Многословие зашкаливает!';
+            }
+            
+            // Мигание экрана при критических значениях
+            if (analysis.score > 85) {
+                screen.classList.add('analyzing');
+                setTimeout(() => screen.classList.remove('analyzing'), 2000);
+            }
+        }
+
+        window.emergency = function() {
+            device.classList.add('shake');
+            createSmoke();
+            
+            setTimeout(() => {
+                device.classList.remove('shake');
+                pseudoLevel = 10;
+                needle.style.left = pseudoLevel + '%';
+                status.textContent = 'TABULA RASA';
+                mode.textContent = 'ЧИСТЫЙ РАЗУМ';
+                clarity.className = 'led green';
+                depth.className = 'led green';
+                logic.className = 'led green';
+                document.querySelectorAll('.button').forEach(btn => {
+                    btn.classList.remove('active', 'danger');
+                });
+                textInput.style.display = 'none';
+                philosophyText.value = '';
+                document.getElementById('analysisResult').style.display = 'none';
+                document.getElementById('diagnosisMeter').style.display = 'none';
+            }, 1000);
+        }
+
+        window.connectPort = function(type, event) {
+            const port = event.target.closest('.port');
+            port.classList.toggle('connected');
+            
+            if (port.classList.contains('connected')) {
+                switch(type) {
+                    case 'hegel':
+                        showPopup('ПОДКЛЮЧЕНИЕ К АБСОЛЮТУ', 'Диалектика загружается... Тезис... Антитезис... Синтез... ОШИБКА: слишком сложно!');
+                        pseudoLevel = Math.min(95, pseudoLevel + 20);
+                        break;
+                    case 'nietzsche':
+                        showPopup('ВОЛЯ К ВЛАСТИ АКТИВИРОВАНА', 'Бог умер. Смысл утрачен. Нигилизм установлен. Übermensch недостижим.');
+                        break;
+                    case 'zen':
+                        showPopup('ДЗЕН ПОДКЛЮЧЕН', 'Звук хлопка одной ладони: [ОШИБКА: невычислимо]. Просветление отложено.');
+                        break;
+                }
+                needle.style.left = pseudoLevel + '%';
+            }
+        }
+
+        window.indicatorClick = function(type, event) {
+            createSparks(event.pageX, event.pageY);
+            
+            switch(type) {
+                case 'clarity':
+                    showPopup('ЯСНОСТЬ', 'Последний раз замечена у Декарта. Статус: УТРАЧЕНА в постмодернизме.');
+                    break;
+                case 'depth':
+                    showPopup('ГЛУБИНА', 'Текущая глубина: поверхностная. Для увеличения добавьте больше "онтологического".');
+                    break;
+                case 'logic':
+                    showPopup('ЛОГИКА', 'ПРЕДУПРЕЖДЕНИЕ: Обнаружены следы диалектической логики. Аристотель не одобряет.');
+                    break;
+            }
+        }
+
+        window.selfTest = function() {
+            status.textContent = 'COGITO ERGO SUM...';
+            device.classList.add('shake');
+            screen.classList.add('analyzing');
+            
+            setTimeout(() => {
+                device.classList.remove('shake');
+                screen.classList.remove('analyzing');
+                showPopup('РЕЗУЛЬТАТ САМОПОЗНАНИЯ', 'Прибор мыслит, следовательно, существует. Философы всё ещё спорят.');
+            }, 2000);
+        }
+
+        window.showWarning = function() {
+            showPopup('ФИЛОСОФСКОЕ ПРЕДУПРЕЖДЕНИЕ!', 'Побочные эффекты: непонимание окружающих, тяга к чёрной водолазке, цитирование Ницше в неподходящих ситуациях.');
+        }
+
+        window.printDiagnosis = function() {
+            const printer = document.getElementById('printer');
+            const paper = document.getElementById('paper');
+            const paperText = document.getElementById('paperText');
+            
+            printer.classList.add('printing');
+            paperText.innerHTML = `ДИАГНОЗ:<br>Мыслитель: ${100-pseudoLevel}%<br>Псевдофилософ: ${pseudoLevel}%<br>Рекомендация:<br>ЧИТАТЬ ПЛАТОНА`;
+            
+            setTimeout(() => {
+                printer.classList.remove('printing');
+            }, 3000);
+        }
+
+        function createSmoke() {
+            const smoke = document.createElement('div');
+            smoke.className = 'smoke';
+            device.appendChild(smoke);
+            setTimeout(() => smoke.remove(), 3000);
+        }
+
+        function createSparks(x, y) {
+            const rect = device.getBoundingClientRect();
+            x = x || rect.left + rect.width / 2;
+            y = y || rect.top + rect.height / 2;
+            
+            for (let i = 0; i < 10; i++) {
+                const spark = document.createElement('div');
+                spark.className = 'sparks';
+                spark.style.left = (x - rect.left) + 'px';
+                spark.style.top = (y - rect.top) + 'px';
+                spark.style.setProperty('--x', (Math.random() - 0.5) * 100 + 'px');
+                spark.style.setProperty('--y', (Math.random() - 0.5) * 100 + 'px');
+                device.appendChild(spark);
+                setTimeout(() => spark.remove(), 1000);
+            }
+        }
+
+        window.screenClick = function(event) {
+            if (event.target.closest('.text-input')) return;
+            createSparks(event.pageX, event.pageY);
+        }
+
+        function showPopup(title, text) {
+            popup.querySelector('h3').textContent = title;
+            popup.querySelector('p').textContent = text;
+            popup.style.display = 'block';
+        }
+
+        window.closePopup = function() {
+            popup.style.display = 'none';
+        }
+
+        // Случайные философские сбои
+        setInterval(() => {
+            if (Math.random() > 0.9 && currentMode) {
+                device.classList.add('glitch');
+                setTimeout(() => device.classList.remove('glitch'), 200);
+                
+                if (Math.random() > 0.7) {
+                    status.textContent = 'АПОРИЯ #' + Math.floor(Math.random() * 999);
+                    setTimeout(() => {
+                        status.textContent = 'МЫСЛИТ';
+                    }, 1000);
+                }
+            }
+        }, 5000);
+
+        // Движение стрелки
+        setInterval(() => {
+            if (pseudoLevel > 10) {
+                const variation = (Math.random() - 0.5) * 3;
+                needle.style.left = (pseudoLevel + variation) + '%';
+            }
+        }, 500);
+
+        // Функция вставки примера
+        window.insertSampleText = function() {
+            if (!textInput.style.display || textInput.style.display === 'none') {
+                // Сначала активируем академический режим
+                window.activateMode('academic', { target: document.querySelector('.button') });
+                setTimeout(() => window.insertSampleText(), 1500);
+                return;
+            }
+            
+            const samples = [
+                `Онтологическая структура бытия-в-мире раскрывается через экзистенциальную аналитику Dasein, где трансцендентальная апперцепция конституирует горизонт понимания. Имманентность сознания, таким образом, диалектически снимается в процессе деконструкции метафизики присутствия.
+
+В конечном счёте, парадигма постмодернистского дискурса демонстрирует, что всё относительно.`,
+
+                `Квантовое сознание, будучи эмерджентным свойством нейронных корреляций, манифестирует себя через холистическую парадигму восприятия реальности. Если подумать, то с одной стороны, редукционизм ограничен, с другой стороны, холизм тоже не даёт полной картины.
+
+По сути, смысл жизни заключается в поиске смысла жизни. У каждого своя правда.`,
+
+                `Симулякр есть симулякр, а реальность есть гиперреальность. Ризоматическая структура постмодернистского нарратива деконструирует бинарные оппозиции логоцентризма. Differance, как показал Деррида, не поддаётся определению.
+
+Бытие есть бытие. А есть А. Что есть, то есть.`,
+
+                `Философия - это любовь к мудрости. Но что есть мудрость? И что есть любовь? Экзистенциальный вакуум современного человека требует трансцендентного прорыва к аутентичному существованию. 
+
+Как говорил Кант, а может Гегель, или это был Ницше... В общем, как сказал Хайдеггер, цитируя Делёза о Фуко... Неважно. Истина где-то посередине.`,
+
+                `Мы живём в Матрице социальных конструктов! Реальность - это иллюзия консенсуса. Квантовая философия доказывает, что наблюдатель создаёт реальность своим сознанием!!!
+
+Всё субъективно????? Нет абсолютной истины????? Время покажет?????`
+            ];
+            
+            philosophyText.value = samples[Math.floor(Math.random() * samples.length)];
+            analyzePhilosophy();
+        }
+    </script>
+</body>
+</html>
