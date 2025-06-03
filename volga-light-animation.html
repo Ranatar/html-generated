@@ -1,0 +1,1477 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Ловец света на Волге</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            background: #0a1929;
+            overflow: hidden;
+            font-family: 'Georgia', serif;
+        }
+
+        #cinema {
+            width: 100vw;
+            height: 100vh;
+            position: relative;
+            background: #0a1929;
+        }
+
+        svg {
+            width: 100%;
+            height: 100%;
+            position: absolute;
+            top: 0;
+            left: 0;
+        }
+
+        /* Эффект размытости без очков */
+        .blurred-vision {
+            filter: blur(12px);
+            transition: filter 3s ease-in-out;
+        }
+
+        /* Субтитры повествования */
+        .narration {
+            position: absolute;
+            bottom: 20%;
+            left: 50%;
+            transform: translateX(-50%);
+            color: #fff;
+            font-size: 28px;
+            font-style: italic;
+            text-shadow: 3px 3px 8px rgba(0,0,0,0.9);
+            opacity: 0;
+            text-align: center;
+            width: 80%;
+            pointer-events: none;
+            z-index: 102;
+            letter-spacing: 2px;
+            line-height: 1.6;
+        }
+
+        /* Субтитры диалогов */
+        .dialogue {
+            position: absolute;
+            bottom: 10%;
+            left: 50%;
+            transform: translateX(-50%);
+            color: #fff;
+            font-size: 24px;
+            text-shadow: 2px 2px 6px rgba(0,0,0,0.9);
+            opacity: 0;
+            text-align: center;
+            width: 80%;
+            pointer-events: none;
+            z-index: 101;
+            letter-spacing: 1px;
+            background: rgba(0,0,0,0.5);
+            padding: 10px 20px;
+            border-radius: 5px;
+        }
+
+        /* Переходы для диалога */
+        #dialogueCamera {
+            transition: transform 1.5s ease-in-out;
+        }
+        
+        #catcherInDialogue, #crawlerInDialogue {
+            transition: all 1s ease-in-out;
+        }
+        
+        #catcherFaceExpressions g, #crawlerFaceExpressions g {
+            transition: opacity 0.5s ease-in-out;
+        }
+        
+        #hyperactiveLight {
+            transition: transform 3s ease-in-out;
+        }
+
+        /* Эффект морозного дыхания */
+        .frost-breath {
+            position: absolute;
+            width: 100px;
+            height: 100px;
+            background: radial-gradient(circle, rgba(255,255,255,0.3) 0%, transparent 70%);
+            border-radius: 50%;
+            opacity: 0;
+            animation: breathe 6s infinite;
+        }
+
+        @keyframes breathe {
+            0%, 100% { opacity: 0; transform: scale(0.5); }
+            50% { opacity: 0.2; transform: scale(1.5); }
+        }
+
+        /* Снежинки */
+        .snowflake {
+            position: absolute;
+            color: #fff;
+            opacity: 0.6;
+            animation: fall linear infinite;
+        }
+
+        @keyframes fall {
+            to {
+                transform: translateY(100vh) translateX(20px);
+            }
+        }
+    </style>
+</head>
+<body>
+    <div id="cinema">
+        <svg viewBox="0 0 1920 1080" xmlns="http://www.w3.org/2000/svg">
+            <defs>
+                <!-- Градиенты для льда -->
+                <linearGradient id="iceGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+                    <stop offset="0%" style="stop-color:#b8e2f5;stop-opacity:1"/>
+                    <stop offset="30%" style="stop-color:#a5d6e8;stop-opacity:1"/>
+                    <stop offset="60%" style="stop-color:#8fc4db;stop-opacity:1"/>
+                    <stop offset="100%" style="stop-color:#6ba3c0;stop-opacity:1"/>
+                </linearGradient>
+
+                <!-- Градиент для неба -->
+                <linearGradient id="skyGradient" x1="0%" y1="0%" x2="0%" y2="100%">
+                    <stop offset="0%" style="stop-color:#0a1929;stop-opacity:1"/>
+                    <stop offset="50%" style="stop-color:#1e3a5f;stop-opacity:1"/>
+                    <stop offset="100%" style="stop-color:#3d5a80;stop-opacity:1"/>
+                </linearGradient>
+
+                <!-- Градиент для света -->
+                <radialGradient id="lightGradient" cx="50%" cy="50%">
+                    <stop offset="0%" style="stop-color:#ffffff;stop-opacity:1">
+                        <animate attributeName="stop-opacity" values="1;0.8;1" dur="3s" repeatCount="indefinite"/>
+                    </stop>
+                    <stop offset="40%" style="stop-color:#fffacd;stop-opacity:0.8"/>
+                    <stop offset="100%" style="stop-color:#ffd700;stop-opacity:0.3"/>
+                </radialGradient>
+
+                <!-- Градиент радуги без голубого -->
+                <linearGradient id="rainbowNoBlue" x1="0%" y1="0%" x2="100%" y2="0%">
+                    <stop offset="0%" style="stop-color:#ff0000;stop-opacity:0.8"/>
+                    <stop offset="20%" style="stop-color:#ff7f00;stop-opacity:0.8"/>
+                    <stop offset="40%" style="stop-color:#ffff00;stop-opacity:0.8"/>
+                    <stop offset="60%" style="stop-color:#00ff00;stop-opacity:0.8"/>
+                    <!-- Голубой пропущен -->
+                    <stop offset="80%" style="stop-color:#4b0082;stop-opacity:0.8"/>
+                    <stop offset="100%" style="stop-color:#9400d3;stop-opacity:0.8"/>
+                </linearGradient>
+
+                <!-- Текстура льда -->
+                <pattern id="iceTexture" x="0" y="0" width="200" height="200" patternUnits="userSpaceOnUse">
+                    <rect width="200" height="200" fill="url(#iceGradient)"/>
+                    <path d="M 0 50 Q 50 45 100 50 T 200 50 M 0 100 Q 50 95 100 100 T 200 100 M 0 150 Q 50 145 100 150 T 200 150" 
+                          stroke="#e8f4f8" stroke-width="0.5" fill="none" opacity="0.5"/>
+                    <circle cx="30" cy="30" r="20" fill="#e8f4f8" opacity="0.1"/>
+                    <circle cx="130" cy="80" r="15" fill="#e8f4f8" opacity="0.15"/>
+                    <circle cx="180" cy="140" r="25" fill="#e8f4f8" opacity="0.1"/>
+                </pattern>
+
+                <!-- Фильтры -->
+                <filter id="glow" x="-50%" y="-50%" width="200%" height="200%">
+                    <feGaussianBlur stdDeviation="10" result="coloredBlur"/>
+                    <feMerge>
+                        <feMergeNode in="coloredBlur"/>
+                        <feMergeNode in="SourceGraphic"/>
+                    </feMerge>
+                </filter>
+
+                <filter id="glassMaterial" x="-50%" y="-50%" width="200%" height="200%">
+                    <feGaussianBlur in="SourceAlpha" stdDeviation="3" result="blur"/>
+                    <feSpecularLighting result="specOut" in="blur" specularConstant="5" specularExponent="20" lighting-color="white">
+                        <fePointLight x="-50" y="30" z="200"/>
+                    </feSpecularLighting>
+                    <feComposite in="specOut" in2="SourceAlpha" operator="in" result="specOut2"/>
+                    <feComposite in="SourceGraphic" in2="specOut2" operator="arithmetic" k1="0" k2="1" k3="1" k4="0"/>
+                </filter>
+
+                <filter id="blur12" x="-50%" y="-50%" width="200%" height="200%">
+                    <feGaussianBlur in="SourceGraphic" stdDeviation="12"/>
+                </filter>
+
+                <filter id="blur5" x="-50%" y="-50%" width="200%" height="200%">
+                    <feGaussianBlur in="SourceGraphic" stdDeviation="5"/>
+                </filter>
+
+                <!-- Текстура пиджака секонд-хенд -->
+                <pattern id="secondHandJacket" x="0" y="0" width="50" height="50" patternUnits="userSpaceOnUse">
+                    <rect width="50" height="50" fill="#4a4a4a"/>
+                    <rect x="0" y="0" width="25" height="25" fill="#525252"/>
+                    <rect x="25" y="25" width="25" height="25" fill="#525252"/>
+                    <circle cx="10" cy="10" r="1" fill="#3a3a3a" opacity="0.5"/>
+                    <circle cx="30" cy="30" r="1" fill="#3a3a3a" opacity="0.5"/>
+                    <path d="M 0 5 L 5 0 M 45 50 L 50 45" stroke="#606060" stroke-width="0.5" opacity="0.3"/>
+                </pattern>
+            </defs>
+
+            <!-- СЦЕНА 1: Общий план - медитативное открытие -->
+            <g id="scene1" opacity="1">
+                <!-- Небо -->
+                <rect width="1920" height="600" fill="url(#skyGradient)"/>
+                
+                <!-- Дальний берег -->
+                <path d="M 0 400 Q 500 380 960 390 Q 1400 385 1920 400 L 1920 600 L 0 600 Z" 
+                      fill="#2c3e50" opacity="0.6"/>
+                
+                <!-- Лёд Волги -->
+                <g id="frozenRiver">
+                    <rect y="600" width="1920" height="480" fill="url(#iceTexture)"/>
+                    
+                    <!-- Трещины во льду -->
+                    <g id="iceCracks" opacity="0.4">
+                        <path d="M 300 700 Q 400 750 500 800 Q 600 850 700 900" 
+                              stroke="#5a7a8a" stroke-width="2" fill="none"/>
+                        <path d="M 800 650 Q 850 700 900 750 Q 950 800 1000 850" 
+                              stroke="#5a7a8a" stroke-width="1.5" fill="none"/>
+                        <path d="M 1200 700 Q 1250 730 1300 760" 
+                              stroke="#5a7a8a" stroke-width="1" fill="none"/>
+                    </g>
+                    
+                    <!-- Отражения -->
+                    <g id="skyReflections" opacity="0.2">
+                        <ellipse cx="400" cy="700" rx="200" ry="50" fill="#3d5a80" filter="url(#blur5)"/>
+                        <ellipse cx="900" cy="800" rx="250" ry="60" fill="#1e3a5f" filter="url(#blur5)"/>
+                        <ellipse cx="1400" cy="750" rx="220" ry="55" fill="#3d5a80" filter="url(#blur5)"/>
+                    </g>
+                </g>
+                
+                <!-- Фигура ловца света вдалеке с медленным движением -->
+                <g id="lightCatcherDistant" transform="translate(1200, 700)">
+                    <ellipse cx="0" cy="20" rx="40" ry="15" fill="#000" opacity="0.3"/>
+                    <path d="M -20 0 Q -15 -30 0 -35 Q 15 -30 20 0 L 15 20 L -15 20 Z" 
+                          fill="#3a3a3a" opacity="0.8"/>
+                    <circle cx="0" cy="-45" r="15" fill="#2a2a2a" opacity="0.8"/>
+                    
+                    <!-- Мерцающий свет -->
+                    <circle cx="10" cy="-20" r="30" fill="url(#lightGradient)" opacity="0.5" filter="url(#glow)">
+                        <animate attributeName="opacity" values="0.3;0.6;0.3" dur="5s" repeatCount="indefinite"/>
+                    </circle>
+                </g>
+            </g>
+
+            <!-- СЦЕНА 2: Подползание без очков - улучшенная анимация от первого лица -->
+            <g id="scene2" opacity="0">
+                <!-- Размытый вид -->
+                <g filter="url(#blur12)">
+                    <rect width="1920" height="1080" fill="url(#iceTexture)"/>
+                    
+                    <!-- Размытые формы -->
+                    <ellipse cx="960" cy="400" rx="300" ry="400" fill="#2a2a2a" opacity="0.3"/>
+                    <circle cx="960" cy="300" r="150" fill="#ffffff" opacity="0.2"/>
+                </g>
+                
+                <!-- Анимированные руки от первого лица -->
+                <g id="povCrawling">
+                    <!-- Левая рука с реалистичным движением -->
+                    <g id="leftHandPOV">
+                        <g id="leftHandGroup">
+                            <ellipse cx="300" cy="800" rx="100" ry="150" fill="#f5deb3" opacity="0.9" transform="rotate(-25 300 800)"/>
+                            <!-- Детализированные пальцы -->
+                            <ellipse cx="250" cy="700" rx="20" ry="50" fill="#f5deb3" transform="rotate(-35 250 700)"/>
+                            <ellipse cx="280" cy="680" rx="20" ry="55" fill="#f5deb3" transform="rotate(-25 280 680)"/>
+                            <ellipse cx="310" cy="675" rx="20" ry="53" fill="#f5deb3" transform="rotate(-15 310 675)"/>
+                            <ellipse cx="340" cy="680" rx="20" ry="48" fill="#f5deb3" transform="rotate(-5 340 680)"/>
+                            <ellipse cx="230" cy="750" rx="25" ry="45" fill="#f5deb3" transform="rotate(-50 230 750)"/>
+                            <!-- Суставы и детали -->
+                            <circle cx="280" cy="730" r="8" fill="#e6d7c5" opacity="0.5"/>
+                            <circle cx="310" cy="720" r="8" fill="#e6d7c5" opacity="0.5"/>
+                            <!-- Тень -->
+                            <ellipse cx="320" cy="850" rx="120" ry="40" fill="#000" opacity="0.3" filter="url(#blur5)"/>
+                        </g>
+                        <!-- Сложная анимация ползания левой руки -->
+                        <animateTransform 
+                            attributeName="transform" 
+                            type="translate" 
+                            values="0,0; -100,-150; -200,-100; -300,0; 0,0"
+                            dur="8s" 
+                            repeatCount="indefinite"/>
+                        <animateTransform 
+                            attributeName="transform" 
+                            type="rotate" 
+                            values="0 300 800; -10 300 800; -20 300 800; -10 300 800; 0 300 800"
+                            dur="8s" 
+                            repeatCount="indefinite"
+                            additive="sum"/>
+                    </g>
+                    
+                    <!-- Правая рука с реалистичным движением -->
+                    <g id="rightHandPOV">
+                        <g id="rightHandGroup">
+                            <ellipse cx="1620" cy="850" rx="100" ry="150" fill="#f5deb3" opacity="0.9" transform="rotate(25 1620 850)"/>
+                            <!-- Детализированные пальцы -->
+                            <ellipse cx="1670" cy="750" rx="20" ry="50" fill="#f5deb3" transform="rotate(35 1670 750)"/>
+                            <ellipse cx="1640" cy="730" rx="20" ry="55" fill="#f5deb3" transform="rotate(25 1640 730)"/>
+                            <ellipse cx="1610" cy="725" rx="20" ry="53" fill="#f5deb3" transform="rotate(15 1610 725)"/>
+                            <ellipse cx="1580" cy="730" rx="20" ry="48" fill="#f5deb3" transform="rotate(5 1580 730)"/>
+                            <ellipse cx="1690" cy="800" rx="25" ry="45" fill="#f5deb3" transform="rotate(50 1690 800)"/>
+                            <!-- Суставы -->
+                            <circle cx="1640" cy="780" r="8" fill="#e6d7c5" opacity="0.5"/>
+                            <circle cx="1610" cy="770" r="8" fill="#e6d7c5" opacity="0.5"/>
+                            <!-- Тень -->
+                            <ellipse cx="1600" cy="900" rx="120" ry="40" fill="#000" opacity="0.3" filter="url(#blur5)"/>
+                        </g>
+                        <!-- Анимация с задержкой для правой руки -->
+                        <animateTransform 
+                            attributeName="transform" 
+                            type="translate" 
+                            values="0,0; 0,0; 100,-150; 200,-100; 300,0; 0,0"
+                            dur="8s" 
+                            begin="2s"
+                            repeatCount="indefinite"/>
+                        <animateTransform 
+                            attributeName="transform" 
+                            type="rotate" 
+                            values="0 1620 850; 0 1620 850; 10 1620 850; 20 1620 850; 10 1620 850; 0 1620 850"
+                            dur="8s" 
+                            begin="2s"
+                            repeatCount="indefinite"
+                            additive="sum"/>
+                    </g>
+                    
+                    <!-- Эффект движения вперёд -->
+                    <animateTransform 
+                        attributeName="transform" 
+                        type="translate" 
+                        values="0,0; 0,50; 0,0"
+                        dur="4s" 
+                        repeatCount="indefinite"/>
+                </g>
+            </g>
+
+            <!-- СЦЕНА 3: Крупный план - ловец света с разнообразной мимикой -->
+            <g id="scene3" opacity="0">
+                <rect width="1920" height="1080" fill="url(#iceTexture)"/>
+                
+                <!-- Ловец света детализированный -->
+                <g id="lightCatcherDetailed" transform="translate(960, 600)">
+                    <!-- Тень -->
+                    <ellipse cx="0" cy="250" rx="300" ry="100" fill="#000" opacity="0.3" filter="url(#blur5)"/>
+                    
+                    <!-- Тело в пиджаке - правильное позиционирование -->
+                    <g id="bodyInJacket">
+                        <!-- Сидячая поза -->
+                        <g id="sittingPose">
+                            <!-- Ноги скрещены -->
+                            <path d="M -150 150 Q -100 100 -50 80 Q 0 60 50 80 Q 100 100 150 150" 
+                                  fill="#333" stroke="#222" stroke-width="2"/>
+                            <path d="M -150 150 Q -120 120 -80 100 Q -40 80 0 100 Q 40 120 80 150" 
+                                  fill="#2a2a2a" stroke="#1a1a1a" stroke-width="2"/>
+                        </g>
+                        
+                        <!-- Торс -->
+                        <g id="torso">
+                            <path d="M -100 -50 Q -100 -100 -80 -120 Q -40 -140 0 -140 Q 40 -140 80 -120 Q 100 -100 100 -50 L 120 100 Q 120 150 80 150 L -80 150 Q -120 150 -120 100 Z" 
+                                  fill="url(#secondHandJacket)" stroke="#3a3a3a" stroke-width="2"/>
+                            <!-- Детали пиджака -->
+                            <ellipse cx="-50" cy="20" rx="20" ry="15" fill="#5a5a5a" opacity="0.5"/>
+                            <rect x="30" y="-20" width="25" height="20" fill="#4a4a4a" opacity="0.7" transform="rotate(5 42.5 -10)"/>
+                            <circle cx="0" cy="-20" r="5" fill="#2a2a2a"/>
+                            <circle cx="5" cy="10" r="4" fill="#333"/>
+                            <circle cx="-3" cy="40" r="5" fill="#2a2a2a"/>
+                        </g>
+                        
+                        <!-- Руки наматывают свет -->
+                        <g id="armsWindingLight">
+                            <!-- Левая рука -->
+                            <g id="leftArmWinding">
+                                <path d="M -100 -50 Q -140 -20 -130 20 Q -120 40 -100 50" 
+                                      fill="url(#secondHandJacket)" stroke="#3a3a3a" stroke-width="2"/>
+                                <ellipse cx="-100" cy="50" rx="30" ry="40" fill="#f5deb3"/>
+                                <!-- Пальцы с анимацией -->
+                                <g transform="translate(-100, 50)" id="leftFingers">
+                                    <ellipse cx="-10" cy="-15" rx="5" ry="15" fill="#f5deb3" transform="rotate(-20)">
+                                        <animateTransform attributeName="transform" type="rotate" 
+                                                          values="-20;-25;-20" dur="4s" repeatCount="indefinite"/>
+                                    </ellipse>
+                                    <ellipse cx="0" cy="-18" rx="5" ry="18" fill="#f5deb3"/>
+                                    <ellipse cx="10" cy="-15" rx="5" ry="16" fill="#f5deb3" transform="rotate(10)">
+                                        <animateTransform attributeName="transform" type="rotate" 
+                                                          values="10;15;10" dur="4s" repeatCount="indefinite"/>
+                                    </ellipse>
+                                </g>
+                            </g>
+                            
+                            <!-- Правая рука -->
+                            <g id="rightArmWinding">
+                                <path d="M 100 -50 Q 140 -20 130 20 Q 120 40 100 50" 
+                                      fill="url(#secondHandJacket)" stroke="#3a3a3a" stroke-width="2"/>
+                                <ellipse cx="100" cy="50" rx="30" ry="40" fill="#f5deb3"/>
+                                <!-- Пальцы наматывают -->
+                                <g transform="translate(100, 50)" id="rightFingers">
+                                    <ellipse cx="10" cy="-15" rx="5" ry="15" fill="#f5deb3" transform="rotate(20)">
+                                        <animateTransform attributeName="transform" type="rotate" 
+                                                          values="20;30;20" dur="3s" repeatCount="indefinite"/>
+                                    </ellipse>
+                                    <ellipse cx="0" cy="-18" rx="5" ry="18" fill="#f5deb3"/>
+                                    <ellipse cx="-10" cy="-15" rx="5" ry="16" fill="#f5deb3" transform="rotate(-10)">
+                                        <animateTransform attributeName="transform" type="rotate" 
+                                                          values="-10;-20;-10" dur="3.5s" repeatCount="indefinite"/>
+                                    </ellipse>
+                                </g>
+                            </g>
+                        </g>
+                        
+                        <!-- Голова с анимированной мимикой -->
+                        <g id="headWithExpressions">
+                            <ellipse cx="0" cy="-200" rx="80" ry="90" fill="#f5deb3"/>
+                            
+                            <!-- Глаза с морганием и движением -->
+                            <g id="eyes">
+                                <!-- Левый глаз -->
+                                <g id="leftEye">
+                                    <ellipse cx="-25" cy="-210" rx="20" ry="15" fill="#fff"/>
+                                    <circle cx="-25" cy="-210" r="10" fill="#4a4a4a">
+                                        <animate attributeName="cx" values="-25;-23;-27;-25" dur="8s" repeatCount="indefinite"/>
+                                    </circle>
+                                    <circle cx="-23" cy="-212" r="3" fill="#fff"/>
+                                    <!-- Веко для моргания -->
+                                    <ellipse cx="-25" cy="-210" rx="20" ry="0" fill="#f5deb3">
+                                        <animate attributeName="ry" values="0;0;15;0;0" dur="5s" repeatCount="indefinite"/>
+                                    </ellipse>
+                                </g>
+                                
+                                <!-- Правый глаз -->
+                                <g id="rightEye">
+                                    <ellipse cx="25" cy="-210" rx="20" ry="15" fill="#fff"/>
+                                    <circle cx="25" cy="-210" r="10" fill="#4a4a4a">
+                                        <animate attributeName="cx" values="25;27;23;25" dur="8s" repeatCount="indefinite"/>
+                                    </circle>
+                                    <circle cx="27" cy="-212" r="3" fill="#fff"/>
+                                    <!-- Веко -->
+                                    <ellipse cx="25" cy="-210" rx="20" ry="0" fill="#f5deb3">
+                                        <animate attributeName="ry" values="0;0;0;15;0" dur="5s" begin="0.2s" repeatCount="indefinite"/>
+                                    </ellipse>
+                                </g>
+                            </g>
+                            
+                            <!-- Брови с выражениями -->
+                            <g id="eyebrows">
+                                <path id="leftEyebrow" d="M -40 -230 Q -25 -235 -10 -230" 
+                                      stroke="#3a3a3a" stroke-width="2" fill="none">
+                                    <animate attributeName="d" 
+                                             values="M -40 -230 Q -25 -235 -10 -230;
+                                                     M -40 -235 Q -25 -240 -10 -235;
+                                                     M -40 -230 Q -25 -235 -10 -230"
+                                             dur="6s" repeatCount="indefinite"/>
+                                </path>
+                                <path id="rightEyebrow" d="M 10 -230 Q 25 -235 40 -230" 
+                                      stroke="#3a3a3a" stroke-width="2" fill="none">
+                                    <animate attributeName="d" 
+                                             values="M 10 -230 Q 25 -235 40 -230;
+                                                     M 10 -235 Q 25 -240 40 -235;
+                                                     M 10 -230 Q 25 -235 40 -230"
+                                             dur="6s" repeatCount="indefinite"/>
+                                </path>
+                            </g>
+                            
+                            <!-- Нос -->
+                            <path d="M -5 -200 Q 0 -190 5 -200 L 3 -185 L -3 -185 Z" fill="#e6d7c5"/>
+                            
+                            <!-- Рот с различными выражениями -->
+                            <g id="mouth">
+                                <path id="mouthPath" d="M -20 -170 Q 0 -165 20 -170" 
+                                      stroke="#d4a5a5" stroke-width="2" fill="none">
+                                    <animate attributeName="d" 
+                                             values="M -20 -170 Q 0 -165 20 -170;
+                                                     M -25 -170 Q 0 -160 25 -170;
+                                                     M -20 -175 Q 0 -170 20 -175;
+                                                     M -20 -170 Q 0 -165 20 -170"
+                                             dur="8s" repeatCount="indefinite"/>
+                                </path>
+                            </g>
+                            
+                            <!-- Волосы -->
+                            <g id="messyHair">
+                                <path d="M -80 -280 Q -60 -290 -40 -285 Q -20 -295 0 -290 Q 20 -295 40 -285 Q 60 -290 80 -280" 
+                                      fill="#5a5a5a" opacity="0.8"/>
+                                <path d="M -70 -270 Q -50 -280 -30 -275" stroke="#4a4a4a" stroke-width="3" fill="none"/>
+                                <path d="M 30 -275 Q 50 -280 70 -270" stroke="#4a4a4a" stroke-width="3" fill="none"/>
+                            </g>
+                        </g>
+                    </g>
+                    
+                    <!-- Стеклянная верёвка -->
+                    <g id="glassRopeDetailed">
+                        <path id="ropeMainPath" d="M -100 50 Q -50 0 0 -20 Q 50 -40 100 -20 Q 150 0 200 30 Q 250 60 300 100" 
+                              fill="none" stroke="rgba(255,255,255,0.6)" stroke-width="8" filter="url(#glassMaterial)">
+                            <animate attributeName="d" 
+                                     values="M -100 50 Q -50 0 0 -20 Q 50 -40 100 -20 Q 150 0 200 30 Q 250 60 300 100;
+                                             M -100 50 Q -60 10 0 -25 Q 60 -45 100 -15 Q 140 10 200 35 Q 240 70 300 100;
+                                             M -100 50 Q -50 0 0 -20 Q 50 -40 100 -20 Q 150 0 200 30 Q 250 60 300 100"
+                                     dur="6s" repeatCount="indefinite"/>
+                        </path>
+                        
+                        <!-- Преломления -->
+                        <g id="glassRefractions">
+                            <ellipse cx="-50" cy="25" rx="10" ry="6" fill="rgba(255,255,255,0.8)" opacity="0.7">
+                                <animate attributeName="opacity" values="0.7;0.9;0.7" dur="3s" repeatCount="indefinite"/>
+                            </ellipse>
+                            <ellipse cx="0" cy="-20" rx="8" ry="5" fill="rgba(255,255,255,0.9)" opacity="0.6">
+                                <animate attributeName="opacity" values="0.6;0.8;0.6" dur="3.5s" repeatCount="indefinite"/>
+                            </ellipse>
+                            <ellipse cx="50" cy="-30" rx="12" ry="7" fill="rgba(255,255,255,0.7)" opacity="0.8">
+                                <animate attributeName="opacity" values="0.8;1;0.8" dur="4s" repeatCount="indefinite"/>
+                            </ellipse>
+                        </g>
+                    </g>
+                    
+                    <!-- Наматываемый свет -->
+                    <g id="windingLight">
+                        <path id="lightThread" d="M 300 100 Q 250 50 200 0 Q 150 -50 100 -100 Q 50 -150 0 -200 Q -50 -250 -100 -300" 
+                              fill="none" stroke="url(#lightGradient)" stroke-width="20" opacity="0.8" filter="url(#glow)">
+                            <animate attributeName="d" 
+                                     values="M 300 100 Q 250 50 200 0 Q 150 -50 100 -100 Q 50 -150 0 -200 Q -50 -250 -100 -300;
+                                             M 300 100 Q 240 40 190 -10 Q 140 -60 90 -110 Q 40 -160 -10 -210 Q -60 -260 -100 -300;
+                                             M 300 100 Q 250 50 200 0 Q 150 -50 100 -100 Q 50 -150 0 -200 Q -50 -250 -100 -300"
+                                     dur="8s" repeatCount="indefinite"/>
+                        </path>
+                        
+                        <!-- Частицы света -->
+                        <g id="lightParticles">
+                            <circle cx="250" cy="75" r="3" fill="#ffffff" opacity="0">
+                                <animate attributeName="opacity" values="0;1;0" dur="2s" repeatCount="indefinite"/>
+                                <animateMotion dur="6s" repeatCount="indefinite">
+                                    <mpath href="#lightThread"/>
+                                </animateMotion>
+                            </circle>
+                            <circle cx="200" cy="0" r="2" fill="#fffacd" opacity="0">
+                                <animate attributeName="opacity" values="0;0.8;0" dur="2.2s" repeatCount="indefinite" begin="0.5s"/>
+                                <animateMotion dur="6s" repeatCount="indefinite" begin="0.5s">
+                                    <mpath href="#lightThread"/>
+                                </animateMotion>
+                            </circle>
+                        </g>
+                    </g>
+                </g>
+            </g>
+
+            <!-- СЦЕНА 4: Радуга на пиджаке -->
+            <g id="scene4" opacity="0">
+                <use href="#scene3"/>
+                
+                <!-- Свешивающийся свет и радуга -->
+                <g id="hangingLight" transform="translate(960, 600)">
+                    <!-- Петли света -->
+                    <g id="lightLoops">
+                        <ellipse cx="-50" cy="-100" rx="80" ry="40" fill="none" stroke="url(#lightGradient)" 
+                                 stroke-width="15" opacity="0.7" filter="url(#glow)" transform="rotate(-20 -50 -100)"/>
+                        <ellipse cx="50" cy="-80" rx="70" ry="35" fill="none" stroke="url(#lightGradient)" 
+                                 stroke-width="12" opacity="0.6" filter="url(#glow)" transform="rotate(15 50 -80)"/>
+                    </g>
+                    
+                    <!-- Свисающие концы -->
+                    <g id="hangingEnds">
+                        <path d="M -100 50 Q -90 100 -80 150 Q -70 200 -60 250 Q -50 300 -40 350" 
+                              stroke="url(#lightGradient)" stroke-width="10" fill="none" opacity="0.9" filter="url(#glow)">
+                            <animate attributeName="d" 
+                                     values="M -100 50 Q -90 100 -80 150 Q -70 200 -60 250 Q -50 300 -40 350;
+                                             M -100 50 Q -95 105 -80 150 Q -75 205 -60 250 Q -55 305 -40 350;
+                                             M -100 50 Q -90 100 -80 150 Q -70 200 -60 250 Q -50 300 -40 350"
+                                     dur="6s" repeatCount="indefinite"/>
+                        </path>
+                        <path d="M 100 50 Q 95 120 90 180 Q 85 240 80 300" 
+                              stroke="url(#lightGradient)" stroke-width="8" fill="none" opacity="0.8" filter="url(#glow)">
+                            <animate attributeName="d" 
+                                     values="M 100 50 Q 95 120 90 180 Q 85 240 80 300;
+                                             M 100 50 Q 90 115 90 180 Q 80 245 80 300;
+                                             M 100 50 Q 95 120 90 180 Q 85 240 80 300"
+                                     dur="5s" repeatCount="indefinite"/>
+                        </path>
+                    </g>
+                    
+                    <!-- Радуга искажённая -->
+                    <g id="rainbowOnJacket" opacity="0">
+                        <path d="M -80 -20 Q 0 -40 80 -20 Q 60 20 0 40 Q -60 20 -80 -20" 
+                              fill="url(#rainbowNoBlue)" opacity="0.6" filter="url(#glow)">
+                            <animate attributeName="opacity" values="0;0.6;0.8;0.6" dur="4s" begin="rainbowAppear.begin" fill="freeze"/>
+                        </path>
+                        
+                        <!-- Полосы радуги -->
+                        <g id="rainbowStripes">
+                            <path d="M -70 -15 Q 0 -35 70 -15" stroke="#ff0000" stroke-width="8" fill="none" opacity="0">
+                                <animate attributeName="opacity" values="0;0.8" dur="0.8s" begin="rainbowAppear.begin" fill="freeze"/>
+                            </path>
+                            <path d="M -65 -10 Q 0 -30 65 -10" stroke="#ff7f00" stroke-width="8" fill="none" opacity="0">
+                                <animate attributeName="opacity" values="0;0.8" dur="0.8s" begin="rainbowAppear.begin+0.3s" fill="freeze"/>
+                            </path>
+                            <path d="M -60 -5 Q 0 -25 60 -5" stroke="#ffff00" stroke-width="8" fill="none" opacity="0">
+                                <animate attributeName="opacity" values="0;0.8" dur="0.8s" begin="rainbowAppear.begin+0.6s" fill="freeze"/>
+                            </path>
+                            <path d="M -55 0 Q 0 -20 55 0" stroke="#00ff00" stroke-width="8" fill="none" opacity="0">
+                                <animate attributeName="opacity" values="0;0.8" dur="0.8s" begin="rainbowAppear.begin+0.9s" fill="freeze"/>
+                            </path>
+                            <!-- Пропуск голубого -->
+                            <path d="M -50 5 Q 0 -15 50 5" stroke="#4b0082" stroke-width="8" fill="none" opacity="0">
+                                <animate attributeName="opacity" values="0;0.8" dur="0.8s" begin="rainbowAppear.begin+1.2s" fill="freeze"/>
+                            </path>
+                            <path d="M -45 10 Q 0 -10 45 10" stroke="#9400d3" stroke-width="8" fill="none" opacity="0">
+                                <animate attributeName="opacity" values="0;0.8" dur="0.8s" begin="rainbowAppear.begin+1.5s" fill="freeze"/>
+                            </path>
+                        </g>
+                        
+                        <!-- Эффект искривления -->
+                        <animateTransform attributeName="transform" type="skewX" 
+                                          values="0;5;-5;0" dur="10s" repeatCount="indefinite"/>
+                    </g>
+                </g>
+            </g>
+
+            <!-- СЦЕНА 5: Диалог - динамическая смена камеры между персонажами -->
+            <g id="scene5" opacity="0">
+                <rect width="1920" height="1080" fill="url(#iceTexture)"/>
+                
+                <!-- Чрезвычайно весёлый свет - подчёркнутая эмоциональность -->
+                <g id="hyperactiveLight" transform="translate(960, 400)">
+                    <!-- Основная масса света, прыгающая и вращающаяся -->
+                    <g id="lightMainBody">
+                        <circle cx="0" cy="0" r="50" fill="url(#lightGradient)" opacity="0.8" filter="url(#glow)">
+                            <animate attributeName="r" values="50;70;50;60;50" dur="1s" repeatCount="indefinite"/>
+                        </circle>
+                        <!-- Пульсирующее ядро -->
+                        <circle cx="0" cy="0" r="20" fill="#ffffff" opacity="1">
+                            <animate attributeName="r" values="20;30;20;25;20" dur="0.8s" repeatCount="indefinite"/>
+                        </circle>
+                        
+                        <!-- Вращение всего тела света -->
+                        <animateTransform attributeName="transform" type="rotate" 
+                                          values="0;360" dur="4s" repeatCount="indefinite"/>
+                        <!-- Прыжки -->
+                        <animateTransform attributeName="transform" type="translate" 
+                                          values="0,0; 0,-100; 0,0; 0,-50; 0,0" 
+                                          dur="2s" repeatCount="indefinite" additive="sum"/>
+                    </g>
+                    
+                    <!-- Хаотично летающие искры вокруг -->
+                    <g id="chaoticSparks">
+                        <circle cx="0" cy="0" r="5" fill="#ffd700" opacity="0.9">
+                            <animateMotion path="M 0 0 Q -100 -50 -50 -100 Q 0 -150 50 -100 Q 100 -50 0 0" 
+                                          dur="1.5s" repeatCount="indefinite"/>
+                        </circle>
+                        <circle cx="0" cy="0" r="4" fill="#ffffff" opacity="0.8">
+                            <animateMotion path="M 0 0 Q 80 40 40 80 Q 0 120 -40 80 Q -80 40 0 0" 
+                                          dur="1.8s" repeatCount="indefinite"/>
+                        </circle>
+                        <circle cx="0" cy="0" r="6" fill="#fffacd" opacity="0.7">
+                            <animateMotion path="M 0 0 Q -60 80 -120 40 Q -60 0 0 0" 
+                                          dur="1.2s" repeatCount="indefinite"/>
+                        </circle>
+                        <circle cx="0" cy="0" r="3" fill="#ffd700" opacity="1">
+                            <animateMotion path="M 0 0 Q 60 -80 120 -40 Q 60 0 0 0" 
+                                          dur="1.4s" repeatCount="indefinite"/>
+                        </circle>
+                    </g>
+                    
+                    <!-- Смеющиеся волны энергии -->
+                    <g id="laughingWaves">
+                        <circle cx="0" cy="0" r="30" fill="none" stroke="#ffd700" stroke-width="3" opacity="0">
+                            <animate attributeName="r" values="30;100;150" dur="1.5s" repeatCount="indefinite"/>
+                            <animate attributeName="opacity" values="0.8;0.4;0" dur="1.5s" repeatCount="indefinite"/>
+                            <animate attributeName="stroke-width" values="3;1;0" dur="1.5s" repeatCount="indefinite"/>
+                        </circle>
+                        <circle cx="0" cy="0" r="30" fill="none" stroke="#ffffff" stroke-width="2" opacity="0">
+                            <animate attributeName="r" values="30;80;120" dur="1.3s" begin="0.3s" repeatCount="indefinite"/>
+                            <animate attributeName="opacity" values="0.6;0.3;0" dur="1.3s" begin="0.3s" repeatCount="indefinite"/>
+                        </circle>
+                    </g>
+                    
+                    <!-- Визуализация невесомости - свет буквально левитирует -->
+                    <g id="levitationEffect">
+                        <ellipse cx="0" cy="80" rx="60" ry="20" fill="#000" opacity="0.2" filter="url(#blur5)">
+                            <animate attributeName="ry" values="20;10;20" dur="2s" repeatCount="indefinite"/>
+                            <animate attributeName="opacity" values="0.2;0.1;0.2" dur="2s" repeatCount="indefinite"/>
+                        </ellipse>
+                    </g>
+                </g>
+                
+                <!-- Камера для диалога - будет перемещаться -->
+                <g id="dialogueCamera" transform="translate(0, 0)">
+                    <!-- Ловец света -->
+                    <g id="catcherInDialogue" transform="translate(600, 600)">
+                        <use href="#lightCatcherDetailed" transform="scale(0.7)"/>
+                        
+                        <!-- Стеклянная верёвка в руках -->
+                        <g transform="translate(0, 35) scale(0.7)">
+                            <path d="M -100 0 Q -50 -20 0 -30 Q 50 -20 100 0" 
+                                  fill="none" stroke="rgba(255,255,255,0.6)" stroke-width="8" filter="url(#glassMaterial)"/>
+                        </g>
+                        
+                        <!-- Выражения лица -->
+                        <g id="catcherFaceExpressions" transform="translate(0, -140) scale(0.7)">
+                            <!-- Нейтральное -->
+                            <g id="catcherNeutral" opacity="1">
+                                <ellipse cx="-25" cy="-210" rx="20" ry="15" fill="#fff"/>
+                                <circle cx="-25" cy="-210" r="10" fill="#4a4a4a"/>
+                                <ellipse cx="25" cy="-210" rx="20" ry="15" fill="#fff"/>
+                                <circle cx="25" cy="-210" r="10" fill="#4a4a4a"/>
+                                <path d="M -20 -170 Q 0 -165 20 -170" stroke="#d4a5a5" stroke-width="2" fill="none"/>
+                            </g>
+                            
+                            <!-- Говорящее с достоинством -->
+                            <g id="catcherSpeaking" opacity="0">
+                                <ellipse cx="-25" cy="-210" rx="20" ry="15" fill="#fff"/>
+                                <circle cx="-25" cy="-210" r="10" fill="#4a4a4a"/>
+                                <ellipse cx="25" cy="-210" rx="20" ry="15" fill="#fff"/>
+                                <circle cx="25" cy="-210" r="10" fill="#4a4a4a"/>
+                                <path d="M -40 -230 Q -25 -235 -10 -230" stroke="#3a3a3a" stroke-width="3" fill="none"/>
+                                <path d="M 10 -230 Q 25 -235 40 -230" stroke="#3a3a3a" stroke-width="3" fill="none"/>
+                                <ellipse cx="0" cy="-165" rx="25" ry="15" fill="#000" opacity="0.6"/>
+                                <path d="M -25 -165 Q 0 -170 25 -165" stroke="#d4a5a5" stroke-width="2" fill="none"/>
+                            </g>
+                            
+                            <!-- Жующее -->
+                            <g id="catcherChewing" opacity="0">
+                                <ellipse cx="-25" cy="-210" rx="20" ry="8" fill="#fff"/>
+                                <circle cx="-25" cy="-210" r="8" fill="#4a4a4a"/>
+                                <ellipse cx="25" cy="-210" rx="20" ry="8" fill="#fff"/>
+                                <circle cx="25" cy="-210" r="8" fill="#4a4a4a"/>
+                                <path d="M -30 -170 Q 0 -175 30 -170 Q 0 -160 -30 -170" fill="#000" stroke="#d4a5a5" stroke-width="2">
+                                    <animate attributeName="d" 
+                                             values="M -30 -170 Q 0 -175 30 -170 Q 0 -160 -30 -170;
+                                                     M -30 -170 Q 0 -180 30 -170 Q 0 -155 -30 -170;
+                                                     M -30 -170 Q 0 -175 30 -170 Q 0 -160 -30 -170"
+                                             dur="0.8s" repeatCount="indefinite"/>
+                                </path>
+                            </g>
+                        </g>
+                    </g>
+                    
+                    <!-- Подползший -->
+                    <g id="crawlerInDialogue" transform="translate(1300, 700)">
+                        <ellipse cx="0" cy="0" rx="120" ry="70" fill="#444" opacity="0.8" transform="rotate(-10)"/>
+                        
+                        <!-- Голова с выражениями -->
+                        <g id="crawlerFaceExpressions" transform="translate(-80, -60)">
+                            <ellipse cx="0" cy="0" rx="60" ry="70" fill="#f5deb3"/>
+                            
+                            <!-- Нейтральное -->
+                            <g id="crawlerNeutral" opacity="1">
+                                <line x1="-20" y1="-10" x2="-5" y2="-8" stroke="#333" stroke-width="2"/>
+                                <line x1="5" y1="-8" x2="20" y2="-10" stroke="#333" stroke-width="2"/>
+                                <path d="M -15 20 Q 0 25 15 20" stroke="#d4a5a5" stroke-width="2" fill="none"/>
+                            </g>
+                            
+                            <!-- Говорящее вопросительно -->
+                            <g id="crawlerQuestioning" opacity="0">
+                                <ellipse cx="-20" cy="-10" rx="12" ry="10" fill="#fff"/>
+                                <circle cx="-20" cy="-10" r="6" fill="#333"/>
+                                <ellipse cx="20" cy="-10" rx="12" ry="10" fill="#fff"/>
+                                <circle cx="20" cy="-10" r="6" fill="#333"/>
+                                <path d="M -15 -30 Q 0 -35 15 -30" stroke="#333" stroke-width="2" fill="none"/>
+                                <ellipse cx="0" cy="25" rx="20" ry="12" fill="#000" opacity="0.5"/>
+                            </g>
+                            
+                            <!-- Критическое -->
+                            <g id="crawlerCritical" opacity="0">
+                                <line x1="-20" y1="-10" x2="-8" y2="-8" stroke="#333" stroke-width="3"/>
+                                <line x1="8" y1="-8" x2="20" y2="-10" stroke="#333" stroke-width="3"/>
+                                <path d="M -25 -30 Q 0 -25 25 -30" stroke="#333" stroke-width="2" fill="none"/>
+                                <path d="M -15 25 Q 0 20 15 25" stroke="#d4a5a5" stroke-width="2" fill="none"/>
+                            </g>
+                        </g>
+                        
+                        <!-- Жестикулирующая рука -->
+                        <g id="gesticulatingArm" transform="translate(-150, 0)">
+                            <path d="M 0 0 Q -30 -30 -40 -60" fill="#333" stroke="#222" stroke-width="2"/>
+                            <ellipse cx="-40" cy="-60" rx="25" ry="35" fill="#f5deb3"/>
+                            <g id="pointingFingers" opacity="0">
+                                <ellipse cx="-40" cy="-80" rx="4" ry="15" fill="#f5deb3" transform="rotate(-10 -40 -80)"/>
+                            </g>
+                        </g>
+                    </g>
+                </g>
+                
+                <!-- Эффект корчения -->
+                <g id="contortionEffect" transform="translate(1220, 640)" opacity="0">
+                    <path d="M 0 0 Q -30 -40 -50 -30 Q -40 0 -30 30 Q 0 40 30 30 Q 40 0 50 -30 Q 30 -40 0 0" 
+                          fill="none" stroke="#666" stroke-width="4" opacity="0.5">
+                        <animate attributeName="d" 
+                                 values="M 0 0 Q -30 -40 -50 -30 Q -40 0 -30 30 Q 0 40 30 30 Q 40 0 50 -30 Q 30 -40 0 0;
+                                         M 0 0 Q -35 -45 -55 -35 Q -45 5 -35 35 Q 5 45 35 35 Q 45 5 55 -35 Q 35 -45 0 0;
+                                         M 0 0 Q -30 -40 -50 -30 Q -40 0 -30 30 Q 0 40 30 30 Q 40 0 50 -30 Q 30 -40 0 0"
+                                 dur="2s" begin="contortStart.begin" fill="freeze"/>
+                    </path>
+                </g>
+            </g>
+
+            <!-- СЦЕНА 6: Хрумканье верёвки - полная сцена с двумя персонажами -->
+            <g id="scene6" opacity="0">
+                <rect width="1920" height="1080" fill="url(#iceTexture)"/>
+                
+                <!-- Общий план - ловец ест верёвку -->
+                <g id="eatingScene" transform="translate(700, 600)">
+                    <!-- Ловец света -->
+                    <g id="catcherEating">
+                        <use href="#lightCatcherDetailed" transform="scale(0.8)"/>
+                        
+                        <!-- Лицо крупнее при еде -->
+                        <g transform="translate(0, -160) scale(0.8)">
+                            <!-- Прищуренные от удовольствия глаза -->
+                            <ellipse cx="-25" cy="-210" rx="20" ry="6" fill="#fff"/>
+                            <circle cx="-25" cy="-210" r="6" fill="#4a4a4a"/>
+                            <ellipse cx="25" cy="-210" rx="20" ry="6" fill="#fff"/>
+                            <circle cx="25" cy="-210" r="6" fill="#4a4a4a"/>
+                            
+                            <!-- Жующий рот -->
+                            <path d="M -30 -170 Q 0 -175 30 -170 Q 0 -155 -30 -170" 
+                                  fill="#000" stroke="#d4a5a5" stroke-width="2">
+                                <animate attributeName="d" 
+                                         values="M -30 -170 Q 0 -175 30 -170 Q 0 -155 -30 -170;
+                                                 M -35 -170 Q 0 -180 35 -170 Q 0 -150 -35 -170;
+                                                 M -25 -170 Q 0 -172 25 -170 Q 0 -160 -25 -170;
+                                                 M -30 -170 Q 0 -175 30 -170 Q 0 -155 -30 -170"
+                                         dur="0.8s" repeatCount="indefinite"/>
+                            </path>
+                            
+                            <!-- Верёвка входит в рот -->
+                            <path d="M -100 -170 Q -50 -170 0 -170" 
+                                  stroke="rgba(255,255,255,0.7)" stroke-width="6" fill="none" filter="url(#glassMaterial)">
+                                <animate attributeName="d" 
+                                         values="M -100 -170 Q -50 -170 0 -170;
+                                                 M -80 -170 Q -40 -170 0 -170;
+                                                 M -60 -170 Q -30 -170 0 -170;
+                                                 M -40 -170 Q -20 -170 0 -170;
+                                                 M -20 -170 Q -10 -170 0 -170"
+                                         dur="5s" fill="freeze"/>
+                            </path>
+                        </g>
+                        
+                        <!-- Укорачивающаяся верёвка в руках -->
+                        <g transform="translate(0, 50)">
+                            <path d="M -100 0 Q -50 -20 0 -30 Q 50 -20 100 0" 
+                                  fill="none" stroke="rgba(255,255,255,0.6)" stroke-width="8" filter="url(#glassMaterial)">
+                                <animate attributeName="d" 
+                                         values="M -100 0 Q -50 -20 0 -30 Q 50 -20 100 0;
+                                                 M -70 0 Q -35 -15 0 -25 Q 35 -15 70 0;
+                                                 M -40 0 Q -20 -10 0 -15 Q 20 -10 40 0;
+                                                 M -20 0 Q -10 -5 0 -10 Q 10 -5 20 0;
+                                                 M 0 0 Q 0 0 0 0 Q 0 0 0 0"
+                                         dur="5s" fill="freeze"/>
+                            </path>
+                        </g>
+                    </g>
+                    
+                    <!-- Звуковые эффекты хруста -->
+                    <g id="crunchEffects">
+                        <text x="50" y="-100" font-size="30" fill="#fff" font-weight="bold" opacity="0">
+                            ХРУМ!
+                            <animate attributeName="opacity" values="0;1;0" dur="0.5s" begin="0s;1s;2s;3s;4s"/>
+                            <animate attributeName="transform" values="scale(1);scale(1.2);scale(1)" dur="0.5s" begin="0s;1s;2s;3s;4s" additive="sum"/>
+                        </text>
+                        
+                        <!-- Осколки -->
+                        <g id="glassShards">
+                            <polygon points="-30,-150 -27,-145 -25,-150" fill="rgba(255,255,255,0.9)" opacity="0">
+                                <animate attributeName="opacity" values="0;1;0" dur="0.5s" begin="0.2s;1.2s;2.2s"/>
+                                <animate attributeName="transform" 
+                                         values="translate(0,0);translate(-20,40)" 
+                                         dur="0.5s" begin="0.2s;1.2s;2.2s"/>
+                            </polygon>
+                            <polygon points="25,-150 28,-145 30,-150" fill="rgba(255,255,255,0.8)" opacity="0">
+                                <animate attributeName="opacity" values="0;1;0" dur="0.5s" begin="0.5s;1.5s;2.5s"/>
+                                <animate attributeName="transform" 
+                                         values="translate(0,0);translate(20,45)" 
+                                         dur="0.5s" begin="0.5s;1.5s;2.5s"/>
+                            </polygon>
+                            <polygon points="0,-155 3,-150 -3,-150" fill="rgba(255,255,255,0.85)" opacity="0">
+                                <animate attributeName="opacity" values="0;1;0" dur="0.5s" begin="0.8s;1.8s;2.8s"/>
+                                <animate attributeName="transform" 
+                                         values="translate(0,0);translate(0,50)" 
+                                         dur="0.5s" begin="0.8s;1.8s;2.8s"/>
+                            </polygon>
+                        </g>
+                    </g>
+                </g>
+                
+                <!-- Подползший наблюдает с изумлением -->
+                <g id="crawlerWatchingEating" transform="translate(1200, 700)">
+                    <ellipse cx="0" cy="0" rx="100" ry="80" fill="#444" opacity="0.8"/>
+                    <g transform="translate(0, -60)">
+                        <ellipse cx="0" cy="0" rx="60" ry="70" fill="#f5deb3"/>
+                        
+                        <!-- Широко раскрытые глаза от шока -->
+                        <ellipse cx="-20" cy="-10" rx="18" ry="15" fill="#fff">
+                            <animate attributeName="ry" values="15;18;15" dur="2s" repeatCount="indefinite"/>
+                        </ellipse>
+                        <circle cx="-20" cy="-10" r="10" fill="#333">
+                            <animate attributeName="r" values="10;12;10" dur="2s" repeatCount="indefinite"/>
+                        </circle>
+                        <circle cx="-18" cy="-12" r="3" fill="#fff"/>
+                        
+                        <ellipse cx="20" cy="-10" rx="18" ry="15" fill="#fff">
+                            <animate attributeName="ry" values="15;18;15" dur="2s" repeatCount="indefinite"/>
+                        </ellipse>
+                        <circle cx="20" cy="-10" r="10" fill="#333">
+                            <animate attributeName="r" values="10;12;10" dur="2s" repeatCount="indefinite"/>
+                        </circle>
+                        <circle cx="22" cy="-12" r="3" fill="#fff"/>
+                        
+                        <!-- Приоткрытый рот от изумления -->
+                        <ellipse cx="0" cy="20" rx="15" ry="12" fill="#000" opacity="0.5">
+                            <animate attributeName="ry" values="12;15;12" dur="2s" repeatCount="indefinite"/>
+                        </ellipse>
+                        
+                        <!-- Поднятые брови -->
+                        <path d="M -35 -30 Q -20 -40 -5 -30" stroke="#333" stroke-width="2" fill="none"/>
+                        <path d="M 5 -30 Q 20 -40 35 -30" stroke="#333" stroke-width="2" fill="none"/>
+                    </g>
+                </g>
+                
+                <!-- Весёлый свет продолжает танцевать вокруг -->
+                <use href="#hyperactiveLight" transform="translate(0, -100) scale(0.8)"/>
+            </g>
+
+            <!-- СЦЕНА 7: Финал - философская композиция с танцующим светом -->
+            <g id="scene7" opacity="0">
+                <rect width="1920" height="1080" fill="url(#iceTexture)"/>
+                
+                <!-- Финальная композиция -->
+                <g id="finalArrangement" transform="translate(960, 540)">
+                    <!-- Ловец света с удовлетворённым видом -->
+                    <g id="satisfiedCatcher" transform="translate(200, 0)">
+                        <use href="#lightCatcherDetailed" transform="scale(0.8)"/>
+                        
+                        <!-- Довольное выражение лица -->
+                        <g transform="translate(0, -160) scale(0.8)">
+                            <!-- Полузакрытые глаза -->
+                            <ellipse cx="-25" cy="-210" rx="20" ry="5" fill="#fff"/>
+                            <ellipse cx="25" cy="-210" rx="20" ry="5" fill="#fff"/>
+                            <!-- Лёгкая улыбка -->
+                            <path d="M -25 -170 Q 0 -160 25 -170" stroke="#d4a5a5" stroke-width="2" fill="none"/>
+                        </g>
+                        
+                        <!-- Завязанный бантиком свет на радуге -->
+                        <g id="lightBowOnRainbow" transform="translate(0, -50)">
+                            <!-- Радуга-основа без голубого -->
+                            <path d="M -150 0 Q 0 -80 150 0" fill="none" stroke="url(#rainbowNoBlue)" 
+                                  stroke-width="30" opacity="0.8" stroke-linecap="round"/>
+                            
+                            <!-- Световой бантик, демонстрирующий невесомость -->
+                            <g id="weightlessLightBow" filter="url(#glow)">
+                                <!-- Левая петля с покачиванием -->
+                                <ellipse cx="-40" cy="-40" rx="50" ry="30" fill="none" 
+                                         stroke="url(#lightGradient)" stroke-width="15" 
+                                         transform="rotate(-30 -40 -40)" opacity="0.9">
+                                    <animateTransform attributeName="transform" type="rotate" 
+                                                      values="-30 -40 -40;-35 -40 -40;-25 -40 -40;-30 -40 -40" 
+                                                      dur="4s" repeatCount="indefinite"/>
+                                </ellipse>
+                                <!-- Правая петля с покачиванием -->
+                                <ellipse cx="40" cy="-40" rx="50" ry="30" fill="none" 
+                                         stroke="url(#lightGradient)" stroke-width="15" 
+                                         transform="rotate(30 40 -40)" opacity="0.9">
+                                    <animateTransform attributeName="transform" type="rotate" 
+                                                      values="30 40 -40;25 40 -40;35 40 -40;30 40 -40" 
+                                                      dur="4s" repeatCount="indefinite"/>
+                                </ellipse>
+                                <!-- Центр бантика -->
+                                <ellipse cx="0" cy="-40" rx="20" ry="15" fill="url(#lightGradient)" opacity="1">
+                                    <animate attributeName="rx" values="20;22;20" dur="2s" repeatCount="indefinite"/>
+                                    <animate attributeName="ry" values="15;17;15" dur="2s" repeatCount="indefinite"/>
+                                </ellipse>
+                                <!-- Развевающиеся концы -->
+                                <path d="M -20 -40 Q -30 -20 -40 0 Q -45 20 -50 40" 
+                                      stroke="url(#lightGradient)" stroke-width="10" fill="none" opacity="0.8">
+                                    <animate attributeName="d" 
+                                             values="M -20 -40 Q -30 -20 -40 0 Q -45 20 -50 40;
+                                                     M -20 -40 Q -35 -15 -45 5 Q -50 25 -55 45;
+                                                     M -20 -40 Q -30 -20 -40 0 Q -45 20 -50 40"
+                                             dur="5s" repeatCount="indefinite"/>
+                                </path>
+                                <path d="M 20 -40 Q 30 -20 40 0 Q 45 20 50 40" 
+                                      stroke="url(#lightGradient)" stroke-width="10" fill="none" opacity="0.8">
+                                    <animate attributeName="d" 
+                                             values="M 20 -40 Q 30 -20 40 0 Q 45 20 50 40;
+                                                     M 20 -40 Q 35 -15 45 5 Q 50 25 55 45;
+                                                     M 20 -40 Q 30 -20 40 0 Q 45 20 50 40"
+                                             dur="5s" repeatCount="indefinite"/>
+                                </path>
+                                
+                                <!-- Весёлые искры вокруг бантика -->
+                                <g id="happySparkles">
+                                    <circle cx="-60" cy="-50" r="2" fill="#fff">
+                                        <animate attributeName="opacity" values="0;1;0" dur="1.5s" repeatCount="indefinite"/>
+                                        <animateMotion path="M 0 0 Q -10 -10 0 -20 Q 10 -10 0 0" dur="3s" repeatCount="indefinite"/>
+                                    </circle>
+                                    <circle cx="60" cy="-50" r="2" fill="#ffd700">
+                                        <animate attributeName="opacity" values="0;1;0" dur="1.8s" repeatCount="indefinite" begin="0.5s"/>
+                                        <animateMotion path="M 0 0 Q 10 -10 0 -20 Q -10 -10 0 0" dur="3.5s" repeatCount="indefinite"/>
+                                    </circle>
+                                    <circle cx="0" cy="-70" r="3" fill="#fffacd">
+                                        <animate attributeName="opacity" values="0;1;0" dur="2s" repeatCount="indefinite" begin="1s"/>
+                                        <animateMotion path="M 0 0 Q -15 5 -30 0 Q -15 -5 0 0" dur="4s" repeatCount="indefinite"/>
+                                    </circle>
+                                </g>
+                            </g>
+                            
+                            <!-- Эффект невесомости - плавающее движение -->
+                            <animateTransform attributeName="transform" type="translate" 
+                                              values="0,-50; 0,-60; 0,-50" dur="6s" repeatCount="indefinite" additive="sum"/>
+                        </g>
+                    </g>
+                    
+                    <!-- Я в философской задумчивости -->
+                    <g id="contemplativeCrawler" transform="translate(-300, 100)">
+                        <!-- Сидячая поза -->
+                        <ellipse cx="0" cy="50" rx="100" ry="80" fill="#444" opacity="0.8"/>
+                        <ellipse cx="0" cy="-30" rx="60" ry="70" fill="#f5deb3"/>
+                        
+                        <!-- Задумчивое выражение -->
+                        <g id="thoughtfulFace">
+                            <!-- Прищуренные глаза всматриваются в свет -->
+                            <line x1="-15" y1="-40" x2="-5" y2="-38" stroke="#333" stroke-width="2">
+                                <animate attributeName="y1" values="-40;-42;-40" dur="4s" repeatCount="indefinite"/>
+                            </line>
+                            <line x1="5" y1="-38" x2="15" y2="-40" stroke="#333" stroke-width="2">
+                                <animate attributeName="y2" values="-40;-42;-40" dur="4s" repeatCount="indefinite"/>
+                            </line>
+                            <!-- Поджатые губы -->
+                            <path d="M -10 -10 Q 0 -12 10 -10" stroke="#d4a5a5" stroke-width="2" fill="none"/>
+                            <!-- Наморщенный лоб от размышлений -->
+                            <path d="M -20 -60 Q 0 -65 20 -60" stroke="#e6d7c5" stroke-width="1" fill="none"/>
+                            <path d="M -15 -55 Q 0 -60 15 -55" stroke="#e6d7c5" stroke-width="1" fill="none"/>
+                        </g>
+                        
+                        <!-- Жест размышления -->
+                        <g id="thinkingGesture">
+                            <path d="M -60 0 Q -80 -30 -70 -50" fill="#333" stroke="#222" stroke-width="2"/>
+                            <ellipse cx="-70" cy="-50" rx="25" ry="35" fill="#f5deb3"/>
+                            <!-- Палец у подбородка -->
+                            <ellipse cx="-65" cy="-20" rx="5" ry="15" fill="#f5deb3" transform="rotate(70 -65 -20)"/>
+                        </g>
+                    </g>
+                    
+                    <!-- Остатки весёлого света продолжают танцевать -->
+                    <g id="residualJoyfulLight" transform="translate(0, -200)" opacity="0.5">
+                        <circle cx="-200" cy="0" r="5" fill="#ffffff" opacity="0.6">
+                            <animate attributeName="cy" values="0;-20;0;20;0" dur="3s" repeatCount="indefinite"/>
+                            <animate attributeName="cx" values="-200;-220;-200;-180;-200" dur="4s" repeatCount="indefinite"/>
+                        </circle>
+                        <circle cx="200" cy="-50" r="4" fill="#ffd700" opacity="0.5">
+                            <animate attributeName="cy" values="-50;-70;-50;-30;-50" dur="3.5s" repeatCount="indefinite"/>
+                            <animate attributeName="cx" values="200;180;200;220;200" dur="4.5s" repeatCount="indefinite"/>
+                        </circle>
+                    </g>
+                </g>
+                
+                <!-- Философское свечение без голубого оттенка -->
+                <g id="philosophicalAura" opacity="0.3">
+                    <ellipse cx="960" cy="540" rx="600" ry="400" fill="none" 
+                             stroke="url(#rainbowNoBlue)" stroke-width="100" filter="url(#glow)">
+                        <animate attributeName="rx" values="600;650;600" dur="12s" repeatCount="indefinite"/>
+                        <animate attributeName="ry" values="400;450;400" dur="12s" repeatCount="indefinite"/>
+                    </ellipse>
+                </g>
+                
+                <!-- Медленный снегопад -->
+                <g id="gentleSnow" opacity="0.4">
+                    <circle cx="200" cy="100" r="2" fill="#fff">
+                        <animate attributeName="cy" values="-10;1090" dur="20s" repeatCount="indefinite"/>
+                        <animate attributeName="cx" values="200;210;200" dur="6s" repeatCount="indefinite"/>
+                    </circle>
+                    <circle cx="400" cy="50" r="1.5" fill="#fff">
+                        <animate attributeName="cy" values="-10;1090" dur="22s" repeatCount="indefinite"/>
+                        <animate attributeName="cx" values="400;395;400" dur="7s" repeatCount="indefinite"/>
+                    </circle>
+                    <circle cx="600" cy="150" r="2" fill="#fff">
+                        <animate attributeName="cy" values="-10;1090" dur="21s" repeatCount="indefinite"/>
+                        <animate attributeName="cx" values="600;608;600" dur="6.5s" repeatCount="indefinite"/>
+                    </circle>
+                    <circle cx="800" cy="80" r="1.8" fill="#fff">
+                        <animate attributeName="cy" values="-10;1090" dur="23s" repeatCount="indefinite"/>
+                        <animate attributeName="cx" values="800;792;800" dur="7.2s" repeatCount="indefinite"/>
+                    </circle>
+                    <circle cx="1000" cy="120" r="2.2" fill="#fff">
+                        <animate attributeName="cy" values="-10;1090" dur="20.5s" repeatCount="indefinite"/>
+                        <animate attributeName="cx" values="1000;1005;1000" dur="6.8s" repeatCount="indefinite"/>
+                    </circle>
+                </g>
+            </g>
+        </svg>
+        
+        <!-- Субтитры -->
+        <div class="narration" id="narration"></div>
+        <div class="dialogue" id="dialogue"></div>
+        
+        <!-- Эффекты -->
+        <div id="frostBreath"></div>
+    </div>
+
+    <script>
+        // Эффекты
+        function createFrostBreath() {
+            const container = document.getElementById('frostBreath');
+            setInterval(() => {
+                const breath = document.createElement('div');
+                breath.className = 'frost-breath';
+                breath.style.left = Math.random() * window.innerWidth + 'px';
+                breath.style.top = Math.random() * window.innerHeight + 'px';
+                container.appendChild(breath);
+                setTimeout(() => breath.remove(), 6000);
+            }, 4000);
+        }
+
+        function createSnowflakes() {
+            const snowflakes = ['❄', '❅', '❆'];
+            for (let i = 0; i < 20; i++) {
+                const snowflake = document.createElement('div');
+                snowflake.className = 'snowflake';
+                snowflake.innerHTML = snowflakes[Math.floor(Math.random() * snowflakes.length)];
+                snowflake.style.left = Math.random() * window.innerWidth + 'px';
+                snowflake.style.animationDuration = 10 + Math.random() * 15 + 's';
+                snowflake.style.fontSize = 10 + Math.random() * 15 + 'px';
+                snowflake.style.animationDelay = Math.random() * 15 + 's';
+                document.body.appendChild(snowflake);
+            }
+        }
+
+        // Текст стихотворения
+        const narrations = [
+            { time: 2000, text: "На льду Волги кто-то ловил свет", duration: 5000 },
+            { time: 9000, text: "Я подполз к нему, так как потерял очки", duration: 5000 },
+            { time: 17000, text: "Он сидел в пиджаке из секонда", duration: 4000 },
+            { time: 23000, text: "И наматывал свет на стеклянную верёвку", duration: 5000 },
+            { time: 31000, text: "Свет свешивался с верёвки,", duration: 4000 },
+            { time: 37000, text: "Корча радугу на пиджаке", duration: 4000 },
+            { time: 44000, text: "- Где Вы купили пиджак? - скорчился и я", duration: 4000 },
+            { time: 50000, text: "-В Планете - и с достоинством захрумкал верёвкой.", duration: 5000 },
+            { time: 58000, text: "- Верните его обратно. На нём радуга без голубого цвета", duration: 5000 },
+            { time: 66000, text: "- Поэтому я и повесил свет.", duration: 4000 },
+            { time: 73000, text: "- Не вижу, чтобы от этого свет стал лучше видеть", duration: 5000 },
+            { time: 80000, text: "Ему, на мой взгляд, слишком весело", duration: 4000 },
+            { time: 87000, text: "- Потому что его масса покоя равна нулю.", duration: 5000 },
+            { time: 95000, text: "Он доел верёвку и завязал свет бантиком на радуге", duration: 5000 },
+            { time: 103000, text: "- А в мире весёлого голубой цвет не требуется.", duration: 6000 }
+        ];
+
+        function showNarration(text, duration = 4000) {
+            const narration = document.getElementById('narration');
+            narration.innerHTML = text;
+            narration.style.transition = 'opacity 1s ease-in-out';
+            narration.style.opacity = '1';
+            setTimeout(() => {
+                narration.style.opacity = '0';
+            }, duration - 1000);
+        }
+
+        function showDialogue(text, duration = 3000) {
+            const dialogue = document.getElementById('dialogue');
+            dialogue.innerHTML = text;
+            dialogue.style.transition = 'opacity 0.5s ease-in-out';
+            dialogue.style.opacity = '1';
+            setTimeout(() => {
+                dialogue.style.opacity = '0';
+            }, duration - 500);
+        }
+
+        function fadeInScene(sceneId, duration = 2000) {
+            const scene = document.getElementById(sceneId);
+            scene.style.transition = `opacity ${duration}ms ease-in-out`;
+            scene.style.opacity = '1';
+        }
+
+        function fadeOutScene(sceneId, duration = 2000) {
+            const scene = document.getElementById(sceneId);
+            scene.style.transition = `opacity ${duration}ms ease-in-out`;
+            scene.style.opacity = '0';
+        }
+
+        // Специальные анимации
+        function animateRainbowAppearance() {
+            const rainbow = document.getElementById('rainbowOnJacket');
+            const animations = rainbow.querySelectorAll('[begin="rainbowAppear.begin"]');
+            animations.forEach(anim => {
+                anim.beginElement();
+            });
+            rainbow.style.opacity = '1';
+        }
+
+        function animateContortion() {
+            const contortion = document.getElementById('contortionEffect');
+            contortion.style.opacity = '1';
+            const animations = contortion.querySelectorAll('[begin="contortStart.begin"]');
+            animations.forEach(anim => {
+                anim.beginElement();
+            });
+        }
+
+        function animateGlassEating() {
+            // Анимация уже запущена через атрибут begin в SVG
+            // Дополнительные эффекты при необходимости
+        }
+
+        // Управление диалогом - переключение камеры между персонажами
+        function showCrawlerSpeaking() {
+            const camera = document.getElementById('dialogueCamera');
+            camera.style.transform = 'translate(-700, -100) scale(1.3)';
+            
+            // Показываем подползшего крупнее
+            setCrawlerExpression('current');
+            setCatcherExpression('neutral');
+        }
+
+        function showCatcherSpeaking() {
+            const camera = document.getElementById('dialogueCamera');
+            camera.style.transform = 'translate(0, 0) scale(1.3)';
+            
+            // Показываем ловца крупнее
+            setCatcherExpression('current');
+            setCrawlerExpression('neutral');
+        }
+
+        function showBothInDialogue() {
+            const camera = document.getElementById('dialogueCamera');
+            camera.style.transform = 'translate(-200, 0) scale(0.8)';
+            
+            setCatcherExpression('neutral');
+            setCrawlerExpression('neutral');
+        }
+
+        // Управление выражениями лиц
+        function setCrawlerExpression(expression) {
+            const neutral = document.getElementById('crawlerNeutral');
+            const questioning = document.getElementById('crawlerQuestioning');
+            const critical = document.getElementById('crawlerCritical');
+            
+            neutral.style.opacity = expression === 'neutral' ? '1' : '0';
+            questioning.style.opacity = expression === 'questioning' ? '1' : '0';
+            critical.style.opacity = expression === 'critical' ? '1' : '0';
+            
+            if (expression === 'current') {
+                // Определяем текущее выражение по контексту
+                neutral.style.opacity = '0';
+            }
+        }
+
+        function setCatcherExpression(expression) {
+            const neutral = document.getElementById('catcherNeutral');
+            const speaking = document.getElementById('catcherSpeaking');
+            const chewing = document.getElementById('catcherChewing');
+            
+            neutral.style.opacity = expression === 'neutral' ? '1' : '0';
+            speaking.style.opacity = expression === 'speaking' ? '1' : '0';
+            chewing.style.opacity = expression === 'chewing' ? '1' : '0';
+            
+            if (expression === 'current') {
+                neutral.style.opacity = '0';
+            }
+        }
+
+        // Медитативная последовательность анимации
+        const animationSequence = [
+            // Открытие
+            {
+                time: 0,
+                action: () => {
+                    createFrostBreath();
+                    createSnowflakes();
+                    fadeInScene('scene1', 3000);
+                }
+            },
+            // Наррация первых 6 строк
+            ...narrations.slice(0, 6).map(({time, text, duration}) => ({
+                time,
+                action: () => showNarration(text, duration)
+            })),
+            // Переход к подползанию
+            {
+                time: 8000,
+                action: () => {
+                    fadeOutScene('scene1', 2000);
+                    setTimeout(() => fadeInScene('scene2', 2000), 1500);
+                }
+            },
+            // Переход к крупному плану
+            {
+                time: 15000,
+                action: () => {
+                    fadeOutScene('scene2', 2000);
+                    setTimeout(() => fadeInScene('scene3', 2000), 1500);
+                }
+            },
+            // Появление радуги
+            {
+                time: 35000,
+                action: () => {
+                    fadeInScene('scene4', 2000);
+                    setTimeout(() => animateRainbowAppearance(), 2000);
+                }
+            },
+            // Начало диалога
+            {
+                time: 42000,
+                action: () => {
+                    fadeInScene('scene5', 2000);
+                    showBothInDialogue();
+                    // Инициализируем гиперактивный свет
+                    const light = document.getElementById('hyperactiveLight');
+                    if (light) {
+                        light.style.transition = 'transform 3s ease-in-out';
+                    }
+                }
+            },
+            // "- Где Вы купили пиджак? - скорчился и я"
+            {
+                time: 44000,
+                action: () => {
+                    showNarration(narrations[6].text, narrations[6].duration);
+                    showCrawlerSpeaking();
+                    const questioning = document.getElementById('crawlerQuestioning');
+                    if (questioning) questioning.style.opacity = '1';
+                    setTimeout(() => animateContortion(), 2000);
+                }
+            },
+            // "-В Планете - и с достоинством захрумкал верёвкой."
+            {
+                time: 50000,
+                action: () => {
+                    showNarration(narrations[7].text, narrations[7].duration);
+                    showCatcherSpeaking();
+                    const speaking = document.getElementById('catcherSpeaking');
+                    if (speaking) speaking.style.opacity = '1';
+                    // Начинаем жевать в конце реплики
+                    setTimeout(() => {
+                        const chewing = document.getElementById('catcherChewing');
+                        const speaking = document.getElementById('catcherSpeaking');
+                        if (chewing) chewing.style.opacity = '1';
+                        if (speaking) speaking.style.opacity = '0';
+                    }, 3000);
+                }
+            },
+            // Переход к сцене хрумканья
+            {
+                time: 55000,
+                action: () => {
+                    fadeOutScene('scene5', 1000);
+                    fadeInScene('scene6', 1000);
+                    setTimeout(() => animateGlassEating(), 1000);
+                }
+            },
+            // "- Верните его обратно. На нём радуга без голубого цвета"
+            {
+                time: 58000,
+                action: () => {
+                    showNarration(narrations[8].text, narrations[8].duration);
+                    fadeOutScene('scene6', 1000);
+                    fadeInScene('scene5', 1000);
+                    showCrawlerSpeaking();
+                    const critical = document.getElementById('crawlerCritical');
+                    const questioning = document.getElementById('crawlerQuestioning');
+                    if (critical) critical.style.opacity = '1';
+                    if (questioning) questioning.style.opacity = '0';
+                    // Показать жестикуляцию
+                    const pointing = document.getElementById('pointingFingers');
+                    if (pointing) pointing.style.opacity = '1';
+                }
+            },
+            // "- Поэтому я и повесил свет."
+            {
+                time: 66000,
+                action: () => {
+                    showNarration(narrations[9].text, narrations[9].duration);
+                    showCatcherSpeaking();
+                    const speaking = document.getElementById('catcherSpeaking');
+                    const chewing = document.getElementById('catcherChewing');
+                    if (speaking) speaking.style.opacity = '1';
+                    if (chewing) chewing.style.opacity = '0';
+                    const pointing = document.getElementById('pointingFingers');
+                    if (pointing) pointing.style.opacity = '0';
+                }
+            },
+            // "- Не вижу, чтобы от этого свет стал лучше видеть"
+            {
+                time: 73000,
+                action: () => {
+                    showNarration(narrations[10].text, narrations[10].duration);
+                    showCrawlerSpeaking();
+                    const critical = document.getElementById('crawlerCritical');
+                    if (critical) critical.style.opacity = '1';
+                }
+            },
+            // "Ему, на мой взгляд, слишком весело"
+            {
+                time: 80000,
+                action: () => {
+                    showNarration(narrations[11].text, narrations[11].duration);
+                    // Камера показывает весёлый свет крупно
+                    const camera = document.getElementById('dialogueCamera');
+                    camera.style.transform = 'translate(-200, 100) scale(1.5)';
+                    // Свет танцует ещё активнее
+                    const light = document.getElementById('hyperactiveLight');
+                    if (light) {
+                        const sparks = light.querySelector('#chaoticSparks');
+                        if (sparks) sparks.style.transform = 'scale(1.5)';
+                    }
+                }
+            },
+            // "- Потому что его масса покоя равна нулю."
+            {
+                time: 87000,
+                action: () => {
+                    showNarration(narrations[12].text, narrations[12].duration);
+                    showCatcherSpeaking();
+                    const speaking = document.getElementById('catcherSpeaking');
+                    if (speaking) speaking.style.opacity = '1';
+                    // Свет демонстрирует невесомость - левитирует выше
+                    const light = document.getElementById('hyperactiveLight');
+                    if (light) {
+                        light.style.transform = 'translate(960, 200)';
+                        light.style.transition = 'transform 3s ease-out';
+                    }
+                }
+            },
+            // "Он доел верёвку и завязал свет бантиком на радуге"
+            {
+                time: 95000,
+                action: () => {
+                    showNarration(narrations[13].text, narrations[13].duration);
+                    fadeOutScene('scene5', 2000);
+                    setTimeout(() => fadeInScene('scene7', 3000), 2000);
+                }
+            },
+            // "- А в мире весёлого голубой цвет не требуется."
+            {
+                time: 103000,
+                action: () => {
+                    showNarration(narrations[14].text, narrations[14].duration);
+                }
+            },
+            // Затухание и зацикливание
+            {
+                time: 115000,
+                action: () => {
+                    const cinema = document.getElementById('cinema');
+                    cinema.style.transition = 'opacity 5s ease-in-out';
+                    cinema.style.opacity = '0';
+                    setTimeout(() => {
+                        location.reload();
+                    }, 5000);
+                }
+            }
+        ];
+
+        // Запуск анимации
+        animationSequence.forEach(({ time, action }) => {
+            setTimeout(action, time);
+        });
+
+        // Инициализация
+        document.addEventListener('DOMContentLoaded', () => {
+            const animatedElements = document.querySelectorAll('[begin]');
+            animatedElements.forEach(element => {
+                if (element.getAttribute('begin').includes('.begin')) {
+                    element.setAttribute('begin', 'indefinite');
+                }
+            });
+            
+            // Установка начальных состояний
+            const dialogueCamera = document.getElementById('dialogueCamera');
+            if (dialogueCamera) {
+                dialogueCamera.style.transition = 'transform 1.5s ease-in-out';
+            }
+        });
+    </script>
+</body>
+</html>
