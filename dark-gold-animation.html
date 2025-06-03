@@ -1,0 +1,2006 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Темное золото - кинематографическая анимация</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            background: #000;
+            overflow: hidden;
+            font-family: 'Georgia', serif;
+        }
+
+        #cinema {
+            width: 100vw;
+            height: 100vh;
+            position: relative;
+            background: #000;
+        }
+
+        svg {
+            width: 100%;
+            height: 100%;
+            position: absolute;
+            top: 0;
+            left: 0;
+        }
+
+        /* Кинематографические полосы */
+        .letterbox {
+            position: absolute;
+            width: 100%;
+            height: 10%;
+            background: #000;
+            z-index: 100;
+        }
+        .letterbox-top { top: 0; }
+        .letterbox-bottom { bottom: 0; }
+
+        /* Субтитры */
+        .subtitle {
+            position: absolute;
+            bottom: 15%;
+            left: 50%;
+            transform: translateX(-50%);
+            color: #fff;
+            font-size: 28px;
+            font-style: italic;
+            text-shadow: 3px 3px 6px rgba(0,0,0,0.9);
+            opacity: 0;
+            text-align: center;
+            width: 80%;
+            pointer-events: none;
+            z-index: 101;
+            letter-spacing: 2px;
+        }
+
+        /* Эффект виньетки */
+        #vignette {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: radial-gradient(ellipse at center, transparent 0%, transparent 50%, rgba(0,0,0,0.4) 80%, rgba(0,0,0,0.8) 100%);
+            pointer-events: none;
+            z-index: 99;
+        }
+
+        /* Частицы пыли */
+        .dust-particle {
+            position: absolute;
+            width: 2px;
+            height: 2px;
+            background: #fff;
+            opacity: 0;
+            border-radius: 50%;
+        }
+    </style>
+</head>
+<body>
+    <div id="cinema">
+        <!-- Кинематографические полосы -->
+        <div class="letterbox letterbox-top"></div>
+        <div class="letterbox letterbox-bottom"></div>
+        
+        <!-- Основная сцена -->
+        <svg viewBox="0 0 1920 1080" xmlns="http://www.w3.org/2000/svg">
+            <defs>
+                <!-- Сложные градиенты -->
+                <radialGradient id="darkGoldRadial" cx="50%" cy="30%">
+                    <stop offset="0%" style="stop-color:#ffd700;stop-opacity:1"/>
+                    <stop offset="30%" style="stop-color:#daa520;stop-opacity:1"/>
+                    <stop offset="60%" style="stop-color:#b8860b;stop-opacity:1"/>
+                    <stop offset="100%" style="stop-color:#8b6914;stop-opacity:1"/>
+                </radialGradient>
+
+                <linearGradient id="goldShimmer" x1="0%" y1="0%" x2="100%" y2="100%">
+                    <stop offset="0%" style="stop-color:#ffd700;stop-opacity:0">
+                        <animate attributeName="stop-opacity" values="0;0.6;0" dur="3s" repeatCount="indefinite"/>
+                    </stop>
+                    <stop offset="50%" style="stop-color:#fff5ee;stop-opacity:0.3">
+                        <animate attributeName="stop-opacity" values="0.3;0.8;0.3" dur="3s" repeatCount="indefinite"/>
+                    </stop>
+                    <stop offset="100%" style="stop-color:#ffd700;stop-opacity:0">
+                        <animate attributeName="stop-opacity" values="0;0.6;0" dur="3s" repeatCount="indefinite"/>
+                    </stop>
+                </linearGradient>
+
+                <!-- Сложный градиент для ночного неба -->
+                <radialGradient id="nightSky" cx="30%" cy="30%">
+                    <stop offset="0%" style="stop-color:#191970;stop-opacity:0.2"/>
+                    <stop offset="50%" style="stop-color:#000033;stop-opacity:0.8"/>
+                    <stop offset="100%" style="stop-color:#000000;stop-opacity:1"/>
+                </radialGradient>
+
+                <!-- Текстура дерева для паркета -->
+                <pattern id="woodTexture" x="0" y="0" width="200" height="100" patternUnits="userSpaceOnUse">
+                    <rect width="200" height="100" fill="#3e2723"/>
+                    <path d="M 0 20 Q 50 15 100 20 T 200 20 M 0 50 Q 50 45 100 50 T 200 50 M 0 80 Q 50 75 100 80 T 200 80" 
+                          stroke="#2e1a17" stroke-width="1" fill="none" opacity="0.5"/>
+                    <circle cx="30" cy="30" r="3" fill="#2e1a17" opacity="0.3"/>
+                    <circle cx="130" cy="70" r="4" fill="#2e1a17" opacity="0.3"/>
+                    <circle cx="180" cy="40" r="3" fill="#2e1a17" opacity="0.3"/>
+                </pattern>
+
+                <!-- Фильтры -->
+                <filter id="dramaticGlow" x="-50%" y="-50%" width="200%" height="200%">
+                    <feGaussianBlur stdDeviation="10" result="coloredBlur"/>
+                    <feOffset result="offsetblur" in="coloredBlur" dx="0" dy="0"/>
+                    <feFlood flood-color="#ffd700" flood-opacity="0.5"/>
+                    <feComposite in2="offsetblur" operator="in"/>
+                    <feMerge>
+                        <feMergeNode/>
+                        <feMergeNode in="SourceGraphic"/>
+                    </feMerge>
+                </filter>
+
+                <filter id="heavyShadow" x="-50%" y="-50%" width="200%" height="200%">
+                    <feGaussianBlur in="SourceAlpha" stdDeviation="10"/>
+                    <feOffset dx="10" dy="10" result="offsetblur"/>
+                    <feFlood flood-color="#000000" flood-opacity="0.7"/>
+                    <feComposite in2="offsetblur" operator="in"/>
+                    <feMerge>
+                        <feMergeNode/>
+                        <feMergeNode in="SourceGraphic"/>
+                    </feMerge>
+                </filter>
+
+                <!-- Маска для трещин в зеркале -->
+                <pattern id="cracks" x="0" y="0" width="100%" height="100%" patternUnits="objectBoundingBox">
+                    <path d="M 0.5 0.5 L 0.6 0.3 M 0.5 0.5 L 0.3 0.4 M 0.5 0.5 L 0.7 0.7" 
+                          stroke="#000" stroke-width="0.005" fill="none" opacity="0"/>
+                </pattern>
+
+                <!-- Анимированная маска для переходов -->
+                <radialGradient id="transitionMask">
+                    <stop offset="0%" style="stop-color:white;stop-opacity:1"/>
+                    <stop offset="100%" style="stop-color:black;stop-opacity:0"/>
+                </radialGradient>
+            </defs>
+
+            <!-- СЦЕНА 1: Крупный план волос -->
+            <g id="scene1" opacity="1">
+                <!-- Темный фон -->
+                <rect width="1920" height="1080" fill="#000"/>
+                
+                <!-- Крупный план золотых волос -->
+                <g id="hairCloseup" transform="translate(960, 540)">
+                    <g id="hairStrands">
+                        <!-- Множество прядей волос с анимацией -->
+                        <path d="M -300 -200 Q -250 0 -200 200 Q -180 300 -150 400" 
+                              stroke="url(#darkGoldRadial)" stroke-width="8" fill="none" opacity="0.9">
+                            <animate attributeName="d" 
+                                     values="M -300 -200 Q -250 0 -200 200 Q -180 300 -150 400;
+                                             M -300 -200 Q -280 0 -200 200 Q -160 300 -150 400;
+                                             M -300 -200 Q -250 0 -200 200 Q -180 300 -150 400"
+                                     dur="5s" repeatCount="indefinite"/>
+                        </path>
+                        <path d="M -250 -200 Q -200 0 -150 200 Q -130 300 -100 400" 
+                              stroke="url(#darkGoldRadial)" stroke-width="6" fill="none" opacity="0.8">
+                            <animate attributeName="d" 
+                                     values="M -250 -200 Q -200 0 -150 200 Q -130 300 -100 400;
+                                             M -250 -200 Q -180 0 -150 200 Q -140 300 -100 400;
+                                             M -250 -200 Q -200 0 -150 200 Q -130 300 -100 400"
+                                     dur="4s" repeatCount="indefinite"/>
+                        </path>
+                        <path d="M -200 -200 Q -150 0 -100 200 Q -80 300 -50 400" 
+                              stroke="#daa520" stroke-width="10" fill="none" opacity="0.7">
+                            <animate attributeName="d" 
+                                     values="M -200 -200 Q -150 0 -100 200 Q -80 300 -50 400;
+                                             M -200 -200 Q -130 0 -100 200 Q -90 300 -50 400;
+                                             M -200 -200 Q -150 0 -100 200 Q -80 300 -50 400"
+                                     dur="6s" repeatCount="indefinite"/>
+                        </path>
+                        <!-- Добавляем еще 10-15 прядей с разными параметрами -->
+                        <path d="M -150 -200 Q -100 0 -50 200 Q -30 300 0 400" 
+                              stroke="url(#goldShimmer)" stroke-width="5" fill="none" opacity="0.6">
+                            <animate attributeName="d" 
+                                     values="M -150 -200 Q -100 0 -50 200 Q -30 300 0 400;
+                                             M -150 -200 Q -80 0 -50 200 Q -40 300 0 400;
+                                             M -150 -200 Q -100 0 -50 200 Q -30 300 0 400"
+                                     dur="3.5s" repeatCount="indefinite"/>
+                        </path>
+                        <path d="M -100 -200 Q -50 0 0 200 Q 20 300 50 400" 
+                              stroke="#b8860b" stroke-width="7" fill="none" opacity="0.8"/>
+                        <path d="M -50 -200 Q 0 0 50 200 Q 70 300 100 400" 
+                              stroke="url(#darkGoldRadial)" stroke-width="9" fill="none" opacity="0.9"/>
+                        <path d="M 0 -200 Q 50 0 100 200 Q 120 300 150 400" 
+                              stroke="#ffd700" stroke-width="4" fill="none" opacity="0.5"/>
+                        <path d="M 50 -200 Q 100 0 150 200 Q 170 300 200 400" 
+                              stroke="url(#goldShimmer)" stroke-width="6" fill="none" opacity="0.7"/>
+                        <path d="M 100 -200 Q 150 0 200 200 Q 220 300 250 400" 
+                              stroke="#daa520" stroke-width="8" fill="none" opacity="0.8"/>
+                        <path d="M 150 -200 Q 200 0 250 200 Q 270 300 300 400" 
+                              stroke="url(#darkGoldRadial)" stroke-width="5" fill="none" opacity="0.6"/>
+                    </g>
+                    
+                    <!-- Блики на волосах -->
+                    <g id="hairHighlights">
+                        <ellipse cx="-100" cy="0" rx="20" ry="100" fill="url(#goldShimmer)" opacity="0.5" 
+                                 transform="rotate(-20 -100 0)">
+                            <animateTransform attributeName="transform" type="rotate" 
+                                              values="-20 -100 0;-25 -100 0;-20 -100 0" dur="4s" repeatCount="indefinite"/>
+                        </ellipse>
+                        <ellipse cx="100" cy="50" rx="15" ry="80" fill="#fff5ee" opacity="0.3" 
+                                 transform="rotate(20 100 50)"/>
+                    </g>
+                </g>
+            </g>
+
+            <!-- СЦЕНА 2: Комната с зеркалом (более детализированная) -->
+            <g id="scene2" opacity="0">
+                <!-- Градиентный фон с эффектом глубины -->
+                <rect width="1920" height="1080" fill="url(#nightSky)"/>
+                
+                <!-- Лунный свет через окно -->
+                <g id="moonlight">
+                    <rect x="0" y="0" width="600" height="1080" fill="#4169e1" opacity="0.1" 
+                          transform="skewX(-30)">
+                        <animate attributeName="opacity" values="0.1;0.2;0.1" dur="8s" repeatCount="indefinite"/>
+                    </rect>
+                    <rect x="100" y="0" width="400" height="1080" fill="#6495ed" opacity="0.05" 
+                          transform="skewX(-30)"/>
+                </g>
+                
+                <!-- Детализированные стены с обоями -->
+                <g id="walls">
+                    <path d="M 0 150 L 0 1080 L 1920 1080 L 1920 150 Q 960 100 0 150" fill="#1a1a2e"/>
+                    <!-- Узор на обоях -->
+                    <pattern id="wallpaper" x="0" y="0" width="100" height="100" patternUnits="userSpaceOnUse">
+                        <rect width="100" height="100" fill="#1a1a2e"/>
+                        <circle cx="50" cy="50" r="30" fill="none" stroke="#16213e" stroke-width="1" opacity="0.3"/>
+                        <path d="M 50 20 Q 70 50 50 80 Q 30 50 50 20" fill="#16213e" opacity="0.2"/>
+                    </pattern>
+                    <rect x="0" y="150" width="1920" height="550" fill="url(#wallpaper)" opacity="0.5"/>
+                </g>
+                
+                <!-- Детализированный пол -->
+                <g id="floor">
+                    <path d="M 0 700 L 0 1080 L 1920 1080 L 1920 700 Q 960 650 0 700" fill="url(#woodTexture)"/>
+                    <!-- Отражения на полу -->
+                    <ellipse cx="960" cy="900" rx="400" ry="150" fill="#000" opacity="0.2" filter="url(#blur)"/>
+                </g>
+                
+                <!-- Антикварный туалетный столик с деталями -->
+                <g id="vanityDetailed" filter="url(#heavyShadow)">
+                    <!-- Основа столика -->
+                    <path d="M 750 500 L 750 700 Q 750 710 760 710 L 770 710 L 770 800 L 790 800 L 790 710 L 1130 710 L 1130 800 L 1150 800 L 1150 710 L 1160 710 Q 1170 710 1170 700 L 1170 500 Q 1170 490 1160 490 L 760 490 Q 750 490 750 500" 
+                          fill="#3e2723"/>
+                    <!-- Ящики -->
+                    <rect x="780" y="520" width="150" height="60" fill="#2e1a17" stroke="#1a0e08" stroke-width="2"/>
+                    <rect x="950" y="520" width="150" height="60" fill="#2e1a17" stroke="#1a0e08" stroke-width="2"/>
+                    <rect x="780" y="600" width="150" height="60" fill="#2e1a17" stroke="#1a0e08" stroke-width="2"/>
+                    <rect x="950" y="600" width="150" height="60" fill="#2e1a17" stroke="#1a0e08" stroke-width="2"/>
+                    <!-- Ручки ящиков -->
+                    <circle cx="855" cy="550" r="8" fill="#8b7355"/>
+                    <circle cx="1025" cy="550" r="8" fill="#8b7355"/>
+                    <circle cx="855" cy="630" r="8" fill="#8b7355"/>
+                    <circle cx="1025" cy="630" r="8" fill="#8b7355"/>
+                </g>
+                
+                <!-- Орнаментное зеркало -->
+                <g id="mirrorFrame">
+                    <!-- Внешняя рама -->
+                    <ellipse cx="960" cy="350" rx="180" ry="230" fill="none" stroke="#8b7355" stroke-width="20"/>
+                    <!-- Орнамент -->
+                    <path d="M 960 120 Q 920 140 900 120 Q 880 100 860 120 Q 840 140 820 120" 
+                          fill="none" stroke="#8b7355" stroke-width="5"/>
+                    <path d="M 960 120 Q 1000 140 1020 120 Q 1040 100 1060 120 Q 1080 140 1100 120" 
+                          fill="none" stroke="#8b7355" stroke-width="5"/>
+                    <!-- Внутренняя часть зеркала -->
+                    <ellipse cx="960" cy="350" rx="160" ry="210" fill="#1a1a1a" opacity="0.9"/>
+                    <ellipse cx="960" cy="350" rx="155" ry="205" fill="#2a2a3a" opacity="0.7"/>
+                    <!-- Блики на зеркале -->
+                    <ellipse cx="920" cy="300" rx="30" ry="60" fill="#fff" opacity="0.1" transform="rotate(-20 920 300)"/>
+                </g>
+                
+                <!-- Предметы на столике (детализированные) -->
+                <g id="vanityItemsDetailed">
+                    <!-- Шкатулка для драгоценностей -->
+                    <g id="jewelryBox">
+                        <rect x="820" y="460" width="80" height="40" fill="#8b4513" stroke="#654321" stroke-width="2"/>
+                        <rect x="820" y="455" width="80" height="5" fill="#a0522d"/>
+                        <ellipse cx="860" cy="478" rx="5" ry="3" fill="#ffd700"/>
+                    </g>
+                    
+                    <!-- Парфюмерные флаконы -->
+                    <g id="perfumeBottles">
+                        <ellipse cx="920" cy="490" rx="15" ry="25" fill="#4682b4" opacity="0.7"/>
+                        <rect x="915" y="465" width="10" height="5" fill="#8b7355"/>
+                        <ellipse cx="950" cy="490" rx="12" ry="20" fill="#8b008b" opacity="0.7"/>
+                        <rect x="946" y="470" width="8" height="4" fill="#8b7355"/>
+                    </g>
+                    
+                    <!-- Кисти для макияжа -->
+                    <g id="brushes">
+                        <line x1="980" y1="485" x2="990" y2="465" stroke="#654321" stroke-width="3"/>
+                        <ellipse cx="990" cy="463" rx="3" ry="5" fill="#d2691e"/>
+                        <line x1="985" y1="485" x2="995" y2="465" stroke="#654321" stroke-width="3"/>
+                        <ellipse cx="995" cy="463" rx="3" ry="5" fill="#bc8f8f"/>
+                    </g>
+                </g>
+            </g>
+
+            <!-- СЦЕНА 3: Процесс одевания (детализированная) -->
+            <g id="scene3" opacity="0">
+                <!-- Используем элементы из scene2 -->
+                <use href="#scene2"/>
+                
+                <!-- Женская фигура для сцены одевания -->
+                <g id="dressingScene" transform="translate(960, 600)">
+                    <!-- Тень -->
+                    <ellipse cx="0" cy="200" rx="150" ry="60" fill="url(#shadowGradient)" opacity="0.4"/>
+                    
+                    <!-- Базовое тело в белье/сорочке -->
+                    <g id="baseBody">
+                        <path d="M -80 50 Q -80 -30 -40 -50 Q 0 -60 40 -50 Q 80 -30 80 50 L 90 180 Q 90 200 60 200 L -60 200 Q -90 200 -90 180 Z" 
+                              fill="#f5f5dc" stroke="#e6e6d0" stroke-width="1" opacity="0.8"/>
+                    </g>
+                    
+                    <!-- Голова и шея -->
+                    <g id="headNeckDressing">
+                        <path d="M -30 -60 Q -30 -80 0 -80 Q 30 -80 30 -60 L 20 -40 L -20 -40 Z" fill="#f5deb3"/>
+                        <ellipse cx="0" cy="-110" rx="65" ry="75" fill="#f5deb3"/>
+                        <!-- Глаза смотрят в зеркало -->
+                        <ellipse cx="-20" cy="-110" rx="12" ry="8" fill="#2c2c2c"/>
+                        <ellipse cx="20" cy="-110" rx="12" ry="8" fill="#2c2c2c"/>
+                    </g>
+                    
+                    <!-- Волосы (будут анимированы при вплетании ленты) -->
+                    <g id="hairForRibbon">
+                        <!-- Распущенные волосы -->
+                        <path id="looseHair" d="M -70 -170 Q -90 -150 -80 -120 Q -100 -80 -90 -40 Q -110 0 -100 40 Q -120 80 -110 120 Q -100 160 -80 140 Q -60 120 -40 140 Q -20 160 0 140 Q 20 120 40 140 Q 60 160 80 140 Q 100 120 110 80 Q 120 40 100 0 Q 110 -40 90 -80 Q 100 -120 80 -150 Q 90 -170 70 -170 Q 0 -190 -70 -170" 
+                              fill="url(#darkGoldRadial)" opacity="0.9"/>
+                        
+                        <!-- Верхние пряди (будут собираться) -->
+                        <g id="topStrands">
+                            <path id="strand1" d="M -50 -160 Q -60 -140 -50 -120 Q -60 -100 -50 -80" 
+                                  stroke="#daa520" stroke-width="4" fill="none"/>
+                            <path id="strand2" d="M -30 -165 Q -40 -145 -30 -125 Q -40 -105 -30 -85" 
+                                  stroke="#ffd700" stroke-width="3" fill="none"/>
+                            <path id="strand3" d="M -10 -168 Q -20 -148 -10 -128 Q -20 -108 -10 -88" 
+                                  stroke="#b8860b" stroke-width="4" fill="none"/>
+                            <path id="strand4" d="M 10 -168 Q 0 -148 10 -128 Q 0 -108 10 -88" 
+                                  stroke="#daa520" stroke-width="3" fill="none"/>
+                            <path id="strand5" d="M 30 -165 Q 20 -145 30 -125 Q 20 -105 30 -85" 
+                                  stroke="#ffd700" stroke-width="4" fill="none"/>
+                            <path id="strand6" d="M 50 -160 Q 40 -140 50 -120 Q 40 -100 50 -80" 
+                                  stroke="#b8860b" stroke-width="3" fill="none"/>
+                        </g>
+                    </g>
+                    
+                    <!-- Анимированные руки для процесса одевания -->
+                    <g id="animatedArms">
+                        <!-- Левая рука -->
+                        <g id="leftArm">
+                            <path id="leftArmPath" d="M -80 -30 Q -120 20 -100 80 Q -90 100 -80 80" fill="#f5deb3" stroke="#e6d7c5" stroke-width="1"/>
+                            <!-- Кисть и пальцы -->
+                            <g id="leftHand" transform="translate(-100, 80)">
+                                <ellipse cx="0" cy="0" rx="15" ry="20" fill="#f5deb3"/>
+                                <!-- Пальцы -->
+                                <ellipse cx="-5" cy="-15" rx="3" ry="8" fill="#f5deb3" transform="rotate(-20 -5 -15)"/>
+                                <ellipse cx="0" cy="-18" rx="3" ry="10" fill="#f5deb3"/>
+                                <ellipse cx="5" cy="-17" rx="3" ry="9" fill="#f5deb3" transform="rotate(10 5 -17)"/>
+                                <ellipse cx="10" cy="-12" rx="3" ry="7" fill="#f5deb3" transform="rotate(20 10 -12)"/>
+                                <!-- Большой палец -->
+                                <ellipse cx="-12" cy="-5" rx="4" ry="6" fill="#f5deb3" transform="rotate(-40 -12 -5)"/>
+                            </g>
+                        </g>
+                        
+                        <!-- Правая рука -->
+                        <g id="rightArm">
+                            <path id="rightArmPath" d="M 80 -30 Q 120 20 100 80 Q 90 100 80 80" fill="#f5deb3" stroke="#e6d7c5" stroke-width="1"/>
+                            <!-- Кисть и пальцы -->
+                            <g id="rightHand" transform="translate(100, 80)">
+                                <ellipse cx="0" cy="0" rx="15" ry="20" fill="#f5deb3"/>
+                                <!-- Пальцы -->
+                                <ellipse cx="5" cy="-15" rx="3" ry="8" fill="#f5deb3" transform="rotate(20 5 -15)"/>
+                                <ellipse cx="0" cy="-18" rx="3" ry="10" fill="#f5deb3"/>
+                                <ellipse cx="-5" cy="-17" rx="3" ry="9" fill="#f5deb3" transform="rotate(-10 -5 -17)"/>
+                                <ellipse cx="-10" cy="-12" rx="3" ry="7" fill="#f5deb3" transform="rotate(-20 -10 -12)"/>
+                                <!-- Большой палец -->
+                                <ellipse cx="12" cy="-5" rx="4" ry="6" fill="#f5deb3" transform="rotate(40 12 -5)"/>
+                            </g>
+                        </g>
+                    </g>
+                    
+                    <!-- Лента (появится в руках) -->
+                    <g id="ribbonInHand" opacity="0">
+                        <path d="M 0 0 Q 30 -10 60 0 Q 80 10 90 0 Q 100 -10 110 0" 
+                              fill="none" stroke="#8b0000" stroke-width="5" stroke-linecap="round"/>
+                        <path d="M 5 -2 Q 35 -12 65 -2 Q 85 8 95 -2" 
+                              fill="none" stroke="#fff" stroke-width="2" stroke-dasharray="4,4" opacity="0.7"/>
+                    </g>
+                    
+                    <!-- Кружево (появится вместе с лентой) -->
+                    <g id="laceDetails" opacity="0">
+                        <path d="M -40 -155 Q -30 -160 -20 -155 Q -10 -160 0 -155 Q 10 -160 20 -155 Q 30 -160 40 -155" 
+                              fill="none" stroke="#fff" stroke-width="1" opacity="0.6"/>
+                        <circle cx="-30" cy="-155" r="2" fill="#fff" opacity="0.4"/>
+                        <circle cx="-15" cy="-157" r="2" fill="#fff" opacity="0.4"/>
+                        <circle cx="0" cy="-155" r="2" fill="#fff" opacity="0.4"/>
+                        <circle cx="15" cy="-157" r="2" fill="#fff" opacity="0.4"/>
+                        <circle cx="30" cy="-155" r="2" fill="#fff" opacity="0.4"/>
+                    </g>
+                    
+                    <!-- Жакет (изначально висит рядом) -->
+                    <g id="jacketNearby" opacity="0" transform="translate(300, -100)">
+                        <path d="M -60 0 Q -60 -40 -40 -50 Q -20 -55 0 -55 Q 20 -55 40 -50 Q 60 -40 60 0 L 70 100 Q 70 110 50 110 L -50 110 Q -70 110 -70 100 Z" 
+                              fill="#2c2c2c" stroke="#1a1a1a" stroke-width="2"/>
+                        <!-- Рукава -->
+                        <path d="M -60 -20 Q -90 0 -85 40 Q -80 60 -70 50" fill="#2c2c2c" stroke="#1a1a1a" stroke-width="2"/>
+                        <path d="M 60 -20 Q 90 0 85 40 Q 80 60 70 50" fill="#2c2c2c" stroke="#1a1a1a" stroke-width="2"/>
+                        <!-- Воротник -->
+                        <path d="M -40 -50 Q -30 -60 0 -60 Q 30 -60 40 -50" fill="none" stroke="#3c3c3c" stroke-width="3"/>
+                        <!-- Пуговицы -->
+                        <circle cx="0" cy="-20" r="3" fill="#444"/>
+                        <circle cx="0" cy="0" r="3" fill="#444"/>
+                        <circle cx="0" cy="20" r="3" fill="#444"/>
+                    </g>
+                    
+                    <!-- Перья для приглаживания -->
+                    <g id="feathersForSmoothing" opacity="0">
+                        <!-- Декоративная брошь с перьями -->
+                        <g transform="translate(50, -80)">
+                            <ellipse cx="0" cy="0" rx="15" ry="10" fill="#8b7355" stroke="#654321" stroke-width="1"/>
+                            <!-- Перья торчат в разные стороны -->
+                            <path id="feather1" d="M -10 -5 Q -20 -15 -25 -25 Q -22 -18 -18 -10 Q -14 -5 -10 -5" 
+                                  fill="#4a4a4a" transform="rotate(-30 0 0)"/>
+                            <path id="feather2" d="M 0 -8 Q -5 -20 -8 -30 Q -5 -22 -2 -15 Q 0 -8 0 -8" 
+                                  fill="#3a3a3a"/>
+                            <path id="feather3" d="M 10 -5 Q 20 -15 25 -25 Q 22 -18 18 -10 Q 14 -5 10 -5" 
+                                  fill="#5a5a5a" transform="rotate(30 0 0)"/>
+                            <path id="feather4" d="M 5 -3 Q 15 -10 20 -18 Q 17 -12 13 -7 Q 9 -3 5 -3" 
+                                  fill="#4a4a4a" transform="rotate(15 0 0)"/>
+                        </g>
+                    </g>
+                </g>
+                
+                <!-- Отражение процесса одевания в зеркале -->
+                <g id="dressingReflection" clip-path="url(#mirrorClip)" opacity="1">
+                    <clipPath id="mirrorClip">
+                        <ellipse cx="960" cy="350" rx="155" ry="205"/>
+                    </clipPath>
+                    
+                    <!-- Отражение женщины -->
+                    <g transform="translate(960, 350) scale(-0.5, 0.5)">
+                        <use href="#dressingScene"/>
+                    </g>
+                    
+                    <!-- Волны беспокойства в отражении -->
+                    <g id="anxietyWaves" opacity="0.5">
+                        <circle cx="960" cy="350" r="100" fill="none" stroke="#daa520" stroke-width="1" opacity="0.3">
+                            <animate attributeName="r" values="100;120;100" dur="3s" repeatCount="indefinite"/>
+                        </circle>
+                    </g>
+                </g>
+            </g>
+
+            <!-- СЦЕНА 4: Трансформация (детализированная) -->
+            <g id="scene4" opacity="0">
+                <!-- Градиентный фон с пульсацией -->
+                <rect width="1920" height="1080" fill="#000">
+                    <animate attributeName="fill" values="#000;#1a0000;#000" dur="2s" repeatCount="indefinite"/>
+                </rect>
+                
+                <!-- Эффект дрожания камеры -->
+                <g id="cameraShake" transform="translate(0,0)">
+                    <!-- Крупный план лица с деталями -->
+                    <g id="transformationFace" transform="translate(960, 540)">
+                        <!-- Кожа с изменяющейся текстурой -->
+                        <g id="skinTransform">
+                            <ellipse cx="0" cy="0" rx="300" ry="350" fill="#f5deb3" opacity="0.9"/>
+                            <!-- Проступающие вены -->
+                            <g id="veins" opacity="0">
+                                <path d="M -150 -100 Q -120 -50 -100 0 Q -80 50 -50 100" 
+                                      stroke="#8b0000" stroke-width="2" fill="none" opacity="0.3"/>
+                                <path d="M 150 -100 Q 120 -50 100 0 Q 80 50 50 100" 
+                                      stroke="#8b0000" stroke-width="2" fill="none" opacity="0.3"/>
+                                <path d="M -50 -150 Q 0 -100 50 -150" 
+                                      stroke="#8b0000" stroke-width="1" fill="none" opacity="0.3"/>
+                            </g>
+                            <!-- Изменение текстуры кожи -->
+                            <g id="skinPattern" opacity="0">
+                                <pattern id="roughSkin" x="0" y="0" width="20" height="20" patternUnits="userSpaceOnUse">
+                                    <circle cx="5" cy="5" r="1" fill="#000" opacity="0.1"/>
+                                    <circle cx="15" cy="15" r="1" fill="#000" opacity="0.1"/>
+                                    <circle cx="5" cy="15" r="1" fill="#000" opacity="0.1"/>
+                                    <circle cx="15" cy="5" r="1" fill="#000" opacity="0.1"/>
+                                </pattern>
+                                <ellipse cx="0" cy="0" rx="300" ry="350" fill="url(#roughSkin)" opacity="0"/>
+                            </g>
+                        </g>
+                        
+                        <!-- Детализированные глаза с поэтапной трансформацией -->
+                        <g id="eyesDetailed">
+                            <!-- Левый глаз -->
+                            <g id="leftEye">
+                                <ellipse cx="-100" cy="-50" rx="60" ry="40" fill="#fff"/>
+                                <!-- Кровеносные сосуды в белках -->
+                                <g id="leftEyeVessels" opacity="0">
+                                    <path d="M -140 -50 Q -120 -55 -100 -50 M -100 -50 Q -80 -45 -60 -50" 
+                                          stroke="#ff0000" stroke-width="0.5" fill="none"/>
+                                    <path d="M -100 -70 Q -105 -50 -100 -30 M -100 -50 Q -95 -40 -100 -30" 
+                                          stroke="#ff0000" stroke-width="0.5" fill="none"/>
+                                </g>
+                                <!-- Радужка -->
+                                <circle cx="-100" cy="-50" r="35" fill="#4a4a4a" opacity="0.8"/>
+                                <!-- Зрачок с трансформацией -->
+                                <ellipse id="leftPupil" cx="-100" cy="-50" rx="20" ry="20" fill="#000"/>
+                                <!-- Блик -->
+                                <ellipse id="leftHighlight" cx="-90" cy="-60" rx="8" ry="6" fill="#fff" opacity="0.8"/>
+                            </g>
+                            
+                            <!-- Правый глаз -->
+                            <g id="rightEye">
+                                <ellipse cx="100" cy="-50" rx="60" ry="40" fill="#fff"/>
+                                <!-- Кровеносные сосуды -->
+                                <g id="rightEyeVessels" opacity="0">
+                                    <path d="M 140 -50 Q 120 -55 100 -50 M 100 -50 Q 80 -45 60 -50" 
+                                          stroke="#ff0000" stroke-width="0.5" fill="none"/>
+                                    <path d="M 100 -70 Q 105 -50 100 -30 M 100 -50 Q 95 -40 100 -30" 
+                                          stroke="#ff0000" stroke-width="0.5" fill="none"/>
+                                </g>
+                                <!-- Радужка -->
+                                <circle cx="100" cy="-50" r="35" fill="#4a4a4a" opacity="0.8"/>
+                                <!-- Зрачок -->
+                                <ellipse id="rightPupil" cx="100" cy="-50" rx="20" ry="20" fill="#000"/>
+                                <!-- Блик -->
+                                <ellipse id="rightHighlight" cx="110" cy="-60" rx="8" ry="6" fill="#fff" opacity="0.8"/>
+                            </g>
+                            
+                            <!-- Морщины напряжения вокруг глаз -->
+                            <g id="eyeWrinkles" opacity="0">
+                                <path d="M -160 -70 Q -150 -65 -140 -70 M -160 -50 Q -150 -45 -140 -50 M -160 -30 Q -150 -25 -140 -30" 
+                                      stroke="#8b6914" stroke-width="1" fill="none"/>
+                                <path d="M 160 -70 Q 150 -65 140 -70 M 160 -50 Q 150 -45 140 -50 M 160 -30 Q 150 -25 140 -30" 
+                                      stroke="#8b6914" stroke-width="1" fill="none"/>
+                            </g>
+                        </g>
+                        
+                        <!-- Нос с расширяющимися ноздрями -->
+                        <g id="nose">
+                            <path d="M -20 20 Q 0 10 20 20 L 15 40 Q 0 45 -15 40 Z" fill="#e6d7c5"/>
+                            <!-- Ноздри -->
+                            <ellipse id="leftNostril" cx="-8" cy="35" rx="5" ry="3" fill="#000" opacity="0.3"/>
+                            <ellipse id="rightNostril" cx="8" cy="35" rx="5" ry="3" fill="#000" opacity="0.3"/>
+                        </g>
+                        
+                        <!-- Рот с детальной трансформацией -->
+                        <g id="mouthTransform">
+                            <!-- Губы -->
+                            <path id="lips" d="M -40 100 Q 0 90 40 100 Q 0 110 -40 100" 
+                                  fill="#d4a5a5" stroke="#c08080" stroke-width="2"/>
+                            <!-- Зубы (появятся при трансформации) -->
+                            <g id="teeth" opacity="0">
+                                <rect x="-30" y="95" width="10" height="8" fill="#fff" rx="1"/>
+                                <rect x="-18" y="94" width="10" height="10" fill="#fff" rx="1"/>
+                                <rect x="-6" y="94" width="10" height="10" fill="#fff" rx="1"/>
+                                <rect x="6" y="94" width="10" height="10" fill="#fff" rx="1"/>
+                                <rect x="18" y="95" width="10" height="8" fill="#fff" rx="1"/>
+                                <!-- Клыки -->
+                                <path id="leftFang" d="M -20 95 L -15 105 L -10 95 Z" fill="#fff" opacity="0"/>
+                                <path id="rightFang" d="M 10 95 L 15 105 L 20 95 Z" fill="#fff" opacity="0"/>
+                            </g>
+                        </g>
+                        
+                        <!-- Волосы с детальной анимацией вихрей -->
+                        <g id="hairVortex">
+                            <!-- Множество прядей в вихре -->
+                            <g id="vortexStrands">
+                                <path d="M -250 -250 Q -300 -150 -280 -50 Q -260 50 -200 150 Q -150 200 -100 150 Q -50 100 -100 0 Q -150 -100 -200 -150 Q -250 -200 -250 -250" 
+                                      fill="none" stroke="url(#darkGoldRadial)" stroke-width="10" opacity="0.8">
+                                    <animateTransform attributeName="transform" type="rotate" 
+                                                      values="0 0 0;360 0 0" dur="4s" repeatCount="indefinite"/>
+                                </path>
+                                <path d="M 250 -250 Q 300 -150 280 -50 Q 260 50 200 150 Q 150 200 100 150 Q 50 100 100 0 Q 150 -100 200 -150 Q 250 -200 250 -250" 
+                                      fill="none" stroke="#daa520" stroke-width="8" opacity="0.7">
+                                    <animateTransform attributeName="transform" type="rotate" 
+                                                      values="0 0 0;-360 0 0" dur="3.5s" repeatCount="indefinite"/>
+                                </path>
+                                <path d="M -200 -200 Q -250 -100 -230 0 Q -210 100 -150 180" 
+                                      fill="none" stroke="#b8860b" stroke-width="6" opacity="0.6">
+                                    <animateTransform attributeName="transform" type="rotate" 
+                                                      values="0 0 0;720 0 0" dur="5s" repeatCount="indefinite"/>
+                                </path>
+                                <path d="M 200 -200 Q 250 -100 230 0 Q 210 100 150 180" 
+                                      fill="none" stroke="#ffd700" stroke-width="5" opacity="0.5">
+                                    <animateTransform attributeName="transform" type="rotate" 
+                                                      values="0 0 0;-720 0 0" dur="4.5s" repeatCount="indefinite"/>
+                                </path>
+                                <!-- Мелкие пряди -->
+                                <g id="smallStrands" opacity="0.4">
+                                    <path d="M -150 -150 Q -180 -50 -150 50" stroke="#daa520" stroke-width="3" fill="none"/>
+                                    <path d="M -100 -180 Q -130 -80 -100 20" stroke="#b8860b" stroke-width="2" fill="none"/>
+                                    <path d="M 150 -150 Q 180 -50 150 50" stroke="#ffd700" stroke-width="3" fill="none"/>
+                                    <path d="M 100 -180 Q 130 -80 100 20" stroke="#daa520" stroke-width="2" fill="none"/>
+                                </g>
+                            </g>
+                            
+                            <!-- Энергетические искры в волосах -->
+                            <g id="hairSparks" opacity="0">
+                                <circle cx="-180" cy="-100" r="3" fill="#fff">
+                                    <animate attributeName="opacity" values="0;1;0" dur="0.5s" repeatCount="indefinite"/>
+                                    <animateTransform attributeName="transform" type="translate" 
+                                                      values="0,0;10,-10;0,0" dur="1s" repeatCount="indefinite"/>
+                                </circle>
+                                <circle cx="180" cy="-100" r="3" fill="#fff">
+                                    <animate attributeName="opacity" values="0;1;0" dur="0.6s" repeatCount="indefinite"/>
+                                </circle>
+                                <circle cx="0" cy="-200" r="4" fill="#ffd700">
+                                    <animate attributeName="opacity" values="0;1;0" dur="0.7s" repeatCount="indefinite"/>
+                                </circle>
+                            </g>
+                        </g>
+                        
+                        <!-- Аура трансформации -->
+                        <g id="transformAura" opacity="0">
+                            <ellipse cx="0" cy="0" rx="400" ry="450" fill="none" stroke="#8b0000" stroke-width="2" opacity="0.3">
+                                <animate attributeName="rx" values="400;450;400" dur="2s" repeatCount="indefinite"/>
+                                <animate attributeName="ry" values="450;500;450" dur="2s" repeatCount="indefinite"/>
+                            </ellipse>
+                            <ellipse cx="0" cy="0" rx="350" ry="400" fill="none" stroke="#daa520" stroke-width="1" opacity="0.2">
+                                <animate attributeName="rx" values="350;380;350" dur="1.5s" repeatCount="indefinite"/>
+                            </ellipse>
+                        </g>
+                        
+                        <!-- Проявляющаяся звериная морда (полупрозрачная) -->
+                        <g id="beastFace" opacity="0">
+                            <path d="M -200 -150 Q -250 -50 -220 50 Q -200 150 -100 200 Q 0 250 100 200 Q 200 150 220 50 Q 250 -50 200 -150 Q 150 -200 100 -220 Q 0 -250 -100 -220 Q -150 -200 -200 -150" 
+                                  fill="#000" opacity="0.3" filter="url(#heavyShadow)"/>
+                            <!-- Звериные черты -->
+                            <path d="M -80 50 Q -60 70 -40 50 M 40 50 Q 60 70 80 50" 
+                                  stroke="#8b0000" stroke-width="3" fill="none" opacity="0.5"/>
+                        </g>
+                    </g>
+                </g>
+                
+                <!-- Эффекты окружения -->
+                <g id="environmentEffects">
+                    <!-- Разлетающиеся частицы -->
+                    <g id="particles">
+                        <circle cx="500" cy="300" r="2" fill="#daa520">
+                            <animate attributeName="cx" values="500;300;100" dur="3s" repeatCount="indefinite"/>
+                            <animate attributeName="cy" values="300;200;100" dur="3s" repeatCount="indefinite"/>
+                            <animate attributeName="opacity" values="0;1;0" dur="3s" repeatCount="indefinite"/>
+                        </circle>
+                        <circle cx="1400" cy="300" r="2" fill="#ffd700">
+                            <animate attributeName="cx" values="1400;1600;1800" dur="3s" repeatCount="indefinite"/>
+                            <animate attributeName="cy" values="300;200;100" dur="3s" repeatCount="indefinite"/>
+                            <animate attributeName="opacity" values="0;1;0" dur="3s" repeatCount="indefinite"/>
+                        </circle>
+                    </g>
+                </g>
+            </g>
+
+            <!-- СЦЕНА 5: Паркет и следы (кинематографическая) -->
+            <g id="scene5" opacity="0">
+                <!-- Динамическая камера - вид сверху с постепенным приближением -->
+                <g id="cameraMovement" transform="translate(0,0) scale(1)">
+                    <!-- Атмосферный фон -->
+                    <rect width="1920" height="1080" fill="#000"/>
+                    
+                    <!-- Лунный свет через окна создает драматические полосы -->
+                    <g id="lightBeams">
+                        <rect x="0" y="0" width="400" height="1080" fill="#4169e1" opacity="0.15" transform="skewX(-25)">
+                            <animate attributeName="opacity" values="0.15;0.25;0.15" dur="4s" repeatCount="indefinite"/>
+                        </rect>
+                        <rect x="500" y="0" width="400" height="1080" fill="#4169e1" opacity="0.12" transform="skewX(-25)">
+                            <animate attributeName="opacity" values="0.12;0.22;0.12" dur="4.5s" repeatCount="indefinite"/>
+                        </rect>
+                        <rect x="1000" y="0" width="400" height="1080" fill="#4169e1" opacity="0.18" transform="skewX(-25)">
+                            <animate attributeName="opacity" values="0.18;0.28;0.18" dur="3.5s" repeatCount="indefinite"/>
+                        </rect>
+                        
+                        <!-- Мерцающие пылинки в лучах света -->
+                        <g id="dustInLight">
+                            <circle cx="200" cy="400" r="1" fill="#fff" opacity="0">
+                                <animate attributeName="opacity" values="0;0.8;0" dur="3s" repeatCount="indefinite"/>
+                                <animate attributeName="cy" values="1080;-50" dur="15s" repeatCount="indefinite"/>
+                            </circle>
+                            <circle cx="700" cy="600" r="1" fill="#fff" opacity="0">
+                                <animate attributeName="opacity" values="0;0.6;0" dur="3.5s" repeatCount="indefinite"/>
+                                <animate attributeName="cy" values="1080;-50" dur="18s" repeatCount="indefinite"/>
+                            </circle>
+                            <circle cx="1200" cy="200" r="1" fill="#fff" opacity="0">
+                                <animate attributeName="opacity" values="0;0.7;0" dur="4s" repeatCount="indefinite"/>
+                                <animate attributeName="cy" values="1080;-50" dur="20s" repeatCount="indefinite"/>
+                            </circle>
+                        </g>
+                    </g>
+                    
+                    <!-- Детализированный паркет с отражениями -->
+                    <g id="parquetDetailed">
+                        <rect width="1920" height="1080" fill="url(#woodTexture)"/>
+                        <!-- Блики на паркете -->
+                        <g id="floorReflections" opacity="0.3">
+                            <ellipse cx="400" cy="500" rx="150" ry="50" fill="#4169e1" opacity="0.2" filter="url(#blur)"/>
+                            <ellipse cx="900" cy="600" rx="200" ry="60" fill="#4169e1" opacity="0.15" filter="url(#blur)"/>
+                            <ellipse cx="1400" cy="400" rx="180" ry="55" fill="#4169e1" opacity="0.18" filter="url(#blur)"/>
+                        </g>
+                        <!-- Царапины и потертости на полу -->
+                        <g id="floorScratches" opacity="0.2">
+                            <path d="M 300 300 Q 350 350 400 400" stroke="#1a0e08" stroke-width="1" fill="none"/>
+                            <path d="M 800 200 Q 850 250 900 300" stroke="#1a0e08" stroke-width="0.5" fill="none"/>
+                            <path d="M 1200 500 Q 1250 550 1300 600" stroke="#1a0e08" stroke-width="0.8" fill="none"/>
+                        </g>
+                    </g>
+                    
+                    <!-- Последовательность следов с детальной анимацией -->
+                    <g id="footprintSequence">
+                        <!-- Тень идущей фигуры (появляется и движется) -->
+                        <g id="walkingShadow" opacity="0">
+                            <ellipse cx="400" cy="300" rx="100" ry="200" fill="#000" opacity="0.3" filter="url(#blur)">
+                                <animate attributeName="cx" values="400;1400" dur="10s" fill="freeze"/>
+                                <animate attributeName="cy" values="300;700" dur="10s" fill="freeze"/>
+                            </ellipse>
+                        </g>
+                        
+                        <!-- Детализированные человеческие следы -->
+                        <g id="humanStepsDetailed">
+                            <!-- След 1 -->
+                            <g id="humanStep1" opacity="0" transform="translate(400, 300)">
+                                <ellipse cx="0" cy="0" rx="35" ry="60" fill="#1a1a1a" opacity="0.3" transform="rotate(-15)"/>
+                                <!-- Отпечаток каблука -->
+                                <ellipse cx="0" cy="25" rx="20" ry="15" fill="#1a1a1a" opacity="0.4"/>
+                                <!-- Отпечатки подошвы -->
+                                <ellipse cx="0" cy="-20" rx="25" ry="30" fill="#1a1a1a" opacity="0.35"/>
+                                <!-- Детали узора подошвы -->
+                                <line x1="-10" y1="-20" x2="10" y2="-20" stroke="#0a0a0a" stroke-width="1" opacity="0.2"/>
+                                <line x1="-8" y1="-10" x2="8" y2="-10" stroke="#0a0a0a" stroke-width="1" opacity="0.2"/>
+                                <line x1="-6" y1="0" x2="6" y2="0" stroke="#0a0a0a" stroke-width="1" opacity="0.2"/>
+                            </g>
+                            
+                            <!-- След 2 -->
+                            <g id="humanStep2" opacity="0" transform="translate(500, 380)">
+                                <ellipse cx="0" cy="0" rx="35" ry="60" fill="#1a1a1a" opacity="0.3" transform="rotate(10)"/>
+                                <ellipse cx="0" cy="25" rx="20" ry="15" fill="#1a1a1a" opacity="0.4"/>
+                                <ellipse cx="0" cy="-20" rx="25" ry="30" fill="#1a1a1a" opacity="0.35"/>
+                                <line x1="-10" y1="-20" x2="10" y2="-20" stroke="#0a0a0a" stroke-width="1" opacity="0.2"/>
+                                <line x1="-8" y1="-10" x2="8" y2="-10" stroke="#0a0a0a" stroke-width="1" opacity="0.2"/>
+                                <line x1="-6" y1="0" x2="6" y2="0" stroke="#0a0a0a" stroke-width="1" opacity="0.2"/>
+                            </g>
+                            
+                            <!-- Следы 3-6 с постепенным изменением -->
+                            <g id="humanStep3" opacity="0" transform="translate(600, 460)">
+                                <ellipse cx="0" cy="0" rx="35" ry="60" fill="#1a1a1a" opacity="0.3" transform="rotate(-12)"/>
+                                <ellipse cx="0" cy="25" rx="20" ry="15" fill="#1a1a1a" opacity="0.4"/>
+                                <ellipse cx="0" cy="-20" rx="25" ry="30" fill="#1a1a1a" opacity="0.35"/>
+                            </g>
+                            
+                            <g id="humanStep4" opacity="0" transform="translate(700, 540)">
+                                <ellipse cx="0" cy="0" rx="35" ry="60" fill="#1a1a1a" opacity="0.3" transform="rotate(8)"/>
+                                <ellipse cx="0" cy="25" rx="20" ry="15" fill="#1a1a1a" opacity="0.4"/>
+                                <ellipse cx="0" cy="-20" rx="25" ry="30" fill="#1a1a1a" opacity="0.35"/>
+                            </g>
+                            
+                            <g id="humanStep5" opacity="0" transform="translate(800, 620)">
+                                <ellipse cx="0" cy="0" rx="35" ry="60" fill="#1a1a1a" opacity="0.3" transform="rotate(-10)"/>
+                                <ellipse cx="0" cy="25" rx="20" ry="15" fill="#1a1a1a" opacity="0.4"/>
+                                <ellipse cx="0" cy="-20" rx="25" ry="30" fill="#1a1a1a" opacity="0.35"/>
+                                <!-- Начало искажения -->
+                                <path d="M -15 -30 Q -10 -35 -5 -30" stroke="#8b0000" stroke-width="0.5" fill="none" opacity="0.2"/>
+                                <path d="M 5 -30 Q 10 -35 15 -30" stroke="#8b0000" stroke-width="0.5" fill="none" opacity="0.2"/>
+                            </g>
+                        </g>
+                        
+                        <!-- Момент трансформации - драматический переход -->
+                        <g id="transformationMoment" opacity="0" transform="translate(900, 700)">
+                            <!-- Энергетический всплеск -->
+                            <circle cx="0" cy="0" r="50" fill="none" stroke="#8b0000" stroke-width="2" opacity="0">
+                                <animate attributeName="r" values="50;150;200" dur="2s" begin="transformMoment.begin" fill="freeze"/>
+                                <animate attributeName="opacity" values="0;0.8;0" dur="2s" begin="transformMoment.begin"/>
+                                <animate attributeName="stroke-width" values="2;5;1" dur="2s" begin="transformMoment.begin"/>
+                            </circle>
+                            
+                            <!-- Трансформирующийся след -->
+                            <g id="morphingPrint">
+                                <!-- Человеческий след растворяется -->
+                                <ellipse cx="0" cy="0" rx="35" ry="60" fill="#1a1a1a" opacity="0.3">
+                                    <animate attributeName="opacity" values="0.3;0.1;0" dur="1.5s" begin="transformMoment.begin" fill="freeze"/>
+                                    <animate attributeName="rx" values="35;45;50" dur="1.5s" begin="transformMoment.begin"/>
+                                    <animate attributeName="ry" values="60;50;40" dur="1.5s" begin="transformMoment.begin"/>
+                                </ellipse>
+                                
+                                <!-- Звериный след проявляется -->
+                                <g opacity="0">
+                                    <ellipse cx="0" cy="0" rx="45" ry="40" fill="#8b0000" opacity="0">
+                                        <animate attributeName="opacity" values="0;0.5;0.6" dur="1.5s" begin="transformMoment.begin+0.5s" fill="freeze"/>
+                                    </ellipse>
+                                    <!-- Когти появляются по одному -->
+                                    <circle cx="-15" cy="-25" r="0" fill="#8b0000" opacity="0.7">
+                                        <animate attributeName="r" values="0;8" dur="0.3s" begin="transformMoment.begin+1s" fill="freeze"/>
+                                    </circle>
+                                    <circle cx="15" cy="-25" r="0" fill="#8b0000" opacity="0.7">
+                                        <animate attributeName="r" values="0;8" dur="0.3s" begin="transformMoment.begin+1.1s" fill="freeze"/>
+                                    </circle>
+                                    <circle cx="-20" cy="-35" r="0" fill="#8b0000" opacity="0.7">
+                                        <animate attributeName="r" values="0;6" dur="0.3s" begin="transformMoment.begin+1.2s" fill="freeze"/>
+                                    </circle>
+                                    <circle cx="20" cy="-35" r="0" fill="#8b0000" opacity="0.7">
+                                        <animate attributeName="r" values="0;6" dur="0.3s" begin="transformMoment.begin+1.3s" fill="freeze"/>
+                                    </circle>
+                                    <circle cx="0" cy="-40" r="0" fill="#8b0000" opacity="0.7">
+                                        <animate attributeName="r" values="0;5" dur="0.3s" begin="transformMoment.begin+1.4s" fill="freeze"/>
+                                    </circle>
+                                </g>
+                                
+                                <!-- Искры трансформации -->
+                                <g id="transformSparks">
+                                    <circle cx="-30" cy="-30" r="2" fill="#ffd700" opacity="0">
+                                        <animate attributeName="opacity" values="0;1;0" dur="0.5s" begin="transformMoment.begin+1s"/>
+                                        <animate attributeName="cy" values="-30;-50;-70" dur="0.5s" begin="transformMoment.begin+1s"/>
+                                    </circle>
+                                    <circle cx="30" cy="-30" r="2" fill="#ffd700" opacity="0">
+                                        <animate attributeName="opacity" values="0;1;0" dur="0.5s" begin="transformMoment.begin+1.1s"/>
+                                        <animate attributeName="cy" values="-30;-50;-70" dur="0.5s" begin="transformMoment.begin+1.1s"/>
+                                    </circle>
+                                </g>
+                            </g>
+                        </g>
+                        
+                        <!-- Звериные следы с нарастающей агрессией -->
+                        <g id="beastStepsDetailed">
+                            <!-- Звериный след 1 -->
+                            <g id="beastStep1" opacity="0" transform="translate(1000, 700)">
+                                <ellipse cx="0" cy="0" rx="45" ry="40" fill="#8b0000" opacity="0.5"/>
+                                <!-- Подушечки лап -->
+                                <ellipse cx="0" cy="5" rx="20" ry="18" fill="#8b0000" opacity="0.6"/>
+                                <!-- Когти детализированные -->
+                                <path d="M -15 -25 Q -15 -30 -13 -35 Q -11 -30 -11 -25" fill="#8b0000" opacity="0.8"/>
+                                <path d="M 15 -25 Q 15 -30 13 -35 Q 11 -30 11 -25" fill="#8b0000" opacity="0.8"/>
+                                <path d="M -20 -35 Q -20 -40 -18 -43 Q -16 -40 -16 -35" fill="#8b0000" opacity="0.8"/>
+                                <path d="M 20 -35 Q 20 -40 18 -43 Q 16 -40 16 -35" fill="#8b0000" opacity="0.8"/>
+                                <path d="M 0 -40 Q 0 -45 -2 -47 Q 2 -45 2 -40" fill="#8b0000" opacity="0.8"/>
+                                <!-- Царапины от когтей -->
+                                <path d="M -15 -35 L -20 -45 M 15 -35 L 20 -45 M 0 -45 L 0 -55" 
+                                      stroke="#8b0000" stroke-width="2" fill="none" opacity="0.4"/>
+                            </g>
+                            
+                            <!-- Звериный след 2 - более глубокий -->
+                            <g id="beastStep2" opacity="0" transform="translate(1100, 720)">
+                                <ellipse cx="0" cy="0" rx="48" ry="42" fill="#8b0000" opacity="0.6"/>
+                                <ellipse cx="0" cy="5" rx="22" ry="20" fill="#8b0000" opacity="0.7"/>
+                                <!-- Более длинные когти -->
+                                <path d="M -15 -25 Q -15 -32 -12 -38 Q -10 -32 -10 -25" fill="#8b0000" opacity="0.9"/>
+                                <path d="M 15 -25 Q 15 -32 12 -38 Q 10 -32 10 -25" fill="#8b0000" opacity="0.9"/>
+                                <path d="M -20 -35 Q -20 -42 -17 -47 Q -15 -42 -15 -35" fill="#8b0000" opacity="0.9"/>
+                                <path d="M 20 -35 Q 20 -42 17 -47 Q 15 -42 15 -35" fill="#8b0000" opacity="0.9"/>
+                                <path d="M 0 -40 Q 0 -47 -3 -52 Q 3 -47 3 -40" fill="#8b0000" opacity="0.9"/>
+                                <!-- Глубокие царапины -->
+                                <path d="M -15 -38 L -22 -50 M 15 -38 L 22 -50 M 0 -47 L 0 -60" 
+                                      stroke="#8b0000" stroke-width="3" fill="none" opacity="0.5"/>
+                            </g>
+                            
+                            <!-- След 3 - с брызгами (намек на кровь?) -->
+                            <g id="beastStep3" opacity="0" transform="translate(1200, 740)">
+                                <ellipse cx="0" cy="0" rx="50" ry="45" fill="#8b0000" opacity="0.7"/>
+                                <ellipse cx="0" cy="5" rx="25" ry="22" fill="#8b0000" opacity="0.8"/>
+                                <!-- Брызги вокруг следа -->
+                                <circle cx="-30" cy="-20" r="3" fill="#8b0000" opacity="0.4"/>
+                                <circle cx="35" cy="-15" r="2" fill="#8b0000" opacity="0.3"/>
+                                <circle cx="-25" cy="30" r="2.5" fill="#8b0000" opacity="0.35"/>
+                                <circle cx="30" cy="25" r="2" fill="#8b0000" opacity="0.4"/>
+                                <!-- Агрессивные когти -->
+                                <path d="M -15 -25 Q -15 -35 -10 -42 Q -8 -35 -8 -25" fill="#8b0000"/>
+                                <path d="M 15 -25 Q 15 -35 10 -42 Q 8 -35 8 -25" fill="#8b0000"/>
+                                <path d="M -20 -35 Q -20 -45 -15 -52 Q -13 -45 -13 -35" fill="#8b0000"/>
+                                <path d="M 20 -35 Q 20 -45 15 -52 Q 13 -45 13 -35" fill="#8b0000"/>
+                                <path d="M 0 -40 Q 0 -50 -5 -57 Q 5 -50 5 -40" fill="#8b0000"/>
+                            </g>
+                            
+                            <!-- Последний след - исчезающий в темноте -->
+                            <g id="beastStep4" opacity="0" transform="translate(1300, 760)">
+                                <ellipse cx="0" cy="0" rx="52" ry="47" fill="#8b0000" opacity="0.5">
+                                    <animate attributeName="opacity" values="0.5;0.3;0.1" dur="2s" begin="beastStep4Show.begin+2s"/>
+                                </ellipse>
+                                <ellipse cx="0" cy="5" rx="27" ry="24" fill="#8b0000" opacity="0.6">
+                                    <animate attributeName="opacity" values="0.6;0.4;0.2" dur="2s" begin="beastStep4Show.begin+2s"/>
+                                </ellipse>
+                            </g>
+                        </g>
+                    </g>
+                    
+                    <!-- Эффект движения камеры -->
+                    <animateTransform attributeName="transform" 
+                                      type="scale" 
+                                      values="1;1.2;1.5" 
+                                      dur="15s" 
+                                      begin="scene5Camera.begin"
+                                      fill="freeze"/>
+                    <animateTransform attributeName="transform" 
+                                      type="translate" 
+                                      values="0,0;-200,-100;-400,-200" 
+                                      dur="15s" 
+                                      begin="scene5Camera.begin"
+                                      fill="freeze"
+                                      additive="sum"/>
+                </g>
+            </g>
+
+            <!-- СЦЕНА 6: Финал - раздвоение (кульминация) -->
+            <g id="scene6" opacity="0">
+                <!-- Драматический фон с молниями -->
+                <rect width="1920" height="1080" fill="#000">
+                    <animate attributeName="fill" values="#000;#0a0a0a;#000" dur="3s" repeatCount="indefinite"/>
+                </rect>
+                
+                <!-- Вспышки молний -->
+                <g id="lightning" opacity="0">
+                    <path d="M 500 0 L 520 300 L 480 320 L 500 600" stroke="#fff" stroke-width="3" fill="none" opacity="0">
+                        <animate attributeName="opacity" values="0;1;0" dur="0.2s" begin="4s;8s;12s" repeatCount="indefinite"/>
+                    </path>
+                    <path d="M 1400 0 L 1380 400 L 1420 420 L 1400 800" stroke="#fff" stroke-width="2" fill="none" opacity="0">
+                        <animate attributeName="opacity" values="0;0.8;0" dur="0.15s" begin="6s;10s;14s" repeatCount="indefinite"/>
+                    </path>
+                </g>
+                
+                <!-- Комната в драматическом освещении -->
+                <use href="#scene2" opacity="0.3"/>
+                
+                <!-- Дрожащее зеркало с усиливающимися трещинами -->
+                <g id="shatteringMirror">
+                    <use href="#mirrorFrame"/>
+                    <!-- Анимированные трещины -->
+                    <g id="animatedCracks">
+                        <!-- Основная трещина -->
+                        <path id="mainCrack" d="M 960 250" stroke="#000" stroke-width="3" fill="none" opacity="0.8">
+                            <animate attributeName="d" 
+                                     values="M 960 250;M 960 250 L 940 350;M 960 250 L 940 350 L 960 450" 
+                                     dur="2s" begin="cracksStart.begin" fill="freeze"/>
+                        </path>
+                        <!-- Боковые трещины -->
+                        <path id="leftCracks" d="M 960 350" stroke="#000" stroke-width="2" fill="none" opacity="0.6">
+                            <animate attributeName="d" 
+                                     values="M 960 350;M 960 350 L 880 300;M 960 350 L 880 300 L 820 350" 
+                                     dur="1.5s" begin="cracksStart.begin+0.5s" fill="freeze"/>
+                        </path>
+                        <path id="rightCracks" d="M 960 350" stroke="#000" stroke-width="2" fill="none" opacity="0.6">
+                            <animate attributeName="d" 
+                                     values="M 960 350;M 960 350 L 1040 300;M 960 350 L 1040 300 L 1100 350" 
+                                     dur="1.5s" begin="cracksStart.begin+0.5s" fill="freeze"/>
+                        </path>
+                        <!-- Мелкие трещины -->
+                        <g id="smallCracks" opacity="0">
+                            <path d="M 900 280 L 880 300 L 890 320" stroke="#000" stroke-width="1" fill="none"/>
+                            <path d="M 1020 280 L 1040 300 L 1030 320" stroke="#000" stroke-width="1" fill="none"/>
+                            <path d="M 920 400 L 910 420 L 920 440" stroke="#000" stroke-width="1" fill="none"/>
+                            <path d="M 1000 400 L 1010 420 L 1000 440" stroke="#000" stroke-width="1" fill="none"/>
+                        </g>
+                    </g>
+                    
+                    <!-- Осколки зеркала -->
+                    <g id="mirrorShards" opacity="0">
+                        <polygon points="960,350 940,370 950,390 970,380" fill="#2a2a3a" stroke="#000" stroke-width="1">
+                            <animateTransform attributeName="transform" type="rotate" 
+                                              values="0 955 375;10 955 375;-5 955 375" dur="2s" repeatCount="indefinite"/>
+                        </polygon>
+                        <polygon points="880,300 860,320 870,340 890,330" fill="#2a2a3a" stroke="#000" stroke-width="1">
+                            <animateTransform attributeName="transform" type="rotate" 
+                                              values="0 875 320;-15 875 320;5 875 320" dur="2.5s" repeatCount="indefinite"/>
+                        </polygon>
+                    </g>
+                </g>
+                
+                <!-- Женская фигура - детализированная и дрожащая -->
+                <g id="womanFinal" transform="translate(700, 600)">
+                    <!-- Дрожание от внутренней борьбы -->
+                    <animateTransform attributeName="transform" 
+                                      type="translate" 
+                                      values="700,600;702,598;698,602;700,600" 
+                                      dur="0.5s" repeatCount="indefinite"/>
+                    
+                    <!-- Полупрозрачное тело -->
+                    <use href="#dressingScene" opacity="0.7"/>
+                    
+                    <!-- Светящиеся контуры -->
+                    <g id="glowingOutline">
+                        <ellipse cx="0" cy="-110" rx="70" ry="80" fill="none" stroke="#fff" stroke-width="1" opacity="0.3">
+                            <animate attributeName="opacity" values="0.3;0.6;0.3" dur="2s" repeatCount="indefinite"/>
+                        </ellipse>
+                        <path d="M -100 50 Q -100 -50 0 -60 Q 100 -50 100 50 L 120 180" 
+                              fill="none" stroke="#fff" stroke-width="1" opacity="0.2">
+                            <animate attributeName="opacity" values="0.2;0.4;0.2" dur="2s" repeatCount="indefinite"/>
+                        </path>
+                    </g>
+                    
+                    <!-- Распадающиеся волосы -->
+                    <g id="disintegratingHair">
+                        <use href="#hairForRibbon" opacity="0.8"/>
+                        <!-- Отделяющиеся пряди -->
+                        <g id="floatingStrands">
+                            <path d="M -60 -160 Q -70 -140 -60 -120" stroke="#daa520" stroke-width="3" fill="none" opacity="0">
+                                <animate attributeName="opacity" values="0;0.7;0" dur="3s" begin="strandsFloat.begin" repeatCount="indefinite"/>
+                                <animateTransform attributeName="transform" type="translate" 
+                                                  values="0,0;-20,-30;-40,-60" dur="3s" begin="strandsFloat.begin" repeatCount="indefinite"/>
+                            </path>
+                            <path d="M 40 -165 Q 30 -145 40 -125" stroke="#ffd700" stroke-width="2" fill="none" opacity="0">
+                                <animate attributeName="opacity" values="0;0.6;0" dur="3.5s" begin="strandsFloat.begin+0.5s" repeatCount="indefinite"/>
+                                <animateTransform attributeName="transform" type="translate" 
+                                                  values="0,0;20,-25;35,-55" dur="3.5s" begin="strandsFloat.begin+0.5s" repeatCount="indefinite"/>
+                            </path>
+                        </g>
+                    </g>
+                    
+                    <!-- Лицо с выражением ужаса/осознания -->
+                    <g id="horrifiedFace" transform="translate(0,-110)">
+                        <!-- Широко раскрытые глаза -->
+                        <ellipse cx="-20" cy="0" rx="15" ry="12" fill="#fff">
+                            <animate attributeName="ry" values="8;12;8" dur="2s" repeatCount="indefinite"/>
+                        </ellipse>
+                        <ellipse cx="20" cy="0" rx="15" ry="12" fill="#fff">
+                            <animate attributeName="ry" values="8;12;8" dur="2s" repeatCount="indefinite"/>
+                        </ellipse>
+                        <circle cx="-20" cy="0" r="6" fill="#000">
+                            <animate attributeName="r" values="6;8;6" dur="2s" repeatCount="indefinite"/>
+                        </circle>
+                        <circle cx="20" cy="0" r="6" fill="#000">
+                            <animate attributeName="r" values="6;8;6" dur="2s" repeatCount="indefinite"/>
+                        </circle>
+                        <!-- Приоткрытый рот -->
+                        <ellipse cx="0" cy="30" rx="15" ry="8" fill="#000" opacity="0.5">
+                            <animate attributeName="ry" values="8;12;8" dur="2s" repeatCount="indefinite"/>
+                        </ellipse>
+                    </g>
+                </g>
+                
+                <!-- Звериная сущность - полностью материализованная -->
+                <g id="beastFull" transform="translate(1200, 600)">
+                    <!-- Пульсирующее движение -->
+                    <animateTransform attributeName="transform" 
+                                      type="translate" 
+                                      values="1200,600;1200,590;1200,600" 
+                                      dur="2s" repeatCount="indefinite"/>
+                    
+                    <!-- Массивное звериное тело -->
+                    <g id="beastBody">
+                        <!-- Основная форма -->
+                        <path d="M -180 150 Q -200 100 -190 50 Q -200 0 -180 -50 Q -190 -100 -150 -150 Q -100 -200 0 -200 Q 100 -200 150 -150 Q 190 -100 180 -50 Q 200 0 190 50 Q 200 100 180 150 Q 150 200 100 220 Q 50 240 0 240 Q -50 240 -100 220 Q -150 200 -180 150" 
+                              fill="#000" opacity="0.9" filter="url(#heavyShadow)"/>
+                        
+                        <!-- Мускулатура -->
+                        <path d="M -150 50 Q -130 30 -110 50 M -100 -50 Q -80 -70 -60 -50 M 60 -50 Q 80 -70 100 -50 M 110 50 Q 130 30 150 50" 
+                              stroke="#1a0000" stroke-width="3" fill="none" opacity="0.5"/>
+                        
+                        <!-- Дыхание -->
+                        <animateTransform attributeName="transform" type="scale" 
+                                          values="1,1;1.05,1.02;1,1" dur="3s" repeatCount="indefinite"/>
+                    </g>
+                    
+                    <!-- Горящие красные глаза -->
+                    <g id="burningEyes">
+                        <ellipse cx="-50" cy="-50" rx="25" ry="15" fill="#8b0000">
+                            <animate attributeName="fill" values="#8b0000;#ff0000;#8b0000" dur="1s" repeatCount="indefinite"/>
+                        </ellipse>
+                        <ellipse cx="50" cy="-50" rx="25" ry="15" fill="#8b0000">
+                            <animate attributeName="fill" values="#8b0000;#ff0000;#8b0000" dur="1s" repeatCount="indefinite"/>
+                        </ellipse>
+                        <!-- Зрачки-щели -->
+                        <line x1="-50" y1="-60" x2="-50" y2="-40" stroke="#000" stroke-width="3"/>
+                        <line x1="50" y1="-60" x2="50" y2="-40" stroke="#000" stroke-width="3"/>
+                        <!-- Свечение вокруг глаз -->
+                        <ellipse cx="-50" cy="-50" rx="35" ry="25" fill="none" stroke="#ff0000" stroke-width="2" opacity="0.3">
+                            <animate attributeName="opacity" values="0.3;0.6;0.3" dur="1s" repeatCount="indefinite"/>
+                        </ellipse>
+                        <ellipse cx="50" cy="-50" rx="35" ry="25" fill="none" stroke="#ff0000" stroke-width="2" opacity="0.3">
+                            <animate attributeName="opacity" values="0.3;0.6;0.3" dur="1s" repeatCount="indefinite"/>
+                        </ellipse>
+                    </g>
+                    
+                    <!-- Оскаленная пасть -->
+                    <g id="snarlingMouth">
+                        <path d="M -80 50 Q 0 30 80 50 Q 0 100 -80 50" fill="#000"/>
+                        <!-- Ряды зубов -->
+                        <g id="teethRows">
+                            <!-- Верхний ряд -->
+                            <path d="M -70 45 L -65 60 L -60 45" fill="#fff"/>
+                            <path d="M -50 40 L -45 55 L -40 40" fill="#fff"/>
+                            <path d="M -30 38 L -25 53 L -20 38" fill="#fff"/>
+                            <path d="M -10 37 L -5 52 L 0 37" fill="#fff"/>
+                            <path d="M 10 37 L 5 52 L 0 37" fill="#fff"/>
+                            <path d="M 20 38 L 25 53 L 30 38" fill="#fff"/>
+                            <path d="M 40 40 L 45 55 L 50 40" fill="#fff"/>
+                            <path d="M 60 45 L 65 60 L 70 45" fill="#fff"/>
+                            <!-- Клыки -->
+                            <path d="M -60 45 L -55 70 L -50 45" fill="#fff" stroke="#ccc" stroke-width="1"/>
+                            <path d="M 50 45 L 55 70 L 60 45" fill="#fff" stroke="#ccc" stroke-width="1"/>
+                            <!-- Нижний ряд -->
+                            <path d="M -65 80 L -60 65 L -55 80" fill="#fff"/>
+                            <path d="M -45 85 L -40 70 L -35 85" fill="#fff"/>
+                            <path d="M -25 87 L -20 72 L -15 87" fill="#fff"/>
+                            <path d="M -5 88 L 0 73 L 5 88" fill="#fff"/>
+                            <path d="M 15 87 L 20 72 L 25 87" fill="#fff"/>
+                            <path d="M 35 85 L 40 70 L 45 85" fill="#fff"/>
+                            <path d="M 55 80 L 60 65 L 65 80" fill="#fff"/>
+                        </g>
+                        <!-- Слюна/пена -->
+                        <circle cx="-40" cy="70" r="3" fill="#fff" opacity="0.6">
+                            <animate attributeName="cy" values="70;85;100" dur="1s" repeatCount="indefinite"/>
+                            <animate attributeName="opacity" values="0.6;0.3;0" dur="1s" repeatCount="indefinite"/>
+                        </circle>
+                        <circle cx="40" cy="75" r="2" fill="#fff" opacity="0.5">
+                            <animate attributeName="cy" values="75;90;105" dur="1.2s" repeatCount="indefinite"/>
+                            <animate attributeName="opacity" values="0.5;0.2;0" dur="1.2s" repeatCount="indefinite"/>
+                        </circle>
+                    </g>
+                    
+                    <!-- Дикие развевающиеся волосы-гривы -->
+                    <g id="wildMane">
+                        <path d="M -120 -150 Q -180 -100 -150 -50 Q -170 0 -130 50 Q -150 100 -110 150" 
+                              stroke="#8b0000" stroke-width="10" fill="none" opacity="0.8">
+                            <animate attributeName="d" 
+                                     values="M -120 -150 Q -180 -100 -150 -50 Q -170 0 -130 50 Q -150 100 -110 150;
+                                             M -120 -150 Q -190 -110 -150 -50 Q -180 10 -130 50 Q -160 110 -110 150;
+                                             M -120 -150 Q -180 -100 -150 -50 Q -170 0 -130 50 Q -150 100 -110 150"
+                                     dur="3s" repeatCount="indefinite"/>
+                        </path>
+                        <path d="M 120 -150 Q 180 -100 150 -50 Q 170 0 130 50 Q 150 100 110 150" 
+                              stroke="#8b0000" stroke-width="10" fill="none" opacity="0.8">
+                            <animate attributeName="d" 
+                                     values="M 120 -150 Q 180 -100 150 -50 Q 170 0 130 50 Q 150 100 110 150;
+                                             M 120 -150 Q 190 -110 150 -50 Q 180 10 130 50 Q 160 110 110 150;
+                                             M 120 -150 Q 180 -100 150 -50 Q 170 0 130 50 Q 150 100 110 150"
+                                     dur="3s" repeatCount="indefinite"/>
+                        </path>
+                        <!-- Множество мелких прядей -->
+                        <g id="maneStrands" opacity="0.6">
+                            <path d="M -80 -160 Q -100 -120 -80 -80" stroke="#a0522d" stroke-width="6" fill="none"/>
+                            <path d="M -40 -165 Q -60 -125 -40 -85" stroke="#8b4513" stroke-width="5" fill="none"/>
+                            <path d="M 0 -168 Q -20 -128 0 -88" stroke="#8b0000" stroke-width="7" fill="none"/>
+                            <path d="M 40 -165 Q 20 -125 40 -85" stroke="#a0522d" stroke-width="5" fill="none"/>
+                            <path d="M 80 -160 Q 60 -120 80 -80" stroke="#8b4513" stroke-width="6" fill="none"/>
+                        </g>
+                    </g>
+                    
+                    <!-- Когтистые лапы -->
+                    <g id="clawedPaws">
+                        <!-- Левая лапа -->
+                        <g transform="translate(-100, 200)">
+                            <ellipse cx="0" cy="0" rx="50" ry="30" fill="#000" opacity="0.8"/>
+                            <!-- Когти -->
+                            <path d="M -30 -10 Q -35 -25 -40 -30 Q -35 -25 -30 -10" fill="#fff" opacity="0.9"/>
+                            <path d="M -10 -15 Q -15 -30 -20 -35 Q -15 -30 -10 -15" fill="#fff" opacity="0.9"/>
+                            <path d="M 10 -15 Q 5 -30 0 -35 Q 5 -30 10 -15" fill="#fff" opacity="0.9"/>
+                            <path d="M 30 -10 Q 25 -25 20 -30 Q 25 -25 30 -10" fill="#fff" opacity="0.9"/>
+                        </g>
+                        <!-- Правая лапа -->
+                        <g transform="translate(100, 200)">
+                            <ellipse cx="0" cy="0" rx="50" ry="30" fill="#000" opacity="0.8"/>
+                            <!-- Когти -->
+                            <path d="M -30 -10 Q -25 -25 -20 -30 Q -25 -25 -30 -10" fill="#fff" opacity="0.9"/>
+                            <path d="M -10 -15 Q -5 -30 0 -35 Q -5 -30 -10 -15" fill="#fff" opacity="0.9"/>
+                            <path d="M 10 -15 Q 15 -30 20 -35 Q 15 -30 10 -15" fill="#fff" opacity="0.9"/>
+                            <path d="M 30 -10 Q 35 -25 40 -30 Q 35 -25 30 -10" fill="#fff" opacity="0.9"/>
+                        </g>
+                    </g>
+                    
+                    <!-- Темная аура вокруг зверя -->
+                    <g id="darkAura" opacity="0.5">
+                        <ellipse cx="0" cy="0" rx="250" ry="300" fill="none" stroke="#000" stroke-width="20" filter="url(#blur)">
+                            <animate attributeName="rx" values="250;280;250" dur="4s" repeatCount="indefinite"/>
+                            <animate attributeName="ry" values="300;330;300" dur="4s" repeatCount="indefinite"/>
+                        </ellipse>
+                        <ellipse cx="0" cy="0" rx="200" ry="250" fill="none" stroke="#8b0000" stroke-width="10" filter="url(#blur)" opacity="0.3">
+                            <animate attributeName="rx" values="200;220;200" dur="3s" repeatCount="indefinite"/>
+                        </ellipse>
+                    </g>
+                </g>
+                
+                <!-- Энергетическая связь между двумя сущностями -->
+                <g id="energyConnection" opacity="0.6">
+                    <path d="M 800 600 Q 1000 500 1100 600" fill="none" stroke="#daa520" stroke-width="3">
+                        <animate attributeName="d" 
+                                 values="M 800 600 Q 1000 500 1100 600;M 800 600 Q 1000 550 1100 600;M 800 600 Q 1000 500 1100 600"
+                                 dur="2s" repeatCount="indefinite"/>
+                    </path>
+                    <circle cx="950" cy="550" r="5" fill="#ffd700">
+                        <animate attributeName="cx" values="800;1100;800" dur="3s" repeatCount="indefinite"/>
+                        <animate attributeName="cy" values="600;550;600" dur="3s" repeatCount="indefinite"/>
+                    </circle>
+                </g>
+                
+                <!-- Финальный текст с драматическим эффектом -->
+                <g id="finalTextDramatic" opacity="0">
+                    <text x="960" y="900" text-anchor="middle" font-size="50" fill="#8b0000" font-family="Georgia" font-style="italic" opacity="0.8">
+                        Верь ему
+                        <animate attributeName="opacity" values="0;0.8;0.4;0.8" dur="3s" repeatCount="indefinite"/>
+                    </text>
+                    <text x="960" y="980" text-anchor="middle" font-size="70" fill="#fff" font-family="Georgia" font-weight="bold">
+                        мне же — нет
+                        <animate attributeName="font-size" values="70;75;70" dur="2s" repeatCount="indefinite"/>
+                    </text>
+                    <!-- Подчеркивание -->
+                    <line x1="750" y1="1000" x2="1170" y2="1000" stroke="#fff" stroke-width="3" opacity="0">
+                        <animate attributeName="x2" values="750;1170" dur="1s" begin="finalTextShow.begin+1s" fill="freeze"/>
+                        <animate attributeName="opacity" values="0;1" dur="1s" begin="finalTextShow.begin+1s" fill="freeze"/>
+                    </line>
+                </g>
+            </g>
+        </svg>
+        
+        <!-- Эффект виньетки -->
+        <div id="vignette"></div>
+        
+        <!-- Субтитры -->
+        <div class="subtitle" id="subtitle"></div>
+        
+        <!-- Частицы пыли -->
+        <div id="particles"></div>
+    </div>
+
+    <script>
+        // Создание частиц пыли
+        function createDustParticles() {
+            const particlesContainer = document.getElementById('particles');
+            for (let i = 0; i < 50; i++) {
+                const particle = document.createElement('div');
+                particle.className = 'dust-particle';
+                particle.style.left = Math.random() * 100 + '%';
+                particle.style.top = Math.random() * 100 + '%';
+                particle.style.animationDelay = Math.random() * 10 + 's';
+                particle.style.animationDuration = (10 + Math.random() * 20) + 's';
+                
+                // Анимация частиц
+                particle.style.animation = `floatParticle ${10 + Math.random() * 20}s infinite`;
+                particlesContainer.appendChild(particle);
+            }
+        }
+
+        // CSS анимация для частиц
+        const style = document.createElement('style');
+        style.textContent = `
+            @keyframes floatParticle {
+                0% { transform: translateY(100vh) translateX(0); opacity: 0; }
+                10% { opacity: 0.3; }
+                90% { opacity: 0.3; }
+                100% { transform: translateY(-100vh) translateX(100px); opacity: 0; }
+            }
+        `;
+        document.head.appendChild(style);
+
+        // Субтитры с таймингами
+        const subtitles = [
+            { time: 2000, text: "Темное золото," },
+            { time: 6000, text: "мысленное волнение," },
+            { time: 10000, text: "усмиряется лентой,\nкружевом на волосах." },
+            { time: 16000, text: "Можно надеть жакет," },
+            { time: 26000, text: "пригладить перья," },
+            { time: 34000, text: "но меня выдает,\nпринимая шаги - паркет," },
+            { time: 38000, text: "почерк больного зверя," },
+            { time: 43000, text: "мой настоящий след." },
+            { time: 48000, text: "Верь ему, мне же - нет." }
+        ];
+
+        // Функции для управления сценами
+        function fadeInScene(sceneId, duration = 1000) {
+            const scene = document.getElementById(sceneId);
+            scene.style.transition = `opacity ${duration}ms ease-in-out`;
+            scene.style.opacity = '1';
+        }
+
+        function fadeOutScene(sceneId, duration = 1000) {
+            const scene = document.getElementById(sceneId);
+            scene.style.transition = `opacity ${duration}ms ease-in-out`;
+            scene.style.opacity = '0';
+        }
+
+        function showSubtitle(text, duration = 3000) {
+            const subtitle = document.getElementById('subtitle');
+            subtitle.innerHTML = text.replace('\n', '<br>');
+            subtitle.style.transition = 'opacity 500ms ease-in-out';
+            subtitle.style.opacity = '1';
+            setTimeout(() => {
+                subtitle.style.opacity = '0';
+            }, duration - 500);
+        }
+
+        // Функции для сложных анимаций второй половины
+        function animateTransformation() {
+            // Эффект дрожания камеры
+            const cameraShake = document.getElementById('cameraShake');
+            let shakeInterval = setInterval(() => {
+                const x = Math.random() * 4 - 2;
+                const y = Math.random() * 4 - 2;
+                cameraShake.setAttribute('transform', `translate(${x},${y})`);
+            }, 50);
+            
+            setTimeout(() => clearInterval(shakeInterval), 5000);
+            
+            // Появление вен
+            setTimeout(() => {
+                const veins = document.getElementById('veins');
+                veins.style.transition = 'opacity 2s ease-in-out';
+                veins.style.opacity = '1';
+            }, 1000);
+            
+            // Изменение текстуры кожи
+            setTimeout(() => {
+                const skinPattern = document.querySelector('#skinPattern ellipse');
+                if (skinPattern) {
+                    skinPattern.style.transition = 'opacity 3s ease-in-out';
+                    skinPattern.style.opacity = '0.3';
+                }
+            }, 2000);
+            
+            // Трансформация глаз
+            setTimeout(() => {
+                // Появление кровеносных сосудов
+                const leftVessels = document.getElementById('leftEyeVessels');
+                const rightVessels = document.getElementById('rightEyeVessels');
+                leftVessels.style.transition = 'opacity 1s ease-in-out';
+                rightVessels.style.transition = 'opacity 1s ease-in-out';
+                leftVessels.style.opacity = '1';
+                rightVessels.style.opacity = '1';
+                
+                // Изменение зрачков
+                const leftPupil = document.getElementById('leftPupil');
+                const rightPupil = document.getElementById('rightPupil');
+                
+                // Анимация превращения в щели
+                setTimeout(() => {
+                    leftPupil.style.transition = 'all 2s ease-in-out';
+                    rightPupil.style.transition = 'all 2s ease-in-out';
+                    leftPupil.setAttribute('ry', '8');
+                    rightPupil.setAttribute('ry', '8');
+                    leftPupil.setAttribute('fill', '#8b0000');
+                    rightPupil.setAttribute('fill', '#8b0000');
+                    
+                    // Исчезание бликов
+                    const leftHighlight = document.getElementById('leftHighlight');
+                    const rightHighlight = document.getElementById('rightHighlight');
+                    leftHighlight.style.transition = 'opacity 1s ease-in-out';
+                    rightHighlight.style.transition = 'opacity 1s ease-in-out';
+                    leftHighlight.style.opacity = '0.2';
+                    rightHighlight.style.opacity = '0.2';
+                }, 1000);
+            }, 3000);
+            
+            // Морщины напряжения
+            setTimeout(() => {
+                const wrinkles = document.getElementById('eyeWrinkles');
+                wrinkles.style.transition = 'opacity 1.5s ease-in-out';
+                wrinkles.style.opacity = '1';
+            }, 4000);
+            
+            // Расширение ноздрей
+            setTimeout(() => {
+                const leftNostril = document.getElementById('leftNostril');
+                const rightNostril = document.getElementById('rightNostril');
+                leftNostril.style.transition = 'all 1s ease-in-out';
+                rightNostril.style.transition = 'all 1s ease-in-out';
+                leftNostril.setAttribute('rx', '8');
+                rightNostril.setAttribute('rx', '8');
+                leftNostril.setAttribute('ry', '5');
+                rightNostril.setAttribute('ry', '5');
+            }, 4500);
+            
+            // Трансформация рта
+            setTimeout(() => {
+                const lips = document.getElementById('lips');
+                const teeth = document.getElementById('teeth');
+                
+                // Открытие рта
+                lips.style.transition = 'd 1.5s ease-in-out';
+                lips.setAttribute('d', 'M -50 100 Q 0 85 50 100 Q 0 120 -50 100');
+                
+                // Появление зубов
+                setTimeout(() => {
+                    teeth.style.transition = 'opacity 1s ease-in-out';
+                    teeth.style.opacity = '1';
+                    
+                    // Рост клыков
+                    setTimeout(() => {
+                        const leftFang = document.getElementById('leftFang');
+                        const rightFang = document.getElementById('rightFang');
+                        leftFang.style.transition = 'opacity 0.5s ease-in-out';
+                        rightFang.style.transition = 'opacity 0.5s ease-in-out';
+                        leftFang.style.opacity = '1';
+                        rightFang.style.opacity = '1';
+                    }, 500);
+                }, 1000);
+            }, 5000);
+            
+            // Энергетические искры
+            setTimeout(() => {
+                const sparks = document.getElementById('hairSparks');
+                sparks.style.opacity = '1';
+            }, 6000);
+            
+            // Аура трансформации
+            setTimeout(() => {
+                const aura = document.getElementById('transformAura');
+                aura.style.transition = 'opacity 2s ease-in-out';
+                aura.style.opacity = '1';
+            }, 6500);
+            
+            // Проявление звериной морды
+            setTimeout(() => {
+                const beastFace = document.getElementById('beastFace');
+                beastFace.style.transition = 'opacity 3s ease-in-out';
+                beastFace.style.opacity = '1';
+            }, 7000);
+        }
+
+        function animateFootstepsSequence() {
+            const walkingShadow = document.getElementById('walkingShadow');
+            walkingShadow.style.opacity = '1';
+            
+            // Последовательное появление человеческих следов
+            const humanSteps = ['humanStep1', 'humanStep2', 'humanStep3', 'humanStep4', 'humanStep5'];
+            humanSteps.forEach((stepId, index) => {
+                setTimeout(() => {
+                    const step = document.getElementById(stepId);
+                    if (step) {
+                        step.style.transition = 'opacity 0.5s ease-in-out';
+                        step.style.opacity = '1';
+                        
+                        // Звук шага (визуальный эффект)
+                        const circle = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+                        circle.setAttribute('cx', step.getAttribute('transform').match(/translate\(([^,]+),/)[1]);
+                        circle.setAttribute('cy', step.getAttribute('transform').match(/translate\([^,]+,([^)]+)\)/)[1]);
+                        circle.setAttribute('r', '0');
+                        circle.setAttribute('fill', 'none');
+                        circle.setAttribute('stroke', '#fff');
+                        circle.setAttribute('stroke-width', '2');
+                        circle.setAttribute('opacity', '0.5');
+                        step.parentNode.appendChild(circle);
+                        
+                        // Анимация волны от шага
+                        circle.style.transition = 'all 0.5s ease-out';
+                        setTimeout(() => {
+                            circle.setAttribute('r', '50');
+                            circle.setAttribute('opacity', '0');
+                        }, 50);
+                        
+                        setTimeout(() => circle.remove(), 600);
+                    }
+                }, index * 800);
+            });
+            
+            // Момент трансформации
+            setTimeout(() => {
+                const transformMoment = document.getElementById('transformationMoment');
+                transformMoment.style.opacity = '1';
+                
+                // Запуск анимации трансформации
+                const event = new Event('beginEvent');
+                const transformElement = document.getElementById('transformationMoment');
+                if (transformElement) {
+                    const animations = transformElement.querySelectorAll('animate, animateTransform');
+                    animations.forEach(anim => {
+                        anim.beginElement();
+                    });
+                }
+            }, humanSteps.length * 800 + 1000);
+            
+            // Появление звериных следов
+            setTimeout(() => {
+                const beastSteps = ['beastStep1', 'beastStep2', 'beastStep3', 'beastStep4'];
+                beastSteps.forEach((stepId, index) => {
+                    setTimeout(() => {
+                        const step = document.getElementById(stepId);
+                        if (step) {
+                            step.style.transition = 'opacity 0.6s ease-in-out';
+                            step.style.opacity = '1';
+                            
+                            // Эффект удара когтей
+                            const scratches = step.querySelectorAll('path[stroke="#8b0000"]');
+                            scratches.forEach((scratch, i) => {
+                                scratch.style.strokeDasharray = '50';
+                                scratch.style.strokeDashoffset = '50';
+                                scratch.style.transition = 'stroke-dashoffset 0.3s ease-out';
+                                setTimeout(() => {
+                                    scratch.style.strokeDashoffset = '0';
+                                }, i * 100);
+                            });
+                        }
+                    }, index * 1000);
+                });
+            }, humanSteps.length * 800 + 4000);
+            
+            // Движение камеры
+            setTimeout(() => {
+                const cameraElement = document.getElementById('cameraMovement');
+                if (cameraElement) {
+                    const animations = cameraElement.querySelectorAll('animateTransform');
+                    animations.forEach(anim => {
+                        anim.beginElement();
+                    });
+                }
+            }, 2000);
+        }
+
+        function animateFinalScene() {
+            // Молнии
+            const lightning = document.getElementById('lightning');
+            lightning.style.opacity = '1';
+            
+            // Трещины в зеркале
+            setTimeout(() => {
+                const cracksElement = document.getElementById('animatedCracks');
+                if (cracksElement) {
+                    const animations = cracksElement.querySelectorAll('animate');
+                    animations.forEach(anim => {
+                        anim.beginElement();
+                    });
+                }
+                
+                // Мелкие трещины
+                setTimeout(() => {
+                    const smallCracks = document.getElementById('smallCracks');
+                    smallCracks.style.transition = 'opacity 1s ease-in-out';
+                    smallCracks.style.opacity = '1';
+                    
+                    // Осколки
+                    setTimeout(() => {
+                        const shards = document.getElementById('mirrorShards');
+                        shards.style.transition = 'opacity 1s ease-in-out';
+                        shards.style.opacity = '1';
+                    }, 1000);
+                }, 2000);
+            }, 1000);
+            
+            // Распадающиеся волосы женщины
+            setTimeout(() => {
+                const strandsElement = document.getElementById('floatingStrands');
+                if (strandsElement) {
+                    const animations = strandsElement.querySelectorAll('animate, animateTransform');
+                    animations.forEach(anim => {
+                        anim.beginElement();
+                    });
+                }
+            }, 3000);
+            
+            // Усиление звериной сущности
+            setTimeout(() => {
+                const darkAura = document.getElementById('darkAura');
+                darkAura.style.transition = 'opacity 2s ease-in-out';
+                darkAura.style.opacity = '1';
+                
+                // Анимация пасти
+                const teethRows = document.getElementById('teethRows');
+                const teeth = teethRows.querySelectorAll('path');
+                teeth.forEach((tooth, index) => {
+                    tooth.style.opacity = '0';
+                    tooth.style.transition = 'opacity 0.2s ease-in-out';
+                    setTimeout(() => {
+                        tooth.style.opacity = '1';
+                    }, index * 50);
+                });
+            }, 4000);
+            
+            // Энергетическая связь
+            setTimeout(() => {
+                const connection = document.getElementById('energyConnection');
+                connection.style.transition = 'opacity 2s ease-in-out';
+                connection.style.opacity = '1';
+            }, 5000);
+            
+            // Финальный текст
+            setTimeout(() => {
+                const finalText = document.getElementById('finalTextDramatic');
+                finalText.style.transition = 'opacity 2s ease-in-out';
+                finalText.style.opacity = '1';
+                
+                const finalTextAnimations = finalText.querySelectorAll('animate');
+                finalTextAnimations.forEach(anim => {
+                    anim.beginElement();
+                });
+            }, 6000);
+        }
+        function animateRibbonWeaving() {
+            // Руки поднимаются к волосам
+            const leftHand = document.getElementById('leftHand');
+            const rightHand = document.getElementById('rightHand');
+            const leftArm = document.getElementById('leftArmPath');
+            const rightArm = document.getElementById('rightArmPath');
+            
+            // Появление ленты в правой руке
+            const ribbonInHand = document.getElementById('ribbonInHand');
+            ribbonInHand.style.opacity = '1';
+            ribbonInHand.style.transform = 'translate(100, 80)';
+            ribbonInHand.style.transition = 'all 1s ease-in-out';
+            
+            // Поднятие рук к голове
+            setTimeout(() => {
+                leftArm.setAttribute('d', 'M -80 -30 Q -100 -80 -60 -130 Q -50 -140 -40 -130');
+                rightArm.setAttribute('d', 'M 80 -30 Q 100 -80 60 -130 Q 50 -140 40 -130');
+                leftHand.style.transform = 'translate(-40, -130) rotate(-20deg)';
+                rightHand.style.transform = 'translate(40, -130) rotate(20deg)';
+                leftHand.style.transition = 'all 2s ease-in-out';
+                rightHand.style.transition = 'all 2s ease-in-out';
+                ribbonInHand.style.transform = 'translate(40, -130)';
+            }, 500);
+            
+            // Анимация вплетания ленты в волосы
+            setTimeout(() => {
+                // Пряди собираются
+                const strands = document.querySelectorAll('#topStrands path');
+                strands.forEach((strand, index) => {
+                    strand.style.transition = 'all 1.5s ease-in-out';
+                    strand.style.transform = `translateY(-10px) scale(0.9)`;
+                });
+                
+                // Лента интегрируется в прическу
+                ribbonInHand.style.opacity = '0';
+                
+                // Появление ленты в волосах
+                setTimeout(() => {
+                    const hairRibbon = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+                    hairRibbon.setAttribute('d', 'M -50 -155 Q 0 -165 50 -155');
+                    hairRibbon.setAttribute('fill', 'none');
+                    hairRibbon.setAttribute('stroke', '#8b0000');
+                    hairRibbon.setAttribute('stroke-width', '4');
+                    hairRibbon.style.opacity = '0';
+                    document.getElementById('hairForRibbon').appendChild(hairRibbon);
+                    
+                    setTimeout(() => {
+                        hairRibbon.style.transition = 'opacity 1s ease-in-out';
+                        hairRibbon.style.opacity = '1';
+                    }, 100);
+                }, 500);
+                
+                // Появление кружева
+                const lace = document.getElementById('laceDetails');
+                lace.style.opacity = '1';
+                lace.style.transition = 'opacity 1.5s ease-in-out';
+            }, 2500);
+            
+            // Опускание рук
+            setTimeout(() => {
+                leftArm.setAttribute('d', 'M -80 -30 Q -120 20 -100 80 Q -90 100 -80 80');
+                rightArm.setAttribute('d', 'M 80 -30 Q 120 20 100 80 Q 90 100 80 80');
+                leftHand.style.transform = 'translate(-100, 80)';
+                rightHand.style.transform = 'translate(100, 80)';
+            }, 4500);
+        }
+        
+        function animateJacketDressing() {
+            const jacketNearby = document.getElementById('jacketNearby');
+            const baseBody = document.querySelector('#baseBody path');
+            const leftArm = document.getElementById('leftArmPath');
+            const rightArm = document.getElementById('rightArmPath');
+            const leftHand = document.getElementById('leftHand');
+            const rightHand = document.getElementById('rightHand');
+            
+            // Жакет появляется
+            jacketNearby.style.opacity = '1';
+            jacketNearby.style.transition = 'all 1s ease-in-out';
+            
+            // Руки тянутся к жакету
+            setTimeout(() => {
+                rightArm.setAttribute('d', 'M 80 -30 Q 180 -50 250 -80 Q 270 -90 280 -100');
+                rightHand.style.transform = 'translate(280, -100) rotate(45deg)';
+                rightHand.style.transition = 'all 1.5s ease-in-out';
+            }, 1000);
+            
+            // Берет жакет
+            setTimeout(() => {
+                jacketNearby.style.transform = 'translate(0, 0)';
+                jacketNearby.style.transition = 'all 2s ease-in-out';
+            }, 2500);
+            
+            // Надевание жакета - сложная анимация
+            setTimeout(() => {
+                // Левая рука в рукав
+                leftArm.setAttribute('d', 'M -80 -30 Q -100 -20 -90 0 Q -85 20 -80 30');
+                leftHand.style.transform = 'translate(-80, 30) rotate(-10deg)';
+                
+                // Жакет трансформируется на теле
+                const jacketOnBody = document.createElementNS('http://www.w3.org/2000/svg', 'g');
+                jacketOnBody.innerHTML = `
+                    <path d="M -80 -30 Q -80 -50 -40 -55 Q 0 -60 40 -55 Q 80 -50 80 -30 L 90 150 Q 90 170 60 170 L -60 170 Q -90 170 -90 150 Z" 
+                          fill="#2c2c2c" stroke="#1a1a1a" stroke-width="2" opacity="0"/>
+                    <path d="M -80 -30 Q -110 0 -100 40 Q -95 60 -85 50" fill="#2c2c2c" stroke="#1a1a1a" stroke-width="2" opacity="0"/>
+                    <path d="M 80 -30 Q 110 0 100 40 Q 95 60 85 50" fill="#2c2c2c" stroke="#1a1a1a" stroke-width="2" opacity="0"/>
+                `;
+                document.getElementById('dressingScene').appendChild(jacketOnBody);
+                
+                // Анимация появления жакета на теле
+                setTimeout(() => {
+                    jacketOnBody.querySelectorAll('path').forEach(path => {
+                        path.style.transition = 'opacity 1s ease-in-out';
+                        path.style.opacity = '1';
+                    });
+                    jacketNearby.style.opacity = '0';
+                    baseBody.style.opacity = '0.3';
+                }, 100);
+                
+                // Правая рука в рукав
+                setTimeout(() => {
+                    rightArm.setAttribute('d', 'M 80 -30 Q 100 -20 90 0 Q 85 20 80 30');
+                    rightHand.style.transform = 'translate(80, 30) rotate(10deg)';
+                }, 500);
+                
+                // Застегивание пуговиц
+                setTimeout(() => {
+                    // Руки сходятся к центру
+                    leftArm.setAttribute('d', 'M -80 -30 Q -40 0 -10 20 Q -5 25 0 20');
+                    rightArm.setAttribute('d', 'M 80 -30 Q 40 0 10 20 Q 5 25 0 20');
+                    leftHand.style.transform = 'translate(0, 20)';
+                    rightHand.style.transform = 'translate(0, 20)';
+                    
+                    // Добавляем пуговицы
+                    const buttons = document.createElementNS('http://www.w3.org/2000/svg', 'g');
+                    buttons.innerHTML = `
+                        <circle cx="0" cy="-20" r="4" fill="#444" opacity="0"/>
+                        <circle cx="0" cy="0" r="4" fill="#444" opacity="0"/>
+                        <circle cx="0" cy="20" r="4" fill="#444" opacity="0"/>
+                    `;
+                    jacketOnBody.appendChild(buttons);
+                    
+                    // Анимация застегивания
+                    setTimeout(() => {
+                        buttons.querySelectorAll('circle').forEach((button, index) => {
+                            setTimeout(() => {
+                                button.style.transition = 'opacity 0.3s ease-in-out';
+                                button.style.opacity = '1';
+                            }, index * 300);
+                        });
+                    }, 500);
+                }, 1500);
+            }, 4000);
+            
+            // Возврат рук в нормальное положение
+            setTimeout(() => {
+                leftArm.setAttribute('d', 'M -80 -30 Q -120 20 -100 80 Q -90 100 -80 80');
+                rightArm.setAttribute('d', 'M 80 -30 Q 120 20 100 80 Q 90 100 80 80');
+                leftHand.style.transform = 'translate(-100, 80)';
+                rightHand.style.transform = 'translate(100, 80)';
+            }, 8000);
+        }
+        
+        function animateFeatherSmoothing() {
+            const feathers = document.getElementById('feathersForSmoothing');
+            const rightArm = document.getElementById('rightArmPath');
+            const rightHand = document.getElementById('rightHand');
+            
+            // Появление броши с перьями
+            feathers.style.opacity = '1';
+            feathers.style.transition = 'all 1s ease-in-out';
+            
+            // Рука поднимается к перьям
+            setTimeout(() => {
+                rightArm.setAttribute('d', 'M 80 -30 Q 90 -60 70 -80 Q 60 -85 50 -80');
+                rightHand.style.transform = 'translate(50, -80) rotate(-30deg)';
+                rightHand.style.transition = 'all 1.5s ease-in-out';
+            }, 1000);
+            
+            // Приглаживание перьев
+            setTimeout(() => {
+                // Анимация каждого пера
+                ['feather1', 'feather2', 'feather3', 'feather4'].forEach((featherId, index) => {
+                    const feather = document.getElementById(featherId);
+                    if (feather) {
+                        const originalTransform = feather.getAttribute('transform') || '';
+                        setTimeout(() => {
+                            feather.style.transition = 'all 0.5s ease-in-out';
+                            feather.style.transform = originalTransform + ' scale(0.95)';
+                            
+                            setTimeout(() => {
+                                feather.style.transform = originalTransform;
+                            }, 500);
+                        }, index * 200);
+                    }
+                });
+                
+                // Движение руки при приглаживании
+                const smoothingMotion = [
+                    'M 80 -30 Q 90 -60 65 -75 Q 55 -80 45 -75',
+                    'M 80 -30 Q 90 -60 55 -75 Q 45 -80 35 -75',
+                    'M 80 -30 Q 90 -60 60 -80 Q 50 -85 40 -80'
+                ];
+                
+                smoothingMotion.forEach((d, index) => {
+                    setTimeout(() => {
+                        rightArm.setAttribute('d', d);
+                    }, index * 400);
+                });
+            }, 2500);
+            
+            // Возврат руки
+            setTimeout(() => {
+                rightArm.setAttribute('d', 'M 80 -30 Q 120 20 100 80 Q 90 100 80 80');
+                rightHand.style.transform = 'translate(100, 80)';
+            }, 5000);
+        }
+
+        // Сложная анимационная последовательность
+        const animationSequence = [
+            // Сцена 1: Крупный план волос
+            {
+                time: 0,
+                action: () => {
+                    createDustParticles();
+                    fadeInScene('scene1', 2000);
+                }
+            },
+            {
+                time: 2000,
+                action: () => {
+                    showSubtitle(subtitles[0].text);
+                    // Усиление свечения волос
+                    const hairStrands = document.querySelectorAll('#hairStrands path');
+                    hairStrands.forEach(strand => {
+                        strand.style.filter = 'url(#dramaticGlow)';
+                    });
+                }
+            },
+            
+            // Переход к сцене 2
+            {
+                time: 5000,
+                action: () => {
+                    fadeOutScene('scene1', 1000);
+                    setTimeout(() => fadeInScene('scene2', 1000), 500);
+                }
+            },
+            
+            // Сцена 2: Комната
+            {
+                time: 6000,
+                action: () => {
+                    showSubtitle(subtitles[1].text);
+                    fadeInScene('scene3', 1000);
+                }
+            },
+            
+            // Мысленное волнение в отражении
+            {
+                time: 8000,
+                action: () => {
+                    const anxietyWaves = document.getElementById('anxietyWaves');
+                    anxietyWaves.style.transition = 'opacity 1s ease-in-out';
+                    anxietyWaves.style.opacity = '1';
+                }
+            },
+            
+            // ДЕТАЛЬНАЯ СЦЕНА ОДЕВАНИЯ
+            // Лента и кружево
+            {
+                time: 10000,
+                action: () => {
+                    showSubtitle(subtitles[2].text, 4000);
+                    animateRibbonWeaving();
+                    
+                    // Уменьшение волнения по мере вплетания ленты
+                    setTimeout(() => {
+                        const anxietyWaves = document.getElementById('anxietyWaves');
+                        anxietyWaves.style.opacity = '0.3';
+                    }, 3000);
+                }
+            },
+            
+            // Жакет
+            {
+                time: 16000,
+                action: () => {
+                    showSubtitle(subtitles[3].text, 4000);
+                    animateJacketDressing();
+                    
+                    // Волнение почти исчезает
+                    const anxietyWaves = document.getElementById('anxietyWaves');
+                    anxietyWaves.style.opacity = '0.1';
+                }
+            },
+            
+            // Перья
+            {
+                time: 26000,
+                action: () => {
+                    showSubtitle(subtitles[4].text, 3000);
+                    animateFeatherSmoothing();
+                    
+                    // Полное исчезновение волнения
+                    setTimeout(() => {
+                        const anxietyWaves = document.getElementById('anxietyWaves');
+                        anxietyWaves.style.opacity = '0';
+                    }, 1000);
+                }
+            },
+            
+            // Переход к сцене трансформации
+            {
+                time: 32000,
+                action: () => {
+                    fadeOutScene('scene3', 1000);
+                    fadeInScene('scene4', 1000);
+                    // Запуск детальной трансформации
+                    setTimeout(() => {
+                        animateTransformation();
+                    }, 1000);
+                }
+            },
+            
+            // Сцена с паркетом - кинематографичная
+            {
+                time: 34000,
+                action: () => {
+                    showSubtitle(subtitles[5].text, 4000);
+                    setTimeout(() => {
+                        fadeOutScene('scene4', 1000);
+                        fadeInScene('scene5', 1000);
+                        
+                        // Запуск сложной последовательности следов
+                        setTimeout(() => {
+                            animateFootstepsSequence();
+                        }, 1000);
+                    }, 6000);
+                }
+            },
+            
+            // Трансформация следов
+            {
+                time: 44000,
+                action: () => {
+                    showSubtitle(subtitles[6].text, 3000);
+                }
+            },
+            
+            // Настоящий след
+            {
+                time: 48000,
+                action: () => {
+                    showSubtitle(subtitles[7].text, 3000);
+                }
+            },
+            
+            // Финальная сцена - кульминация
+            {
+                time: 52000,
+                action: () => {
+                    fadeOutScene('scene5', 2000);
+                    setTimeout(() => {
+                        fadeInScene('scene6', 2000);
+                        // Запуск финальной драматической сцены
+                        setTimeout(() => {
+                            animateFinalScene();
+                        }, 1000);
+                    }, 1000);
+                }
+            },
+            
+            // Финальный текст
+            {
+                time: 55000,
+                action: () => {
+                    showSubtitle(subtitles[8].text, 5000);
+                }
+            },
+            
+            // Затемнение и зацикливание
+            {
+                time: 65000,
+                action: () => {
+                    const cinema = document.getElementById('cinema');
+                    cinema.style.transition = 'opacity 3s ease-in-out';
+                    cinema.style.opacity = '0';
+                    setTimeout(() => {
+                        location.reload();
+                    }, 3000);
+                }
+            }
+        ];
+
+        // Запуск анимации
+        animationSequence.forEach(({ time, action }) => {
+            setTimeout(action, time);
+        });
+
+        // Инициализация анимаций SVG
+        document.addEventListener('DOMContentLoaded', () => {
+            // Настройка beginEvent для SMIL анимаций
+            const animatedElements = document.querySelectorAll('[begin]');
+            animatedElements.forEach(element => {
+                if (element.getAttribute('begin').includes('.begin')) {
+                    element.setAttribute('begin', 'indefinite');
+                }
+            });
+        });
+    </script>
+</body>
+</html>
