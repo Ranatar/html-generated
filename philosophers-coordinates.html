@@ -1,0 +1,675 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8" />
+  <title>Карта философских позиций: серия диаграмм</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <style>
+    :root {
+      --bg: #0f1115;
+      --panel: #171a21;
+      --text: #e8ebf0;
+      --muted: #9aa4b2;
+      --grid: #2a2f3a;
+      --accent: #3fa9f5;
+    }
+    body {
+      margin: 0;
+      font-family: system-ui, -apple-system, Segoe UI, Roboto, Ubuntu, Cantarell, "Helvetica Neue", Arial, "Noto Sans", "Liberation Sans", sans-serif;
+      color: var(--text);
+      background: var(--bg);
+      line-height: 1.35;
+    }
+    header {
+      padding: 20px 24px 6px;
+    }
+    header h1 {
+      margin: 0 0 8px;
+      font-size: 22px;
+      font-weight: 700;
+      letter-spacing: 0.2px;
+    }
+    header p {
+      margin: 0 0 10px;
+      color: var(--muted);
+      font-size: 14px;
+      max-width: 1200px;
+    }
+    .wrap {
+      display: grid;
+      grid-template-columns: 280px 1fr;
+      gap: 16px;
+      padding: 0 16px 20px;
+    }
+    .panel {
+      background: var(--panel);
+      border-radius: 10px;
+      padding: 14px 14px 8px;
+      box-shadow: 0 0 0 1px rgba(255,255,255,0.03) inset, 0 8px 30px rgba(0,0,0,.35);
+    }
+    .panel h2 {
+      font-size: 14px;
+      margin: 0 0 10px;
+      color: var(--muted);
+      font-weight: 600;
+      letter-spacing: .3px;
+      text-transform: uppercase;
+    }
+    .panel .group { margin-bottom: 12px; }
+    .panel label {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 14px;
+      margin: 6px 0;
+      cursor: pointer;
+    }
+    .panel input[type="checkbox"] {
+      width: 16px;
+      height: 16px;
+      accent-color: var(--accent);
+    }
+    .legend-color {
+      display: inline-block;
+      width: 12px;
+      height: 12px;
+      border-radius: 3px;
+      margin-right: 6px;
+      box-shadow: 0 0 0 1px rgba(0,0,0,.6) inset;
+    }
+    .controls {
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+      align-items: center;
+      margin: 0 0 8px;
+    }
+    .tabs {
+      display: flex;
+      gap: 6px;
+      flex-wrap: wrap;
+    }
+    .tab-btn {
+      border: 1px solid #262c37;
+      background: #12151b;
+      color: var(--text);
+      padding: 6px 10px;
+      border-radius: 8px;
+      font-size: 13px;
+      cursor: pointer;
+    }
+    .tab-btn.active {
+      background: #1c2130;
+      border-color: #3b4456;
+      box-shadow: 0 0 0 1px #3b4456 inset;
+    }
+    .search {
+      margin-left: auto;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      background: #11151c;
+      border: 1px solid #262c37;
+      padding: 5px 8px;
+      border-radius: 8px;
+    }
+    .search input {
+      background: transparent;
+      border: 0;
+      outline: none;
+      color: var(--text);
+      font-size: 14px;
+      width: 220px;
+    }
+    .charts {
+      display: grid;
+      gap: 14px;
+    }
+    .chart-card {
+      background: var(--panel);
+      border-radius: 10px;
+      padding: 10px 10px 6px;
+      box-shadow: 0 0 0 1px rgba(255,255,255,0.03) inset, 0 8px 30px rgba(0,0,0,.35);
+    }
+    .chart-title {
+      font-size: 15px;
+      margin: 0 0 4px 6px;
+      color: var(--muted);
+      font-weight: 600;
+    }
+    canvas { width: 100% !important; height: 420px !important; }
+    .footnote {
+      color: var(--muted);
+      font-size: 12px;
+      margin-top: 10px;
+    }
+    .badge {
+      font-size: 11px;
+      padding: 2px 6px;
+      border: 1px solid #3b4456;
+      border-radius: 6px;
+      color: var(--muted);
+      margin-left: 8px;
+    }
+    .note {
+      font-size: 12px;
+      color: var(--muted);
+      margin: 6px 0 0 6px;
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>Серия диаграмм: философы на координатных плоскостях оппозиций</h1>
+    <p>
+      Каждая диаграмма — это двумерная карта, где философы представлены точками.
+      Оси — пары философских оппозиций. Шкала по каждой оси: от −100 (крайняя левая метка) до +100 (крайняя правая).
+       Позиции приблизительные и открыты для дискуссии; цель — дать наглядную ориентировку по идеям и традициям.
+    </p>
+  </header>
+
+  <div class="wrap">
+    <aside class="panel">
+      <h2>Фильтры</h2>
+      <div class="group">
+        <div style="font-weight:600;margin-bottom:6px">Традиции</div>
+        <div id="tradition-filters"></div>
+      </div>
+      <div class="group">
+        <div style="font-weight:600;margin: 10px 0 6px">Подписи</div>
+        <label><input type="checkbox" id="toggle-labels" checked /> Показывать имена при наведении</label>
+        <label><input type="checkbox" id="toggle-dense" /> Свернуть маркеры (уменьшить радиус)</label>
+      </div>
+      <div class="group">
+        <div style="font-weight:600;margin: 10px 0 6px">Диапазон осей</div>
+        <label><input type="checkbox" id="limit-axes" /> Обрезать до [−85, +85] (выделить умеренные позиции)</label>
+      </div>
+      <div class="footnote">
+        Подпись цвета — традиция/школа. Клик по легенде диаграммы скрывает/показывает набор.
+      </div>
+    </aside>
+
+    <main>
+      <div class="panel" style="margin-bottom:14px">
+        <div class="controls">
+          <div class="tabs" id="tabs"></div>
+          <div class="search">
+            <span style="color:var(--muted);font-size:12px">Поиск:</span>
+            <input id="search" placeholder="имя философа, традиция, школа..." />
+          </div>
+        </div>
+        <div class="note">Подсказка: наведи на точку для подробностей; используй поиск, чтобы подсветить нужных авторов.</div>
+      </div>
+
+      <div class="charts" id="charts"></div>
+
+      <div class="footnote">
+        Дисклеймер: размещение персон отражает распространённые интерпретации их идей и может быть спорным; культурные контексты и терминология различаются между традициями. Значения — эвристические оценки (в шагах ~10), а не строгие измерения.
+        Источники: общие обобщения из учебников и научных обзоров по истории философии, философии науки, этике и политической теории.
+      </div>
+    </main>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
+  <script>
+    // Шкалы/оси: −100 (левая подпись) ... 0 ... +100 (правая подпись)
+    const axes = {
+      idealism_materialism: { left: "Идеализм", right: "Материализм" },
+      nominalism_realism: { left: "Номинализм", right: "Реализм (универсалий)" },
+      rationalism_empiricism: { left: "Рационализм", right: "Эмпиризм" },
+      foundationalism_coherentism: { left: "Фундаментализм", right: "Когерентизм" },
+      deontology_consequentialism: { left: "Деонтология", right: "Консеквенциализм" },
+      moral_realism_antirealism: { left: "Моральный реализм", right: "Моральный анти-реализм" },
+      individualism_collectivism: { left: "Индивидуализм", right: "Коллективизм" },
+      liberalism_authoritarianism: { left: "Либерализм", right: "Авторитаризм" }
+    };
+
+    // Набор диаграмм (серия)
+    const chartsConfig = [
+      {
+        id: "metaphysics",
+        title: "Метафизика: идеализм — материализм × номинализм — реализм (универсалий)",
+        x: "idealism_materialism",
+        y: "nominalism_realism"
+      },
+      {
+        id: "epistemology",
+        title: "Эпистемология: рационализм — эмпиризм × фундаментализм — когерентизм",
+        x: "rationalism_empiricism",
+        y: "foundationalism_coherentism"
+      },
+      {
+        id: "ethics",
+        title: "Этика: деонтология — консеквенциализм × моральный реализм — анти-реализм",
+        x: "deontology_consequentialism",
+        y: "moral_realism_antirealism"
+      },
+      {
+        id: "politics",
+        title: "Политика: индивидуализм — коллективизм × либерализм — авторитаризм",
+        x: "individualism_collectivism",
+        y: "liberalism_authoritarianism"
+      }
+    ];
+
+    // Цвета традиций
+    const colors = {
+      "Античность": "#1f77b4",
+      "Средневековье (лат./хр.)": "#2ca02c",
+      "Средневековье (ислам/иуд.)": "#17becf",
+      "Раннее Новое время": "#ff7f0e",
+      "Немецкий идеализм и XIX": "#9467bd",
+      "XX–XXI аналитическая": "#8c564b",
+      "XX–XXI континентальная/критическая": "#d62728",
+      "Русская религиозная": "#e377c2",
+      "Китайская": "#bcbd22",
+      "Индийская/Буддийская": "#7f7f7f",
+      "Американский прагматизм": "#aec7e8",
+      "Философия науки": "#98df8a",
+      "Политическая теория": "#ffbb78"
+    };
+
+    // Данные: философы с оценками по осям (−100..+100). null = не применимо/не указано.
+    // Внимание: это ориентировочные позиции, округленные шагом ~10.
+    const philosophers = [
+      // АНТИЧНОСТЬ
+      { n: "Фалес", t: "Античность", s:"Милетская школа", a:{ idealism_materialism: 60, nominalism_realism: 0, rationalism_empiricism: 20, foundationalism_coherentism: -10, deontology_consequentialism: null, moral_realism_antirealism: null, individualism_collectivism: null, liberalism_authoritarianism: null } },
+      { n: "Анаксимандр", t: "Античность", s:"Милетская школа", a:{ idealism_materialism: 50, nominalism_realism: 0, rationalism_empiricism: 10, foundationalism_coherentism: -10 } },
+      { n: "Анаксимен", t: "Античность", s:"Милетская школа", a:{ idealism_materialism: 60, nominalism_realism: 0, rationalism_empiricism: 10, foundationalism_coherentism: -10 } },
+      { n: "Пифагор", t: "Античность", s:"Пифагореизм", a:{ idealism_materialism: -70, nominalism_realism: 70, rationalism_empiricism: -40, foundationalism_coherentism: -20 } },
+      { n: "Гераклит", t: "Античность", s:"Ионийская философия", a:{ idealism_materialism: 20, nominalism_realism: 20, rationalism_empiricism: 0, foundationalism_coherentism: 10 } },
+      { n: "Парменид", t: "Античность", s:"Элейская школа", a:{ idealism_materialism: -60, nominalism_realism: 60, rationalism_empiricism: -30, foundationalism_coherentism: 20 } },
+      { n: "Демокрит", t: "Античность", s:"Атомизм", a:{ idealism_materialism: 90, nominalism_realism: -70, rationalism_empiricism: 60, foundationalism_coherentism: -20 } },
+      { n: "Сократ", t: "Античность", s:"Классическая греч.", a:{ idealism_materialism: -30, nominalism_realism: 40, rationalism_empiricism: -20, foundationalism_coherentism: -10, deontology_consequentialism: -40, moral_realism_antirealism: -70 } },
+      { n: "Платон", t: "Античность", s:"Платонизм", a:{ idealism_materialism: -90, nominalism_realism: 100, rationalism_empiricism: -60, foundationalism_coherentism: -30, deontology_consequentialism: -40, moral_realism_antirealism: -80, individualism_collectivism: 60, liberalism_authoritarianism: 80 } },
+      { n: "Аристотель", t: "Античность", s:"Аристотелизм", a:{ idealism_materialism: 20, nominalism_realism: 50, rationalism_empiricism: 20, foundationalism_coherentism: -20, deontology_consequentialism: -60, moral_realism_antirealism: -80, individualism_collectivism: 10, liberalism_authoritarianism: 10 } },
+      { n: "Эпикур", t: "Античность", s:"Эпикуреизм", a:{ idealism_materialism: 80, nominalism_realism: -80, rationalism_empiricism: 60, foundationalism_coherentism: -10, deontology_consequentialism: 30, moral_realism_antirealism: 10, individualism_collectivism: -60, liberalism_authoritarianism: -40 } },
+      { n: "Зенон Китийский", t: "Античность", s:"Стоицизм", a:{ idealism_materialism: 60, nominalism_realism: -30, rationalism_empiricism: 40, foundationalism_coherentism: 10, deontology_consequentialism: -40, moral_realism_antirealism: -40, individualism_collectivism: 20, liberalism_authoritarianism: 20 } },
+      { n: "Хрисипп", t: "Античность", s:"Стоицизм", a:{ idealism_materialism: 60, nominalism_realism: -20, rationalism_empiricism: 40, foundationalism_coherentism: 10 } },
+      { n: "Пиррон", t: "Античность", s:"Скептицизм", a:{ idealism_materialism: 0, nominalism_realism: -50, rationalism_empiricism: 20, foundationalism_coherentism: 20 } },
+      { n: "Секст Эмпирик", t: "Античность", s:"Скептицизм", a:{ idealism_materialism: 0, nominalism_realism: -60, rationalism_empiricism: 30, foundationalism_coherentism: 30 } },
+      { n: "Плотин", t: "Античность", s:"Неоплатонизм", a:{ idealism_materialism: -80, nominalism_realism: 80, rationalism_empiricism: -40, foundationalism_coherentism: -10 } },
+      { n: "Прокл", t: "Античность", s:"Неоплатонизм", a:{ idealism_materialism: -70, nominalism_realism: 80, rationalism_empiricism: -40, foundationalism_coherentism: -10 } },
+
+      // СРЕДНЕВЕКОВЬЕ (лат./хр.)
+      { n: "Августин", t: "Средневековье (лат./хр.)", s:"Августинизм", a:{ idealism_materialism: -60, nominalism_realism: 70, rationalism_empiricism: -30, foundationalism_coherentism: -20, deontology_consequentialism: -60, moral_realism_antirealism: -80 } },
+      { n: "Боэций", t: "Средневековье (лат./хр.)", s:"Христианская философия", a:{ idealism_materialism: -40, nominalism_realism: 60, rationalism_empiricism: -20, foundationalism_coherentism: -10 } },
+      { n: "Ансельм", t: "Средневековье (лат./хр.)", s:"Схоластика", a:{ idealism_materialism: -60, nominalism_realism: 70, rationalism_empiricism: -30, foundationalism_coherentism: -30 } },
+      { n: "Фома Аквинский", t: "Средневековье (лат./хр.)", s:"Томизм", a:{ idealism_materialism: -20, nominalism_realism: 60, rationalism_empiricism: -10, foundationalism_coherentism: -20, deontology_consequentialism: -60, moral_realism_antirealism: -80 } },
+      { n: "Бонавентура", t: "Средневековье (лат./хр.)", s:"Францисканская традиция", a:{ idealism_materialism: -50, nominalism_realism: 70, rationalism_empiricism: -20, foundationalism_coherentism: -20 } },
+      { n: "Дунс Скот", t: "Средневековье (лат./хр.)", s:"Скотианство", a:{ idealism_materialism: -20, nominalism_realism: 60, rationalism_empiricism: -10, foundationalism_coherentism: -10 } },
+      { n: "Уильям Оккам", t: "Средневековье (лат./хр.)", s:"Номинализм", a:{ idealism_materialism: 0, nominalism_realism: -90, rationalism_empiricism: 20, foundationalism_coherentism: 10 } },
+      { n: "Мейстер Экхарт", t: "Средневековье (лат./хр.)", s:"Мистицизм", a:{ idealism_materialism: -60, nominalism_realism: 60, rationalism_empiricism: -20, foundationalism_coherentism: 10 } },
+
+      // СРЕДНЕВЕКОВЬЕ (ислам/иуд.)
+      { n: "Авиценна (Ибн Сина)", t: "Средневековье (ислам/иуд.)", s:"Исламская философия", a:{ idealism_materialism: -30, nominalism_realism: 60, rationalism_empiricism: -10, foundationalism_coherentism: -10 } },
+      { n: "Аверроэс (Ибн Рушд)", t: "Средневековье (ислам/иуд.)", s:"Аристотелизм", a:{ idealism_materialism: 10, nominalism_realism: 40, rationalism_empiricism: 10, foundationalism_coherentism: -10 } },
+      { n: "Маймонид", t: "Средневековье (ислам/иуд.)", s:"Иудейская философия", a:{ idealism_materialism: -20, nominalism_realism: 40, rationalism_empiricism: 0, foundationalism_coherentism: -10 } },
+      { n: "Аль-Газали", t: "Средневековье (ислам/иуд.)", s:"Ашаризм", a:{ idealism_materialism: -40, nominalism_realism: 30, rationalism_empiricism: 0, foundationalism_coherentism: 0 } },
+      { n: "Ибн Араби", t: "Средневековье (ислам/иуд.)", s:"Суфизм", a:{ idealism_materialism: -70, nominalism_realism: 60, rationalism_empiricism: -10, foundationalism_coherentism: 10 } },
+
+      // РАННЕЕ НОВОЕ ВРЕМЯ
+      { n: "Никколо Макиавелли", t: "Раннее Новое время", s:"Полит. реализм", a:{ idealism_materialism: 40, nominalism_realism: 0, rationalism_empiricism: 10, foundationalism_coherentism: 10, individualism_collectivism: 10, liberalism_authoritarianism: 30 } },
+      { n: "Фрэнсис Бэкон", t: "Раннее Новое время", s:"Эмпиризм", a:{ idealism_materialism: 50, nominalism_realism: -20, rationalism_empiricism: 50, foundationalism_coherentism: -20 } },
+      { n: "Рене Декарт", t: "Раннее Новое время", s:"Рационализм", a:{ idealism_materialism: -30, nominalism_realism: 30, rationalism_empiricism: -80, foundationalism_coherentism: -80 } },
+      { n: "Бенедикт (Барух) Спиноза", t: "Раннее Новое время", s:"Рационализм", a:{ idealism_materialism: 10, nominalism_realism: 50, rationalism_empiricism: -80, foundationalism_coherentism: -40, individualism_collectivism: 0, liberalism_authoritarianism: 0 } },
+      { n: "Готфрид Вильгельм Лейбниц", t: "Раннее Новое время", s:"Рационализм", a:{ idealism_materialism: -60, nominalism_realism: 60, rationalism_empiricism: -90, foundationalism_coherentism: -50 } },
+      { n: "Томас Гоббс", t: "Раннее Новое время", s:"Материализм", a:{ idealism_materialism: 80, nominalism_realism: -40, rationalism_empiricism: 40, foundationalism_coherentism: -10, individualism_collectivism: -40, liberalism_authoritarianism: 60 } },
+      { n: "Джон Локк", t: "Раннее Новое время", s:"Эмпиризм", a:{ idealism_materialism: 20, nominalism_realism: -20, rationalism_empiricism: 60, foundationalism_coherentism: -40, individualism_collectivism: -60, liberalism_authoritarianism: -80 } },
+      { n: "Джордж Беркли", t: "Раннее Новое время", s:"Идеализм", a:{ idealism_materialism: -100, nominalism_realism: -60, rationalism_empiricism: 50, foundationalism_coherentism: -30 } },
+      { n: "Дэвид Юм", t: "Раннее Новое время", s:"Эмпиризм", a:{ idealism_materialism: 40, nominalism_realism: -70, rationalism_empiricism: 90, foundationalism_coherentism: -50, deontology_consequentialism: 30, moral_realism_antirealism: 60 } },
+      { n: "Блез Паскаль", t: "Раннее Новое время", s:"Христ. апологетика", a:{ idealism_materialism: -40, nominalism_realism: 40, rationalism_empiricism: -10, foundationalism_coherentism: -20 } },
+      { n: "Жан-Жак Руссо", t: "Раннее Новое время", s:"Республиканизм", a:{ idealism_materialism: 0, nominalism_realism: -10, rationalism_empiricism: 0, foundationalism_coherentism: 10, individualism_collectivism: 40, liberalism_authoritarianism: 20 } },
+      { n: "Мишель де Монтень", t: "Раннее Новое время", s:"Скептицизм", a:{ idealism_materialism: 10, nominalism_realism: -30, rationalism_empiricism: 40, foundationalism_coherentism: 10 } },
+      { n: "Томас Рид", t: "Раннее Новое время", s:"Шотл. реализм", a:{ idealism_materialism: 10, nominalism_realism: 30, rationalism_empiricism: -10, foundationalism_coherentism: -30 } },
+
+      // НЕМЕЦКИЙ ИДЕАЛИЗМ и XIX
+      { n: "Иммануил Кант", t: "Немецкий идеализм и XIX", s:"Трансценд. идеализм", a:{ idealism_materialism: -20, nominalism_realism: -20, rationalism_empiricism: 0, foundationalism_coherentism: 10, deontology_consequentialism: -100, moral_realism_antirealism: -60 } },
+      { n: "Иоганн Готлиб Фихте", t: "Немецкий идеализм и XIX", s:"Идеализм", a:{ idealism_materialism: -80, nominalism_realism: 20, rationalism_empiricism: -60, foundationalism_coherentism: 20 } },
+      { n: "Фридрих В. Й. Шеллинг", t: "Немецкий идеализм и XIX", s:"Идеализм", a:{ idealism_materialism: -60, nominalism_realism: 30, rationalism_empiricism: -50, foundationalism_coherentism: 10 } },
+      { n: "Георг В. Ф. Гегель", t: "Немецкий идеализм и XIX", s:"Абсолютный идеализм", a:{ idealism_materialism: -70, nominalism_realism: 50, rationalism_empiricism: -60, foundationalism_coherentism: 60 } },
+      { n: "Артур Шопенгауэр", t: "Немецкий идеализм и XIX", s:"Воля и представление", a:{ idealism_materialism: -50, nominalism_realism: 0, rationalism_empiricism: -10, foundationalism_coherentism: 20, deontology_consequentialism: 0, moral_realism_antirealism: 10, individualism_collectivism: -20, liberalism_authoritarianism: -10 } },
+      { n: "Огюст Конт", t: "Немецкий идеализм и XIX", s:"Позитивизм", a:{ idealism_materialism: 60, nominalism_realism: -30, rationalism_empiricism: 70, foundationalism_coherentism: 10 } },
+      { n: "Иеремия Бентам", t: "Немецкий идеализм и XIX", s:"Утилитаризм", a:{ idealism_materialism: 60, nominalism_realism: -40, rationalism_empiricism: 60, foundationalism_coherentism: -20, deontology_consequentialism: 90, moral_realism_antirealism: -20, individualism_collectivism: -50, liberalism_authoritarianism: -60 } },
+      { n: "Джон Стюарт Милль", t: "Немецкий идеализм и XIX", s:"Либерализм/утилит.", a:{ idealism_materialism: 60, nominalism_realism: -30, rationalism_empiricism: 70, foundationalism_coherentism: -10, deontology_consequentialism: 80, moral_realism_antirealism: -10, individualism_collectivism: -70, liberalism_authoritarianism: -90 } },
+      { n: "Сёрен Кьеркегор", t: "Немецкий идеализм и XIX", s:"Экзистенциализм", a:{ idealism_materialism: -40, nominalism_realism: 0, rationalism_empiricism: -20, foundationalism_coherentism: 10, deontology_consequentialism: -40, moral_realism_antirealism: -50, individualism_collectivism: -40, liberalism_authoritarianism: -20 } },
+      { n: "Людвиг Фейербах", t: "Немецкий идеализм и XIX", s:"Материализм", a:{ idealism_materialism: 60, nominalism_realism: -20, rationalism_empiricism: 40, foundationalism_coherentism: 10 } },
+      { n: "Карл Маркс", t: "Немецкий идеализм и XIX", s:"Ист. материализм", a:{ idealism_materialism: 80, nominalism_realism: -30, rationalism_empiricism: 40, foundationalism_coherentism: 20, deontology_consequentialism: 10, moral_realism_antirealism: 10, individualism_collectivism: 80, liberalism_authoritarianism: 30 } },
+      { n: "Фридрих Энгельс", t: "Немецкий идеализм и XIX", s:"Диал. материализм", a:{ idealism_materialism: 80, nominalism_realism: -30, rationalism_empiricism: 40, foundationalism_coherentism: 20, individualism_collectivism: 80, liberalism_authoritarianism: 30 } },
+      { n: "Фридрих Ницше", t: "Немецкий идеализм и XIX", s:"Генеалогия морали", a:{ idealism_materialism: 40, nominalism_realism: -50, rationalism_empiricism: 20, foundationalism_coherentism: 20, deontology_consequentialism: 0, moral_realism_antirealism: 80, individualism_collectivism: -60, liberalism_authoritarianism: -30 } },
+      { n: "Алексис де Токвиль", t: "Немецкий идеализм и XIX", s:"Либеральная мысль", a:{ idealism_materialism: 20, nominalism_realism: 0, rationalism_empiricism: 20, foundationalism_coherentism: 0, individualism_collectivism: -40, liberalism_authoritarianism: -60 } },
+
+      // АМЕРИКАНСКИЙ ПРАГМАТИЗМ
+      { n: "Чарльз С. Пирс", t: "Американский прагматизм", s:"Прагматизм", a:{ idealism_materialism: 0, nominalism_realism: 40, rationalism_empiricism: 10, foundationalism_coherentism: 20, deontology_consequentialism: 10, moral_realism_antirealism: -20 } },
+      { n: "Уильям Джеймс", t: "Американский прагматизм", s:"Прагматизм", a:{ idealism_materialism: 10, nominalism_realism: -20, rationalism_empiricism: 40, foundationalism_coherentism: 10, deontology_consequentialism: 20, moral_realism_antirealism: 30, individualism_collectivism: -20, liberalism_authoritarianism: -40 } },
+      { n: "Джон Дьюи", t: "Американский прагматизм", s:"Инструментализм", a:{ idealism_materialism: 20, nominalism_realism: -20, rationalism_empiricism: 60, foundationalism_coherentism: 20, deontology_consequentialism: 20, moral_realism_antirealism: 20, individualism_collectivism: -20, liberalism_authoritarianism: -40 } },
+      { n: "Ричард Рорти", t: "Американский прагматизм", s:"Неопрагматизм", a:{ idealism_materialism: 20, nominalism_realism: -60, rationalism_empiricism: 40, foundationalism_coherentism: 60, deontology_consequentialism: 40, moral_realism_antirealism: 70, individualism_collectivism: -30, liberalism_authoritarianism: -50 } },
+
+      // XX–XXI АНАЛИТИЧЕСКАЯ
+      { n: "Готлоб Фреге", t: "XX–XXI аналитическая", s:"Философия логики", a:{ idealism_materialism: -10, nominalism_realism: 60, rationalism_empiricism: -30, foundationalism_coherentism: -20 } },
+      { n: "Бертран Рассел", t: "XX–XXI аналитическая", s:"Аналит. реализм", a:{ idealism_materialism: 30, nominalism_realism: 40, rationalism_empiricism: 40, foundationalism_coherentism: -40, deontology_consequentialism: 30, moral_realism_antirealism: 20 } },
+      { n: "Дж. Э. Мур", t: "XX–XXI аналитическая", s:"Неореализм/этика", a:{ idealism_materialism: 30, nominalism_realism: 40, rationalism_empiricism: 20, foundationalism_coherentism: -40, deontology_consequentialism: 40, moral_realism_antirealism: -80 } },
+      { n: "Л. Витгенштейн (ранний)", t: "XX–XXI аналитическая", s:"Логический", a:{ idealism_materialism: 10, nominalism_realism: 10, rationalism_empiricism: 50, foundationalism_coherentism: 0, deontology_consequentialism: 0, moral_realism_antirealism: 40 } },
+      { n: "Л. Витгенштейн (поздний)", t: "XX–XXI аналитическая", s:"Языковые игры", a:{ idealism_materialism: 0, nominalism_realism: -50, rationalism_empiricism: 40, foundationalism_coherentism: 40, deontology_consequentialism: 0, moral_realism_antirealism: 40 } },
+      { n: "Рудольф Карнап", t: "XX–XXI аналитическая", s:"Логический эмпиризм", a:{ idealism_materialism: 40, nominalism_realism: -20, rationalism_empiricism: 60, foundationalism_coherentism: 20 } },
+      { n: "Мориц Шлик", t: "XX–XXI аналитическая", s:"Венский кружок", a:{ idealism_materialism: 50, nominalism_realism: -20, rationalism_empiricism: 60, foundationalism_coherentism: 10 } },
+      { n: "Отто Нейрат", t: "XX–XXI аналитическая", s:"Физикализм", a:{ idealism_materialism: 50, nominalism_realism: -30, rationalism_empiricism: 60, foundationalism_coherentism: 30 } },
+      { n: "Карл Поппер", t: "XX–XXI аналитическая", s:"Крит. рационализм", a:{ idealism_materialism: 20, nominalism_realism: 10, rationalism_empiricism: 40, foundationalism_coherentism: 30, individualism_collectivism: -40, liberalism_authoritarism: -60 } },
+      { n: "В. В. О. Куайн", t: "XX–XXI аналитическая", s:"Натурализм", a:{ idealism_materialism: 60, nominalism_realism: -20, rationalism_empiricism: 70, foundationalism_coherentism: 70 } },
+      { n: "Альфред Тарский", t: "XX–XXI аналитическая", s:"Теория истины", a:{ idealism_materialism: 20, nominalism_realism: 60, rationalism_empiricism: 40, foundationalism_coherentism: 0 } },
+      { n: "Хилари Патнэм", t: "XX–XXI аналитическая", s:"Реализм/прагм.", a:{ idealism_materialism: 20, nominalism_realism: 20, rationalism_empiricism: 40, foundationalism_coherentism: 10 } },
+      { n: "Сол Крипке", t: "XX–XXI аналитическая", s:"Номин./эссенц.", a:{ idealism_materialism: 20, nominalism_realism: 30, rationalism_empiricism: -10, foundationalism_coherentism: 0 } },
+      { n: "Дональд Дэвидсон", t: "XX–XXI аналитическая", s:"Интерпретация", a:{ idealism_materialism: 20, nominalism_realism: -10, rationalism_empiricism: 10, foundationalism_coherentism: 80 } },
+      { n: "Гилберт Райл", t: "XX–XXI аналитическая", s:"Поведенч.", a:{ idealism_materialism: 40, nominalism_realism: -20, rationalism_empiricism: 50, foundationalism_coherentism: 10 } },
+      { n: "Дж. Л. Остин", t: "XX–XXI аналитическая", s:"Обыденный яз.", a:{ idealism_materialism: 30, nominalism_realism: -20, rationalism_empiricism: 50, foundationalism_coherentism: 10 } },
+      { n: "Джон Сёрл", t: "XX–XXI аналитическая", s:"Био-натурализм", a:{ idealism_materialism: 20, nominalism_realism: -10, rationalism_empiricism: 40, foundationalism_coherentism: 0, deontology_consequentialism: -10, moral_realism_antirealism: -20 } },
+      { n: "Нельсон Гудман", t: "XX–XXI аналитическая", s:"Конструктив.", a:{ idealism_materialism: 20, nominalism_realism: -40, rationalism_empiricism: 50, foundationalism_coherentism: 40 } },
+      { n: "Дэвид Льюис", t: "XX–XXI аналитическая", s:"Модальный реализм", a:{ idealism_materialism: 30, nominalism_realism: 70, rationalism_empiricism: 0, foundationalism_coherentism: 10 } },
+      { n: "Уилфрид Селларс", t: "XX–XXI аналитическая", s:"Анти-фунд.", a:{ idealism_materialism: 20, nominalism_realism: 10, rationalism_empiricism: 10, foundationalism_coherentism: 60 } },
+      { n: "Томас Нагель", t: "XX–XXI аналитическая", s:"Фил. сознания", a:{ idealism_materialism: 20, nominalism_realism: 0, rationalism_empiricism: 0, foundationalism_coherentism: 10 } },
+      { n: "Дэниел Деннет", t: "XX–XXI аналитическая", s:"Натурализм", a:{ idealism_materialism: 70, nominalism_realism: -30, rationalism_empiricism: 60, foundationalism_coherentism: 30, deontology_consequentialism: 20, moral_realism_antirealism: 10 } },
+      { n: "Дэвид Чалмерс", t: "XX–XXI аналитическая", s:"Двойств. свойств", a:{ idealism_materialism: -40, nominalism_realism: 0, rationalism_empiricism: -10, foundationalism_coherentism: 10 } },
+      { n: "Элвин Плантинга", t: "XX–XXI аналитическая", s:"Религ. эпист.", a:{ idealism_materialism: -50, nominalism_realism: 40, rationalism_empiricism: -20, foundationalism_coherentism: -60, deontology_consequentialism: -60, moral_realism_antirealism: -80 } },
+      { n: "Имре Лакатош", t: "XX–XXI аналитическая", s:"Методология", a:{ idealism_materialism: 20, nominalism_realism: 0, rationalism_empiricism: 40, foundationalism_coherentism: 30 } },
+      { n: "Томас Кун", t: "XX–XXI аналитическая", s:"История науки", a:{ idealism_materialism: 20, nominalism_realism: -10, rationalism_empiricism: 30, foundationalism_coherentism: 30 } },
+      { n: "Пол Фейерабенд", t: "XX–XXI аналитическая", s:"Методол. анархизм", a:{ idealism_materialism: 20, nominalism_realism: -20, rationalism_empiricism: 40, foundationalism_coherentism: 40 } },
+      { n: "Бас ван Фраассен", t: "XX–XXI аналитическая", s:"Инструментализм", a:{ idealism_materialism: 20, nominalism_realism: -10, rationalism_empiricism: 50, foundationalism_coherentism: 30 } },
+      { n: "Иэн Хакинг", t: "XX–XXI аналитическая", s:"Эксперимент. реализм", a:{ idealism_materialism: 20, nominalism_realism: 30, rationalism_empiricism: 50, foundationalism_coherentism: 0 } },
+      { n: "Генри Сиджвик", t: "XX–XXI аналитическая", s:"Этика", a:{ idealism_materialism: 40, nominalism_realism: 0, rationalism_empiricism: 50, foundationalism_coherentism: -10, deontology_consequentialism: 80, moral_realism_antirealism: -10 } },
+      { n: "Дерек Парфит", t: "XX–XXI аналитическая", s:"Норматив. этика", a:{ idealism_materialism: 0, nominalism_realism: 10, rationalism_empiricism: 0, foundationalism_coherentism: 10, deontology_consequentialism: 30, moral_realism_antirealism: -50 } },
+      { n: "Питер Сингер", t: "XX–XXI аналитическая", s:"Утилитаризм", a:{ idealism_materialism: 60, nominalism_realism: -10, rationalism_empiricism: 60, foundationalism_coherentism: 0, deontology_consequentialism: 90, moral_realism_antirealism: -10, individualism_collectivism: -30, liberalism_authoritarianism: -50 } },
+      { n: "Джон Ролз", t: "XX–XXI аналитическая", s:"Либеральная справедливость", a:{ idealism_materialism: 0, nominalism_realism: 10, rationalism_empiricism: 0, foundationalism_coherentism: 10, deontology_consequentialism: -70, moral_realизм_antirealism: -30, individualism_collectivism: -30, liberalism_authoritarianism: -60 } },
+      { n: "Роберт Нозик", t: "XX–XXI аналитическая", s:"Либертарианство", a:{ idealism_materialism: 20, nominalism_realism: 10, rationalism_empiricism: 10, foundationalism_coherentism: 10, deontology_consequentialism: -60, moral_realизм_antirealism: -20, individualism_collectivism: -90, liberalism_authoritarianism: -90 } },
+      { n: "Т. М. Сканлон", t: "XX–XXI аналитическая", s:"Контрактуализм", a:{ idealism_materialism: 0, nominalism_realism: 10, rationalism_empiricism: 0, foundationalism_coherentism: 10, deontology_consequentialism: -70, moral_realism_antirealism: -30 } },
+      { n: "Дэвид Армстронг", t: "XX–XXI аналитическая", s:"Метаф. реализм", a:{ idealism_materialism: 40, nominalism_realism: 80, rationalism_empiricism: 20, foundationalism_coherentism: 0 } },
+      { n: "Джерри Фодор", t: "XX–XXI аналитическая", s:"Философия психики", a:{ idealism_materialism: 40, nominalism_realism: 20, rationalism_empiricism: 20, foundationalism_coherentism: 0 } },
+      { n: "Элизабет Энском", t: "XX–XXI аналитическая", s:"Деонт./добродетели", a:{ idealism_materialism: 0, nominalism_realism: 20, rationalism_empiricism: 0, foundationalism_coherentism: 0, deontology_consequentialism: -80, moral_realism_antirealism: -60 } },
+      { n: "Филипа Фут", t: "XX–XXI аналитическая", s:"Этика добродетели", a:{ idealism_materialism: 0, nominalism_realism: 20, rationalism_empiricism: 0, foundationalism_coherentism: 0, deontology_consequentialism: -60, moral_realism_antirealism: -60 } },
+      { n: "Бернард Уильямс", t: "XX–XXI аналитическая", s:"Этика", a:{ idealism_materialism: 0, nominalism_realism: 0, rationalism_empiricism: 0, foundationalism_coherentism: 0, deontology_consequentialism: -20, moral_realism_antirealism: 20 } },
+      { n: "Уильям Д. Росс", t: "XX–XXI аналитическая", s:"Плюралист. деонт.", a:{ idealism_materialism: 0, nominalism_realism: 20, rationalism_empiricism: 0, foundationalism_coherentism: 0, deontology_consequentialism: -70, moral_realism_antirealism: -70 } },
+
+      // XX–XXI КОНТИНЕНТАЛЬНАЯ / КРИТИЧЕСКАЯ
+      { n: "Эдмунд Гуссерль", t: "XX–XXI континентальная/критическая", s:"Феноменология", a:{ idealism_materialism: -30, nominalism_realism: 40, rationalism_empiricism: -30, foundationalism_coherentism: -40 } },
+      { n: "Мартин Хайдеггер", t: "XX–XXI континентальная/критическая", s:"Герменевтика", a:{ idealism_materialism: -10, nominalism_realism: -10, rationalism_empiricism: 0, foundationalism_coherentism: 20, deontology_consequentialism: 0, moral_realism_antirealism: 20, individualism_collectivism: 10, liberalism_authoritarianism: 10 } },
+      { n: "Макс Шелер", t: "XX–XXI континентальная/критическая", s:"Персонализм", a:{ idealism_materialism: -30, nominalism_realism: 20, rationalism_empiricism: -10, foundationalism_coherentism: 0 } },
+      { n: "Карл Ясперс", t: "XX–XXI континентальная/критическая", s:"Экзистенциализм", a:{ idealism_materialism: -20, nominalism_realism: 0, rationalism_empiricism: -10, foundationalism_coherentism: 10 } },
+      { n: "Г. Г. Гадамер", t: "XX–XXI континентальная/критическая", s:"Герменевтика", a:{ idealism_materialism: -10, nominalism_realism: 0, rationalism_empiricism: 0, foundationalism_coherentism: 40 } },
+      { n: "Поль Рикёр", t: "XX–XXI континентальная/критическая", s:"Феноменол./гермен.", a:{ idealism_materialism: -10, nominalism_realism: 0, rationalism_empiricism: 0, foundationalism_coherentism: 20 } },
+      { n: "Жан-Поль Сартр", t: "XX–XXI континентальная/критическая", s:"Экзистенциализм", a:{ idealism_materialism: 0, nominalism_realism: -30, rationalism_empiricism: 0, foundationalism_coherentism: 10, deontology_consequentialism: 10, moral_realism_antirealism: 40, individualism_collectivism: -40, liberalism_authoritarianism: -40 } },
+      { n: "Симона де Бовуар", t: "XX–XXI континентальная/критическая", s:"Экзистенц./этика", a:{ idealism_materialism: 0, nominalism_realism: -20, rationalism_empiricism: 0, foundationalism_coherentism: 10, deontology_consequentialism: 10, moral_realism_antirealism: 30, individualism_collectivism: -30, liberalism_authoritarianism: -40 } },
+      { n: "Альбер Камю", t: "XX–XXI континентальная/критическая", s:"Абсурд/этика", a:{ idealism_materialism: 30, nominalism_realism: -20, rationalism_empiricism: 20, foundationalism_coherentism: 10, deontology_consequentialism: 10, moral_realism_antirealism: 40, individualism_collectivism: -40, liberalism_authoritarianism: -50 } },
+      { n: "Морис Мерло-Понти", t: "XX–XXI континентальная/критическая", s:"Феноменология", a:{ idealism_materialism: -10, nominalism_realism: -10, rationalism_empiricism: 0, foundationalism_coherentism: 20 } },
+      { n: "Эммануэль Левинас", t: "XX–XXI континентальная/критическая", s:"Этика Другого", a:{ idealism_materialism: -40, nominalism_realism: 10, rationalism_empiricism: -10, foundationalism_coherentism: 20, deontology_consequentialism: -60, moral_realism_antirealism: -50 } },
+      { n: "Жак Деррида", t: "XX–XXI континентальная/критическая", s:"Деконструкция", a:{ idealism_materialism: -10, nominalism_realism: -60, rationalism_empiricism: 0, foundationalism_coherentism: 40, deontology_consequentialism: 0, moral_realism_antirealism: 70, individualism_collectivism: -20, liberalism_authoritarianism: -40 } },
+      { n: "Мишель Фуко", t: "XX–XXI континентальная/критическая", s:"Генеалогии власти", a:{ idealism_materialism: 10, nominalism_realism: -50, rationalism_empiricism: 30, foundationalism_coherentism: 40, deontology_consequentialism: 0, moral_realism_antirealism: 80, individualism_collectivism: -10, liberalism_authoritarianism: -40 } },
+      { n: "Жиль Делёз", t: "XX–XXI континентальная/критическая", s:"Онтология различия", a:{ idealism_materialism: -10, nominalism_realism: -40, rationalism_empiricism: 0, foundationalism_coherentism: 40, deontology_consequentialism: 0, moral_realism_antirealism: 40, individualism_collectivism: -30, liberalism_authoritarianизм: -50 } },
+      { n: "Феликс Гваттари", t: "XX–XXI континентальная/критическая", s:"Шизоанализ", a:{ idealism_materialism: 0, nominalism_realism: -40, rationalism_empiricism: 10, foundationalism_coherentism: 40, individualism_collectivism: -30, liberalism_authoritarianизм: -50 } },
+      { n: "Ален Бадью", t: "XX–XXI континентальная/критическая", s:"Событие/истина", a:{ idealism_materialism: -30, nominalism_realism: 20, rationalism_empiricism: -10, foundationalism_coherentism: 20, individualism_collectivism: 30, liberalism_authoritarianизм: 0 } },
+      { n: "Жак Рансьер", t: "XX–XXI континентальная/критическая", s:"Демокр. разногласие", a:{ idealism_materialism: 0, nominalism_realism: -10, rationalism_empiricism: 0, foundationalism_coherentism: 20, individualism_collectivism: -10, liberalism_authoritarianизм: -30 } },
+      { n: "Славой Жижек", t: "XX–XXI континентальная/критическая", s:"Лаканианство", a:{ idealism_materialism: -10, nominalism_realism: -10, rationalism_empiricism: 0, foundationalism_coherentism: 20, individualism_collectivism: 40, liberalism_authoritarianизм: 20 } },
+      { n: "Жан Бодрийяр", t: "XX–XXI континентальная/критическая", s:"Симулякры", a:{ idealism_materialism: 10, nominalism_realism: -60, rationalism_empiricism: 20, foundationalism_coherentism: 30, individualism_collectivism: -10, liberalism_authoritarianизм: -30 } },
+      { n: "Ж.-Ф. Лиотар", t: "XX–XXI континентальная/критическая", s:"Постмодерн", a:{ idealism_materialism: 10, nominalism_realism: -40, rationalism_empiricism: 20, foundationalism_coherentism: 30 } },
+      { n: "Юрген Хабермас", t: "XX–XXI континентальная/критическая", s:"Коммуник. рациональность", a:{ idealism_materialism: 0, nominalism_realism: 0, rationalism_empiricism: 20, foundationalism_coherentism: 20, deontology_consequentialism: -40, moral_realism_antirealism: -20, individualism_collectivism: 10, liberalism_authoritarianизм: -20 } },
+      { n: "Теодор Адорно", t: "XX–XXI континентальная/критическая", s:"Критическая теория", a:{ idealism_materialism: -10, nominalism_realism: 0, rationalism_empiricism: 0, foundationalism_coherentism: 20, individualism_collectivism: 0, liberalism_authoritarianизм: -20 } },
+      { n: "Макс Хоркхаймер", t: "XX–XXI континентальная/критическая", s:"Критическая теория", a:{ idealism_materialism: -10, nominalism_realism: 0, rationalism_empiricism: 0, foundationalism_coherentism: 20 } },
+      { n: "Герберт Маркузе", t: "XX–XXI континентальная/критическая", s:"Критическая теория", a:{ idealism_materialism: -10, nominalism_realism: 0, rationalism_empiricism: 10, foundationalism_coherentism: 20, individualism_collectivism: 20, liberalism_authoritarianизм: -30 } },
+      { n: "Вальтер Беньямин", t: "XX–XXI континентальная/критическая", s:"Мессианизм/критика", a:{ idealism_materialism: -20, nominalism_realism: 0, rationalism_empiricism: 0, foundationalism_coherentism: 20 } },
+      { n: "Луи Альтюссер", t: "XX–XXI континентальная/критическая", s:"Структурализм/маркс.", a:{ idealism_materialism: 40, nominalism_realism: -20, rationalism_empiricism: 20, foundationalism_coherentism: 30, individualism_collectivism: 60, liberalism_authoritarianизм: 20 } },
+      { n: "Никлас Луман", t: "XX–XXI континентальная/критическая", s:"Системная теория", a:{ idealism_materialism: 0, nominalism_realism: 0, rationalism_empiricism: 20, foundationalism_coherentism: 30 } },
+      { n: "Ханна Арендт", t: "XX–XXI континентальная/критическая", s:"Политическая теория", a:{ idealism_materialism: 0, nominalism_realism: 0, rationalism_empiricism: 10, foundationalism_coherentism: 20, deontology_consequentialism: -40, moral_realism_antirealism: -20, individualism_collectivism: -30, liberalism_authoritarianизм: -50 } },
+
+      // РУССКАЯ РЕЛИГИОЗНАЯ
+      { n: "Владимир Соловьёв", t: "Русская религиозная", s:"Всеединство", a:{ idealism_materialism: -50, nominalism_realism: 40, rationalism_empiricism: -10, foundationalism_coherentism: -10, deontology_consequentialism: -60, moral_realism_antirealism: -80, individualism_collectivism: 10, liberalism_authoritarianизм: 10 } },
+      { n: "Николай Бердяев", t: "Русская религиозная", s:"Персонализм", a:{ idealism_materialism: -40, nominalism_realism: 0, rationalism_empiricism: -10, foundationalism_coherentism: 0, deontology_consequentialism: -50, moral_realism_antirealism: -30, individualism_collectivism: -40, liberalism_authoritarianизм: -30 } },
+      { n: "Павел Флоренский", t: "Русская религиозная", s:"Свящ. мысль", a:{ idealism_materialism: -50, nominalism_realism: 40, rationalism_empiricism: -10, foundationalism_coherentism: -10 } },
+      { n: "Лев Шестов", t: "Русская религиозная", s:"Экзистенц./апофат.", a:{ idealism_materialism: -20, nominalism_realism: -20, rationalism_empiricism: -20, foundationalism_coherentism: 20 } },
+      { n: "Алексей Лосев", t: "Русская религиозная", s:"Неоплатонизм", a:{ idealism_materialism: -40, nominalism_realism: 30, rationalism_empiricism: -10, foundationalism_coherentism: 0 } },
+      { n: "Михаил Бахтин", t: "Русская религиозная", s:"Диалогизм", a:{ idealism_materialism: -10, nominalism_realism: -10, rationalism_empiricism: 10, foundationalism_coherentism: 30 } },
+      { n: "Иван Ильин", t: "Русская религиозная", s:"Право/государство", a:{ idealism_materialism: -30, nominalism_realism: 20, rationalism_empiricism: -10, foundationalism_coherentism: 0, individualism_collectivism: 20, liberalism_authoritarianизм: 30 } },
+
+      // КИТАЙСКАЯ
+      { n: "Конфуций", t: "Китайская", s:"Ритуал/добродетели", a:{ idealism_materialism: 0, nominalism_realism: 10, rationalism_empiricism: 0, foundationalism_coherentism: 10, deontology_consequentialism: -60, moral_realism_antirealism: -60, individualism_collectivism: 60, liberalism_authoritarianизм: 40 } },
+      { n: "Мэн-цзы (Мэнкэ)", t: "Китайская", s:"Неоконфуцианство", a:{ idealism_materialism: 0, nominalism_realism: 20, rationalism_empiricism: 0, foundationalism_coherentism: 10, deontology_consequentialism: -50, moral_realism_antirealism: -60, individualism_collectivism: 50, liberalism_authoritarianизм: 30 } },
+      { n: "Сюнь-цзы", t: "Китайская", s:"Конфуцианец", a:{ idealism_materialism: 10, nominalism_realism: 10, rationalism_empiricism: 10, foundationalism_coherentism: 10, deontology_consequentialism: -40, moral_realism_antirealism: -40, individualism_collectivism: 60, liberalism_authoritarianизм: 50 } },
+      { n: "Мо-цзы", t: "Китайская", s:"Моцзизм (польза)", a:{ idealism_materialism: 20, nominalism_realism: 0, rationalism_empiricism: 10, foundationalism_coherentism: 10, deontology_consequentialism: 70, moral_realism_antirealism: -40, individualism_collectivism: 40, liberalism_authoritarianизм: 20 } },
+      { n: "Лао-цзы", t: "Китайская", s:"Даосизм", a:{ idealism_materialism: -20, nominalism_realism: -20, rationalism_empiricism: 0, foundationalism_coherentism: 20, deontology_consequentialism: -20, moral_realism_antirealism: -10, individualism_collectivism: -20, liberalism_authoritarianизм: -30 } },
+      { n: "Чжуан-цзы", t: "Китайская", s:"Даосизм", a:{ idealism_materialism: -20, nominalism_realism: -30, rationalism_empiricism: 0, foundationalism_coherentism: 30, deontology_consequentialism: -10, moral_realism_antirealism: 10, individualism_collectivism: -30, liberalism_authoritarianизм: -40 } },
+      { n: "Чжу Си", t: "Китайская", s:"Неоконфуцианство", a:{ idealism_materialism: -20, nominalism_realism: 60, rationalism_empiricism: -10, foundationalism_coherentism: 0, deontology_consequentialism: -50, moral_realism_antirealism: -60, individualism_collectivism: 50, liberalism_authoritarianизм: 40 } },
+      { n: "Ван Янмин", t: "Китайская", s:"Неоконфуцианство", a:{ idealism_materialism: -20, nominalism_realism: 30, rationalism_empiricism: -10, foundationalism_coherentism: 0, deontology_consequentialism: -50, moral_realism_antirealism: -50, individualism_collectivism: 40, liberalism_authoritarianизм: 30 } },
+
+      // ИНДИЙСКАЯ / БУДДИЙСКАЯ
+      { n: "Будда (Шакьямуни)", t: "Индийская/Буддийская", s:"Буддизм", a:{ idealism_materialism: -20, nominalism_realism: -40, rationalism_empiricism: 10, foundationalism_coherentism: 10, deontology_consequentialism: -40, moral_realism_antirealism: -20 } },
+      { n: "Нагарджуна", t: "Индийская/Буддийская", s:"Мадхьямика", a:{ idealism_materialism: -30, nominalism_realism: -60, rationalism_empiricism: 0, foundationalism_coherentism: 30, deontology_consequentialism: 0, moral_realism_antirealism: 40 } },
+      { n: "Шанкара (Адвайта)", t: "Индийская/Буддийская", s:"Веданта", a:{ idealism_materialism: -90, nominalism_realism: 60, rationalism_empiricism: -20, foundationalism_coherentism: -10, deontology_consequentialism: -40, moral_realism_antirealism: -50 } },
+      { n: "Догэн", t: "Индийская/Буддийская", s:"Дзэн", a:{ idealism_materialism: -30, nominalism_realism: -20, rationalism_empiricism: 0, foundationalism_coherentism: 20, deontology_consequentialism: -20, moral_realism_antirealism: -10 } },
+
+      // ФИЛОСОФИЯ НАУКИ / СМЕЖНЫЕ
+      { n: "Эрнст Мах", t: "Философия науки", s:"Эмпириокритицизм", a:{ idealism_materialism: 60, nominalism_realism: -40, rationalism_empiricism: 80, foundationalism_coherentism: 20 } },
+      { n: "Пьер Дюэм", t: "Философия науки", s:"Инструментализм", a:{ idealism_materialism: 20, nominalism_realism: -10, rationalism_empiricism: 50, foundationalism_coherentism: 40 } },
+
+      // ПОЛИТИЧЕСКАЯ ТЕОРИЯ
+      { n: "Эдмунд Бёрк", t: "Политическая теория", s:"Консерватизм", a:{ idealism_materialism: 0, nominalism_realism: 0, rationalism_empiricism: 10, foundationalism_coherentism: 10, individualism_collectivism: -10, liberalism_authoritarianизм: -10 } },
+      { n: "Фридрих Хайек", t: "Политическая теория", s:"Классический либерализм", a:{ idealism_materialism: 40, nominalism_realism: 0, rationalism_empiricism: 40, foundationalism_coherentism: 10, individualism_collectivism: -70, liberalism_authoritarianизм: -90 } },
+      { n: "Карл Шмитт", t: "Политическая теория", s:"Решенчество", a:{ idealism_materialism: 0, nominalism_realism: 0, rationalism_empiricism: 0, foundationalism_coherentism: 20, individualism_collectivism: 30, liberalism_authoritarianизм: 80 } },
+      { n: "Исаия Берлин", t: "Политическая теория", s:"Либерализм (плюрал.)", a:{ idealism_materialism: 0, nominalism_realism: 0, rationalism_empiricism: 10, foundationalism_coherentism: 10, individualism_collectivism: -60, liberalism_authoritarianизм: -70 } }
+    ];
+
+    // Вспомогательные: набор традиций
+    const traditions = Array.from(new Set(philosophers.map(p => p.t)));
+
+    // Построение UI вкладок
+    const tabsEl = document.getElementById("tabs");
+    chartsConfig.forEach((cfg, i) => {
+      const btn = document.createElement("button");
+      btn.className = "tab-btn" + (i === 0 ? " active" : "");
+      btn.textContent = (i+1) + ". " + cfg.title;
+      btn.dataset.chartId = cfg.id;
+      tabsEl.appendChild(btn);
+    });
+
+    // Фильтры по традициям
+    const tf = document.getElementById("tradition-filters");
+    traditions.forEach(tr => {
+      const id = "trad_" + tr.replace(/W+/g,'_');
+      const wrap = document.createElement("label");
+      const color = colors[tr] || "#999";
+      wrap.innerHTML = `<span class="legend-color" style="background:${color}"></span><input type="checkbox" id="${id}" checked> ${tr}`;
+      tf.appendChild(wrap);
+    });
+
+    // Утилиты
+    const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
+    const searchInput = document.getElementById("search");
+    const toggleLabels = document.getElementById("toggle-labels");
+    const toggleDense = document.getElementById("toggle-dense");
+    const limitAxes = document.getElementById("limit-axes");
+
+    // Создание контейнеров для диаграмм
+    const chartsContainer = document.getElementById("charts");
+    const chartInstances = {};
+
+    function fmtAxisLabel(key, v) {
+      const ax = axes[key];
+      return `${v} (${v < 0 ? ax.left : (v > 0 ? ax.right : ax.left + " / " + ax.right)})`;
+    }
+
+    function buildDatasetsFor(cfg) {
+      // Группируем по традициям, учитывая фильтры и поисковый запрос
+      const activeTraditions = new Set(traditions.filter(tr => {
+        const id = "trad_" + tr.replace(/W+/g,'_');
+        return document.getElementById(id)?.checked;
+      }));
+
+      const query = (searchInput.value || "").trim().toLowerCase();
+      const highlight = new Set();
+      if (query) {
+        philosophers.forEach(p => {
+          const hay = [p.n, p.t, p.s].filter(Boolean).join(" ").toLowerCase();
+          if (hay.includes(query)) highlight.add(p.n);
+        });
+      }
+
+      // Предельный диапазон
+      const lo = limitAxes.checked ? -85 : -100;
+      const hi = limitAxes.checked ? 85 : 100;
+
+      const dataByTrad = {};
+      traditions.forEach(tr => {
+        dataByTrad[tr] = [];
+      });
+
+      philosophers.forEach(p => {
+        const x = p.a[cfg.x], y = p.a[cfg.y];
+        if (x === null || x === undefined || y === null || y === undefined) return;
+        if (!activeTraditions.has(p.t)) return;
+
+        dataByTrad[p.t].push({
+          x: clamp(x, lo, hi),
+          y: clamp(y, lo, hi),
+          n: p.n,
+          t: p.t,
+          s: p.s || "",
+          rawX: x, rawY: y,
+          highlighted: highlight.has(p.n)
+        });
+      });
+
+      // Превращаем в наборы для Chart.js
+      const dense = toggleDense.checked;
+      const sets = [];
+      Object.entries(dataByTrad).forEach(([tr, pts]) => {
+        if (!pts.length) return;
+        sets.push({
+          label: tr,
+          data: pts,
+          parsing: false,
+          showLine: false,
+          pointRadius: pts.map(pt => pt.highlighted ? 5 : (dense ? 2 : 3)),
+          pointHoverRadius: pts.map(pt => (pt.highlighted ? 8 : 6)),
+          pointBackgroundColor: pts.map(pt => pt.highlighted ? "#FFD166" : (colors[tr] || "#999")),
+          pointBorderColor: pts.map(pt => pt.highlighted ? "#FFD166" : (colors[tr] || "#999")),
+          pointBorderWidth: pts.map(pt => pt.highlighted ? 1.5 : 1)
+        });
+      });
+      return sets;
+    }
+
+    function makeChartCard(cfg) {
+      const card = document.createElement("div");
+      card.className = "chart-card";
+      card.dataset.chartId = cfg.id;
+      if (cfg.id !== chartsConfig[0].id) card.style.display = "none";
+      const title = document.createElement("div");
+      title.className = "chart-title";
+      title.textContent = cfg.title;
+      const badge = document.createElement("span");
+      badge.className = "badge";
+      badge.textContent = "шкала −100…+100";
+      title.appendChild(badge);
+      const canvas = document.createElement("canvas");
+      card.appendChild(title);
+      card.appendChild(canvas);
+      chartsContainer.appendChild(card);
+
+      const axX = axes[cfg.x], axY = axes[cfg.y];
+
+      const chart = new Chart(canvas.getContext("2d"), {
+        type: "scatter",
+        data: { datasets: buildDatasetsFor(cfg) },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          animation: false,
+          plugins: {
+            legend: { position: "top", labels: { color: "#cbd3df", boxWidth: 14, boxHeight: 14 } },
+            tooltip: {
+              enabled: toggleLabels.checked,
+              callbacks: {
+                label: (ctx) => {
+                  const d = ctx.raw;
+                  const lines = [
+                      ${d.n} — ${d.s ? d.s + " · " : ""}${d.t},
+                      X: ${fmtAxisLabel(cfg.x, d.rawX)},
+                      Y: ${fmtAxisLabel(cfg.y, d.rawY)}
+                    ];
+                  return lines;
+                }
+              }
+            },
+          },
+          scales: {
+            x: {
+              min: limitAxes.checked ? -85 : -100,
+              max: limitAxes.checked ? 85 : 100,
+              grid: { color: "#222733" },
+              ticks: { color: "#cbd3df" },
+              title: { display: true, text: `${axX.left}  ←   X   →  ${axX.right}`, color: "#9aa4b2", font: { weight: "600" } },
+              border: { color: "#344055" }
+            },
+            y: {
+              min: limitAxes.checked ? -85 : -100,
+              max: limitAxes.checked ? 85 : 100,
+              grid: { color: "#222733" },
+              ticks: { color: "#cbd3df" },
+              title: { display: true, text: ${axY.left}  ↓  Y  ↑  ${axY.right}, color: "#9aa4b2", font: { weight: "600" } },
+              border: { color: "#344055" }
+            }
+          }
+        }
+      });
+
+      chartInstances[cfg.id] = { cfg, chart, card };
+    }
+
+    chartsConfig.forEach(makeChartCard);
+
+    function refreshCharts() {
+      Object.values(chartInstances).forEach(({ cfg, chart }) => {
+        chart.data.datasets = buildDatasetsFor(cfg);
+        const axX = axes[cfg.x], axY = axes[cfg.y];
+        chart.options.scales.x.title.text = `${axX.left}  ←   X   →  ${axX.right}`;
+        chart.options.scales.y.title.text = `${axY.left}  ↓  Y  ↑  ${axY.right}`;
+        chart.options.scales.x.min = limitAxes.checked ? -85 : -100;
+        chart.options.scales.x.max = limitAxes.checked ? 85 : 100;
+        chart.options.scales.y.min = limitAxes.checked ? -85 : -100;
+        chart.options.scales.y.max = limitAxes.checked ? 85 : 100;
+        chart.options.plugins.tooltip.enabled = toggleLabels.checked;
+        chart.update();
+      });
+    }
+
+    // Навигация вкладок
+    tabsEl.addEventListener("click", (e) => {
+      const btn = e.target.closest(".tab-btn");
+      if (!btn) return;
+      document.querySelectorAll(".tab-btn").forEach(b => b.classList.remove("active"));
+      btn.classList.add("active");
+      const id = btn.dataset.chartId;
+      Object.values(chartInstances).forEach(({ card }) => {
+        card.style.display = (card.dataset.chartId === id) ? "" : "none";
+      });
+    });
+
+    // Слушатели
+    document.getElementById("tradition-filters").addEventListener("change", refreshCharts);
+    searchInput.addEventListener("input", refreshCharts);
+    toggleLabels.addEventListener("change", refreshCharts);
+    toggleDense.addEventListener("change", refreshCharts);
+    limitAxes.addEventListener("change", refreshCharts);
+
+    // Готово
+    // Небольшой фикс опечатки в одном значении (ключ с кириллицей мог попасться)
+    philosophers.forEach(p => {
+      if (p.a && p.a["moral_realism_antirealism"] !== undefined) {
+        p.a["moral_realism_antirealism"] = p.a["moral_realism_antirealism"];
+        delete p.a["moral_realism_antirealism"];
+      }
+      if (p.a && p.a["liberalism_authoritarism"] !== undefined) {
+        p.a["liberalism_authoritarianism"] = p.a["liberalism_authoritarism"];
+        delete p.a["liberalism_authoritarism"];
+      }
+    });
+    refreshCharts();
+  </script>
+</body>
+</html>
