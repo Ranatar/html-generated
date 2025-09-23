@@ -1,0 +1,1504 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Кузница Феанора: Создание Сильмариллов</title>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Cinzel:wght@400;600&family=Crimson+Text:ital,wght@0,400;1,400&display=swap');
+        
+        :root {
+            --primary: #2c3e50;
+            --gold: #f39c12;
+            --silver: #95a5a6;
+            --mithril: #e8f4f8;
+            --fire: #e74c3c;
+            --nature: #27ae60;
+            --water: #3498db;
+            --shadow: #1a1a2e;
+            --light: #f8f9fa;
+        }
+        
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Crimson Text', serif;
+            background: linear-gradient(135deg, #0f0c29, #302b63, #24243e);
+            color: var(--light);
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+            position: relative;
+            overflow-x: hidden;
+        }
+        
+        body::before {
+            content: '';
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1440 320"><path fill="%23ffffff" fill-opacity="0.03" d="M0,96L48,112C96,128,192,160,288,165.3C384,171,480,149,576,154.7C672,160,768,192,864,197.3C960,203,1056,181,1152,165.3C1248,149,1344,139,1392,133.3L1440,128L1440,320L1392,320C1344,320,1248,320,1152,320C1056,320,960,320,864,320C768,320,672,320,576,320C480,320,384,320,288,320C192,320,96,320,48,320L0,320Z"></path></svg>') no-repeat center;
+            background-size: cover;
+            opacity: 0.1;
+            pointer-events: none;
+        }
+        
+        .game-container {
+            max-width: 900px;
+            width: 100%;
+            background: rgba(26, 26, 46, 0.95);
+            border-radius: 20px;
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+            border: 2px solid rgba(243, 156, 18, 0.3);
+            position: relative;
+            z-index: 1;
+        }
+        
+        .header {
+            background: linear-gradient(135deg, var(--primary), var(--shadow));
+            padding: 30px;
+            text-align: center;
+            border-radius: 18px 18px 0 0;
+            position: relative;
+            overflow: hidden;
+        }
+        
+        .header::after {
+            content: '✦';
+            position: absolute;
+            font-size: 200px;
+            opacity: 0.05;
+            top: -50px;
+            right: -50px;
+            animation: rotate 20s linear infinite;
+        }
+        
+        @keyframes rotate {
+            from { transform: rotate(0deg); }
+            to { transform: rotate(360deg); }
+        }
+        
+        h1 {
+            font-family: 'Cinzel', serif;
+            font-size: 2.5rem;
+            color: var(--gold);
+            text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.5);
+            margin-bottom: 10px;
+            position: relative;
+        }
+        
+        .subtitle {
+            font-style: italic;
+            color: var(--mithril);
+            font-size: 1.1rem;
+        }
+        
+        .content {
+            padding: 30px;
+        }
+        
+        .stats-container {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            gap: 15px;
+            margin-bottom: 30px;
+            padding: 20px;
+            background: rgba(52, 73, 94, 0.3);
+            border-radius: 15px;
+            border: 1px solid rgba(243, 156, 18, 0.2);
+        }
+        
+        .stat {
+            text-align: center;
+            padding: 15px;
+            background: rgba(44, 62, 80, 0.5);
+            border-radius: 10px;
+            transition: all 0.3s ease;
+            position: relative;
+            overflow: hidden;
+        }
+        
+        .stat::before {
+            content: '';
+            position: absolute;
+            top: -2px;
+            left: -2px;
+            right: -2px;
+            bottom: -2px;
+            background: linear-gradient(45deg, var(--gold), var(--silver), var(--gold));
+            border-radius: 10px;
+            opacity: 0;
+            z-index: -1;
+            transition: opacity 0.3s ease;
+        }
+        
+        .stat:hover::before {
+            opacity: 0.5;
+        }
+        
+        .stat-label {
+            font-size: 0.9rem;
+            color: var(--silver);
+            margin-bottom: 5px;
+            font-weight: 600;
+        }
+        
+        .stat-value {
+            font-family: 'Cinzel', serif;
+            font-size: 1.8rem;
+            color: var(--gold);
+            font-weight: 600;
+        }
+        
+        .stat-bar {
+            height: 4px;
+            background: rgba(149, 165, 166, 0.2);
+            border-radius: 2px;
+            margin-top: 8px;
+            overflow: hidden;
+        }
+        
+        .stat-fill {
+            height: 100%;
+            background: linear-gradient(90deg, var(--gold), var(--fire));
+            transition: width 0.5s ease;
+            box-shadow: 0 0 10px rgba(243, 156, 18, 0.5);
+        }
+        
+        .event-container {
+            background: rgba(52, 73, 94, 0.2);
+            border-radius: 15px;
+            padding: 25px;
+            margin-bottom: 25px;
+            border: 1px solid rgba(149, 165, 166, 0.2);
+            animation: fadeIn 0.5s ease;
+        }
+        
+        @keyframes fadeIn {
+            from { 
+                opacity: 0; 
+                transform: translateY(20px);
+            }
+            to { 
+                opacity: 1; 
+                transform: translateY(0);
+            }
+        }
+        
+        .event-title {
+            font-family: 'Cinzel', serif;
+            font-size: 1.5rem;
+            color: var(--gold);
+            margin-bottom: 15px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        
+        .event-icon {
+            font-size: 1.8rem;
+        }
+        
+        .event-text {
+            font-size: 1.1rem;
+            line-height: 1.8;
+            margin-bottom: 20px;
+            color: var(--light);
+        }
+        
+        .choices {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+        
+        .choice-btn {
+            background: linear-gradient(135deg, rgba(52, 152, 219, 0.2), rgba(155, 89, 182, 0.2));
+            color: var(--light);
+            border: 2px solid rgba(243, 156, 18, 0.3);
+            padding: 15px 20px;
+            border-radius: 10px;
+            font-family: 'Crimson Text', serif;
+            font-size: 1.1rem;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            position: relative;
+            overflow: hidden;
+            text-align: left;
+        }
+        
+        .choice-btn::before {
+            content: '';
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            width: 0;
+            height: 0;
+            background: radial-gradient(circle, rgba(243, 156, 18, 0.3) 0%, transparent 70%);
+            transform: translate(-50%, -50%);
+            transition: width 0.5s ease, height 0.5s ease;
+        }
+        
+        .choice-btn:hover::before {
+            width: 300px;
+            height: 300px;
+        }
+        
+        .choice-btn:hover {
+            border-color: var(--gold);
+            transform: translateX(5px);
+            box-shadow: 0 5px 20px rgba(243, 156, 18, 0.3);
+        }
+        
+        .choice-requirement {
+            font-size: 0.9rem;
+            color: var(--silver);
+            font-style: italic;
+        }
+        
+        .choice-btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+            background: rgba(149, 165, 166, 0.1);
+        }
+        
+        .choice-btn:disabled:hover {
+            transform: none;
+            box-shadow: none;
+            border-color: rgba(243, 156, 18, 0.3);
+        }
+        
+        .ending {
+            text-align: center;
+            padding: 30px;
+            background: linear-gradient(135deg, rgba(243, 156, 18, 0.1), rgba(231, 76, 60, 0.1));
+            border-radius: 15px;
+            border: 2px solid var(--gold);
+            animation: glow 2s ease-in-out infinite;
+        }
+        
+        @keyframes glow {
+            0%, 100% { box-shadow: 0 0 20px rgba(243, 156, 18, 0.3); }
+            50% { box-shadow: 0 0 40px rgba(243, 156, 18, 0.6); }
+        }
+        
+        .ending-title {
+            font-family: 'Cinzel', serif;
+            font-size: 2rem;
+            color: var(--gold);
+            margin-bottom: 15px;
+        }
+        
+        .ending-text {
+            font-size: 1.2rem;
+            line-height: 1.8;
+            margin-bottom: 20px;
+        }
+        
+        .restart-btn {
+            background: linear-gradient(135deg, var(--gold), var(--fire));
+            color: white;
+            border: none;
+            padding: 15px 40px;
+            border-radius: 50px;
+            font-family: 'Cinzel', serif;
+            font-size: 1.1rem;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 15px rgba(243, 156, 18, 0.4);
+        }
+        
+        .restart-btn:hover {
+            transform: scale(1.05);
+            box-shadow: 0 6px 20px rgba(243, 156, 18, 0.6);
+        }
+        
+        .materials-container {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+            margin-top: 15px;
+            padding: 15px;
+            background: rgba(39, 174, 96, 0.1);
+            border-radius: 10px;
+            border: 1px solid rgba(39, 174, 96, 0.3);
+        }
+        
+        .material-tag {
+            background: rgba(39, 174, 96, 0.2);
+            color: var(--nature);
+            padding: 5px 12px;
+            border-radius: 20px;
+            font-size: 0.9rem;
+            display: flex;
+            align-items: center;
+            gap: 5px;
+        }
+        
+        .material-icon {
+            font-size: 1rem;
+        }
+        
+        .notification {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            background: rgba(26, 26, 46, 0.95);
+            border: 2px solid var(--gold);
+            border-radius: 10px;
+            padding: 15px 20px;
+            max-width: 300px;
+            animation: slideIn 0.5s ease, slideOut 0.5s ease 2.5s;
+            animation-fill-mode: forwards;
+            z-index: 1000;
+        }
+        
+        @keyframes slideIn {
+            from { 
+                opacity: 0;
+                transform: translateX(100%);
+            }
+            to {
+                opacity: 1;
+                transform: translateX(0);
+            }
+        }
+        
+        @keyframes slideOut {
+            from {
+                opacity: 1;
+                transform: translateX(0);
+            }
+            to {
+                opacity: 0;
+                transform: translateX(100%);
+            }
+        }
+        
+        .special-event {
+            background: linear-gradient(135deg, rgba(155, 89, 182, 0.2), rgba(52, 152, 219, 0.2));
+            border: 2px solid rgba(155, 89, 182, 0.5);
+        }
+        
+        .legendary-event {
+            background: linear-gradient(135deg, rgba(241, 196, 15, 0.3), rgba(231, 76, 60, 0.3));
+            border: 2px solid var(--gold);
+            box-shadow: 0 0 30px rgba(243, 156, 18, 0.4);
+        }
+        
+        .mini-game {
+            background: rgba(52, 152, 219, 0.1);
+            border: 1px solid rgba(52, 152, 219, 0.3);
+            padding: 20px;
+            border-radius: 10px;
+            margin: 15px 0;
+        }
+        
+        .puzzle-container {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 10px;
+            margin: 15px 0;
+        }
+        
+        .puzzle-piece {
+            aspect-ratio: 1;
+            background: rgba(52, 73, 94, 0.5);
+            border: 2px solid rgba(243, 156, 18, 0.3);
+            border-radius: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 2rem;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+        
+        .puzzle-piece:hover {
+            background: rgba(243, 156, 18, 0.2);
+            transform: scale(1.1);
+        }
+        
+        .puzzle-piece.selected {
+            background: rgba(39, 174, 96, 0.3);
+            border-color: var(--nature);
+        }
+        
+        .relations-display {
+            display: flex;
+            gap: 15px;
+            margin-top: 10px;
+            flex-wrap: wrap;
+        }
+        
+        .relation-badge {
+            background: rgba(231, 76, 60, 0.2);
+            padding: 5px 10px;
+            border-radius: 15px;
+            font-size: 0.9rem;
+            display: flex;
+            align-items: center;
+            gap: 5px;
+        }
+        
+        .positive-relation {
+            background: rgba(39, 174, 96, 0.2);
+            color: var(--nature);
+        }
+        
+        .negative-relation {
+            background: rgba(231, 76, 60, 0.2);
+            color: var(--fire);
+        }
+        
+        .achievement {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            background: linear-gradient(135deg, var(--gold), var(--fire));
+            color: white;
+            padding: 15px 20px;
+            border-radius: 10px;
+            box-shadow: 0 5px 20px rgba(243, 156, 18, 0.5);
+            animation: achievementPop 3s ease forwards;
+            z-index: 1000;
+        }
+        
+        @keyframes achievementPop {
+            0% {
+                opacity: 0;
+                transform: translateY(100px) scale(0.5);
+            }
+            20% {
+                opacity: 1;
+                transform: translateY(0) scale(1.1);
+            }
+            30% {
+                transform: translateY(0) scale(1);
+            }
+            80% {
+                opacity: 1;
+                transform: translateY(0) scale(1);
+            }
+            100% {
+                opacity: 0;
+                transform: translateY(100px) scale(0.5);
+            }
+        }
+        
+        @media (max-width: 768px) {
+            h1 {
+                font-size: 1.8rem;
+            }
+            
+            .stats-container {
+                grid-template-columns: repeat(2, 1fr);
+            }
+            
+            .choice-btn {
+                padding: 12px 15px;
+                font-size: 1rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="game-container">
+        <div class="header">
+            <h1>Кузница Феанора</h1>
+            <div class="subtitle">Создание величайших творений Арды</div>
+        </div>
+        
+        <div class="content">
+            <div class="stats-container">
+                <div class="stat">
+                    <div class="stat-label">Мастерство</div>
+                    <div class="stat-value" id="skill">50</div>
+                    <div class="stat-bar">
+                        <div class="stat-fill" id="skill-bar" style="width: 50%"></div>
+                    </div>
+                </div>
+                <div class="stat">
+                    <div class="stat-label">Вдохновение</div>
+                    <div class="stat-value" id="inspiration">50</div>
+                    <div class="stat-bar">
+                        <div class="stat-fill" id="inspiration-bar" style="width: 50%"></div>
+                    </div>
+                </div>
+                <div class="stat">
+                    <div class="stat-label">Одержимость</div>
+                    <div class="stat-value" id="obsession">30</div>
+                    <div class="stat-bar">
+                        <div class="stat-fill" id="obsession-bar" style="width: 30%"></div>
+                    </div>
+                </div>
+                <div class="stat">
+                    <div class="stat-label">Свет Древ</div>
+                    <div class="stat-value" id="light">40</div>
+                    <div class="stat-bar">
+                        <div class="stat-fill" id="light-bar" style="width: 40%"></div>
+                    </div>
+                </div>
+                <div class="stat">
+                    <div class="stat-label">Репутация</div>
+                    <div class="stat-value" id="reputation">50</div>
+                    <div class="stat-bar">
+                        <div class="stat-fill" id="reputation-bar" style="width: 50%"></div>
+                    </div>
+                </div>
+                <div class="stat">
+                    <div class="stat-label">Ресурсы</div>
+                    <div class="stat-value" id="resources">50</div>
+                    <div class="stat-bar">
+                        <div class="stat-fill" id="resources-bar" style="width: 50%"></div>
+                    </div>
+                </div>
+            </div>
+            
+            <div id="event-display"></div>
+        </div>
+    </div>
+
+    <script>
+        const gameState = {
+            skill: 50,
+            inspiration: 50,
+            obsession: 30,
+            light: 40,
+            reputation: 50,
+            resources: 50,
+            eventIndex: 0,
+            materials: [],
+            relations: {},
+            achievements: [],
+            silmarilCount: 0,
+            secretsDiscovered: [],
+            path: 'normal',
+            choices: []
+        };
+
+        const materials = {
+            mithril: { name: 'Мифрил', icon: '⚪', rarity: 'rare' },
+            starDust: { name: 'Звёздная пыль', icon: '✨', rarity: 'legendary' },
+            treeEssence: { name: 'Эссенция Древ', icon: '🌳', rarity: 'legendary' },
+            dragonScale: { name: 'Чешуя дракона', icon: '🐉', rarity: 'epic' },
+            valarBlessing: { name: 'Благословение Валар', icon: '🌟', rarity: 'legendary' },
+            shadowGem: { name: 'Теневой камень', icon: '💎', rarity: 'epic' },
+            moonstone: { name: 'Лунный камень', icon: '🌙', rarity: 'rare' },
+            fireHeart: { name: 'Сердце пламени', icon: '🔥', rarity: 'epic' },
+            iceEssence: { name: 'Ледяная эссенция', icon: '❄️', rarity: 'rare' },
+            timeFragment: { name: 'Осколок времени', icon: '⏳', rarity: 'legendary' }
+        };
+
+        const events = [
+            // Начальные события
+            {
+                id: 'start',
+                type: 'normal',
+                title: '⚒️ Начало великого труда',
+                text: 'Ты стоишь в своей кузнице, готовый начать создание величайших творений в истории Арды. Свет Древ струится через окна, освещая инструменты невиданной красоты. Что ты сделаешь первым?',
+                choices: [
+                    {
+                        text: 'Медитировать у света Древ, ища вдохновение',
+                        requirements: {},
+                        effects: { inspiration: 20, light: 15, obsession: 5 },
+                        next: 'tree_meditation'
+                    },
+                    {
+                        text: 'Изучить древние знания Ауле',
+                        requirements: {},
+                        effects: { skill: 15, inspiration: 5, obsession: 10 },
+                        next: 'aule_knowledge'
+                    },
+                    {
+                        text: 'Собрать редчайшие материалы',
+                        requirements: {},
+                        effects: { resources: 20, skill: 5 },
+                        materials: ['mithril'],
+                        next: 'material_gathering'
+                    },
+                    {
+                        text: 'Провести тайный ритуал пробуждения',
+                        requirements: { obsession: 25 },
+                        effects: { obsession: 20, skill: 10, reputation: -10 },
+                        materials: ['shadowGem'],
+                        next: 'secret_ritual'
+                    }
+                ]
+            },
+            
+            // Медитация у Древ
+            {
+                id: 'tree_meditation',
+                type: 'special',
+                title: '🌳 Откровение Древ',
+                text: 'В медитации ты видишь видение: Лаурелин и Тельперион показывают тебе тайну своего света. Но видение раздваивается...',
+                choices: [
+                    {
+                        text: 'Следовать золотому пути Лаурелин',
+                        requirements: { light: 30 },
+                        effects: { light: 25, inspiration: 15, skill: 10 },
+                        materials: ['treeEssence'],
+                        next: 'golden_path'
+                    },
+                    {
+                        text: 'Следовать серебряному пути Тельпериона',
+                        requirements: { inspiration: 40 },
+                        effects: { light: 20, skill: 20, obsession: -5 },
+                        materials: ['moonstone'],
+                        next: 'silver_path'
+                    },
+                    {
+                        text: 'Попытаться объединить оба пути',
+                        requirements: { skill: 60, inspiration: 60 },
+                        effects: { light: 40, inspiration: 30, obsession: 15 },
+                        materials: ['treeEssence', 'starDust'],
+                        next: 'dual_path'
+                    }
+                ]
+            },
+            
+            // Знания Ауле
+            {
+                id: 'aule_knowledge',
+                type: 'normal',
+                title: '📚 Наследие Ауле',
+                text: 'В древних свитках ты находишь упоминание о технике, которую сам Ауле считал слишком опасной. Рядом лежит более безопасный, но менее мощный метод.',
+                choices: [
+                    {
+                        text: 'Изучить запретную технику',
+                        requirements: { skill: 45 },
+                        effects: { skill: 30, obsession: 25, reputation: -15 },
+                        next: 'forbidden_technique'
+                    },
+                    {
+                        text: 'Освоить безопасный метод',
+                        requirements: {},
+                        effects: { skill: 20, reputation: 10 },
+                        next: 'safe_method'
+                    },
+                    {
+                        text: 'Создать свою собственную технику',
+                        requirements: { inspiration: 70, skill: 50 },
+                        effects: { skill: 25, inspiration: 20, reputation: 15 },
+                        materials: ['fireHeart'],
+                        next: 'original_technique'
+                    }
+                ]
+            },
+            
+            // Сбор материалов
+            {
+                id: 'material_gathering',
+                type: 'normal',
+                title: '💎 Поиск материалов',
+                text: 'Твои поиски привели тебя к развилке: можно отправиться в опасное путешествие за легендарными материалами или договориться с другими мастерами об обмене.',
+                choices: [
+                    {
+                        text: 'Отправиться в подземелья Мории',
+                        requirements: { resources: 40 },
+                        effects: { resources: -20, skill: 15 },
+                        materials: ['mithril', 'dragonScale'],
+                        next: 'moria_expedition'
+                    },
+                    {
+                        text: 'Торговать с эльфийскими мастерами',
+                        requirements: { reputation: 45 },
+                        effects: { resources: 15, reputation: 10 },
+                        materials: ['moonstone'],
+                        next: 'elf_trade'
+                    },
+                    {
+                        text: 'Искать в тайных местах Валинора',
+                        requirements: { light: 50, reputation: 60 },
+                        effects: { light: 10, resources: 30 },
+                        materials: ['starDust', 'treeEssence'],
+                        next: 'valinor_search'
+                    },
+                    {
+                        text: 'Призвать материалы силой воли',
+                        requirements: { obsession: 60, skill: 70 },
+                        effects: { obsession: 20, resources: 40, light: -20 },
+                        materials: ['shadowGem', 'fireHeart'],
+                        next: 'material_summoning'
+                    }
+                ]
+            },
+            
+            // Тайный ритуал
+            {
+                id: 'secret_ritual',
+                type: 'legendary',
+                title: '🌑 Запретный ритуал',
+                text: 'Древний ритуал пробуждает в тебе силы, о которых ты не подозревал. Тени танцуют вокруг, и ты слышишь шёпот... Мелькор? Или твоё собственное ambition?',
+                choices: [
+                    {
+                        text: 'Принять тёмную силу полностью',
+                        requirements: { obsession: 50 },
+                        effects: { obsession: 40, skill: 35, light: -30, reputation: -30 },
+                        materials: ['shadowGem', 'timeFragment'],
+                        next: 'dark_embrace'
+                    },
+                    {
+                        text: 'Использовать силу, но сохранить контроль',
+                        requirements: { skill: 70, inspiration: 60 },
+                        effects: { skill: 30, obsession: 15, light: -10 },
+                        materials: ['shadowGem'],
+                        next: 'controlled_darkness'
+                    },
+                    {
+                        text: 'Отвергнуть тьму и обратиться к Валар',
+                        requirements: { light: 60 },
+                        effects: { light: 30, reputation: 20, obsession: -20 },
+                        materials: ['valarBlessing'],
+                        next: 'valar_redemption'
+                    }
+                ]
+            },
+            
+            // Путь золотого света
+            {
+                id: 'golden_path',
+                type: 'special',
+                title: '☀️ Благословение Лаурелин',
+                text: 'Золотой свет Лаурелин наполняет твою кузницу. Ты чувствуешь невероятную силу, но также и ответственность. Древо предлагает тебе выбор даров.',
+                choices: [
+                    {
+                        text: 'Принять дар вечного пламени',
+                        requirements: { light: 55 },
+                        effects: { skill: 25, light: 20, inspiration: 15 },
+                        materials: ['fireHeart', 'treeEssence'],
+                        next: 'eternal_flame'
+                    },
+                    {
+                        text: 'Попросить мудрость веков',
+                        requirements: { inspiration: 65 },
+                        effects: { inspiration: 35, skill: 20, obsession: -10 },
+                        next: 'ancient_wisdom'
+                    },
+                    {
+                        text: 'Объединить свою душу с Древом',
+                        requirements: { light: 70, obsession: 20 },
+                        effects: { light: 50, obsession: 30, skill: 30 },
+                        materials: ['treeEssence', 'starDust', 'fireHeart'],
+                        next: 'soul_merge'
+                    }
+                ]
+            },
+            
+            // Экспедиция в Морию
+            {
+                id: 'moria_expedition', 
+                type: 'special',
+                title: '⛏️ Глубины Мории',
+                text: 'В древних залах Казад-Дума ты находишь не только мифрил, но и следы еще более древней цивилизации. Загадочные руны светятся на стенах.',
+                puzzle: 'rune_puzzle',
+                choices: [
+                    {
+                        text: 'Расшифровать руны',
+                        requirements: { skill: 55 },
+                        effects: { skill: 20, inspiration: 25 },
+                        materials: ['timeFragment'],
+                        next: 'ancient_secret'
+                    },
+                    {
+                        text: 'Собрать сокровища и уйти',
+                        requirements: {},
+                        effects: { resources: 40, reputation: 5 },
+                        materials: ['mithril', 'dragonScale'],
+                        next: 'treasure_haul'
+                    },
+                    {
+                        text: 'Пробудить древнего стража',
+                        requirements: { obsession: 45, skill: 60 },
+                        effects: { skill: 30, obsession: 20, resources: -30 },
+                        materials: ['dragonScale', 'shadowGem', 'fireHeart'],
+                        next: 'guardian_awakening'
+                    }
+                ]
+            },
+            
+            // Мини-игра с рунами
+            {
+                id: 'rune_puzzle_result',
+                type: 'mini_game',
+                title: '🎯 Разгадка рун',
+                text: 'Твоё понимание древних рун открывает новые возможности!',
+                choices: [
+                    {
+                        text: 'Использовать знание немедленно',
+                        requirements: {},
+                        effects: { skill: 25, inspiration: 20 },
+                        materials: ['timeFragment'],
+                        next: 'immediate_use'
+                    },
+                    {
+                        text: 'Сохранить знание для финального творения',
+                        requirements: {},
+                        effects: { inspiration: 30 },
+                        next: 'preserved_knowledge'
+                    }
+                ]
+            },
+            
+            // Пробуждение стража
+            {
+                id: 'guardian_awakening',
+                type: 'legendary',
+                title: '🐲 Древний страж',
+                text: 'Перед тобой пробуждается Глаурунг-предшественник, дракон старше самого Мелькора. Он предлагает сделку: его пламя для твоих Сильмариллов в обмен на... что-то ценное.',
+                choices: [
+                    {
+                        text: 'Отдать часть своей души',
+                        requirements: { obsession: 60 },
+                        effects: { obsession: 30, skill: 40, light: -25 },
+                        materials: ['dragonScale', 'fireHeart', 'shadowGem'],
+                        silmarilBonus: 1,
+                        next: 'soul_bargain'
+                    },
+                    {
+                        text: 'Предложить союз против Мелькора',
+                        requirements: { reputation: 70, skill: 65 },
+                        effects: { reputation: 25, skill: 30 },
+                        materials: ['dragonScale', 'fireHeart'],
+                        next: 'dragon_alliance'
+                    },
+                    {
+                        text: 'Попытаться подчинить дракона',
+                        requirements: { obsession: 70, skill: 75 },
+                        effects: { obsession: 40, skill: 35, reputation: -40 },
+                        materials: ['dragonScale', 'fireHeart', 'shadowGem', 'timeFragment'],
+                        silmarilBonus: 2,
+                        next: 'dragon_domination'
+                    },
+                    {
+                        text: 'Бежать с тем, что успел взять',
+                        requirements: {},
+                        effects: { resources: 20, reputation: -10 },
+                        materials: ['mithril'],
+                        next: 'hasty_retreat'
+                    }
+                ]
+            },
+            
+            // Встреча с Валар
+            {
+                id: 'valar_redemption',
+                type: 'special',
+                title: '⭐ Суд Валар',
+                text: 'Манвэ, Варда и Ауле появляются перед тобой. Они готовы дать тебе второй шанс, но требуют доказательств твоей преданности свету.',
+                choices: [
+                    {
+                        text: 'Поклясться создать Сильмариллы во славу Валар',
+                        requirements: { light: 65 },
+                        effects: { light: 40, reputation: 50, obsession: -30 },
+                        materials: ['valarBlessing', 'treeEssence'],
+                        next: 'valar_oath'
+                    },
+                    {
+                        text: 'Попросить их силу, но сохранить независимость',
+                        requirements: { skill: 70, reputation: 60 },
+                        effects: { skill: 30, light: 20, reputation: 15 },
+                        materials: ['valarBlessing'],
+                        next: 'independent_blessing'
+                    },
+                    {
+                        text: 'Обмануть Валар, притворившись раскаявшимся',
+                        requirements: { obsession: 55 },
+                        effects: { obsession: 25, skill: 20, light: 10, reputation: -20 },
+                        materials: ['shadowGem'],
+                        next: 'deception'
+                    }
+                ]
+            },
+            
+            // Создание Сильмариллов
+            {
+                id: 'silmaril_creation',
+                type: 'legendary',
+                title: '💎 Час творения',
+                text: 'Настал момент истины. Все твои знания, материалы и силы собраны воедино. Как ты создашь Сильмариллы?',
+                choices: [
+                    {
+                        text: 'Следовать традиционному методу',
+                        requirements: { skill: 70, light: 60 },
+                        effects: { skill: 20, light: 20 },
+                        silmarils: 3,
+                        next: 'traditional_creation'
+                    },
+                    {
+                        text: 'Использовать запретные знания',
+                        requirements: { obsession: 70, skill: 75 },
+                        effects: { obsession: 30, skill: 30 },
+                        silmarils: 4,
+                        next: 'forbidden_creation'
+                    },
+                    {
+                        text: 'Объединить свет и тьму в совершенном балансе',
+                        requirements: { skill: 80, inspiration: 80, light: 50, obsession: 50 },
+                        effects: { skill: 40, inspiration: 40 },
+                        silmarils: 5,
+                        next: 'perfect_balance'
+                    },
+                    {
+                        text: 'Вложить всю свою сущность в творение',
+                        requirements: { obsession: 80, inspiration: 85 },
+                        effects: { obsession: 50, inspiration: 50 },
+                        silmarils: 7,
+                        next: 'ultimate_sacrifice'
+                    }
+                ]
+            },
+            
+            // Альтернативные пути
+            {
+                id: 'dragon_alliance',
+                type: 'special',
+                title: '🤝 Союз с древним',
+                text: 'Дракон принимает твоё предложение. Вместе вы можете создать нечто невиданное - Сильмариллы, горящие драконьим пламенем.',
+                choices: [
+                    {
+                        text: 'Создать Пламенные Сильмариллы',
+                        requirements: { skill: 70 },
+                        effects: { skill: 30, obsession: 20 },
+                        silmarils: 3,
+                        silmarilType: 'fire',
+                        next: 'fire_silmarils'
+                    },
+                    {
+                        text: 'Попытаться создать больше камней',
+                        requirements: { resources: 70, skill: 80 },
+                        effects: { resources: -40, skill: 35 },
+                        silmarils: 5,
+                        silmarilType: 'fire',
+                        next: 'many_fire_silmarils'
+                    }
+                ]
+            },
+            
+            {
+                id: 'soul_merge',
+                type: 'legendary',
+                title: '🌟 Единение с Древом',
+                text: 'Твоя душа сливается с сущностью Лаурелин. Ты больше не просто эльф - ты становишься живым воплощением света.',
+                choices: [
+                    {
+                        text: 'Создать Живые Сильмариллы',
+                        requirements: {},
+                        effects: { light: 100, obsession: 100 },
+                        silmarils: 3,
+                        silmarilType: 'living',
+                        next: 'living_silmarils'
+                    },
+                    {
+                        text: 'Стать самим Сильмариллом',
+                        requirements: { obsession: 90 },
+                        effects: {},
+                        silmarils: 1,
+                        silmarilType: 'self',
+                        next: 'become_silmaril'
+                    }
+                ]
+            },
+            
+            // Особые концовки
+            {
+                id: 'become_silmaril',
+                type: 'ending',
+                title: '✨ Живой Сильмарилл',
+                text: 'Ты становишься четвёртым Сильмариллом - живым, дышащим, вечным. Твоё тело излучает свет Древ, твоя душа - чистое сияние. Эльфы будут петь о тебе до конца времён, но ты уже не услышишь их песен, ибо стал самой песней.',
+                achievement: 'Трансцендентность'
+            },
+            
+            {
+                id: 'perfect_balance',
+                type: 'ending', 
+                title: '☯️ Совершенное равновесие',
+                text: 'Ты создал пять Сильмариллов невиданной красоты - два светлых, два тёмных и один, объединяющий обе силы. Баланс Арды изменён навсегда. Валар и Мелькор равно поражены твоим творением. Ты превзошёл самого Илуватара в искусстве творения.',
+                achievement: 'Новый Творец'
+            },
+            
+            {
+                id: 'ultimate_sacrifice',
+                type: 'ending',
+                title: '💀 Величайшая жертва',
+                text: 'Семь Сильмариллов сияют перед тобой, но ты уже не можешь их видеть. Твоя душа, разделённая между ними, дарит каждому камню истинную жизнь. Феанор мёртв, но его наследие будет жить вечно в семи самостоятельных сущностях света.',
+                achievement: 'Семикратное бессмертие'
+            },
+            
+            {
+                id: 'fire_silmarils',
+                type: 'ending',
+                title: '🔥 Пламенные Сильмариллы',
+                text: 'Три Сильмарилла пылают вечным драконьим огнём. Они не просто хранят свет - они создают его, выжигая тьму wherever они появляются. Даже Мелькор боится прикоснуться к ним.',
+                achievement: 'Повелитель драконов'
+            },
+            
+            {
+                id: 'many_fire_silmarils',
+                type: 'ending',
+                title: '🌋 Пламенная корона',
+                text: 'Пять огненных Сильмариллов образуют корону такой мощи, что даже Валар признают тебя равным. Ты становишься Владыкой Пламени, новой силой в Арде.',
+                achievement: 'Огненный владыка'
+            },
+            
+            {
+                id: 'living_silmarils',
+                type: 'ending',
+                title: '🌱 Живые камни',
+                text: 'Три Сильмарилла пульсируют собственной жизнью. Они растут, изменяются, даже разговаривают. Ты создал не просто камни - ты создал новую расу бессмертных существ света.',
+                achievement: 'Создатель жизни'
+            },
+            
+            {
+                id: 'dark_embrace',
+                type: 'ending',
+                title: '🌑 Тёмный триумф',
+                text: 'Поддавшись тьме полностью, ты создаёшь Чёрные Сильмариллы - антитезу свету. Мелькор признаёт тебя равным, и вместе вы погружаете Арду в вечную ночь. Но в этой тьме есть странная, извращённая красота.',
+                achievement: 'Тёмный мастер'
+            },
+            
+            {
+                id: 'valar_oath',
+                type: 'ending',
+                title: '👑 Избранный Валар',
+                text: 'Создав Сильмариллы во славу Валар, ты поднимаешься до их уровня. Манвэ дарует тебе место среди Валар как Покровителя Мастеров. Твои Сильмариллы становятся новыми звёздами на небе Арды.',
+                achievement: 'Вознесение'
+            },
+            
+            // Дополнительные промежуточные события
+            {
+                id: 'ancient_wisdom',
+                type: 'special',
+                title: '📖 Мудрость веков',
+                text: 'Знание тысячелетий вливается в твой разум. Ты видишь все возможные пути создания Сильмариллов одновременно.',
+                choices: [
+                    {
+                        text: 'Выбрать путь множества',
+                        requirements: { inspiration: 75 },
+                        effects: { inspiration: 20, skill: 25 },
+                        next: 'path_of_many'
+                    },
+                    {
+                        text: 'Выбрать путь единства',
+                        requirements: { skill: 75 },
+                        effects: { skill: 30, obsession: 10 },
+                        next: 'path_of_one'
+                    },
+                    {
+                        text: 'Создать новый путь',
+                        requirements: { inspiration: 85, skill: 85 },
+                        effects: { inspiration: 30, skill: 30, obsession: 20 },
+                        next: 'new_path'
+                    }
+                ]
+            },
+            
+            {
+                id: 'path_of_many',
+                type: 'special',
+                title: '💫 Путь множества',
+                text: 'Ты решаешь создать множество меньших Сильмариллов вместо трёх великих.',
+                choices: [
+                    {
+                        text: 'Создать двенадцать малых Сильмариллов',
+                        requirements: { skill: 70, resources: 80 },
+                        effects: {},
+                        silmarils: 12,
+                        silmarilType: 'minor',
+                        next: 'twelve_stones'
+                    },
+                    {
+                        text: 'Создать созвездие из камней',
+                        requirements: { inspiration: 90, light: 70 },
+                        effects: {},
+                        silmarils: 20,
+                        silmarilType: 'constellation',
+                        next: 'star_constellation'
+                    }
+                ]
+            },
+            
+            {
+                id: 'twelve_stones',
+                type: 'ending',
+                title: '💎 Двенадцать судеб',
+                text: 'Двенадцать малых Сильмариллов разлетаются по Арде, каждый находит своего хранителя. Ты изменил судьбу мира, дав силу многим вместо few.',
+                achievement: 'Демократ света'
+            },
+            
+            {
+                id: 'star_constellation',
+                type: 'ending',
+                title: '🌌 Звёздное творение',
+                text: 'Двадцать Сильмариллов поднимаются в небо, образуя новое созвездие. Варда поражена - ты создал не просто камни, но новый источник света для всей Арды.',
+                achievement: 'Звездочёт'
+            },
+            
+            {
+                id: 'path_of_one',
+                type: 'special',
+                title: '1️⃣ Путь единого',
+                text: 'Всю свою силу ты решаешь вложить в создание одного, совершенного Сильмарилла.',
+                choices: [
+                    {
+                        text: 'Создать Первозданный Сильмарилл',
+                        requirements: { skill: 90, inspiration: 90, light: 80 },
+                        effects: {},
+                        silmarils: 1,
+                        silmarilType: 'primordial',
+                        next: 'primordial_silmaril'
+                    },
+                    {
+                        text: 'Создать Сильмарилл-сердце',
+                        requirements: { obsession: 90, skill: 85 },
+                        effects: {},
+                        silmarils: 1,
+                        silmarilType: 'heart',
+                        next: 'heart_silmaril'
+                    }
+                ]
+            },
+            
+            {
+                id: 'primordial_silmaril',
+                type: 'ending',
+                title: '🌟 Первозданный свет',
+                text: 'Единственный Сильмарилл сияет ярче тысячи солнц. Он становится новым источником света после гибели Древ. Ты спас Валинор, но цена - твоя жизнь, полностью отданная творению.',
+                achievement: 'Спаситель Валинора'
+            },
+            
+            {
+                id: 'heart_silmaril',
+                type: 'ending',
+                title: '❤️ Сердце Арды',
+                text: 'Сильмарилл-сердце бьётся в унисон с самой Ардой. Он становится её новым центром, источником всей жизни и света. Ты не просто создал камень - ты пересоздал мир.',
+                achievement: 'Новое сердце мира'
+            }
+        ];
+
+        function updateStats() {
+            for (let stat in gameState) {
+                if (stat === 'eventIndex' || stat === 'materials' || stat === 'relations' || 
+                    stat === 'achievements' || stat === 'silmarilCount' || stat === 'secretsDiscovered' || 
+                    stat === 'path' || stat === 'choices') continue;
+                
+                const element = document.getElementById(stat);
+                const barElement = document.getElementById(stat + '-bar');
+                if (element) {
+                    element.textContent = gameState[stat];
+                    if (barElement) {
+                        barElement.style.width = gameState[stat] + '%';
+                    }
+                }
+            }
+        }
+
+        function showNotification(text, type = 'normal') {
+            const notification = document.createElement('div');
+            notification.className = 'notification';
+            if (type === 'achievement') {
+                notification.className += ' achievement';
+            }
+            notification.innerHTML = text;
+            document.body.appendChild(notification);
+            
+            setTimeout(() => {
+                notification.remove();
+            }, 3500);
+        }
+
+        function addMaterial(materialKey) {
+            if (!gameState.materials.includes(materialKey)) {
+                gameState.materials.push(materialKey);
+                const material = materials[materialKey];
+                showNotification(`${material.icon} Получен: ${material.name}`, 'normal');
+            }
+        }
+
+        function displayMaterials() {
+            if (gameState.materials.length === 0) return '';
+            
+            let html = '<div class="materials-container">';
+            html += '<div style="width: 100%; color: var(--silver); margin-bottom: 10px;">📦 Материалы:</div>';
+            
+            gameState.materials.forEach(materialKey => {
+                const material = materials[materialKey];
+                if (material) {
+                    html += `<div class="material-tag">
+                        <span class="material-icon">${material.icon}</span>
+                        <span>${material.name}</span>
+                    </div>`;
+                }
+            });
+            
+            html += '</div>';
+            return html;
+        }
+
+        function checkRequirements(requirements) {
+            for (let req in requirements) {
+                if (gameState[req] < requirements[req]) {
+                    return false;
+                }
+            }
+            return true;
+        }
+
+        function applyEffects(effects) {
+            for (let stat in effects) {
+                if (gameState[stat] !== undefined) {
+                    gameState[stat] += effects[stat];
+                    gameState[stat] = Math.max(0, Math.min(100, gameState[stat]));
+                }
+            }
+        }
+
+        function createPuzzle(puzzleType) {
+            if (puzzleType === 'rune_puzzle') {
+                const runes = ['ᚠ', 'ᚢ', 'ᚦ', 'ᚨ', 'ᚱ', 'ᚲ', 'ᚷ', 'ᚹ', 'ᚺ'];
+                let puzzleHtml = '<div class="mini-game">';
+                puzzleHtml += '<p>Выбери правильную последовательность рун для открытия тайны:</p>';
+                puzzleHtml += '<div class="puzzle-container">';
+                
+                for (let i = 0; i < 9; i++) {
+                    puzzleHtml += `<div class="puzzle-piece" data-index="${i}">${runes[i]}</div>`;
+                }
+                
+                puzzleHtml += '</div>';
+                puzzleHtml += '<button class="choice-btn" onclick="solvePuzzle()">Подтвердить выбор</button>';
+                puzzleHtml += '</div>';
+                
+                return puzzleHtml;
+            }
+            return '';
+        }
+
+        function solvePuzzle() {
+            const selected = document.querySelectorAll('.puzzle-piece.selected');
+            if (selected.length >= 3) {
+                showNotification('✨ Загадка разгадана! Древние тайны открыты тебе.', 'achievement');
+                gameState.skill += 15;
+                gameState.inspiration += 20;
+                addMaterial('timeFragment');
+                updateStats();
+                displayEvent(events.find(e => e.id === 'rune_puzzle_result'));
+            } else {
+                showNotification('Выберите больше рун для решения загадки', 'normal');
+            }
+        }
+
+        function displayEvent(event) {
+            if (!event) {
+                // Определяем финальное событие на основе накопленных характеристик
+                const finalEvent = determineFinalEvent();
+                displayEvent(finalEvent);
+                return;
+            }
+            
+            const eventDisplay = document.getElementById('event-display');
+            let html = `<div class="event-container ${event.type === 'legendary' ? 'legendary-event' : event.type === 'special' ? 'special-event' : ''}">`;
+            
+            html += `<div class="event-title">
+                <span class="event-icon">${event.title.split(' ')[0]}</span>
+                <span>${event.title.substring(event.title.indexOf(' ') + 1)}</span>
+            </div>`;
+            
+            html += `<div class="event-text">${event.text}</div>`;
+            
+            // Показываем материалы
+            html += displayMaterials();
+            
+            // Добавляем мини-игру если есть
+            if (event.puzzle) {
+                html += createPuzzle(event.puzzle);
+            }
+            
+            if (event.type === 'ending') {
+                html += `<div class="ending">`;
+                html += `<div class="ending-title">${event.title}</div>`;
+                html += `<div class="ending-text">${event.text}</div>`;
+                
+                if (event.achievement) {
+                    html += `<div style="margin: 20px 0; color: var(--gold);">🏆 Достижение разблокировано: ${event.achievement}</div>`;
+                    gameState.achievements.push(event.achievement);
+                }
+                
+                // Показываем итоговую статистику
+                html += `<div style="margin: 20px 0; padding: 20px; background: rgba(52, 73, 94, 0.3); border-radius: 10px;">`;
+                html += `<h3 style="color: var(--gold); margin-bottom: 15px;">Итоговые показатели:</h3>`;
+                html += `<p>⚒️ Мастерство: ${gameState.skill}</p>`;
+                html += `<p>💡 Вдохновение: ${gameState.inspiration}</p>`;
+                html += `<p>🔥 Одержимость: ${gameState.obsession}</p>`;
+                html += `<p>✨ Свет Древ: ${gameState.light}</p>`;
+                html += `<p>👑 Репутация: ${gameState.reputation}</p>`;
+                html += `<p>💎 Созданных Сильмариллов: ${gameState.silmarilCount || 3}</p>`;
+                html += `<p>📦 Собрано материалов: ${gameState.materials.length}</p>`;
+                html += '</div>';
+                
+                html += `<button class="restart-btn" onclick="restartGame()">Начать заново</button>`;
+                html += `</div>`;
+            } else {
+                html += '<div class="choices">';
+                
+                event.choices.forEach((choice, index) => {
+                    const canChoose = checkRequirements(choice.requirements);
+                    let choiceText = choice.text;
+                    
+                    if (Object.keys(choice.requirements).length > 0) {
+                        const reqText = Object.entries(choice.requirements)
+                            .map(([stat, val]) => `${getStatName(stat)} ${val}+`)
+                            .join(', ');
+                        choiceText += `<div class="choice-requirement">(Требуется: ${reqText})</div>`;
+                    }
+                    
+                    html += `<button class="choice-btn" ${!canChoose ? 'disabled' : ''} 
+                            onclick="makeChoice(${index})">
+                            ${choiceText}
+                        </button>`;
+                });
+                
+                html += '</div>';
+            }
+            
+            html += '</div>';
+            
+            eventDisplay.innerHTML = html;
+            
+            // Добавляем обработчики для элементов пазла
+            if (event.puzzle) {
+                document.querySelectorAll('.puzzle-piece').forEach(piece => {
+                    piece.addEventListener('click', function() {
+                        this.classList.toggle('selected');
+                    });
+                });
+            }
+        }
+
+        function getStatName(stat) {
+            const names = {
+                skill: 'Мастерство',
+                inspiration: 'Вдохновение',
+                obsession: 'Одержимость', 
+                light: 'Свет',
+                reputation: 'Репутация',
+                resources: 'Ресурсы'
+            };
+            return names[stat] || stat;
+        }
+
+        function makeChoice(choiceIndex) {
+            const currentEvent = events.find(e => e.id === gameState.currentEventId) || events[0];
+            const choice = currentEvent.choices[choiceIndex];
+            
+            // Сохраняем выбор
+            gameState.choices.push({
+                event: currentEvent.id,
+                choice: choiceIndex
+            });
+            
+            // Применяем эффекты
+            if (choice.effects) {
+                applyEffects(choice.effects);
+            }
+            
+            // Добавляем материалы
+            if (choice.materials) {
+                choice.materials.forEach(mat => addMaterial(mat));
+            }
+            
+            // Обновляем количество Сильмариллов
+            if (choice.silmarils) {
+                gameState.silmarilCount = choice.silmarils;
+                showNotification(`💎 Сильмариллов создано: ${choice.silmarils}`, 'achievement');
+            }
+            
+            if (choice.silmarilBonus) {
+                gameState.silmarilCount = (gameState.silmarilCount || 3) + choice.silmarilBonus;
+                showNotification(`💎 Дополнительные Сильмариллы: +${choice.silmarilBonus}`, 'achievement');
+            }
+            
+            if (choice.silmarilType) {
+                gameState.silmarilType = choice.silmarilType;
+            }
+            
+            // Обновляем интерфейс
+            updateStats();
+            
+            // Переходим к следующему событию
+            const nextEvent = events.find(e => e.id === choice.next);
+            if (nextEvent) {
+                gameState.currentEventId = choice.next;
+                setTimeout(() => displayEvent(nextEvent), 500);
+            } else {
+                // Если нет следующего события, определяем концовку
+                const ending = determineFinalEvent();
+                setTimeout(() => displayEvent(ending), 500);
+            }
+        }
+
+        function determineFinalEvent() {
+            // Проверяем особые условия для уникальных концовок
+            if (gameState.silmarilCount > 0) {
+                // Если уже определён тип Сильмариллов, возвращаем соответствующую концовку
+                const endings = events.filter(e => e.type === 'ending');
+                return endings[Math.floor(Math.random() * endings.length)];
+            }
+            
+            // Определяем концовку на основе характеристик
+            if (gameState.obsession >= 80 && gameState.skill >= 80) {
+                return events.find(e => e.id === 'ultimate_sacrifice');
+            } else if (gameState.light >= 80 && gameState.reputation >= 70) {
+                return events.find(e => e.id === 'valar_oath');
+            } else if (gameState.obsession >= 70 && gameState.light <= 30) {
+                return events.find(e => e.id === 'dark_embrace');
+            } else if (gameState.skill >= 80 && gameState.inspiration >= 80) {
+                return events.find(e => e.id === 'perfect_balance');
+            } else {
+                // Стандартная концовка
+                return {
+                    id: 'standard_ending',
+                    type: 'ending',
+                    title: '💎 Три Сильмарилла',
+                    text: 'Ты создал три Сильмарилла, как и было предначертано. Они прекрасны, они совершенны, они станут причиной величайших войн и подвигов в истории Арды. Твоё имя будет жить вечно.',
+                    achievement: 'Классическое достижение'
+                };
+            }
+        }
+
+        function restartGame() {
+            gameState.skill = 50;
+            gameState.inspiration = 50;
+            gameState.obsession = 30;
+            gameState.light = 40;
+            gameState.reputation = 50;
+            gameState.resources = 50;
+            gameState.eventIndex = 0;
+            gameState.materials = [];
+            gameState.relations = {};
+            gameState.achievements = [];
+            gameState.silmarilCount = 0;
+            gameState.secretsDiscovered = [];
+            gameState.path = 'normal';
+            gameState.choices = [];
+            gameState.currentEventId = 'start';
+            
+            updateStats();
+            displayEvent(events[0]);
+        }
+
+        // Инициализация игры
+        gameState.currentEventId = 'start';
+        updateStats();
+        displayEvent(events[0]);
+    </script>
+</body>
+</html>
