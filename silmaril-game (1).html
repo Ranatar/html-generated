@@ -364,9 +364,15 @@
             },
             {
                 id: 2,
-                text: "Пришло время выбрать основной материал для Сильмариллов. В твоей кузнице есть несколько редчайших веществ:",
-                choices: [
-                    {
+                text: null,
+                choices: null,
+                dynamicStage: true,
+                getContent: () => {
+                    let baseText = "Пришло время выбрать основной материал для Сильмариллов. ";
+                    let choices = [];
+                    
+                    // Базовые материалы всегда доступны
+                    choices.push({
                         text: "Кристаллизованная роса с листьев Телпериона",
                         effect: () => {
                             gameState.materials.push('telperion_dew');
@@ -374,8 +380,9 @@
                             gameState.silmarils.purity += 20;
                         },
                         next: 3
-                    },
-                    {
+                    });
+                    
+                    choices.push({
                         text: "Звёздная пыль из чертогов Варды",
                         effect: () => {
                             gameState.materials.push('star_dust');
@@ -384,28 +391,85 @@
                             gameState.silmarils.purity += 10;
                         },
                         next: 3
-                    },
-                    {
-                        text: "Адамант из глубин Арды",
-                        effect: () => {
-                            gameState.materials.push('adamant');
-                            gameState.silmarils.power += 30;
-                            gameState.silmarils.light += 10;
-                        },
-                        next: 3
-                    },
-                    {
-                        text: "Сплав всех трёх материалов",
-                        effect: () => {
-                            gameState.materials.push('trinity');
-                            gameState.silmarils.light += 15;
-                            gameState.silmarils.purity += 15;
-                            gameState.silmarils.power += 15;
-                            gameState.feanor.skill += 10;
-                        },
-                        next: 3
+                    });
+                    
+                    // Специальные материалы в зависимости от выборов
+                    if (gameState.choices.helpFromValar === true) {
+                        baseText += "Благодаря помощи Валар, у тебя есть доступ к священным материалам! ";
+                        choices.push({
+                            text: "Слеза Ниэнны, хранящая сострадание",
+                            effect: () => {
+                                gameState.materials.push('nienna_tear');
+                                gameState.silmarils.purity += 40;
+                                gameState.silmarils.light += 15;
+                                gameState.feanor.wisdom += 10;
+                            },
+                            next: 3
+                        });
                     }
-                ]
+                    
+                    if (gameState.choices.melkorRelation === 'allied') {
+                        baseText += "Мелькор тайно принёс тебе запретный материал... ";
+                        choices.push({
+                            text: "Осколок Первозданной Тьмы до Музыки",
+                            effect: () => {
+                                gameState.materials.push('primordial_darkness');
+                                gameState.silmarils.power += 50;
+                                gameState.silmarils.purity -= 30;
+                                gameState.feanor.skill += 15;
+                                gameState.events.push('dark_material');
+                            },
+                            next: 3
+                        });
+                    }
+                    
+                    if (gameState.feanor.skill >= 75) {
+                        baseText += "Твоё мастерство позволяет работать с невозможным! ";
+                        choices.push({
+                            text: "Сплав всех доступных материалов в единое целое",
+                            effect: () => {
+                                gameState.materials.push('master_alloy');
+                                gameState.silmarils.light += 30;
+                                gameState.silmarils.purity += 30;
+                                gameState.silmarils.power += 30;
+                                gameState.feanor.skill += 15;
+                                gameState.events.push('master_synthesis');
+                            },
+                            next: 3
+                        });
+                    } else {
+                        choices.push({
+                            text: "Адамант из глубин Арды",
+                            effect: () => {
+                                gameState.materials.push('adamant');
+                                gameState.silmarils.power += 30;
+                                gameState.silmarils.light += 10;
+                            },
+                            next: 3
+                        });
+                    }
+                    
+                    // Случайное особое событие
+                    if (Math.random() > 0.7) {
+                        baseText = "Невероятно! Прямо перед выбором материалов, комета пролетела над Валинором, оставив светящийся след! " + baseText;
+                        choices.push({
+                            text: "Поймать кометную пыль в полёте!",
+                            effect: () => {
+                                gameState.materials.push('comet_dust');
+                                gameState.silmarils.light += 35;
+                                gameState.silmarils.power += 25;
+                                gameState.feanor.skill += 10;
+                                gameState.events.push('comet_catch');
+                            },
+                            next: 3
+                        });
+                    }
+                    
+                    return {
+                        text: baseText,
+                        choices: choices
+                    };
+                }
             },
             {
                 id: 3,
@@ -529,37 +593,150 @@
             },
             {
                 id: 5,
-                text: "Манвэ, Король Валар, посылает орла с вестью. Он предупреждает, что в Валиноре растёт тень и советует быть осторожным. Также он предлагает защитное благословение для твоей работы.",
-                choices: [
-                    {
-                        text: "Принять благословение Манвэ",
-                        effect: () => {
-                            gameState.silmarils.purity += 25;
-                            gameState.feanor.wisdom += 10;
-                            gameState.feanor.pride -= 15;
-                            gameState.events.push('manwe_blessing');
-                        },
-                        next: 6
-                    },
-                    {
-                        text: "Поблагодарить, но отказаться",
-                        effect: () => {
-                            gameState.feanor.pride += 10;
-                            gameState.silmarils.power += 10;
-                        },
-                        next: 6
-                    },
-                    {
-                        text: "Проигнорировать предупреждение",
-                        effect: () => {
-                            gameState.feanor.pride += 20;
-                            gameState.feanor.wisdom -= 15;
-                            gameState.silmarils.power += 15;
-                            gameState.events.push('ignored_warning');
-                        },
-                        next: 6
+                text: null,
+                choices: null,
+                dynamicStage: true,
+                getContent: () => {
+                    // Разные варианты событий в зависимости от предыдущих выборов
+                    if (gameState.choices.melkorRelation === 'allied') {
+                        return {
+                            text: "Манвэ, Король Валар, прилетает лично на великом орле! Его глаза полны гнева: 'Я знаю о твоём сговоре с Мелькором! Объяснись немедленно!'",
+                            choices: [
+                                {
+                                    text: "Солгать и отрицать всё",
+                                    effect: () => {
+                                        gameState.feanor.wisdom -= 20;
+                                        gameState.feanor.pride += 25;
+                                        gameState.silmarils.purity -= 15;
+                                        gameState.events.push('lied_to_manwe');
+                                    },
+                                    next: 6
+                                },
+                                {
+                                    text: "Признаться и просить прощения",
+                                    effect: () => {
+                                        gameState.feanor.wisdom += 30;
+                                        gameState.feanor.pride -= 25;
+                                        gameState.silmarils.purity += 35;
+                                        gameState.events.push('confession_manwe');
+                                    },
+                                    next: 6
+                                },
+                                {
+                                    text: "Объяснить, что использовал Мелькора для блага",
+                                    effect: () => {
+                                        gameState.feanor.wisdom += 15;
+                                        gameState.feanor.skill += 10;
+                                        gameState.silmarils.power += 15;
+                                    },
+                                    next: 6
+                                },
+                                {
+                                    text: "Вызвать Манвэ на поединок чести",
+                                    effect: () => {
+                                        gameState.feanor.pride += 50;
+                                        gameState.feanor.wisdom -= 30;
+                                        gameState.silmarils.power += 30;
+                                        gameState.events.push('challenged_manwe');
+                                    },
+                                    next: 6
+                                }
+                            ]
+                        };
+                    } else if (gameState.choices.melkorRelation === 'enemy') {
+                        return {
+                            text: "Манвэ посылает орла с посланием восхищения: 'Твоё мужество против Мелькора достойно похвалы. Прими моё благословение и защиту для твоей работы.'",
+                            choices: [
+                                {
+                                    text: "С благодарностью принять все дары",
+                                    effect: () => {
+                                        gameState.silmarils.purity += 40;
+                                        gameState.silmarils.light += 20;
+                                        gameState.feanor.wisdom += 15;
+                                        gameState.feanor.pride -= 20;
+                                        gameState.events.push('manwe_full_blessing');
+                                    },
+                                    next: 6
+                                },
+                                {
+                                    text: "Принять защиту, но отказаться от вмешательства в работу",
+                                    effect: () => {
+                                        gameState.feanor.pride += 15;
+                                        gameState.feanor.wisdom += 10;
+                                        gameState.silmarils.purity += 20;
+                                    },
+                                    next: 6
+                                },
+                                {
+                                    text: "Попросить Манвэ лично освятить Сильмариллы",
+                                    effect: () => {
+                                        gameState.silmarils.light += 35;
+                                        gameState.silmarils.purity += 45;
+                                        gameState.feanor.pride -= 30;
+                                        gameState.events.push('manwe_consecration');
+                                    },
+                                    next: 6
+                                },
+                                {
+                                    text: "Предложить создать Сильмариллы вместе",
+                                    effect: () => {
+                                        gameState.feanor.wisdom += 25;
+                                        gameState.feanor.skill += 20;
+                                        gameState.silmarils.light += 30;
+                                        gameState.silmarils.purity += 30;
+                                        gameState.feanor.pride -= 40;
+                                        gameState.events.push('co_creation_manwe');
+                                    },
+                                    next: 6
+                                }
+                            ]
+                        };
+                    } else {
+                        return {
+                            text: "Манвэ, Король Валар, посылает орла с вестью. Он предупреждает, что в Валиноре растёт тень и советует быть осторожным. Также он предлагает защитное благословение для твоей работы.",
+                            choices: [
+                                {
+                                    text: "Принять благословение Манвэ",
+                                    effect: () => {
+                                        gameState.silmarils.purity += 25;
+                                        gameState.feanor.wisdom += 10;
+                                        gameState.feanor.pride -= 15;
+                                        gameState.events.push('manwe_blessing');
+                                    },
+                                    next: 6
+                                },
+                                {
+                                    text: "Поблагодарить, но отказаться",
+                                    effect: () => {
+                                        gameState.feanor.pride += 10;
+                                        gameState.silmarils.power += 10;
+                                    },
+                                    next: 6
+                                },
+                                {
+                                    text: "Проигнорировать предупреждение",
+                                    effect: () => {
+                                        gameState.feanor.pride += 20;
+                                        gameState.feanor.wisdom -= 15;
+                                        gameState.silmarils.power += 15;
+                                        gameState.events.push('ignored_warning');
+                                    },
+                                    next: 6
+                                },
+                                {
+                                    text: "Отправить ответное послание с просьбой о встрече",
+                                    effect: () => {
+                                        gameState.feanor.wisdom += 20;
+                                        gameState.feanor.skill += 10;
+                                        gameState.silmarils.purity += 15;
+                                        gameState.events.push('meeting_requested');
+                                    },
+                                    next: 6
+                                }
+                            ]
+                        };
                     }
-                ]
+                }
             },
             {
                 id: 6,
@@ -608,36 +785,19 @@
             },
             {
                 id: 7,
-                text: getRandomEvent(),
-                choices: [
-                    {
-                        text: "Защитить Сильмариллы любой ценой",
-                        effect: () => {
-                            gameState.feanor.pride += 15;
-                            gameState.silmarils.power += 10;
-                            gameState.events.push('protected');
-                        },
-                        next: 8
-                    },
-                    {
-                        text: "Призвать на помощь Валар",
-                        effect: () => {
-                            gameState.feanor.wisdom += 10;
-                            gameState.feanor.pride -= 10;
-                            gameState.silmarils.purity += 15;
-                        },
-                        next: 8
-                    },
-                    {
-                        text: "Использовать силу Сильмариллов для защиты",
-                        effect: () => {
-                            gameState.silmarils.power += 20;
-                            gameState.feanor.skill += 10;
-                            gameState.events.push('silmarils_awakened');
-                        },
-                        next: 8
-                    }
-                ]
+                text: null, // Будет определено динамически
+                choices: null, // Будут определены динамически
+                dynamicStage: true,
+                getContent: () => {
+                    const event = getRandomComplexEvent();
+                    return {
+                        text: event.text,
+                        choices: event.choices.map(choice => ({
+                            ...choice,
+                            next: 8
+                        }))
+                    };
+                }
             },
             {
                 id: 8,
@@ -685,6 +845,444 @@
                 ]
             }
         ];
+        
+        function getRandomComplexEvent() {
+            const events = [
+                {
+                    text: "Внезапно земля содрогнулась! Мелькор пытается проникнуть в твою кузницу под покровом тьмы! Его тёмная аура начинает разъедать защитные руны.",
+                    choices: [
+                        {
+                            text: "Встретить его с оружием в руках",
+                            effect: () => {
+                                gameState.feanor.pride += 20;
+                                gameState.feanor.skill += 10;
+                                gameState.silmarils.power += 15;
+                                gameState.events.push('fought_melkor');
+                            }
+                        },
+                        {
+                            text: "Использовать свет Сильмариллов против него",
+                            effect: () => {
+                                gameState.silmarils.light += 10;
+                                gameState.silmarils.purity += 20;
+                                gameState.feanor.wisdom += 10;
+                                gameState.events.push('light_vs_darkness');
+                            }
+                        },
+                        {
+                            text: "Попытаться запереть его в ловушку из света",
+                            effect: () => {
+                                gameState.feanor.skill += 20;
+                                gameState.silmarils.power += 10;
+                                if (Math.random() > 0.5) {
+                                    gameState.events.push('melkor_trapped');
+                                    gameState.silmarils.purity += 15;
+                                } else {
+                                    gameState.feanor.wisdom -= 10;
+                                }
+                            }
+                        },
+                        {
+                            text: "Предложить ему сделку - знания в обмен на мир",
+                            effect: () => {
+                                gameState.feanor.wisdom -= 15;
+                                gameState.feanor.skill += 25;
+                                gameState.silmarils.power += 20;
+                                gameState.silmarils.purity -= 20;
+                                gameState.events.push('dark_bargain');
+                            }
+                        }
+                    ]
+                },
+                {
+                    text: "Невероятно! Том Бомбадил (да, тот самый!) материализовался в твоей кузнице, напевая странную песенку про блестящие камушки. Он подмигивает и предлагает 'поиграть' с Сильмариллами.",
+                    choices: [
+                        {
+                            text: "Позволить ему спеть Сильмариллам",
+                            effect: () => {
+                                gameState.silmarils.light += Math.floor(Math.random() * 30);
+                                gameState.silmarils.purity += 20;
+                                gameState.feanor.wisdom += 15;
+                                gameState.events.push('bombadil_song');
+                            }
+                        },
+                        {
+                            text: "Вежливо попросить его уйти",
+                            effect: () => {
+                                gameState.feanor.wisdom += 5;
+                                gameState.feanor.pride += 10;
+                            }
+                        },
+                        {
+                            text: "Попросить его научить тебя его странной магии",
+                            effect: () => {
+                                gameState.feanor.skill += 30;
+                                gameState.feanor.wisdom += 10;
+                                gameState.feanor.pride -= 15;
+                                gameState.silmarils.power -= 10;
+                                gameState.silmarils.purity += 25;
+                                gameState.events.push('bombadil_student');
+                            }
+                        },
+                        {
+                            text: "Станцевать с ним весёлый танец вокруг Сильмариллов",
+                            effect: () => {
+                                gameState.feanor.pride -= 20;
+                                gameState.feanor.wisdom += 20;
+                                gameState.silmarils.light += 25;
+                                gameState.silmarils.purity += 15;
+                                gameState.events.push('dance_with_tom');
+                            }
+                        }
+                    ]
+                },
+                {
+                    text: "Мистика! Призрак твоей матери Мириэль появился в кузнице! Она протягивает призрачную нить, которая светится неземным светом, и шепчет древнее заклинание.",
+                    choices: [
+                        {
+                            text: "Вплести нить матери в Сильмариллы",
+                            effect: () => {
+                                gameState.silmarils.light += 20;
+                                gameState.silmarils.purity += 30;
+                                gameState.feanor.wisdom += 15;
+                                gameState.events.push('mother_thread');
+                            }
+                        },
+                        {
+                            text: "Обнять призрак и попросить благословения",
+                            effect: () => {
+                                gameState.feanor.wisdom += 25;
+                                gameState.feanor.pride -= 10;
+                                gameState.silmarils.purity += 20;
+                                gameState.events.push('mother_blessing');
+                            }
+                        },
+                        {
+                            text: "Спросить её о секретах создания",
+                            effect: () => {
+                                gameState.feanor.skill += 35;
+                                gameState.feanor.wisdom += 10;
+                                gameState.silmarils.power += 15;
+                            }
+                        },
+                        {
+                            text: "Попросить её остаться и помочь",
+                            effect: () => {
+                                if (Math.random() > 0.3) {
+                                    gameState.feanor.wisdom += 20;
+                                    gameState.silmarils.purity += 25;
+                                    gameState.silmarils.light += 15;
+                                    gameState.events.push('mother_stays');
+                                } else {
+                                    gameState.feanor.wisdom -= 10;
+                                    gameState.events.push('mother_leaves');
+                                }
+                            }
+                        }
+                    ]
+                },
+                {
+                    text: "Космическое событие! Портал в альтернативную реальность открылся прямо в кузнице! Из него выходит... другой Феанор, держащий уже готовые Сильмариллы! Он выглядит измученным и предупреждает тебя о чём-то.",
+                    choices: [
+                        {
+                            text: "Выслушать предупреждение альтер-эго",
+                            effect: () => {
+                                gameState.feanor.wisdom += 30;
+                                gameState.feanor.pride -= 15;
+                                gameState.silmarils.purity += 20;
+                                gameState.events.push('alternate_warning');
+                            }
+                        },
+                        {
+                            text: "Попытаться забрать его Сильмариллы",
+                            effect: () => {
+                                gameState.feanor.pride += 30;
+                                gameState.silmarils.power += 30;
+                                gameState.silmarils.purity -= 25;
+                                gameState.feanor.wisdom -= 20;
+                                gameState.events.push('steal_alternate');
+                            }
+                        },
+                        {
+                            text: "Объединить силы для создания",
+                            effect: () => {
+                                gameState.feanor.skill += 40;
+                                gameState.silmarils.light += 25;
+                                gameState.silmarils.power += 25;
+                                gameState.events.push('dual_feanor');
+                            }
+                        },
+                        {
+                            text: "Попросить его поменяться местами",
+                            effect: () => {
+                                // Радикальное изменение характеристик
+                                const tempWisdom = gameState.feanor.wisdom;
+                                gameState.feanor.wisdom = gameState.feanor.pride;
+                                gameState.feanor.pride = tempWisdom;
+                                gameState.silmarils.light += 20;
+                                gameState.events.push('reality_swap');
+                            }
+                        }
+                    ]
+                },
+                {
+                    text: "Тревога! Древа Валинора начали петь - явление, невиданное со времён их создания! Их песня резонирует с Сильмариллами, и кузница наполняется музыкой творения.",
+                    choices: [
+                        {
+                            text: "Подстроить работу под ритм песни",
+                            effect: () => {
+                                gameState.feanor.skill += 15;
+                                gameState.feanor.wisdom += 20;
+                                gameState.silmarils.light += 30;
+                                gameState.silmarils.purity += 25;
+                                gameState.events.push('trees_harmony');
+                            }
+                        },
+                        {
+                            text: "Попытаться записать песню в Сильмариллы",
+                            effect: () => {
+                                gameState.silmarils.light += 35;
+                                gameState.silmarils.power += 20;
+                                gameState.feanor.skill += 20;
+                                gameState.events.push('song_captured');
+                            }
+                        },
+                        {
+                            text: "Спеть в ответ песню Нолдор",
+                            effect: () => {
+                                gameState.feanor.pride += 25;
+                                gameState.silmarils.power += 30;
+                                gameState.silmarils.light += 10;
+                            }
+                        },
+                        {
+                            text: "Позвать всех эльфов присоединиться к песне",
+                            effect: () => {
+                                gameState.feanor.wisdom += 25;
+                                gameState.feanor.pride -= 20;
+                                gameState.silmarils.light += 40;
+                                gameState.silmarils.purity += 35;
+                                gameState.events.push('great_chorus');
+                            }
+                        }
+                    ]
+                },
+                {
+                    text: "Внезапно! Эру Илуватар моргнул (метафорически), и все законы мироздания в кузнице изменились! Гравитация работает вбок, время течёт кругами, а Сильмариллы начали менять цвет каждую секунду!",
+                    choices: [
+                        {
+                            text: "Попытаться стабилизировать реальность",
+                            effect: () => {
+                                gameState.feanor.wisdom += 35;
+                                gameState.feanor.skill += 25;
+                                gameState.silmarils.purity += 30;
+                            }
+                        },
+                        {
+                            text: "Использовать хаос для усиления Сильмариллов",
+                            effect: () => {
+                                gameState.silmarils.power += 50;
+                                gameState.silmarils.light += 20;
+                                gameState.feanor.wisdom -= 15;
+                                gameState.events.push('chaos_forge');
+                            }
+                        },
+                        {
+                            text: "Воззвать к Илуватару с мольбой",
+                            effect: () => {
+                                gameState.feanor.wisdom += 20;
+                                gameState.feanor.pride -= 30;
+                                gameState.silmarils.purity += 40;
+                                gameState.silmarils.light += 25;
+                                gameState.events.push('eru_prayer');
+                            }
+                        },
+                        {
+                            text: "Принять хаос и творить в новых условиях",
+                            effect: () => {
+                                const random = Math.floor(Math.random() * 40) - 10;
+                                gameState.feanor.skill += 30 + random;
+                                gameState.silmarils.power += 30 + random;
+                                gameState.silmarils.light += 30 + random;
+                                gameState.silmarils.purity += random;
+                                gameState.events.push('chaos_mastery');
+                            }
+                        }
+                    ]
+                },
+                {
+                    text: "Комично! Тулкас, решив помочь, ворвался в кузницу с криком 'Я ПОМОГУ!' и случайно ударил молотом прямо по заготовке Сильмарилла! К твоему изумлению, камень не разбился, а начал пульсировать новым светом!",
+                    choices: [
+                        {
+                            text: "Поблагодарить Тулкаса за 'помощь'",
+                            effect: () => {
+                                gameState.feanor.wisdom += 15;
+                                gameState.feanor.pride -= 10;
+                                gameState.silmarils.power += 35;
+                                gameState.events.push('tulkas_help');
+                            }
+                        },
+                        {
+                            text: "Попросить его ударить ещё раз!",
+                            effect: () => {
+                                if (Math.random() > 0.4) {
+                                    gameState.silmarils.power += 45;
+                                    gameState.feanor.skill += 10;
+                                    gameState.events.push('tulkas_success');
+                                } else {
+                                    gameState.silmarils.power -= 20;
+                                    gameState.silmarils.light -= 10;
+                                    gameState.events.push('tulkas_oops');
+                                }
+                            }
+                        },
+                        {
+                            text: "Вызвать его на армрестлинг за право остаться",
+                            effect: () => {
+                                gameState.feanor.pride += 40;
+                                gameState.feanor.skill -= 10;
+                                gameState.silmarils.power += 25;
+                                gameState.events.push('wrestle_tulkas');
+                            }
+                        },
+                        {
+                            text: "Научить его правильно держать молот",
+                            effect: () => {
+                                gameState.feanor.skill += 20;
+                                gameState.feanor.wisdom += 10;
+                                gameState.silmarils.power += 20;
+                                gameState.silmarils.purity += 10;
+                            }
+                        }
+                    ]
+                },
+                {
+                    text: "Мистическое явление! Время в кузнице пошло вспять! Ты видишь себя молодым, только прибывшим в Валинор, полным надежд и без груза гордости. Молодой-ты смотрит на Сильмариллы с изумлением.",
+                    choices: [
+                        {
+                            text: "Предупредить себя о будущих ошибках",
+                            effect: () => {
+                                gameState.feanor.wisdom += 40;
+                                gameState.feanor.pride -= 25;
+                                gameState.silmarils.purity += 30;
+                                gameState.events.push('warn_past_self');
+                            }
+                        },
+                        {
+                            text: "Показать молодому себе совершенство Сильмариллов",
+                            effect: () => {
+                                gameState.feanor.pride += 35;
+                                gameState.feanor.skill += 15;
+                                gameState.silmarils.power += 20;
+                            }
+                        },
+                        {
+                            text: "Объединиться с молодым собой для работы",
+                            effect: () => {
+                                gameState.feanor.skill += 30;
+                                gameState.feanor.wisdom += 15;
+                                gameState.silmarils.light += 25;
+                                gameState.silmarils.purity += 20;
+                                gameState.events.push('temporal_fusion');
+                            }
+                        },
+                        {
+                            text: "Отправить молодого себя в своё время с знаниями",
+                            effect: () => {
+                                gameState.feanor.wisdom += 25;
+                                gameState.silmarils.purity += 35;
+                                gameState.events.push('bootstrap_paradox');
+                            }
+                        }
+                    ]
+                },
+                {
+                    text: "Катастрофа! Один из Сильмариллов внезапно раскололся! Но из трещины льётся чистейший свет, ярче чем когда-либо. Осколки парят в воздухе, образуя созвездие.",
+                    choices: [
+                        {
+                            text: "Срочно собрать осколки воедино",
+                            effect: () => {
+                                gameState.feanor.skill += 35;
+                                gameState.silmarils.power += 15;
+                                gameState.silmarils.light -= 10;
+                            }
+                        },
+                        {
+                            text: "Создать три малых Сильмарилла из осколков",
+                            effect: () => {
+                                gameState.feanor.skill += 25;
+                                gameState.feanor.wisdom += 20;
+                                gameState.silmarils.light += 30;
+                                gameState.events.push('triple_silmarils');
+                            }
+                        },
+                        {
+                            text: "Позволить им образовать новую форму",
+                            effect: () => {
+                                gameState.feanor.wisdom += 30;
+                                gameState.silmarils.light += 40;
+                                gameState.silmarils.power += 25;
+                                gameState.silmarils.purity += 15;
+                                gameState.events.push('constellation_birth');
+                            }
+                        },
+                        {
+                            text: "Использовать свою кровь как связующее",
+                            effect: () => {
+                                gameState.feanor.pride += 20;
+                                gameState.silmarils.power += 40;
+                                gameState.silmarils.purity -= 15;
+                                gameState.events.push('blood_binding');
+                            }
+                        }
+                    ]
+                },
+                {
+                    text: "Невероятное открытие! Ты обнаружил, что Сильмариллы начали влиять на само время вокруг себя - в кузнице одновременно существуют прошлое, настоящее и будущее!",
+                    choices: [
+                        {
+                            text: "Увидеть будущую судьбу Сильмариллов",
+                            effect: () => {
+                                gameState.feanor.wisdom += 45;
+                                gameState.feanor.pride -= 20;
+                                gameState.silmarils.purity += 10;
+                                gameState.events.push('future_vision');
+                            }
+                        },
+                        {
+                            text: "Взять силу из всех временных линий",
+                            effect: () => {
+                                gameState.silmarils.power += 60;
+                                gameState.silmarils.light += 30;
+                                gameState.feanor.wisdom -= 25;
+                                gameState.events.push('temporal_harvest');
+                            }
+                        },
+                        {
+                            text: "Стабилизировать временной поток",
+                            effect: () => {
+                                gameState.feanor.skill += 30;
+                                gameState.feanor.wisdom += 25;
+                                gameState.silmarils.purity += 25;
+                            }
+                        },
+                        {
+                            text: "Создать временную петлю совершенствования",
+                            effect: () => {
+                                gameState.feanor.skill += 50;
+                                gameState.silmarils.light += 35;
+                                gameState.silmarils.power += 35;
+                                gameState.silmarils.purity += 35;
+                                gameState.feanor.wisdom -= 30;
+                                gameState.events.push('perfection_loop');
+                            }
+                        }
+                    ]
+                }
+            ];
+            
+            return events[Math.floor(Math.random() * events.length)];
+        }
         
         function getRandomEvent() {
             const dramaticEvents = [
@@ -787,8 +1385,19 @@
                 return;
             }
             
-            // Проверяем, является ли text функцией
-            const stageText = typeof stage.text === 'function' ? stage.text() : stage.text;
+            let stageText, stageChoices;
+            
+            // Обработка динамических стадий
+            if (stage.dynamicStage && stage.getContent) {
+                const content = stage.getContent();
+                stageText = content.text;
+                stageChoices = content.choices;
+            } else {
+                // Проверяем, является ли text функцией
+                stageText = typeof stage.text === 'function' ? stage.text() : stage.text;
+                stageChoices = stage.choices;
+            }
+            
             textDiv.innerHTML = stageText;
             
             if (gameState.materials.length > 0) {
@@ -796,7 +1405,11 @@
                     'telperion_dew': 'Роса Телпериона',
                     'star_dust': 'Звёздная пыль Варды',
                     'adamant': 'Адамант глубин',
-                    'trinity': 'Триединый сплав'
+                    'trinity': 'Триединый сплав',
+                    'nienna_tear': 'Слеза Ниэнны',
+                    'primordial_darkness': 'Осколок Первозданной Тьмы',
+                    'master_alloy': 'Мастерский сплав',
+                    'comet_dust': 'Кометная пыль'
                 };
                 const materials = gameState.materials.map(m => materialNames[m] || m).join(', ');
                 textDiv.innerHTML += `<div class="materials-display">Собранные материалы: ${materials}</div>`;
@@ -827,7 +1440,7 @@
             }
             
             choicesDiv.innerHTML = '';
-            stage.choices.forEach(choice => {
+            stageChoices.forEach(choice => {
                 const btn = document.createElement('button');
                 btn.className = 'choice-btn';
                 btn.textContent = choice.text;
@@ -946,11 +1559,51 @@
                 };
             }
             
-            // Концовка с Томом Бомбадилом
-            if (Math.random() > 0.9 && s.light >= 40) {
+            // Концовка с Томом Бомбадилом - улучшенная версия
+            if (e.includes('bombadil_song') || e.includes('dance_with_tom')) {
                 return {
-                    title: "А вот и Том Бомбадил!",
-                    text: "Когда Сильмариллы были завершены, неожиданно появился Том Бомбадил (серьёзно, откуда он взялся в Валиноре?!). Он взглянул на них, засмеялся и сказал: 'Хорошие камушки, но мои жёлтые сапоги лучше!' Затем он исполнил танец, и Сильмариллы... начали подпевать! Теперь они поют весёлые песенки, чем невероятно раздражают Мелькора. Он больше не хочет их красть."
+                    title: "Старейший и Младший",
+                    text: "Том Бомбадил так полюбил Сильмариллы, что решил остаться их вечным хранителем! Он научил камни петь песни, которые старше самой Арды. Теперь Сильмариллы не просто светят - они поют о радости бытия. Мелькор попытался украсть их, но услышав песню, заплакал впервые с момента своего падения и ушёл размышлять. Ты и Том стали лучшими друзьями, и вместе создали ещё множество поющих камней. Валинор наполнился музыкой и светом, а грусть покинула сердца эльдар навсегда."
+                };
+            }
+            
+            // Концовка временного парадокса с улучшениями
+            if (e.includes('temporal_fusion') || e.includes('bootstrap_paradox')) {
+                return {
+                    title: "Вечный Цикл Совершенства",
+                    text: "Объединившись со своими версиями из прошлого и будущего, ты создал идеальный временной парадокс! Сильмариллы существуют вне времени - они были созданы, создаются и будут создаваться одновременно. Каждый цикл делает их совершеннее. Ты стал Хранителем Времени Арды, существуя во всех эпохах одновременно. Твои бесконечные версии работают вместе, предотвращая все трагедии. Мелькор не может понять, почему его планы всегда известны заранее. История Арды переписывается к лучшему с каждым циклом."
+                };
+            }
+            
+            // Концовка с материалами тьмы
+            if (gameState.materials.includes('primordial_darkness') && s.purity >= 50) {
+                return {
+                    title: "Повелитель Сумерек",
+                    text: "Невозможное свершилось! Ты очистил Первозданную Тьму и создал Сильмариллы Равновесия - камни, что светят и тьмой, и светом одновременно. Они показывают истинную природу всего - ни добро, ни зло, а бесконечные оттенки между ними. Увидев это, Мелькор осознал тщетность своего бунта, а Манвэ понял необходимость тени для существования света. Валар провозгласили новую эру - Эру Сумерек, где нет абсолютов. Ты стал философом-королём нового мира, где каждый сам выбирает свой путь между светом и тьмой."
+                };
+            }
+            
+            // Концовка кометной пыли
+            if (gameState.materials.includes('comet_dust') && s.light >= 75) {
+                return {
+                    title: "Звёздный Странник",
+                    text: "Кометная пыль придала Сильмариллам невероятное свойство - они стали порталами к звёздам! Каждый камень ведёт в иной мир за пределами Эа. Ты первым из эльдар покинул границы мироздания и увидел бесконечность вселенных. Вернувшись, ты принёс знания о мирах, где нет войн, где Мелькор остался добрым, где эльфы правят звёздами. Сильмариллы стали мостами между мирами, а Валинор - перекрёстком вселенных. Начинается эра Бесконечных Путешествий."
+                };
+            }
+            
+            // Концовка великого хора
+            if (e.includes('great_chorus') && e.includes('trees_harmony')) {
+                return {
+                    title: "Дирижёр Творения",
+                    text: "Объединив песни Древ, эльдар и Сильмариллов, ты воссоздал фрагмент изначальной Музыки Айнур! Эру Илуватар был так впечатлён, что назначил тебя Дирижёром Новой Музыки. Теперь ты буквально управляешь реальностью через песню. Каждая нота меняет мир - мажор создаёт горы, минор - долины, диссонанс - бури, гармония - покой. Мелькор попытался внести свой диссонанс, но ты превратил его в джазовую импровизацию, которая всем понравилась. Даже Том Бомбадил подпевает!"
+                };
+            }
+            
+            // Концовка с Манвэ
+            if (e.includes('co_creation_manwe') || e.includes('manwe_consecration')) {
+                return {
+                    title: "Близнецы Света",
+                    text: "Сотрудничество с Манвэ привело к невероятному - вы создали не три, а шесть Сильмариллов! Три твоих и три его, связанные невидимыми нитями. Когда Мелькор попытался украсть твои, камни Манвэ телепортировали их обратно. Эта связь создала защитную сеть над всем Валинором. Более того, ты и Манвэ стали духовными братьями, способными читать мысли друг друга. Вместе вы правите Валинором в гармонии - ты как Владыка Творчества, он как Владыка Порядка. Золотой век Валинора продлится вечно."
                 };
             }
             
@@ -959,6 +1612,14 @@
                 return {
                     title: "Одиночество Творца",
                     text: "Сильмариллы созданы, но какой ценой? Твоя семья отвернулась от тебя, видя твою одержимость. Даже твои сыновья смотрят с опаской. Камни прекрасны, но холодны - в них нет тепла любви. Когда придёт час испытаний, ты останешься один со своими творениями, и некому будет разделить твою судьбу."
+                };
+            }
+            
+            // Концовка воссоединения
+            if ((e.includes('mother_blessing') || e.includes('mother_thread') || e.includes('mother_stays')) && s.purity >= 70) {
+                return {
+                    title: "Исцеление Рода",
+                    text: "Благословение и помощь духа твоей матери Мириэль привели к чуду - она вернулась из Чертогов Мандоса! Сильмариллы оказались ключом к воскрешению, их свет может возвращать феа эльфов в их тела. Увидев воссоединение твоей семьи, Валар были потрясены. Мандос впервые улыбнулся и открыл врата своих чертогов - все эльфы, павшие от начала времён, могут вернуться. Ты не только создал величайшее сокровище, но и победил саму смерть. Нерданель и Мириэль вместе правят домом Феанора, а твои сыновья клянутся в вечной верности не камням, а семье."
                 };
             }
             
@@ -975,6 +1636,14 @@
                 return {
                     title: "Четырнадцатый Вала",
                     text: "Твоё сотрудничество с Валар и чистота Сильмариллов произвели невероятное - Манвэ провозглашает тебя почётным Вала! Ты становишься Феанор Светоносный, Вала Творчества и Ремесла. Твой трон установлен в кольце Валар, и ты участвуешь в управлении Ардой. Первым твоим решением становится создание защитного барьера вокруг Древ. Мелькор в бешенстве, но ничего не может сделать против объединённых Валар."
+                };
+            }
+            
+            // Концовка абсолютного хаоса
+            if (e.includes('chaos_forge') || e.includes('chaos_mastery')) {
+                return {
+                    title: "Владыка Хаоса и Порядка",
+                    text: "Приняв и подчинив себе хаос измененных законов мироздания, ты стал чем-то невообразимым - Владыкой Парадоксов! Сильмариллы постоянно меняют свои свойства: они одновременно существуют и не существуют, светят тьмой и темнят светом, горячие как лёд и холодные как пламя. Эта нестабильность оказалась ключом к абсолютной власти над реальностью. Ты можешь делать невозможное возможным одним желанием. Валар в замешательстве - их упорядоченный мир стал калейдоскопом возможностей. Мелькор попытался использовать хаос, но запутался в собственных парадоксах и теперь одновременно добрый и злой, что довольно забавно."
                 };
             }
             
@@ -1060,7 +1729,7 @@
             if (gameState.events.includes('melkor_tricked')) achievements.push("🎭 Обманщик Тьмы");
             if (gameState.events.includes('music_creation')) achievements.push("🎵 Певец Творения");
             
-            const totalEndings = 20; // Общее количество концовок
+            const totalEndings = 25; // Увеличенное количество концовок
             const endingNumber = Math.floor(Math.random() * 1000000); // Уникальный номер прохождения
             
             textDiv.innerHTML = `
