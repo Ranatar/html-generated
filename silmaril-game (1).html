@@ -1,0 +1,1105 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Кузница Феанора: Создание Сильмариллов</title>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Cinzel:wght@400;600&family=Crimson+Text:ital,wght@0,400;0,600;1,400&display=swap');
+        
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Crimson Text', serif;
+            background: linear-gradient(135deg, #0a0a0a, #1a1a2e, #16213e);
+            color: #e8e8e8;
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+        }
+        
+        .game-container {
+            max-width: 900px;
+            width: 100%;
+            background: rgba(0, 0, 0, 0.8);
+            border: 2px solid #444;
+            border-radius: 15px;
+            padding: 30px;
+            box-shadow: 0 0 30px rgba(100, 150, 255, 0.3);
+        }
+        
+        h1 {
+            font-family: 'Cinzel', serif;
+            text-align: center;
+            color: #ffd700;
+            text-shadow: 0 0 20px rgba(255, 215, 0, 0.5);
+            margin-bottom: 30px;
+            font-size: 2.5em;
+        }
+        
+        .stats-container {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+            margin-bottom: 25px;
+        }
+        
+        .stats-block {
+            background: rgba(20, 20, 40, 0.6);
+            border: 1px solid #444;
+            border-radius: 10px;
+            padding: 15px;
+        }
+        
+        .stats-block h3 {
+            font-family: 'Cinzel', serif;
+            color: #87ceeb;
+            margin-bottom: 10px;
+            font-size: 1.2em;
+        }
+        
+        .stat-line {
+            display: flex;
+            justify-content: space-between;
+            margin: 8px 0;
+            font-size: 1.1em;
+        }
+        
+        .stat-value {
+            color: #ffd700;
+            font-weight: bold;
+        }
+        
+        .game-text {
+            background: rgba(10, 10, 20, 0.6);
+            border: 1px solid #333;
+            border-radius: 10px;
+            padding: 25px;
+            margin-bottom: 25px;
+            min-height: 200px;
+            line-height: 1.8;
+            font-size: 1.15em;
+        }
+        
+        .choices-container {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+        
+        .choice-btn {
+            background: linear-gradient(135deg, #1a237e, #283593);
+            border: 2px solid #3949ab;
+            color: #e8e8e8;
+            padding: 15px 20px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 1.05em;
+            font-family: 'Crimson Text', serif;
+            transition: all 0.3s ease;
+            text-align: left;
+        }
+        
+        .choice-btn:hover {
+            background: linear-gradient(135deg, #283593, #3949ab);
+            border-color: #5c6bc0;
+            box-shadow: 0 0 15px rgba(92, 107, 192, 0.4);
+            transform: translateX(5px);
+        }
+        
+        .materials-display {
+            background: rgba(40, 20, 0, 0.4);
+            border: 1px solid #8b4513;
+            border-radius: 8px;
+            padding: 12px;
+            margin-top: 15px;
+            font-style: italic;
+            color: #daa520;
+        }
+        
+        .event-warning {
+            color: #ff6b6b;
+            font-weight: bold;
+            text-align: center;
+            margin-top: 10px;
+            font-size: 1.1em;
+            animation: pulse 2s infinite;
+        }
+        
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.6; }
+        }
+        
+        .special-event {
+            background: linear-gradient(135deg, rgba(255, 215, 0, 0.1), rgba(135, 206, 235, 0.1));
+            border: 1px solid #ffd700;
+            border-radius: 8px;
+            padding: 10px;
+            margin-top: 15px;
+            animation: shimmer 3s infinite;
+        }
+        
+        @keyframes shimmer {
+            0%, 100% { box-shadow: 0 0 10px rgba(255, 215, 0, 0.3); }
+            50% { box-shadow: 0 0 20px rgba(255, 215, 0, 0.6); }
+        }
+        
+        .ending-text {
+            font-size: 1.2em;
+            line-height: 1.8;
+            text-align: center;
+            color: #ffd700;
+            text-shadow: 0 0 10px rgba(255, 215, 0, 0.3);
+        }
+        
+        .restart-btn {
+            display: block;
+            margin: 30px auto 0;
+            background: linear-gradient(135deg, #ff6b00, #ff8800);
+            border: 2px solid #ffa500;
+            color: white;
+            padding: 15px 40px;
+            border-radius: 10px;
+            cursor: pointer;
+            font-size: 1.2em;
+            font-family: 'Cinzel', serif;
+            transition: all 0.3s ease;
+        }
+        
+        .restart-btn:hover {
+            background: linear-gradient(135deg, #ff8800, #ffaa00);
+            box-shadow: 0 0 20px rgba(255, 170, 0, 0.5);
+        }
+        
+        @keyframes glow {
+            0% { box-shadow: 0 0 5px rgba(255, 215, 0, 0.5); }
+            50% { box-shadow: 0 0 20px rgba(255, 215, 0, 0.8); }
+            100% { box-shadow: 0 0 5px rgba(255, 215, 0, 0.5); }
+        }
+        
+        .silmaril-complete {
+            animation: glow 2s infinite;
+        }
+    </style>
+</head>
+<body>
+    <div class="game-container">
+        <h1>Кузница Феанора</h1>
+        
+        <div class="stats-container">
+            <div class="stats-block">
+                <h3>Феанор</h3>
+                <div class="stat-line">
+                    <span>Мудрость:</span>
+                    <span class="stat-value" id="wisdom">50</span>
+                </div>
+                <div class="stat-line">
+                    <span>Мастерство:</span>
+                    <span class="stat-value" id="skill">70</span>
+                </div>
+                <div class="stat-line">
+                    <span>Гордость:</span>
+                    <span class="stat-value" id="pride">60</span>
+                </div>
+            </div>
+            
+            <div class="stats-block">
+                <h3>Сильмариллы</h3>
+                <div class="stat-line">
+                    <span>Свет:</span>
+                    <span class="stat-value" id="light">0</span>
+                </div>
+                <div class="stat-line">
+                    <span>Чистота:</span>
+                    <span class="stat-value" id="purity">0</span>
+                </div>
+                <div class="stat-line">
+                    <span>Сила:</span>
+                    <span class="stat-value" id="power">0</span>
+                </div>
+            </div>
+        </div>
+        
+        <div class="game-text" id="gameText">
+            Загрузка...
+        </div>
+        
+        <div class="choices-container" id="choices">
+        </div>
+    </div>
+    
+    <script>
+        const gameState = {
+            stage: 0,
+            feanor: {
+                wisdom: 50,
+                skill: 70,
+                pride: 60
+            },
+            silmarils: {
+                light: 0,
+                purity: 0,
+                power: 0
+            },
+            materials: [],
+            choices: {
+                helpFromValar: null,
+                melkorRelation: null,
+                familySupport: null,
+                method: null
+            },
+            events: []
+        };
+        
+        const stages = [
+            {
+                id: 0,
+                text: "Ты - Феанор, величайший из эльдар, мастер-ремесленник Валинора. В твоём сердце горит желание создать нечто невиданное - камни, что будут хранить несотворённый Свет Древ. Но прежде чем начать великий труд, ты должен подготовиться.",
+                choices: [
+                    {
+                        text: "Обратиться к Валар за благословением",
+                        effect: () => {
+                            gameState.feanor.wisdom += 10;
+                            gameState.feanor.pride -= 5;
+                            gameState.choices.helpFromValar = true;
+                            gameState.silmarils.purity += 10;
+                        },
+                        next: 1
+                    },
+                    {
+                        text: "Положиться только на собственные силы",
+                        effect: () => {
+                            gameState.feanor.pride += 15;
+                            gameState.feanor.skill += 5;
+                            gameState.choices.helpFromValar = false;
+                            gameState.silmarils.power += 10;
+                        },
+                        next: 1
+                    },
+                    {
+                        text: "Тайно изучить запретные знания",
+                        effect: () => {
+                            gameState.feanor.skill += 15;
+                            gameState.feanor.wisdom -= 10;
+                            gameState.feanor.pride += 10;
+                            gameState.silmarils.power += 15;
+                            gameState.silmarils.purity -= 10;
+                        },
+                        next: 1
+                    }
+                ]
+            },
+            {
+                id: 1,
+                text: () => {
+                    const intros = [
+                        "К твоей кузнице приближается фигура. Это Мелькор, могущественный Вала, недавно освобождённый из заточения.",
+                        "Тени сгущаются вокруг кузницы. Мелькор материализуется из тьмы, его глаза горят странным огнём.",
+                        "Громкий стук в дверь! Мелькор стоит на пороге, и в его руках - чёрный кристалл неизвестного происхождения.",
+                        "Мелькор появляется в облике прекрасного эльфа, но ты чувствуешь его истинную сущность.",
+                        "Земля дрожит от шагов Мелькора. Он идёт к твоей кузнице, напевая диссонанс Музыки Айнур."
+                    ];
+                    return intros[Math.floor(Math.random() * intros.length)] + " Он предлагает поделиться древними знаниями о сущности света и тьмы.";
+                },
+                choices: [
+                    {
+                        text: "Выслушать Мелькора и принять его знания",
+                        effect: () => {
+                            gameState.feanor.skill += 20;
+                            gameState.feanor.wisdom -= 15;
+                            gameState.choices.melkorRelation = 'allied';
+                            gameState.silmarils.power += 20;
+                            gameState.silmarils.purity -= 15;
+                            gameState.events.push('melkor_help');
+                        },
+                        next: 2
+                    },
+                    {
+                        text: "Вежливо отказаться",
+                        effect: () => {
+                            gameState.feanor.wisdom += 10;
+                            gameState.choices.melkorRelation = 'neutral';
+                            gameState.silmarils.purity += 5;
+                        },
+                        next: 2
+                    },
+                    {
+                        text: "Прогнать Мелькора прочь",
+                        effect: () => {
+                            gameState.feanor.pride += 10;
+                            gameState.feanor.wisdom += 5;
+                            gameState.choices.melkorRelation = 'enemy';
+                            gameState.silmarils.purity += 15;
+                            gameState.events.push('melkor_enemy');
+                        },
+                        next: 2
+                    },
+                    {
+                        text: "Попытаться обмануть Мелькора и выведать его тайны",
+                        effect: () => {
+                            if (Math.random() > 0.5) {
+                                gameState.feanor.skill += 25;
+                                gameState.feanor.wisdom += 10;
+                                gameState.choices.melkorRelation = 'tricked';
+                                gameState.events.push('melkor_tricked');
+                                gameState.silmarils.power += 15;
+                            } else {
+                                gameState.feanor.wisdom -= 20;
+                                gameState.feanor.pride += 15;
+                                gameState.choices.melkorRelation = 'enemy';
+                                gameState.silmarils.purity -= 20;
+                                gameState.events.push('melkor_angered');
+                            }
+                        },
+                        next: 2
+                    }
+                ]
+            },
+            {
+                id: 2,
+                text: "Пришло время выбрать основной материал для Сильмариллов. В твоей кузнице есть несколько редчайших веществ:",
+                choices: [
+                    {
+                        text: "Кристаллизованная роса с листьев Телпериона",
+                        effect: () => {
+                            gameState.materials.push('telperion_dew');
+                            gameState.silmarils.light += 25;
+                            gameState.silmarils.purity += 20;
+                        },
+                        next: 3
+                    },
+                    {
+                        text: "Звёздная пыль из чертогов Варды",
+                        effect: () => {
+                            gameState.materials.push('star_dust');
+                            gameState.silmarils.light += 20;
+                            gameState.silmarils.power += 15;
+                            gameState.silmarils.purity += 10;
+                        },
+                        next: 3
+                    },
+                    {
+                        text: "Адамант из глубин Арды",
+                        effect: () => {
+                            gameState.materials.push('adamant');
+                            gameState.silmarils.power += 30;
+                            gameState.silmarils.light += 10;
+                        },
+                        next: 3
+                    },
+                    {
+                        text: "Сплав всех трёх материалов",
+                        effect: () => {
+                            gameState.materials.push('trinity');
+                            gameState.silmarils.light += 15;
+                            gameState.silmarils.purity += 15;
+                            gameState.silmarils.power += 15;
+                            gameState.feanor.skill += 10;
+                        },
+                        next: 3
+                    }
+                ]
+            },
+            {
+                id: 3,
+                text: () => {
+                    const randomIntro = [
+                        "Твоя жена Нерданель и сыновья собрались у кузницы. Они беспокоятся о тебе - ты не выходил оттуда уже много дней.",
+                        "Внезапно дверь кузницы распахивается! Это твоя семья, и Куруфин держит в руках древний фолиант с загадочными чертежами.",
+                        "Нерданель входит в кузницу с подносом еды, но замирает, увидев сияние заготовок Сильмариллов.",
+                        "Твои семеро сыновей выстроились у входа. Маэдрос держит речь о важности семейного единства.",
+                        "Странный сон посещает тебя - Нерданель стоит в окружении света и тьмы, протягивая руку."
+                    ];
+                    return randomIntro[Math.floor(Math.random() * randomIntro.length)] + " Нерданель просит тебя отдохнуть.";
+                },
+                choices: [
+                    {
+                        text: "Выйти к семье и провести с ними время",
+                        effect: () => {
+                            gameState.feanor.wisdom += 15;
+                            gameState.feanor.pride -= 10;
+                            gameState.choices.familySupport = true;
+                            gameState.silmarils.purity += 10;
+                            gameState.events.push('family_blessing');
+                        },
+                        next: 4
+                    },
+                    {
+                        text: "Попросить их помочь в работе",
+                        effect: () => {
+                            gameState.feanor.skill += 10;
+                            gameState.choices.familySupport = true;
+                            gameState.silmarils.power += 10;
+                            gameState.silmarils.light += 5;
+                        },
+                        next: 4
+                    },
+                    {
+                        text: "Отослать всех - работа важнее",
+                        effect: () => {
+                            gameState.feanor.pride += 20;
+                            gameState.feanor.skill += 15;
+                            gameState.choices.familySupport = false;
+                            gameState.silmarils.power += 20;
+                            gameState.silmarils.purity -= 10;
+                            gameState.events.push('family_rejected');
+                        },
+                        next: 4
+                    },
+                    {
+                        text: "Показать им незавершённые Сильмариллы и спросить совета",
+                        effect: () => {
+                            gameState.feanor.wisdom += 20;
+                            gameState.choices.familySupport = true;
+                            gameState.silmarils.purity += 15;
+                            gameState.silmarils.light += 10;
+                            gameState.events.push('family_council');
+                            // Случайный бонус от одного из сыновей
+                            if (Math.random() > 0.5) {
+                                gameState.feanor.skill += 10;
+                                gameState.events.push('son_insight');
+                            }
+                        },
+                        next: 4
+                    }
+                ]
+            },
+            {
+                id: 4,
+                text: () => {
+                    const events = [
+                        "Случилось невероятное! Во время работы произошёл выброс энергии. Часть света Древ случайно попала в твою кузницу через открытое окно и смешалась с материалами!",
+                        "Чудо! Лаурелин и Телперион одновременно достигли пика своего сияния, и их объединённый свет хлынул в кузницу!",
+                        "Невероятное событие! Метеорит из-за пределов Эа врезался прямо в крышу кузницы, принеся неведомый свет!",
+                        "Божественное вмешательство! Сам воздух вокруг Сильмариллов начал светиться, словно отвечая на твой труд!",
+                        "Мистика! Призрак Первого Эльфа появился и благословил твою работу древним светом Куивиэнена!"
+                    ];
+                    return events[Math.floor(Math.random() * events.length)];
+                },
+                choices: [
+                    {
+                        text: "Немедленно использовать этот свет",
+                        effect: () => {
+                            gameState.silmarils.light += 30;
+                            gameState.silmarils.purity += 10;
+                            gameState.feanor.skill += 5;
+                            gameState.events.push('tree_light');
+                        },
+                        next: 5
+                    },
+                    {
+                        text: "Осторожно стабилизировать энергию",
+                        effect: () => {
+                            gameState.silmarils.light += 20;
+                            gameState.silmarils.purity += 20;
+                            gameState.feanor.wisdom += 10;
+                        },
+                        next: 5
+                    },
+                    {
+                        text: "Усилить свет собственной феа (душой)",
+                        effect: () => {
+                            gameState.silmarils.light += 25;
+                            gameState.silmarils.power += 25;
+                            gameState.feanor.wisdom -= 10;
+                            gameState.feanor.pride += 15;
+                            gameState.events.push('soul_binding');
+                        },
+                        next: 5
+                    },
+                    {
+                        text: "Призвать всех Калаквенди поделиться своим внутренним светом",
+                        effect: () => {
+                            gameState.silmarils.light += 35;
+                            gameState.silmarils.purity += 25;
+                            gameState.feanor.wisdom += 15;
+                            gameState.feanor.pride -= 20;
+                            gameState.events.push('eldar_unity');
+                        },
+                        next: 5
+                    }
+                ]
+            },
+            {
+                id: 5,
+                text: "Манвэ, Король Валар, посылает орла с вестью. Он предупреждает, что в Валиноре растёт тень и советует быть осторожным. Также он предлагает защитное благословение для твоей работы.",
+                choices: [
+                    {
+                        text: "Принять благословение Манвэ",
+                        effect: () => {
+                            gameState.silmarils.purity += 25;
+                            gameState.feanor.wisdom += 10;
+                            gameState.feanor.pride -= 15;
+                            gameState.events.push('manwe_blessing');
+                        },
+                        next: 6
+                    },
+                    {
+                        text: "Поблагодарить, но отказаться",
+                        effect: () => {
+                            gameState.feanor.pride += 10;
+                            gameState.silmarils.power += 10;
+                        },
+                        next: 6
+                    },
+                    {
+                        text: "Проигнорировать предупреждение",
+                        effect: () => {
+                            gameState.feanor.pride += 20;
+                            gameState.feanor.wisdom -= 15;
+                            gameState.silmarils.power += 15;
+                            gameState.events.push('ignored_warning');
+                        },
+                        next: 6
+                    }
+                ]
+            },
+            {
+                id: 6,
+                text: "Время выбрать метод финальной обработки Сильмариллов. Это определит их окончательные свойства:",
+                choices: [
+                    {
+                        text: "Закалка в свете Лаурелин во время её цветения",
+                        effect: () => {
+                            gameState.choices.method = 'laurelin';
+                            gameState.silmarils.light += 20;
+                            gameState.silmarils.purity += 15;
+                        },
+                        next: 7
+                    },
+                    {
+                        text: "Охлаждение в священных водах Эзеллохара",
+                        effect: () => {
+                            gameState.choices.method = 'waters';
+                            gameState.silmarils.purity += 25;
+                            gameState.silmarils.light += 10;
+                        },
+                        next: 7
+                    },
+                    {
+                        text: "Запечатывание тайными рунами власти",
+                        effect: () => {
+                            gameState.choices.method = 'runes';
+                            gameState.silmarils.power += 35;
+                            gameState.feanor.skill += 10;
+                        },
+                        next: 7
+                    },
+                    {
+                        text: "Песнь Творения - воссоздать часть Музыки Айнур",
+                        effect: () => {
+                            gameState.choices.method = 'music';
+                            gameState.silmarils.light += 15;
+                            gameState.silmarils.purity += 15;
+                            gameState.silmarils.power += 15;
+                            gameState.feanor.wisdom += 15;
+                            gameState.events.push('music_creation');
+                        },
+                        next: 7
+                    }
+                ]
+            },
+            {
+                id: 7,
+                text: getRandomEvent(),
+                choices: [
+                    {
+                        text: "Защитить Сильмариллы любой ценой",
+                        effect: () => {
+                            gameState.feanor.pride += 15;
+                            gameState.silmarils.power += 10;
+                            gameState.events.push('protected');
+                        },
+                        next: 8
+                    },
+                    {
+                        text: "Призвать на помощь Валар",
+                        effect: () => {
+                            gameState.feanor.wisdom += 10;
+                            gameState.feanor.pride -= 10;
+                            gameState.silmarils.purity += 15;
+                        },
+                        next: 8
+                    },
+                    {
+                        text: "Использовать силу Сильмариллов для защиты",
+                        effect: () => {
+                            gameState.silmarils.power += 20;
+                            gameState.feanor.skill += 10;
+                            gameState.events.push('silmarils_awakened');
+                        },
+                        next: 8
+                    }
+                ]
+            },
+            {
+                id: 8,
+                text: "Последний этап. Сильмариллы почти готовы, но для завершения нужно принять финальное решение о их предназначении:",
+                choices: [
+                    {
+                        text: "Посвятить их Илуватару и всем народам Арды",
+                        effect: () => {
+                            gameState.feanor.wisdom += 25;
+                            gameState.feanor.pride -= 20;
+                            gameState.silmarils.purity += 30;
+                            gameState.silmarils.light += 20;
+                            gameState.events.push('dedicated_iluvatar');
+                        },
+                        next: 9
+                    },
+                    {
+                        text: "Объявить их наследием дома Феанора",
+                        effect: () => {
+                            gameState.feanor.pride += 30;
+                            gameState.silmarils.power += 25;
+                            gameState.events.push('feanor_heritage');
+                        },
+                        next: 9
+                    },
+                    {
+                        text: "Оставить их свободными от клятв и обязательств",
+                        effect: () => {
+                            gameState.feanor.wisdom += 15;
+                            gameState.silmarils.purity += 20;
+                            gameState.silmarils.light += 15;
+                        },
+                        next: 9
+                    },
+                    {
+                        text: "Связать их с судьбой Валинора",
+                        effect: () => {
+                            gameState.silmarils.light += 25;
+                            gameState.silmarils.purity += 15;
+                            gameState.feanor.wisdom += 10;
+                            gameState.events.push('valinor_bound');
+                        },
+                        next: 9
+                    }
+                ]
+            }
+        ];
+        
+        function getRandomEvent() {
+            const dramaticEvents = [
+                "Внезапно земля содрогнулась! Мелькор пытается проникнуть в твою кузницу под покровом тьмы!",
+                "Тревога! Древа Валинора внезапно потускнели, словно что-то вытягивает их свет!",
+                "Опасность! Странная тень пронеслась над Валинором, и все эльдар почувствовали холод в сердцах!",
+                "Чудо! Варда спустилась с небес, её звёзды образовали защитный круг вокруг твоей кузницы!",
+                "Срочные вести! Твои сыновья прибежали - кто-то видел тёмную фигуру у Древ!"
+            ];
+            
+            const mysticalEvents = [
+                "Невероятно! Эльфийский камень в твоей кузнице начал резонировать с Сильмариллами, открывая видение будущего!",
+                "Мистика! Призрак Мириэль, твоей матери, появился в кузнице и прошептал древнее заклинание!",
+                "Диво! Орёл Манвэ принёс перо Феникса из-за пределов мира - оно может изменить судьбу Сильмариллов!",
+                "Чудо творения! Сильмариллы начали петь - их песня пробуждает спящие силы Арды!",
+                "Откровение! В пламени кузницы ты видишь Пламя Илуватара и понимаешь тайну света!"
+            ];
+            
+            const strangeEvents = [
+                "Неожиданность! Том Бомбадил (откуда он в Валиноре?!) заглянул в окно и спел весёлую песню о блестящих камушках!",
+                "Курьёз! Хуан, великий пёс Валинора, принёс в зубах светящийся метеорит прямо к твоему порогу!",
+                "Странность! Время в кузнице пошло вспять - ты видишь себя молодым, только прибывшим в Валинор!",
+                "Аномалия! Сильмариллы на мгновение стали прозрачными, и сквозь них ты увидел Неведомые Земли за пределами Арды!",
+                "Загадка! Улмо прислал волну из фонтанов Эзеллохара - вода приняла форму загадочной руны!"
+            ];
+            
+            const comicEvents = [
+                "Комично! Тулкас, решив помочь, случайно уронил свой молот прямо на заготовку Сильмарилла... но это почему-то улучшило её!",
+                "Забавно! Стая любопытных телери-дельфинов каким-то образом заплыла в твою кузницу через водосток!",
+                "Нелепость! Йаванна вырастила огромную тыкву прямо посреди кузницы, и она светится не хуже Сильмариллов!",
+                "Смешно! Мандос прислал пророчество, но оно написано задом наперёд и вверх ногами!",
+                "Абсурд! Кузнечные мехи ожили и начали танцевать вальс с молотом!"
+            ];
+            
+            const cosmicEvents = [
+                "Космическое событие! Комета Эарендила (из будущего?!) пролетела над Валинором, осыпая всё звёздной пылью!",
+                "Вселенское явление! На мгновение ты услышал отголоски Музыки Айнур - Сильмариллы отозвались на неё!",
+                "Пространственный разлом! В кузнице открылся портал, и оттуда выпал странный предмет с рунами на неизвестном языке!",
+                "Временной парадокс! Ты встретил самого себя из альтернативной реальности, где Сильмариллы уже созданы!",
+                "Божественное вмешательство! Эру Илуватар моргнул - и все законы мироздания в кузнице изменились на мгновение!"
+            ];
+            
+            const allEvents = [...dramaticEvents, ...mysticalEvents, ...strangeEvents, ...comicEvents, ...cosmicEvents];
+            return allEvents[Math.floor(Math.random() * allEvents.length)];
+        }
+        
+        function updateStats() {
+            document.getElementById('wisdom').textContent = gameState.feanor.wisdom;
+            document.getElementById('skill').textContent = gameState.feanor.skill;
+            document.getElementById('pride').textContent = gameState.feanor.pride;
+            document.getElementById('light').textContent = gameState.silmarils.light;
+            document.getElementById('purity').textContent = gameState.silmarils.purity;
+            document.getElementById('power').textContent = gameState.silmarils.power;
+            
+            // Подсветка критических значений
+            const stats = [
+                { id: 'wisdom', value: gameState.feanor.wisdom },
+                { id: 'skill', value: gameState.feanor.skill },
+                { id: 'pride', value: gameState.feanor.pride },
+                { id: 'light', value: gameState.silmarils.light },
+                { id: 'purity', value: gameState.silmarils.purity },
+                { id: 'power', value: gameState.silmarils.power }
+            ];
+            
+            stats.forEach(stat => {
+                const element = document.getElementById(stat.id);
+                element.style.color = '#ffd700'; // Сброс цвета
+                element.style.textShadow = 'none'; // Сброс тени
+                
+                if (stat.value >= 80) {
+                    element.style.color = '#00ff00';
+                    element.style.textShadow = '0 0 10px rgba(0, 255, 0, 0.8)';
+                } else if (stat.value >= 60) {
+                    element.style.color = '#ffff00';
+                    element.style.textShadow = '0 0 8px rgba(255, 255, 0, 0.6)';
+                } else if (stat.value <= 20) {
+                    element.style.color = '#ff4444';
+                    element.style.textShadow = '0 0 8px rgba(255, 68, 68, 0.6)';
+                }
+                
+                // Особое свечение для экстремальных значений
+                if (stat.value >= 100) {
+                    element.style.color = '#ffffff';
+                    element.style.textShadow = '0 0 15px rgba(255, 255, 255, 1)';
+                    element.style.animation = 'pulse 1s infinite';
+                } else if (stat.value <= 0) {
+                    element.style.color = '#8b0000';
+                    element.style.textShadow = '0 0 10px rgba(139, 0, 0, 0.8)';
+                }
+            });
+        }
+        
+        function renderStage(stageId) {
+            const stage = stages.find(s => s.id === stageId);
+            const textDiv = document.getElementById('gameText');
+            const choicesDiv = document.getElementById('choices');
+            
+            if (!stage) {
+                renderEnding();
+                return;
+            }
+            
+            // Проверяем, является ли text функцией
+            const stageText = typeof stage.text === 'function' ? stage.text() : stage.text;
+            textDiv.innerHTML = stageText;
+            
+            if (gameState.materials.length > 0) {
+                const materialNames = {
+                    'telperion_dew': 'Роса Телпериона',
+                    'star_dust': 'Звёздная пыль Варды',
+                    'adamant': 'Адамант глубин',
+                    'trinity': 'Триединый сплав'
+                };
+                const materials = gameState.materials.map(m => materialNames[m] || m).join(', ');
+                textDiv.innerHTML += `<div class="materials-display">Собранные материалы: ${materials}</div>`;
+            }
+            
+            // Добавляем случайные мини-события на некоторых этапах
+            if (stageId === 4 && Math.random() > 0.6) {
+                textDiv.innerHTML += `<div class="event-warning">⚡ Внезапно: ${getMiniEvent()}</div>`;
+            }
+            
+            // Предупреждения о критических значениях
+            const warnings = [];
+            if (gameState.feanor.pride >= 90) {
+                warnings.push("⚠️ Твоя гордость достигла опасного уровня!");
+            }
+            if (gameState.feanor.wisdom <= 20) {
+                warnings.push("⚠️ Ты теряешь мудрость в погоне за величием!");
+            }
+            if (gameState.silmarils.purity <= 20 && gameState.silmarils.power > 0) {
+                warnings.push("⚠️ Тьма проникает в Сильмариллы!");
+            }
+            if (gameState.silmarils.power >= 90) {
+                warnings.push("⚡ Сильмариллы пульсируют невероятной мощью!");
+            }
+            
+            if (warnings.length > 0) {
+                textDiv.innerHTML += `<div class="special-event">${warnings.join('<br>')}</div>`;
+            }
+            
+            choicesDiv.innerHTML = '';
+            stage.choices.forEach(choice => {
+                const btn = document.createElement('button');
+                btn.className = 'choice-btn';
+                btn.textContent = choice.text;
+                btn.onclick = () => {
+                    choice.effect();
+                    updateStats();
+                    renderStage(choice.next);
+                };
+                choicesDiv.appendChild(btn);
+            });
+        }
+        
+        function getMiniEvent() {
+            const miniEvents = [
+                "Эльфийский кот забрёл в кузницу и мурлычет на частоте резонанса Сильмариллов!",
+                "Мимо пролетел Торондор и уронил золотое перо!",
+                "Ниэнна проходила мимо и обронила слезу сострадания на твою работу!",
+                "Откуда-то доносится смех Тулкаса - это хороший знак... или нет?",
+                "Ветер принёс лепесток с садов Йаванны!",
+                "Кто-то оставил загадочную руну на пороге кузницы!"
+            ];
+            return miniEvents[Math.floor(Math.random() * miniEvents.length)];
+        }
+        
+        function getEnding() {
+            const s = gameState.silmarils;
+            const f = gameState.feanor;
+            const e = gameState.events;
+            const c = gameState.choices;
+            
+            // Абсолютная концовка - все параметры максимальны
+            if (s.light >= 90 && s.purity >= 90 && s.power >= 90 && f.wisdom >= 80) {
+                return {
+                    title: "Творец Нового Мира",
+                    text: "Ты превзошёл даже Валар! Сильмариллы стали не просто камнями - они стали семенами новых миров. Эру Илуватар является лично и объявляет тебя Со-Творцом. После Конца Времён ты будешь создавать новые вселенные вместе с ним. Даже Мелькор склоняется перед твоим величием и просит прощения. Арда преображается, и начинается новая эпоха - Эпоха Вечного Света."
+                };
+            }
+            
+            // Идеальная концовка
+            if (s.light >= 80 && s.purity >= 80 && f.wisdom >= 70) {
+                return {
+                    title: "Свет Неугасимый",
+                    text: "Ты создал совершенные Сильмариллы! Они сияют чистейшим светом Древ, и даже Варда признаёт, что их красота превосходит звёзды. Валар благословляют твой труд, и Сильмариллы становятся величайшим сокровищем Арды. Мелькор не смеет приблизиться к ним, ибо их чистота жжёт тьму. Твоё имя будет вечно воспето в песнях, как создателя Света Негасимого."
+                };
+            }
+            
+            // Концовка парадокса времени
+            if (e.includes('soul_binding') && e.includes('melkor_help') && s.power >= 80) {
+                return {
+                    title: "Петля Судьбы",
+                    text: "Связав душу с Сильмариллами и использовав знания Мелькора, ты создал временной парадокс. Сильмариллы существовали всегда и никогда одновременно. Ты оказываешься в петле времени, вечно создавая их заново, но каждый раз они становятся могущественнее. В конце концов, ты становишься Хранителем Времени Арды, существуя во всех эпохах одновременно."
+                };
+            }
+            
+            // Трагическая концовка (каноничная)
+            if (f.pride >= 90 && s.power >= 70) {
+                return {
+                    title: "Проклятие Феанора",
+                    text: "Сильмариллы созданы, и они прекрасны beyond всякой меры. Но твоя гордость и жажда власти отравили их судьбу. Вскоре Мелькор похитит их вместе со светом Древ, и ты произнесёшь страшную Клятву. Сильмариллы станут причиной бесчисленных бед и войн, братоубийства и предательства. Твоё величайшее творение станет твоим величайшим проклятием."
+                };
+            }
+            
+            // Комическая концовка
+            if (f.skill >= 100 && s.light >= 50 && Math.random() > 0.7) {
+                return {
+                    title: "Сильмариллы? Какие Сильмариллы?",
+                    text: "После всех приключений и труда ты создал... идеальные праздничные украшения! Валар в восторге используют их для украшения Валинора на праздниках. Мелькор пытался их украсть, но обнаружив, что это просто очень красивые фонарики, разочарованно ушёл. Ты становишься официальным декоратором Валинора. Варда заказывает ещё дюжину для своих звёзд."
+                };
+            }
+            
+            // Тёмная концовка
+            if (c.melkorRelation === 'allied' && s.purity < 30) {
+                return {
+                    title: "Тень в Свете",
+                    text: "Сильмариллы созданы, но знания Мелькора исказили их природу. Они сияют странным, тревожным светом, который больше похож на отблески тьмы. Валар в ужасе требуют уничтожить их, но ты отказываешься. В конце концов, Мелькор заберёт их - и они станут источником его новой, ужасной силы. Ты станешь известен не как величайший творец, а как тот, кто помог Тьме."
+                };
+            }
+            
+            // Концовка безумия
+            if (f.pride >= 100 || (f.wisdom <= 20 && s.power >= 80)) {
+                return {
+                    title: "Безумный Творец",
+                    text: "Процесс создания Сильмариллов свёл тебя с ума. Ты веришь, что камни разговаривают с тобой и диктуют свою волю. Ты начинаешь войну против всех - Валар, эльфов, даже собственной семьи, утверждая, что только ты достоин Сильмариллов. В конце концов, ты исчезаешь вместе с ними в неизвестном направлении, бормоча о 'истинном свете'. Некоторые говорят, что по ночам всё ещё слышат твой безумный смех в горах..."
+                };
+            }
+            
+            // Концовка дракона
+            if (e.includes('protected') && s.power >= 75 && f.pride >= 70) {
+                return {
+                    title: "Дракон Валинора",
+                    text: "Одержимость Сильмариллами преобразила тебя! Защищая их, ты буквально стал драконом - первым драконом добра в Арде. Теперь ты вечно стережёшь Сильмариллы в своей пещере-кузнице. Валар в шоке, эльфы в панике, но Йаванна находит это забавным и приносит тебе фрукты. Мелькор пытался создать своих драконов в ответ, но они получились хуже."
+                };
+            }
+            
+            // Мудрая концовка
+            if (f.wisdom >= 85 && c.familySupport === true) {
+                return {
+                    title: "Хранитель Света",
+                    text: "Твоя мудрость и поддержка семьи помогли создать Сильмариллы, исполненные гармонии. Ты добровольно отдаёшь их на хранение Валар, понимая, что такая сила не должна принадлежать одному. Манвэ помещает их в короны стражей Валинора. Мелькор никогда не сможет похитить их, и свет Древ будет сохранён навеки."
+                };
+            }
+            
+            // Концовка любви
+            if (c.familySupport === true && e.includes('family_blessing') && s.purity >= 70) {
+                return {
+                    title: "Сила Любви",
+                    text: "Благословение и любовь твоей семьи стали истинной силой Сильмариллов. Камни светятся не только светом Древ, но и теплом семейных уз. Они становятся символом единства эльдар. Когда Мелькор попытался украсть их, Сильмариллы отказались покинуть твою семью. Даже тёмный Вала был тронут такой преданностью и отступил, проронив слезу."
+                };
+            }
+            
+            // Альтернативная концовка с музыкой
+            if (e.includes('music_creation') && s.light >= 60 && s.purity >= 60 && s.power >= 60) {
+                return {
+                    title: "Новая Музыка",
+                    text: "Используя Песнь Творения, ты создал нечто большее, чем просто камни. Сильмариллы стали живыми нотами новой Музыки Айнур. Илуватар сам спускается в Валинор, чтобы увидеть твоё творение. Он забирает Сильмариллы, чтобы использовать их при пересоздании мира после Дагор Дагорат. Ты становишься единственным из Детей Илуватара, чей труд войдёт в новое Творение."
+                };
+            }
+            
+            // Концовка с Томом Бомбадилом
+            if (Math.random() > 0.9 && s.light >= 40) {
+                return {
+                    title: "А вот и Том Бомбадил!",
+                    text: "Когда Сильмариллы были завершены, неожиданно появился Том Бомбадил (серьёзно, откуда он взялся в Валиноре?!). Он взглянул на них, засмеялся и сказал: 'Хорошие камушки, но мои жёлтые сапоги лучше!' Затем он исполнил танец, и Сильмариллы... начали подпевать! Теперь они поют весёлые песенки, чем невероятно раздражают Мелькора. Он больше не хочет их красть."
+                };
+            }
+            
+            // Концовка предательства
+            if (e.includes('family_rejected') && f.pride >= 80) {
+                return {
+                    title: "Одиночество Творца",
+                    text: "Сильмариллы созданы, но какой ценой? Твоя семья отвернулась от тебя, видя твою одержимость. Даже твои сыновья смотрят с опаской. Камни прекрасны, но холодны - в них нет тепла любви. Когда придёт час испытаний, ты останешься один со своими творениями, и некому будет разделить твою судьбу."
+                };
+            }
+            
+            // Научная концовка
+            if (f.skill >= 90 && f.wisdom >= 75 && c.method === 'runes') {
+                return {
+                    title: "Алхимик Арды",
+                    text: "Твой научный подход к созданию Сильмариллов открыл новую эру! Ты не просто создал камни - ты открыл законы преобразования света в материю. Основав Академию Света в Валиноре, ты обучаешь других эльфов твоему искусству. Вскоре весь Валинор сияет тысячами малых светильников. Мелькор в ярости - он не может украсть знание из голов тысяч учёных!"
+                };
+            }
+            
+            // Концовка Валар
+            if (e.includes('manwe_blessing') && c.helpFromValar === true && s.purity >= 75) {
+                return {
+                    title: "Четырнадцатый Вала",
+                    text: "Твоё сотрудничество с Валар и чистота Сильмариллов произвели невероятное - Манвэ провозглашает тебя почётным Вала! Ты становишься Феанор Светоносный, Вала Творчества и Ремесла. Твой трон установлен в кольце Валар, и ты участвуешь в управлении Ардой. Первым твоим решением становится создание защитного барьера вокруг Древ. Мелькор в бешенстве, но ничего не может сделать против объединённых Валар."
+                };
+            }
+            
+            // Концовка разрушения
+            if (s.power >= 100 && s.purity <= 20) {
+                return {
+                    title: "Апокалипсис Света",
+                    text: "Сильмариллы оказались слишком могущественны и нестабильны! При финальной обработке они взорвались, уничтожив половину Валинора. Но вместо разрушения, взрыв создал новый источник света - Вечную Звезду прямо над руинами твоей кузницы. Валар изгоняют тебя, но эльфы тайно почитают тебя как того, кто дал им независимость от света Древ. История пошла совершенно иным путём..."
+                };
+            }
+            
+            // Концовка полного провала
+            if (s.light <= 10 && s.purity <= 10 && s.power <= 10) {
+                return {
+                    title: "Пепел Надежды",
+                    text: "Катастрофа! Все пошло не так. Сильмариллы рассыпались в пыль при последнем касании. Годы труда превратились в ничто. Ты стоишь среди руин своей кузницы, глядя на горстку тусклого пепла - всё, что осталось от твоей мечты. Нерданель находит тебя через три дня, всё ещё смотрящего на пепел. Валар предлагают помощь, но ты уже никогда не возьмёшься за молот. История запомнит тебя не как величайшего творца, а как напоминание о том, что даже величайшие могут потерпеть полное поражение."
+                };
+            }
+            
+            // Концовка просветления
+            if (f.wisdom >= 100 && e.includes('eldar_unity') && s.purity >= 70) {
+                return {
+                    title: "Просветлённый Мастер",
+                    text: "В процессе создания Сильмариллов ты достиг невероятного просветления. Ты понял истинную природу Эа и место каждого существа в Музыке. Сильмариллы стали не просто камнями, а учителями - каждый, кто смотрит на них, обретает частицу твоей мудрости. Ты основываешь Орден Света, где обучаешь эльфов, людей и даже раскаявшихся майар. В далёком будущем, когда придёт Дагор Дагорат, именно твои ученики помогут переписать Музыку Творения."
+                };
+            }
+            
+            // Секретная концовка с отсылками
+            if (e.includes('melkor_tricked') && e.includes('son_insight') && e.includes('family_council')) {
+                return {
+                    title: "Мастер Судьбы",
+                    text: "Невероятно! Обманув Мелькора, объединив семью и использовав их мудрость, ты создал Сильмариллы, которые могут изменять судьбу! Они показывают не только прошлое и настоящее, но и все возможные будущие. Ты видишь путь, где можно избежать всех трагедий - Исхода Нолдор, гибели Древ, даже падения Нуменора. Вооружённый этим знанием, ты тайно направляешь историю Арды к лучшему исходу. Мелькор никогда не поймёт, почему все его планы проваливаются."
+                };
+            }
+            
+            // Концовка единства противоположностей
+            if (c.melkorRelation === 'allied' && e.includes('manwe_blessing') && s.light >= 50 && s.power >= 50) {
+                return {
+                    title: "Примирение Айнур",
+                    text: "Невозможное свершилось! Приняв помощь и Мелькора, и Манвэ, ты создал Сильмариллы, которые содержат гармонию света и тьмы. Увидев это, братья-Валар впервые за эоны говорят друг с другом без гнева. Сильмариллы становятся мостом их примирения. Мелькор отказывается от пути тьмы, а Манвэ признаёт необходимость диссонанса в Музыке. Арда преображается - больше нет абсолютного добра и зла, только бесконечные оттенки и возможности. Ты становишься известен как Примиритель."
+                };
+            }
+            
+            // Концовка перерождения
+            if (e.includes('soul_binding') && f.wisdom <= 30 && s.power >= 100) {
+                return {
+                    title: "Феанор-Сильмарилл",
+                    text: "Твоя одержимость достигла предела! Вложив всю душу в Сильмариллы, ты буквально стал одним из них. Твоё тело превратилось в четвёртый Сильмарилл - самый яркий и могущественный. Ты всё ещё обладаешь сознанием, но теперь ты - вечный камень света. Твоя семья в ужасе и горе, Валар не знают, что делать. Но ты счастлив - ты достиг совершенства, став своим собственным творением. Через тысячелетия легенды расскажут о камне, который иногда шепчет имя 'Нерданель'..."
+                };
+            }
+            
+            // Концовка Искупления Мелькора
+            if (c.melkorRelation === 'enemy' && e.includes('melkor_enemy') && s.purity >= 90) {
+                return {
+                    title: "Свет, Побеждающий Тьму",
+                    text: "Твоё решительное противостояние Мелькору и чистота Сильмариллов привели к невероятному! Когда Мелькор попытался украсть их, чистый свет камней выжег из него всю тьму и злобу. Вала Моргота больше нет - есть Мелькор, каким он был до падения. Потрясённый и благодарный, он становится твоим вечным другом и защитником Сильмариллов. Вместе вы создаёте новые чудеса, и Валинор входит в золотой век творчества и гармонии."
+                };
+            }
+            
+            // Нейтральная концовка
+            return {
+                title: "Сильмариллы Созданы",
+                text: "После долгого труда, Сильмариллы завершены. Они прекрасны и хранят в себе отблески света Древ, но что-то в них несовершенно. Может быть, им не хватает чистоты, может - силы, а может - мудрости создателя. Они займут своё место в истории Арды, но их судьба туманна. Время покажет, станут ли они благословением или проклятием."
+            };
+        }
+        
+        function renderEnding() {
+            const ending = getEnding();
+            const textDiv = document.getElementById('gameText');
+            const choicesDiv = document.getElementById('choices');
+            
+            document.querySelector('.game-container').classList.add('silmaril-complete');
+            
+            // Подсчет достижений
+            const achievements = [];
+            if (gameState.feanor.wisdom >= 80) achievements.push("🦉 Мудрец Валинора");
+            if (gameState.feanor.skill >= 90) achievements.push("🔨 Мастер-Кузнец");
+            if (gameState.feanor.pride >= 90) achievements.push("👑 Гордый Нолдо");
+            if (gameState.silmarils.light >= 80) achievements.push("✨ Носитель Света");
+            if (gameState.silmarils.purity >= 80) achievements.push("💎 Хранитель Чистоты");
+            if (gameState.silmarils.power >= 80) achievements.push("⚡ Повелитель Силы");
+            if (gameState.events.includes('family_blessing')) achievements.push("❤️ Любимый Супруг");
+            if (gameState.events.includes('melkor_tricked')) achievements.push("🎭 Обманщик Тьмы");
+            if (gameState.events.includes('music_creation')) achievements.push("🎵 Певец Творения");
+            
+            const totalEndings = 20; // Общее количество концовок
+            const endingNumber = Math.floor(Math.random() * 1000000); // Уникальный номер прохождения
+            
+            textDiv.innerHTML = `
+                <div class="ending-text">
+                    <h2 style="font-family: 'Cinzel', serif; color: #ffd700; margin-bottom: 20px;">${ending.title}</h2>
+                    <p>${ending.text}</p>
+                    <div style="margin-top: 30px; padding-top: 20px; border-top: 1px solid #444;">
+                        <h3 style="font-family: 'Cinzel', serif; color: #87ceeb; margin-bottom: 15px;">Достижения:</h3>
+                        <p style="font-size: 1.1em; line-height: 1.8;">
+                            ${achievements.length > 0 ? achievements.join('<br>') : '📜 Скромный Творец'}
+                        </p>
+                    </div>
+                    <div style="margin-top: 20px; padding-top: 20px; border-top: 1px solid #444;">
+                        <p style="font-size: 0.9em; color: #aaa;">
+                            📊 Финальные характеристики:<br>
+                            Мудрость Феанора: ${gameState.feanor.wisdom}<br>
+                            Мастерство Феанора: ${gameState.feanor.skill}<br>
+                            Гордость Феанора: ${gameState.feanor.pride}<br>
+                            Свет Сильмариллов: ${gameState.silmarils.light}<br>
+                            Чистота Сильмариллов: ${gameState.silmarils.purity}<br>
+                            Сила Сильмариллов: ${gameState.silmarils.power}<br><br>
+                            🎮 Это одна из ${totalEndings} возможных концовок<br>
+                            🌟 Номер вашей истории: #${endingNumber}
+                        </p>
+                    </div>
+                </div>
+            `;
+            
+            choicesDiv.innerHTML = `
+                <button class="restart-btn" onclick="location.reload()">🔄 Переписать судьбу</button>
+                <div style="text-align: center; margin-top: 15px; color: #888; font-size: 0.9em;">
+                    Попробуйте другие выборы, чтобы открыть все концовки!
+                </div>
+            `;
+        }
+        
+        // Запуск игры
+        updateStats();
+        renderStage(0);
+    </script>
+</body>
+</html>
