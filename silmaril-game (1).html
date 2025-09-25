@@ -187,6 +187,40 @@
         .silmaril-complete {
             animation: glow 2s infinite;
         }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .reaction-text {
+            background: linear-gradient(135deg, rgba(75, 0, 130, 0.2), rgba(138, 43, 226, 0.1));
+            border-left: 4px solid #9370db;
+            padding: 20px;
+            margin: 15px 0;
+            font-style: italic;
+            font-size: 1.1em;
+            line-height: 1.6;
+            color: #e8d4ff;
+            border-radius: 5px;
+            box-shadow: 0 0 15px rgba(147, 112, 219, 0.3);
+        }
+        
+        .choice-result {
+            animation: slideInFromRight 0.5s ease-out;
+        }
+        
+        @keyframes slideInFromRight {
+            from {
+                transform: translateX(20px);
+                opacity: 0;
+            }
+            to {
+                transform: translateX(0);
+                opacity: 1;
+            }
+        }
+        
     </style>
 </head>
 <body>
@@ -257,6 +291,26 @@
             },
             events: []
         };
+
+        const reactionTexts = {
+            immediate: {}, // Немедленные реакции на выборы
+            transition: {} // Тексты перехода между стадиями
+        };
+        
+        // Новая функция для показа реакции перед переходом
+        function showReactionAndProceed(reactionText, nextStageId, delay = 2500) {
+            const textDiv = document.getElementById('gameText');
+            const choicesDiv = document.getElementById('choices');
+            
+            // Показываем реакцию
+            textDiv.innerHTML = `<div class="reaction-text" style="animation: fadeIn 0.5s">${reactionText}</div>`;
+            choicesDiv.innerHTML = `<div style="text-align: center; color: #888; font-style: italic;">Продолжение следует...</div>`;
+            
+            // Переходим к следующей стадии после задержки
+            setTimeout(() => {
+                renderStage(nextStageId);
+            }, delay);
+        }
         
         const stages = [
             {
@@ -265,6 +319,7 @@
                 choices: [
                     {
                         text: "Обратиться к Валар за благословением",
+                        reaction: "Ты склоняешь гордую голову перед Валар. Манвэ кивает с одобрением, а Варда касается твоего чела, даруя благословение звёзд. 'Да пребудет с тобой свет Илуватара', - шепчет она.",
                         effect: () => {
                             gameState.feanor.wisdom += 10;
                             gameState.feanor.pride -= 5;
@@ -275,6 +330,7 @@
                     },
                     {
                         text: "Положиться только на собственные силы",
+                        reaction: "Ты гордо выпрямляешься. 'Я - Феанор! Мне не нужна помощь Валар для создания моего величайшего творения!' Огонь решимости загорается в твоих глазах ярче прежнего.",
                         effect: () => {
                             gameState.feanor.pride += 15;
                             gameState.feanor.skill += 5;
@@ -285,6 +341,7 @@
                     },
                     {
                         text: "Тайно изучить запретные знания",
+                        reaction: "Под покровом ночи ты пробираешься в запретные архивы. Древние свитки шепчут тайны, которые не должен знать ни один из Детей Илуватара. Твои руки дрожат от предвкушения и... страха?",
                         effect: () => {
                             gameState.feanor.skill += 15;
                             gameState.feanor.wisdom -= 10;
@@ -311,6 +368,7 @@
                 choices: [
                     {
                         text: "Выслушать Мелькора и принять его знания",
+                        reaction: "Мелькор улыбается, и его улыбка холоднее зимнего ветра. 'Мудрый выбор, сын огня. Смотри и учись!' Он касается твоего лба, и тысячи образов проносятся в твоём разуме - знания древние и тёмные, могущественные и опасные. Ты шатаешься, но устоял.",
                         effect: () => {
                             gameState.feanor.skill += 20;
                             gameState.feanor.wisdom -= 15;
@@ -323,6 +381,7 @@
                     },
                     {
                         text: "Вежливо отказаться",
+                        reaction: "Ты кланяешься: 'Благодарю за предложение, владыка, но я предпочитаю идти своим путём.' Мелькор пожимает плечами: 'Как пожелаешь, упрямец. Но помни - моё предложение остаётся в силе.' Он растворяется в тенях, оставляя запах серы."
                         effect: () => {
                             gameState.feanor.wisdom += 10;
                             gameState.choices.melkorRelation = 'neutral';
@@ -332,6 +391,7 @@
                     },
                     {
                         text: "Прогнать Мелькора прочь",
+                        reaction: "Ты указываешь на дверь: 'Уходи, осквернитель! Твоя тень не затемнит мой труд!' Мелькор хохочет: 'Такой огонь! Такая гордость! Мы ещё увидимся, Феанор.' Он уходит, но его смех ещё долго эхом звучит в кузнице.",
                         effect: () => {
                             gameState.feanor.pride += 10;
                             gameState.feanor.wisdom += 5;
@@ -343,6 +403,13 @@
                     },
                     {
                         text: "Попытаться обмануть Мелькора и выведать его тайны",
+                        reaction: () => {
+                            if (Math.random() > 0.5) {
+                                return "Ты хитро улыбаешься: 'Покажи мне лишь малую часть, и я решу.' Мелькор, ослеплённый собственным тщеславием, раскрывает больше, чем намеревался. 'Ха! Ты хитёр, Феанор, но не настолько!' - слишком поздно понимает он твою уловку.";
+                            } else {
+                                return "Ты пытаешься перехитрить Древнее Зло, но Мелькор видит тебя насквозь. 'Глупец! Думаешь обмануть того, кто пел в Музыке до твоего рождения?' Тёмная волна отбрасывает тебя к стене. 'За дерзость заплатишь сполна!'";
+                            }
+                        },
                         effect: () => {
                             if (Math.random() > 0.5) {
                                 gameState.feanor.skill += 25;
@@ -486,6 +553,7 @@
                 choices: [
                     {
                         text: "Выйти к семье и провести с ними время",
+                        reaction: "Ты откладываешь молот и выходишь на свет. Нерданель обнимает тебя: 'Наконец-то!' Твои сыновья окружают тебя, делясь новостями. Маэдрос улыбается: 'Отец вернулся к нам.' Час, проведённый с семьёй, наполняет твоё сердце теплом, которого не дадут никакие камни.",
                         effect: () => {
                             gameState.feanor.wisdom += 15;
                             gameState.feanor.pride -= 10;
@@ -497,6 +565,7 @@
                     },
                     {
                         text: "Попросить их помочь в работе",
+                        reaction: "Ты открываешь дверь шире: 'Входите! Мне нужны ваши руки и сердца!' Куруфин тут же хватает инструменты, Келегорм приносит редкие материалы, а Нерданель начинает петь древнюю песню творения. Кузница наполняется светом семейной любви.",
                         effect: () => {
                             gameState.feanor.skill += 10;
                             gameState.choices.familySupport = true;
@@ -507,6 +576,7 @@
                     },
                     {
                         text: "Отослать всех - работа важнее",
+                        reaction: "Ты даже не оборачиваешься: 'УЙДИТЕ! Не мешайте творить величие!' Слышен вздох Нерданель, тихий плач Амрода и Амраса. Маэдрос что-то резко говорит братьям, уводя их. В кузнице становится холоднее, несмотря на жар горна.",
                         effect: () => {
                             gameState.feanor.pride += 20;
                             gameState.feanor.skill += 15;
@@ -519,6 +589,17 @@
                     },
                     {
                         text: "Показать им незавершённые Сильмариллы и спросить совета",
+                        reaction: () => {
+                            let reaction = "Ты торжественно выносишь сияющие заготовки. Семья замирает в благоговении. ";
+                            if (Math.random() > 0.5) {
+                                reaction += "Внезапно Келегорм восклицает: 'Отец, а что если добавить росу с листьев Древа на рассвете?' Гениально! Как ты сам не додумался?";
+                                gameState.feanor.skill += 10;
+                                gameState.events.push('son_insight');
+                            } else {
+                                reaction += "Нерданель нежно касается камней: 'Они прекрасны, но им не хватает сердца. Вложи в них любовь, не только мастерство.'";
+                            }
+                            return reaction;
+                        },
                         effect: () => {
                             gameState.feanor.wisdom += 20;
                             gameState.choices.familySupport = true;
@@ -600,49 +681,53 @@
                     // Разные варианты событий в зависимости от предыдущих выборов
                     if (gameState.choices.melkorRelation === 'allied') {
                         return {
-                            text: "Манвэ, Король Валар, прилетает лично на великом орле! Его глаза полны гнева: 'Я знаю о твоём сговоре с Мелькором! Объяснись немедленно!'",
-                            choices: [
-                                {
-                                    text: "Солгать и отрицать всё",
-                                    effect: () => {
-                                        gameState.feanor.wisdom -= 20;
-                                        gameState.feanor.pride += 25;
-                                        gameState.silmarils.purity -= 15;
-                                        gameState.events.push('lied_to_manwe');
+                                text: "Манвэ, Король Валар, прилетает лично на великом орле! Его глаза полны гнева: 'Я знаю о твоём сговоре с Мелькором! Объяснись немедленно!'",
+                                choices: [
+                                    {
+                                        text: "Солгать и отрицать всё",
+                                        reaction: "Ты смотришь прямо в глаза Королю Валар и лжёшь: 'Я не знаю, о чём ты говоришь, владыка.' Манвэ хмурится, его орёл кричит пронзительно. 'Ложь тебе не к лицу, Феанор. Я разочарован.' Он улетает, но ты чувствуешь - это не конец.",
+                                        effect: () => {
+                                            gameState.feanor.wisdom -= 20;
+                                            gameState.feanor.pride += 25;
+                                            gameState.silmarils.purity -= 15;
+                                            gameState.events.push('lied_to_manwe');
+                                        },
+                                        next: 6
                                     },
-                                    next: 6
-                                },
-                                {
-                                    text: "Признаться и просить прощения",
-                                    effect: () => {
-                                        gameState.feanor.wisdom += 30;
-                                        gameState.feanor.pride -= 25;
-                                        gameState.silmarils.purity += 35;
-                                        gameState.events.push('confession_manwe');
+                                    {
+                                        text: "Признаться и просить прощения",
+                                        reaction: "Ты падаешь на колени: 'Прости меня, владыка! Жажда знания ослепила меня!' Манвэ долго молчит, затем кладёт руку тебе на плечо: 'Раскаяние - первый шаг к искуплению. Я помогу очистить Сильмариллы от тьмы.' Его свет окутывает камни.",
+                                        effect: () => {
+                                            gameState.feanor.wisdom += 30;
+                                            gameState.feanor.pride -= 25;
+                                            gameState.silmarils.purity += 35;
+                                            gameState.events.push('confession_manwe');
+                                        },
+                                        next: 6
                                     },
-                                    next: 6
-                                },
-                                {
-                                    text: "Объяснить, что использовал Мелькора для блага",
-                                    effect: () => {
-                                        gameState.feanor.wisdom += 15;
-                                        gameState.feanor.skill += 10;
-                                        gameState.silmarils.power += 15;
+                                    {
+                                        text: "Объяснить, что использовал Мелькора для блага",
+                                        reaction: "Ты спокойно объясняешь: 'Я взял у Тьмы знания, чтобы создать ещё больший Свет. Разве цель не оправдывает средства?' Манвэ качает головой: 'О, Феанор, как же ты заблуждаешься... Но я вижу, намерения твои не были злыми. Будь осторожнее.'",
+                                        effect: () => {
+                                            gameState.feanor.wisdom += 15;
+                                            gameState.feanor.skill += 10;
+                                            gameState.silmarils.power += 15;
+                                        },
+                                        next: 6
                                     },
-                                    next: 6
-                                },
-                                {
-                                    text: "Вызвать Манвэ на поединок чести",
-                                    effect: () => {
-                                        gameState.feanor.pride += 50;
-                                        gameState.feanor.wisdom -= 30;
-                                        gameState.silmarils.power += 30;
-                                        gameState.events.push('challenged_manwe');
-                                    },
-                                    next: 6
-                                }
-                            ]
-                        };
+                                    {
+                                        text: "Вызвать Манвэ на поединок чести",
+                                        reaction: "Ты выхватываешь меч: 'Если ты сомневаешься в моей чести, защити свои слова оружием!' Манвэ смотрит на тебя с грустью: 'О, дитя гордости... Я не буду сражаться с тобой. Но знай - ты выбрал путь одиночества.' Он исчезает в вихре ветра, оставляя тебя с горьким вкусом безрассудства.",
+                                        effect: () => {
+                                            gameState.feanor.pride += 50;
+                                            gameState.feanor.wisdom -= 30;
+                                            gameState.silmarils.power += 30;
+                                            gameState.events.push('challenged_manwe');
+                                        },
+                                        next: 6
+                                    }
+                                ]
+                            };
                     } else if (gameState.choices.melkorRelation === 'enemy') {
                         return {
                             text: "Манвэ посылает орла с посланием восхищения: 'Твоё мужество против Мелькора достойно похвалы. Прими моё благословение и защиту для твоей работы.'",
@@ -899,6 +984,7 @@
                     choices: [
                         {
                             text: "Позволить ему спеть Сильмариллам",
+                            reaction: "Том начинает петь, и его песня старше самих Древ: 'Хей-дол, мери-дол, камушки-светлячки!' Сильмариллы начинают пульсировать в такт его нелепой песне, и, к твоему изумлению, их свет становится теплее и добрее. Том подмигивает: 'Старый Том знает секреты!'",
                             effect: () => {
                                 gameState.silmarils.light += Math.floor(Math.random() * 30);
                                 gameState.silmarils.purity += 20;
@@ -926,6 +1012,7 @@
                         },
                         {
                             text: "Станцевать с ним весёлый танец вокруг Сильмариллов",
+                            reaction: "Ты отбрасываешь гордость и начинаешь прыгать с Томом вокруг наковальни. 'Вот это дух!' - смеётся он. Ваш танец создаёт вихрь света, и Сильмариллы начинают петь! Ты никогда не чувствовал себя таким... свободным.",
                             effect: () => {
                                 gameState.feanor.pride -= 20;
                                 gameState.feanor.wisdom += 20;
@@ -1072,6 +1159,7 @@
                     choices: [
                         {
                             text: "Попытаться стабилизировать реальность",
+                            reaction: "Ты сосредотачиваешься, вспоминая все законы творения. Медленно, шаг за шагом, ты восстанавливаешь порядок. Молот снова падает вниз, а не влево. Время выпрямляется. Ты выдыхаешь - ты только что исправил саму реальность!",
                             effect: () => {
                                 gameState.feanor.wisdom += 35;
                                 gameState.feanor.skill += 25;
@@ -1089,6 +1177,7 @@
                         },
                         {
                             text: "Воззвать к Илуватару с мольбой",
+                            reaction: "Ты падаешь на колени: 'Отец Всего Сущего, прости дерзость сына твоего!' Тишина... затем тёплый смех наполняет кузницу. 'Дерзай, малыш,' - шепчет голос, древнее самого времени. Хаос утихает, оставляя лишь благословение.",
                             effect: () => {
                                 gameState.feanor.wisdom += 20;
                                 gameState.feanor.pride -= 30;
@@ -1393,7 +1482,6 @@
                 stageText = content.text;
                 stageChoices = content.choices;
             } else {
-                // Проверяем, является ли text функцией
                 stageText = typeof stage.text === 'function' ? stage.text() : stage.text;
                 stageChoices = stage.choices;
             }
@@ -1447,7 +1535,16 @@
                 btn.onclick = () => {
                     choice.effect();
                     updateStats();
-                    renderStage(choice.next);
+                    
+                    // Если есть реакция, показываем её перед переходом
+                    if (choice.reaction) {
+                        const reactionText = typeof choice.reaction === 'function' 
+                            ? choice.reaction() 
+                            : choice.reaction;
+                        showReactionAndProceed(reactionText, choice.next);
+                    } else {
+                        renderStage(choice.next);
+                    }
                 };
                 choicesDiv.appendChild(btn);
             });
