@@ -1,0 +1,1245 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Профессиональный цифровой осциллограф</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Arial, sans-serif;
+            background: linear-gradient(135deg, #1a1a1a 0%, #2d2d2d 100%);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .oscilloscope {
+            background: linear-gradient(145deg, #3a3a3a, #2a2a2a);
+            border-radius: 20px;
+            padding: 25px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.8);
+            max-width: 1400px;
+            width: 100%;
+        }
+
+        .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 15px;
+            padding-bottom: 15px;
+            border-bottom: 1px solid #444;
+        }
+
+        .title {
+            color: #888;
+            font-size: 20px;
+            font-weight: bold;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+        }
+
+        .status-bar {
+            display: flex;
+            gap: 20px;
+            align-items: center;
+        }
+
+        .status-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            color: #aaa;
+            font-size: 12px;
+        }
+
+        .led {
+            width: 8px;
+            height: 8px;
+            background: #00ff00;
+            border-radius: 50%;
+            box-shadow: 0 0 10px #00ff00;
+            animation: pulse 2s infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.6; }
+        }
+
+        .main-container {
+            display: grid;
+            grid-template-columns: 1fr 300px;
+            gap: 20px;
+            margin-bottom: 20px;
+        }
+
+        .screen-section {
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+        }
+
+        .screen-container {
+            background: #0a0a0a;
+            border: 8px solid #2a2a2a;
+            border-radius: 10px;
+            padding: 15px;
+            box-shadow: inset 0 0 30px rgba(0, 0, 0, 0.9);
+            position: relative;
+        }
+
+        canvas {
+            display: block;
+            width: 100%;
+            background: #001a00;
+            border-radius: 5px;
+        }
+
+        .measurements {
+            background: #1a1a1a;
+            padding: 15px;
+            border-radius: 8px;
+            border: 1px solid #333;
+        }
+
+        .measurements h3 {
+            color: #888;
+            font-size: 12px;
+            text-transform: uppercase;
+            margin-bottom: 10px;
+            letter-spacing: 1px;
+        }
+
+        .measure-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 10px;
+        }
+
+        .measure-item {
+            background: #0a0a0a;
+            padding: 8px;
+            border-radius: 5px;
+            border: 1px solid #222;
+        }
+
+        .measure-label {
+            color: #666;
+            font-size: 10px;
+            text-transform: uppercase;
+        }
+
+        .measure-value {
+            color: #00ff00;
+            font-size: 14px;
+            font-weight: bold;
+            font-family: 'Courier New', monospace;
+        }
+
+        .measure-value.ch2 {
+            color: #ffaa00;
+        }
+
+        .sidebar {
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+        }
+
+        .control-panel {
+            background: linear-gradient(145deg, #2a2a2a, #1a1a1a);
+            padding: 15px;
+            border-radius: 10px;
+            border: 1px solid #333;
+        }
+
+        .control-panel h3 {
+            color: #888;
+            font-size: 11px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            margin-bottom: 12px;
+            padding-bottom: 8px;
+            border-bottom: 1px solid #333;
+        }
+
+        .control-row {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            margin-bottom: 12px;
+        }
+
+        label {
+            color: #aaa;
+            font-size: 10px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        input[type="range"] {
+            width: 100%;
+            height: 6px;
+            background: #1a1a1a;
+            border-radius: 3px;
+            outline: none;
+            border: 1px solid #0a0a0a;
+        }
+
+        input[type="range"]::-webkit-slider-thumb {
+            appearance: none;
+            width: 16px;
+            height: 16px;
+            background: radial-gradient(circle, #4a4a4a, #2a2a2a);
+            border: 2px solid #1a1a1a;
+            border-radius: 50%;
+            cursor: pointer;
+        }
+
+        input[type="range"]::-moz-range-thumb {
+            width: 16px;
+            height: 16px;
+            background: radial-gradient(circle, #4a4a4a, #2a2a2a);
+            border: 2px solid #1a1a1a;
+            border-radius: 50%;
+            cursor: pointer;
+        }
+
+        .value-display {
+            color: #00ff00;
+            font-size: 12px;
+            font-weight: bold;
+            background: #001a00;
+            padding: 4px 8px;
+            border-radius: 3px;
+            border: 1px solid #003300;
+            text-align: center;
+            font-family: 'Courier New', monospace;
+        }
+
+        select, button {
+            width: 100%;
+            padding: 8px;
+            background: #1a1a1a;
+            color: #00ff00;
+            border: 1px solid #003300;
+            border-radius: 5px;
+            font-family: 'Courier New', monospace;
+            cursor: pointer;
+            font-size: 11px;
+        }
+
+        button {
+            text-transform: uppercase;
+            font-weight: bold;
+            letter-spacing: 1px;
+            transition: all 0.2s;
+        }
+
+        button:hover {
+            background: #2a2a2a;
+            box-shadow: 0 0 10px rgba(0, 255, 0, 0.3);
+        }
+
+        button:active {
+            transform: scale(0.98);
+        }
+
+        button.active {
+            background: #003300;
+            box-shadow: 0 0 15px rgba(0, 255, 0, 0.5);
+        }
+
+        .button-group {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 8px;
+            margin-top: 10px;
+        }
+
+        .tabs {
+            display: flex;
+            gap: 5px;
+            margin-bottom: 15px;
+        }
+
+        .tab {
+            flex: 1;
+            padding: 10px;
+            background: #1a1a1a;
+            color: #666;
+            border: none;
+            border-radius: 5px 5px 0 0;
+            cursor: pointer;
+            font-size: 11px;
+            text-transform: uppercase;
+            transition: all 0.2s;
+        }
+
+        .tab.active {
+            background: #2a2a2a;
+            color: #00ff00;
+            border-bottom: 2px solid #00ff00;
+        }
+
+        .tab-content {
+            display: none;
+        }
+
+        .tab-content.active {
+            display: block;
+        }
+
+        .channel-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 10px;
+        }
+
+        .channel-toggle {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .toggle-switch {
+            width: 40px;
+            height: 20px;
+            background: #1a1a1a;
+            border-radius: 10px;
+            position: relative;
+            cursor: pointer;
+            border: 1px solid #333;
+        }
+
+        .toggle-switch.on {
+            background: #003300;
+        }
+
+        .toggle-switch::after {
+            content: '';
+            position: absolute;
+            width: 16px;
+            height: 16px;
+            background: #666;
+            border-radius: 50%;
+            top: 1px;
+            left: 1px;
+            transition: all 0.2s;
+        }
+
+        .toggle-switch.on::after {
+            background: #00ff00;
+            left: 21px;
+        }
+
+        .preset-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 8px;
+        }
+
+        .preset-btn {
+            padding: 12px;
+            background: #1a1a1a;
+            color: #aaa;
+            border: 1px solid #333;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 10px;
+            text-align: center;
+            transition: all 0.2s;
+        }
+
+        .preset-btn:hover {
+            background: #2a2a2a;
+            color: #00ff00;
+            border-color: #00ff00;
+        }
+
+        .fft-container {
+            margin-top: 10px;
+        }
+
+        @media (max-width: 1200px) {
+            .main-container {
+                grid-template-columns: 1fr;
+            }
+            
+            .sidebar {
+                display: grid;
+                grid-template-columns: repeat(2, 1fr);
+                gap: 15px;
+            }
+        }
+
+        .cursor-info {
+            position: absolute;
+            background: rgba(0, 0, 0, 0.8);
+            color: #00ff00;
+            padding: 5px 10px;
+            border-radius: 3px;
+            font-size: 11px;
+            font-family: 'Courier New', monospace;
+            pointer-events: none;
+            z-index: 10;
+        }
+    </style>
+</head>
+<body>
+    <div class="oscilloscope">
+        <div class="header">
+            <div class="title">Профессиональный цифровой осциллограф DSO-4000</div>
+            <div class="status-bar">
+                <div class="status-item">
+                    <div class="led"></div>
+                    <span>RUNNING</span>
+                </div>
+                <div class="status-item">
+                    <span id="sampleRate">1.0 MS/s</span>
+                </div>
+            </div>
+        </div>
+
+        <div class="main-container">
+            <div class="screen-section">
+                <div class="screen-container">
+                    <canvas id="oscilloscope" width="1000" height="600"></canvas>
+                    <div id="cursorInfo" class="cursor-info" style="display: none;"></div>
+                </div>
+
+                <div class="measurements">
+                    <h3>Измерения</h3>
+                    <div class="measure-grid">
+                        <div class="measure-item">
+                            <div class="measure-label">CH1 Частота</div>
+                            <div class="measure-value" id="ch1Freq">0.00 Hz</div>
+                        </div>
+                        <div class="measure-item">
+                            <div class="measure-label">CH1 Период</div>
+                            <div class="measure-value" id="ch1Period">0.00 ms</div>
+                        </div>
+                        <div class="measure-item">
+                            <div class="measure-label">CH1 Vpp</div>
+                            <div class="measure-value" id="ch1Vpp">0.00 V</div>
+                        </div>
+                        <div class="measure-item">
+                            <div class="measure-label">CH1 RMS</div>
+                            <div class="measure-value" id="ch1Rms">0.00 V</div>
+                        </div>
+                        <div class="measure-item">
+                            <div class="measure-label">CH2 Частота</div>
+                            <div class="measure-value ch2" id="ch2Freq">0.00 Hz</div>
+                        </div>
+                        <div class="measure-item">
+                            <div class="measure-label">CH2 Период</div>
+                            <div class="measure-value ch2" id="ch2Period">0.00 ms</div>
+                        </div>
+                        <div class="measure-item">
+                            <div class="measure-label">CH2 Vpp</div>
+                            <div class="measure-value ch2" id="ch2Vpp">0.00 V</div>
+                        </div>
+                        <div class="measure-item">
+                            <div class="measure-label">CH2 RMS</div>
+                            <div class="measure-value ch2" id="ch2Rms">0.00 V</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="sidebar">
+                <div class="control-panel">
+                    <h3>Режим работы</h3>
+                    <div class="button-group">
+                        <button id="modeYT" class="active">Y-T</button>
+                        <button id="modeXY">X-Y</button>
+                        <button id="modeFFT">FFT</button>
+                        <button id="modeDual">Dual</button>
+                    </div>
+                </div>
+
+                <div class="control-panel">
+                    <div class="tabs">
+                        <button class="tab active" data-tab="ch1">Канал 1</button>
+                        <button class="tab" data-tab="ch2">Канал 2</button>
+                        <button class="tab" data-tab="trigger">Trigger</button>
+                        <button class="tab" data-tab="math">Math</button>
+                    </div>
+
+                    <div class="tab-content active" id="ch1">
+                        <div class="channel-header">
+                            <h3 style="margin: 0; color: #00ff00;">Канал 1</h3>
+                            <div class="channel-toggle">
+                                <span style="color: #aaa; font-size: 10px;">ON/OFF</span>
+                                <div class="toggle-switch on" id="ch1Toggle"></div>
+                            </div>
+                        </div>
+                        <div class="control-row">
+                            <label>Форма волны</label>
+                            <select id="ch1Waveform">
+                                <option value="sine">Синусоида</option>
+                                <option value="square">Меандр</option>
+                                <option value="triangle">Треугольник</option>
+                                <option value="sawtooth">Пила</option>
+                                <option value="pulse">Импульс</option>
+                                <option value="noise">Шум</option>
+                            </select>
+                        </div>
+                        <div class="control-row">
+                            <label>Частота (Hz)</label>
+                            <input type="range" id="ch1Freq" min="0.1" max="100" step="0.1" value="1">
+                            <div class="value-display" id="ch1FreqDisplay">1.0 Hz</div>
+                        </div>
+                        <div class="control-row">
+                            <label>Амплитуда (V)</label>
+                            <input type="range" id="ch1Amp" min="0" max="5" step="0.1" value="2">
+                            <div class="value-display" id="ch1AmpDisplay">2.0 V</div>
+                        </div>
+                        <div class="control-row">
+                            <label>Смещение (V)</label>
+                            <input type="range" id="ch1Offset" min="-5" max="5" step="0.1" value="0">
+                            <div class="value-display" id="ch1OffsetDisplay">0.0 V</div>
+                        </div>
+                        <div class="control-row">
+                            <label>Связь</label>
+                            <select id="ch1Coupling">
+                                <option value="dc">DC</option>
+                                <option value="ac">AC</option>
+                                <option value="gnd">GND</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <div class="tab-content" id="ch2">
+                        <div class="channel-header">
+                            <h3 style="margin: 0; color: #ffaa00;">Канал 2</h3>
+                            <div class="channel-toggle">
+                                <span style="color: #aaa; font-size: 10px;">ON/OFF</span>
+                                <div class="toggle-switch on" id="ch2Toggle"></div>
+                            </div>
+                        </div>
+                        <div class="control-row">
+                            <label>Форма волны</label>
+                            <select id="ch2Waveform">
+                                <option value="sine" selected>Синусоида</option>
+                                <option value="square">Меандр</option>
+                                <option value="triangle">Треугольник</option>
+                                <option value="sawtooth">Пила</option>
+                                <option value="pulse">Импульс</option>
+                                <option value="noise">Шум</option>
+                            </select>
+                        </div>
+                        <div class="control-row">
+                            <label>Частота (Hz)</label>
+                            <input type="range" id="ch2Freq" min="0.1" max="100" step="0.1" value="2">
+                            <div class="value-display" id="ch2FreqDisplay">2.0 Hz</div>
+                        </div>
+                        <div class="control-row">
+                            <label>Амплитуда (V)</label>
+                            <input type="range" id="ch2Amp" min="0" max="5" step="0.1" value="2">
+                            <div class="value-display" id="ch2AmpDisplay">2.0 V</div>
+                        </div>
+                        <div class="control-row">
+                            <label>Фаза (°)</label>
+                            <input type="range" id="ch2Phase" min="0" max="360" step="1" value="90">
+                            <div class="value-display" id="ch2PhaseDisplay">90°</div>
+                        </div>
+                        <div class="control-row">
+                            <label>Смещение (V)</label>
+                            <input type="range" id="ch2Offset" min="-5" max="5" step="0.1" value="0">
+                            <div class="value-display" id="ch2OffsetDisplay">0.0 V</div>
+                        </div>
+                        <div class="control-row">
+                            <label>Связь</label>
+                            <select id="ch2Coupling">
+                                <option value="dc">DC</option>
+                                <option value="ac">AC</option>
+                                <option value="gnd">GND</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <div class="tab-content" id="trigger">
+                        <h3>Триггер</h3>
+                        <div class="control-row">
+                            <label>Источник</label>
+                            <select id="triggerSource">
+                                <option value="ch1">Канал 1</option>
+                                <option value="ch2">Канал 2</option>
+                                <option value="ext">Внешний</option>
+                            </select>
+                        </div>
+                        <div class="control-row">
+                            <label>Режим</label>
+                            <select id="triggerMode">
+                                <option value="auto">Auto</option>
+                                <option value="normal">Normal</option>
+                                <option value="single">Single</option>
+                            </select>
+                        </div>
+                        <div class="control-row">
+                            <label>Фронт</label>
+                            <select id="triggerSlope">
+                                <option value="rising">Нарастающий</option>
+                                <option value="falling">Спадающий</option>
+                                <option value="both">Оба</option>
+                            </select>
+                        </div>
+                        <div class="control-row">
+                            <label>Уровень (V)</label>
+                            <input type="range" id="triggerLevel" min="-5" max="5" step="0.1" value="0">
+                            <div class="value-display" id="triggerLevelDisplay">0.0 V</div>
+                        </div>
+                    </div>
+
+                    <div class="tab-content" id="math">
+                        <h3>Математика</h3>
+                        <div class="control-row">
+                            <label>Операция</label>
+                            <select id="mathOperation">
+                                <option value="none">Нет</option>
+                                <option value="add">CH1 + CH2</option>
+                                <option value="subtract">CH1 - CH2</option>
+                                <option value="multiply">CH1 × CH2</option>
+                                <option value="fft">FFT CH1</option>
+                            </select>
+                        </div>
+                        <div class="control-row">
+                            <label>Масштаб</label>
+                            <input type="range" id="mathScale" min="0.1" max="5" step="0.1" value="1">
+                            <div class="value-display" id="mathScaleDisplay">1.0x</div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="control-panel">
+                    <h3>Временная развертка</h3>
+                    <div class="control-row">
+                        <label>Время/дел (s)</label>
+                        <input type="range" id="timeScale" min="0.001" max="1" step="0.001" value="0.1">
+                        <div class="value-display" id="timeScaleDisplay">100 ms</div>
+                    </div>
+                    <div class="control-row">
+                        <label>Позиция</label>
+                        <input type="range" id="timePosition" min="-50" max="50" step="1" value="0">
+                        <div class="value-display" id="timePositionDisplay">0</div>
+                    </div>
+                </div>
+
+                <div class="control-panel">
+                    <h3>Предустановки</h3>
+                    <div class="preset-grid">
+                        <div class="preset-btn" data-preset="lissajous">Лиссажу</div>
+                        <div class="preset-btn" data-preset="sine">Синус</div>
+                        <div class="preset-btn" data-preset="square">Меандр</div>
+                        <div class="preset-btn" data-preset="modulation">Модуляция</div>
+                    </div>
+                    <button id="exportBtn" style="margin-top: 10px;">Экспорт данных</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const canvas = document.getElementById('oscilloscope');
+        const ctx = canvas.getContext('2d');
+        
+        // Параметры осциллографа
+        let scope = {
+            mode: 'yt',
+            timeScale: 0.1,
+            timePosition: 0,
+            ch1: {
+                enabled: true,
+                waveform: 'sine',
+                frequency: 1,
+                amplitude: 2,
+                phase: 0,
+                offset: 0,
+                coupling: 'dc',
+                color: '#00ff00'
+            },
+            ch2: {
+                enabled: true,
+                waveform: 'sine',
+                frequency: 2,
+                amplitude: 2,
+                phase: Math.PI / 2,
+                offset: 0,
+                coupling: 'dc',
+                color: '#ffaa00'
+            },
+            trigger: {
+                source: 'ch1',
+                mode: 'auto',
+                slope: 'rising',
+                level: 0
+            },
+            math: {
+                operation: 'none',
+                scale: 1
+            },
+            time: 0,
+            sampleData: {
+                ch1: [],
+                ch2: []
+            }
+        };
+
+        // Генераторы сигналов
+        function sine(t) {
+            return Math.sin(t);
+        }
+
+        function square(t) {
+            return Math.sin(t) >= 0 ? 1 : -1;
+        }
+
+        function triangle(t) {
+            return (2 / Math.PI) * Math.asin(Math.sin(t));
+        }
+
+        function sawtooth(t) {
+            return 2 * ((t / (2 * Math.PI)) - Math.floor((t / (2 * Math.PI)) + 0.5));
+        }
+
+        function pulse(t) {
+            const phase = t % (2 * Math.PI);
+            return phase < Math.PI / 4 ? 1 : -1;
+        }
+
+        function noise() {
+            return Math.random() * 2 - 1;
+        }
+
+        function getWaveValue(t, waveform) {
+            switch(waveform) {
+                case 'sine': return sine(t);
+                case 'square': return square(t);
+                case 'triangle': return triangle(t);
+                case 'sawtooth': return sawtooth(t);
+                case 'pulse': return pulse(t);
+                case 'noise': return noise();
+                default: return sine(t);
+            }
+        }
+
+        // Генерация сигнала канала
+        function generateSignal(channel, t) {
+            let value = getWaveValue(
+                2 * Math.PI * channel.frequency * t + channel.phase,
+                channel.waveform
+            );
+            value *= channel.amplitude;
+            value += channel.offset;
+            
+            // AC coupling - убираем DC компоненту
+            if (channel.coupling === 'ac') {
+                value -= channel.offset;
+            } else if (channel.coupling === 'gnd') {
+                value = 0;
+            }
+            
+            return value;
+        }
+
+        // Отрисовка сетки
+        function drawGrid() {
+            ctx.strokeStyle = 'rgba(0, 100, 0, 0.25)';
+            ctx.lineWidth = 1;
+
+            const divisions = 10;
+            for (let i = 0; i <= divisions; i++) {
+                const x = (canvas.width / divisions) * i;
+                const y = (canvas.height / divisions) * i;
+                
+                ctx.beginPath();
+                ctx.moveTo(x, 0);
+                ctx.lineTo(x, canvas.height);
+                ctx.stroke();
+                
+                ctx.beginPath();
+                ctx.moveTo(0, y);
+                ctx.lineTo(canvas.width, y);
+                ctx.stroke();
+            }
+
+            ctx.strokeStyle = 'rgba(0, 150, 0, 0.4)';
+            ctx.lineWidth = 2;
+            ctx.beginPath();
+            ctx.moveTo(canvas.width / 2, 0);
+            ctx.lineTo(canvas.width / 2, canvas.height);
+            ctx.stroke();
+            ctx.beginPath();
+            ctx.moveTo(0, canvas.height / 2);
+            ctx.lineTo(canvas.width, canvas.height / 2);
+            ctx.stroke();
+        }
+
+        // Режим Y-T (временная развертка)
+        function drawYTMode() {
+            const points = 1000;
+            const pixelsPerSec = canvas.width / (10 * scope.timeScale);
+            
+            // CH1
+            if (scope.ch1.enabled) {
+                ctx.strokeStyle = scope.ch1.color;
+                ctx.lineWidth = 2;
+                ctx.beginPath();
+                
+                for (let i = 0; i < points; i++) {
+                    const t = scope.time + (i / points) * 10 * scope.timeScale;
+                    const value = generateSignal(scope.ch1, t);
+                    const x = (i / points) * canvas.width;
+                    const y = canvas.height / 2 - (value / 5) * (canvas.height / 2) * 0.8;
+                    
+                    if (i === 0) ctx.moveTo(x, y);
+                    else ctx.lineTo(x, y);
+                    
+                    if (i % 5 === 0) {
+                        scope.sampleData.ch1[i] = value;
+                    }
+                }
+                ctx.stroke();
+            }
+
+            // CH2
+            if (scope.ch2.enabled) {
+                ctx.strokeStyle = scope.ch2.color;
+                ctx.lineWidth = 2;
+                ctx.beginPath();
+                
+                for (let i = 0; i < points; i++) {
+                    const t = scope.time + (i / points) * 10 * scope.timeScale;
+                    const value = generateSignal(scope.ch2, t);
+                    const x = (i / points) * canvas.width;
+                    const y = canvas.height / 2 - (value / 5) * (canvas.height / 2) * 0.8;
+                    
+                    if (i === 0) ctx.moveTo(x, y);
+                    else ctx.lineTo(x, y);
+                    
+                    if (i % 5 === 0) {
+                        scope.sampleData.ch2[i] = value;
+                    }
+                }
+                ctx.stroke();
+            }
+
+            // Math operation
+            if (scope.math.operation !== 'none' && scope.ch1.enabled && scope.ch2.enabled) {
+                ctx.strokeStyle = '#ff00ff';
+                ctx.lineWidth = 2;
+                ctx.beginPath();
+                
+                for (let i = 0; i < points; i++) {
+                    const t = scope.time + (i / points) * 10 * scope.timeScale;
+                    const v1 = generateSignal(scope.ch1, t);
+                    const v2 = generateSignal(scope.ch2, t);
+                    let value = 0;
+                    
+                    switch(scope.math.operation) {
+                        case 'add': value = v1 + v2; break;
+                        case 'subtract': value = v1 - v2; break;
+                        case 'multiply': value = v1 * v2; break;
+                    }
+                    
+                    value *= scope.math.scale;
+                    const x = (i / points) * canvas.width;
+                    const y = canvas.height / 2 - (value / 5) * (canvas.height / 2) * 0.8;
+                    
+                    if (i === 0) ctx.moveTo(x, y);
+                    else ctx.lineTo(x, y);
+                }
+                ctx.stroke();
+            }
+        }
+
+        // Режим X-Y (фигуры Лиссажу)
+        function drawXYMode() {
+            if (!scope.ch1.enabled || !scope.ch2.enabled) return;
+            
+            ctx.strokeStyle = 'rgba(0, 255, 0, 0.8)';
+            ctx.lineWidth = 2;
+            ctx.beginPath();
+
+            const points = 2000;
+            for (let i = 0; i <= points; i++) {
+                const t = (i / points) * 4 * Math.PI + scope.time;
+                const x = generateSignal(scope.ch1, t);
+                const y = generateSignal(scope.ch2, t);
+                
+                const screenX = canvas.width / 2 + (x / 5) * (canvas.width / 2) * 0.8;
+                const screenY = canvas.height / 2 - (y / 5) * (canvas.height / 2) * 0.8;
+                
+                if (i === 0) ctx.moveTo(screenX, screenY);
+                else ctx.lineTo(screenX, screenY);
+            }
+            
+            ctx.stroke();
+            ctx.shadowBlur = 10;
+            ctx.shadowColor = 'rgba(0, 255, 0, 0.6)';
+            ctx.stroke();
+            ctx.shadowBlur = 0;
+        }
+
+        // Режим FFT
+        function drawFFTMode() {
+            if (!scope.ch1.enabled) return;
+            
+            // Простой FFT анализ (псевдо-спектр)
+            ctx.strokeStyle = scope.ch1.color;
+            ctx.fillStyle = scope.ch1.color + '40';
+            ctx.lineWidth = 2;
+            
+            const bins = 100;
+            const maxFreq = 50;
+            
+            ctx.beginPath();
+            ctx.moveTo(0, canvas.height);
+            
+            for (let i = 0; i < bins; i++) {
+                const freq = (i / bins) * maxFreq;
+                let magnitude = 0;
+                
+                // Пик на основной частоте
+                if (Math.abs(freq - scope.ch1.frequency) < 0.5) {
+                    magnitude = scope.ch1.amplitude * 100;
+                }
+                
+                // Гармоники для не-синусоидальных сигналов
+                if (scope.ch1.waveform !== 'sine') {
+                    for (let h = 2; h <= 5; h++) {
+                        if (Math.abs(freq - scope.ch1.frequency * h) < 0.5) {
+                            magnitude += (scope.ch1.amplitude * 100) / h;
+                        }
+                    }
+                }
+                
+                const x = (i / bins) * canvas.width;
+                const y = canvas.height - magnitude;
+                
+                ctx.lineTo(x, y);
+            }
+            
+            ctx.lineTo(canvas.width, canvas.height);
+            ctx.closePath();
+            ctx.fill();
+            ctx.stroke();
+        }
+
+        // Dual mode (оба канала раздельно)
+        function drawDualMode() {
+            const halfHeight = canvas.height / 2;
+            
+            // Верхняя половина - CH1
+            if (scope.ch1.enabled) {
+                ctx.save();
+                ctx.beginPath();
+                ctx.rect(0, 0, canvas.width, halfHeight);
+                ctx.clip();
+                
+                ctx.strokeStyle = scope.ch1.color;
+                ctx.lineWidth = 2;
+                ctx.beginPath();
+                
+                for (let i = 0; i < 1000; i++) {
+                    const t = scope.time + (i / 1000) * 10 * scope.timeScale;
+                    const value = generateSignal(scope.ch1, t);
+                    const x = (i / 1000) * canvas.width;
+                    const y = halfHeight / 2 - (value / 5) * (halfHeight / 2) * 0.8;
+                    
+                    if (i === 0) ctx.moveTo(x, y);
+                    else ctx.lineTo(x, y);
+                }
+                ctx.stroke();
+                ctx.restore();
+            }
+
+            // Нижняя половина - CH2
+            if (scope.ch2.enabled) {
+                ctx.save();
+                ctx.beginPath();
+                ctx.rect(0, halfHeight, canvas.width, halfHeight);
+                ctx.clip();
+                
+                ctx.strokeStyle = scope.ch2.color;
+                ctx.lineWidth = 2;
+                ctx.beginPath();
+                
+                for (let i = 0; i < 1000; i++) {
+                    const t = scope.time + (i / 1000) * 10 * scope.timeScale;
+                    const value = generateSignal(scope.ch2, t);
+                    const x = (i / 1000) * canvas.width;
+                    const y = halfHeight + halfHeight / 2 - (value / 5) * (halfHeight / 2) * 0.8;
+                    
+                    if (i === 0) ctx.moveTo(x, y);
+                    else ctx.lineTo(x, y);
+                }
+                ctx.stroke();
+                ctx.restore();
+            }
+
+            // Разделительная линия
+            ctx.strokeStyle = 'rgba(0, 150, 0, 0.4)';
+            ctx.lineWidth = 2;
+            ctx.beginPath();
+            ctx.moveTo(0, halfHeight);
+            ctx.lineTo(canvas.width, halfHeight);
+            ctx.stroke();
+        }
+
+        // Обновление измерений
+        function updateMeasurements() {
+            // CH1
+            document.getElementById('ch1Freq').textContent = scope.ch1.frequency.toFixed(2) + ' Hz';
+            document.getElementById('ch1Period').textContent = (1000 / scope.ch1.frequency).toFixed(2) + ' ms';
+            document.getElementById('ch1Vpp').textContent = (scope.ch1.amplitude * 2).toFixed(2) + ' V';
+            document.getElementById('ch1Rms').textContent = (scope.ch1.amplitude / Math.sqrt(2)).toFixed(2) + ' V';
+
+            // CH2
+            document.getElementById('ch2Freq').textContent = scope.ch2.frequency.toFixed(2) + ' Hz';
+            document.getElementById('ch2Period').textContent = (1000 / scope.ch2.frequency).toFixed(2) + ' ms';
+            document.getElementById('ch2Vpp').textContent = (scope.ch2.amplitude * 2).toFixed(2) + ' V';
+            document.getElementById('ch2Rms').textContent = (scope.ch2.amplitude / Math.sqrt(2)).toFixed(2) + ' V';
+        }
+
+        // Главный цикл отрисовки
+        function animate() {
+            ctx.fillStyle = '#001a00';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+            drawGrid();
+
+            switch(scope.mode) {
+                case 'yt': drawYTMode(); break;
+                case 'xy': drawXYMode(); break;
+                case 'fft': drawFFTMode(); break;
+                case 'dual': drawDualMode(); break;
+            }
+
+            scope.time += 0.005;
+            updateMeasurements();
+            
+            requestAnimationFrame(animate);
+        }
+
+        // Обработчики событий
+        document.querySelectorAll('.tab').forEach(tab => {
+            tab.addEventListener('click', () => {
+                document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+                document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+                tab.classList.add('active');
+                document.getElementById(tab.dataset.tab).classList.add('active');
+            });
+        });
+
+        // Режимы работы
+        document.getElementById('modeYT').addEventListener('click', function() {
+            scope.mode = 'yt';
+            document.querySelectorAll('[id^="mode"]').forEach(b => b.classList.remove('active'));
+            this.classList.add('active');
+        });
+
+        document.getElementById('modeXY').addEventListener('click', function() {
+            scope.mode = 'xy';
+            document.querySelectorAll('[id^="mode"]').forEach(b => b.classList.remove('active'));
+            this.classList.add('active');
+        });
+
+        document.getElementById('modeFFT').addEventListener('click', function() {
+            scope.mode = 'fft';
+            document.querySelectorAll('[id^="mode"]').forEach(b => b.classList.remove('active'));
+            this.classList.add('active');
+        });
+
+        document.getElementById('modeDual').addEventListener('click', function() {
+            scope.mode = 'dual';
+            document.querySelectorAll('[id^="mode"]').forEach(b => b.classList.remove('active'));
+            this.classList.add('active');
+        });
+
+        // CH1 Controls
+        document.getElementById('ch1Waveform').addEventListener('change', e => {
+            scope.ch1.waveform = e.target.value;
+        });
+
+        document.getElementById('ch1Freq').addEventListener('input', e => {
+            scope.ch1.frequency = parseFloat(e.target.value);
+            document.getElementById('ch1FreqDisplay').textContent = scope.ch1.frequency.toFixed(1) + ' Hz';
+        });
+
+        document.getElementById('ch1Amp').addEventListener('input', e => {
+            scope.ch1.amplitude = parseFloat(e.target.value);
+            document.getElementById('ch1AmpDisplay').textContent = scope.ch1.amplitude.toFixed(1) + ' V';
+        });
+
+        document.getElementById('ch1Offset').addEventListener('input', e => {
+            scope.ch1.offset = parseFloat(e.target.value);
+            document.getElementById('ch1OffsetDisplay').textContent = scope.ch1.offset.toFixed(1) + ' V';
+        });
+
+        document.getElementById('ch1Coupling').addEventListener('change', e => {
+            scope.ch1.coupling = e.target.value;
+        });
+
+        document.getElementById('ch1Toggle').addEventListener('click', function() {
+            scope.ch1.enabled = !scope.ch1.enabled;
+            this.classList.toggle('on');
+        });
+
+        // CH2 Controls
+        document.getElementById('ch2Waveform').addEventListener('change', e => {
+            scope.ch2.waveform = e.target.value;
+        });
+
+        document.getElementById('ch2Freq').addEventListener('input', e => {
+            scope.ch2.frequency = parseFloat(e.target.value);
+            document.getElementById('ch2FreqDisplay').textContent = scope.ch2.frequency.toFixed(1) + ' Hz';
+        });
+
+        document.getElementById('ch2Amp').addEventListener('input', e => {
+            scope.ch2.amplitude = parseFloat(e.target.value);
+            document.getElementById('ch2AmpDisplay').textContent = scope.ch2.amplitude.toFixed(1) + ' V';
+        });
+
+        document.getElementById('ch2Phase').addEventListener('input', e => {
+            scope.ch2.phase = parseFloat(e.target.value) * Math.PI / 180;
+            document.getElementById('ch2PhaseDisplay').textContent = e.target.value + '°';
+        });
+
+        document.getElementById('ch2Offset').addEventListener('input', e => {
+            scope.ch2.offset = parseFloat(e.target.value);
+            document.getElementById('ch2OffsetDisplay').textContent = scope.ch2.offset.toFixed(1) + ' V';
+        });
+
+        document.getElementById('ch2Coupling').addEventListener('change', e => {
+            scope.ch2.coupling = e.target.value;
+        });
+
+        document.getElementById('ch2Toggle').addEventListener('click', function() {
+            scope.ch2.enabled = !scope.ch2.enabled;
+            this.classList.toggle('on');
+        });
+
+        // Time scale
+        document.getElementById('timeScale').addEventListener('input', e => {
+            scope.timeScale = parseFloat(e.target.value);
+            let display = '';
+            if (scope.timeScale >= 1) display = scope.timeScale.toFixed(0) + ' s';
+            else if (scope.timeScale >= 0.001) display = (scope.timeScale * 1000).toFixed(0) + ' ms';
+            else display = (scope.timeScale * 1000000).toFixed(0) + ' μs';
+            document.getElementById('timeScaleDisplay').textContent = display;
+        });
+
+        document.getElementById('timePosition').addEventListener('input', e => {
+            scope.timePosition = parseFloat(e.target.value);
+            document.getElementById('timePositionDisplay').textContent = e.target.value;
+        });
+
+        // Math operations
+        document.getElementById('mathOperation').addEventListener('change', e => {
+            scope.math.operation = e.target.value;
+        });
+
+        document.getElementById('mathScale').addEventListener('input', e => {
+            scope.math.scale = parseFloat(e.target.value);
+            document.getElementById('mathScaleDisplay').textContent = scope.math.scale.toFixed(1) + 'x';
+        });
+
+        // Trigger controls
+        document.getElementById('triggerSource').addEventListener('change', e => {
+            scope.trigger.source = e.target.value;
+        });
+
+        document.getElementById('triggerMode').addEventListener('change', e => {
+            scope.trigger.mode = e.target.value;
+        });
+
+        document.getElementById('triggerSlope').addEventListener('change', e => {
+            scope.trigger.slope = e.target.value;
+        });
+
+        document.getElementById('triggerLevel').addEventListener('input', e => {
+            scope.trigger.level = parseFloat(e.target.value);
+            document.getElementById('triggerLevelDisplay').textContent = scope.trigger.level.toFixed(1) + ' V';
+        });
+
+        // Presets
+        document.querySelectorAll('.preset-btn').forEach(btn => {
+            btn.addEventListener('click', function() {
+                const preset = this.dataset.preset;
+                
+                switch(preset) {
+                    case 'lissajous':
+                        scope.mode = 'xy';
+                        scope.ch1.frequency = 1;
+                        scope.ch2.frequency = 2;
+                        scope.ch2.phase = Math.PI / 2;
+                        scope.ch1.amplitude = 2;
+                        scope.ch2.amplitude = 2;
+                        document.getElementById('modeXY').click();
+                        break;
+                    case 'sine':
+                        scope.mode = 'yt';
+                        scope.ch1.waveform = 'sine';
+                        scope.ch2.waveform = 'sine';
+                        scope.ch1.frequency = 5;
+                        scope.ch2.frequency = 10;
+                        document.getElementById('modeYT').click();
+                        break;
+                    case 'square':
+                        scope.mode = 'yt';
+                        scope.ch1.waveform = 'square';
+                        scope.ch2.waveform = 'square';
+                        scope.ch1.frequency = 2;
+                        scope.ch2.frequency = 4;
+                        document.getElementById('modeYT').click();
+                        break;
+                    case 'modulation':
+                        scope.mode = 'yt';
+                        scope.ch1.frequency = 10;
+                        scope.ch2.frequency = 1;
+                        scope.math.operation = 'multiply';
+                        document.getElementById('modeYT').click();
+                        break;
+                }
+                
+                // Update displays
+                document.getElementById('ch1FreqDisplay').textContent = scope.ch1.frequency.toFixed(1) + ' Hz';
+                document.getElementById('ch2FreqDisplay').textContent = scope.ch2.frequency.toFixed(1) + ' Hz';
+            });
+        });
+
+        // Export
+        document.getElementById('exportBtn').addEventListener('click', () => {
+            const data = {
+                timestamp: new Date().toISOString(),
+                config: scope,
+                ch1Data: scope.sampleData.ch1,
+                ch2Data: scope.sampleData.ch2
+            };
+            
+            const blob = new Blob([JSON.stringify(data, null, 2)], {type: 'application/json'});
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = 'oscilloscope_data_' + Date.now() + '.json';
+            a.click();
+            URL.revokeObjectURL(url);
+        });
+
+        // Start animation
+        animate();
+    </script>
+</body>
+</html>
