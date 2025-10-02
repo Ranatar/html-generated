@@ -1092,29 +1092,42 @@
                 this.startY = 0;
                 this.startValue = 0;
                 
-                this.knob.addEventListener('mousedown', this.onMouseDown.bind(this));
-                document.addEventListener('mousemove', this.onMouseMove.bind(this));
-                document.addEventListener('mouseup', this.onMouseUp.bind(this));
+                // Mouse events
+                this.knob.addEventListener('mousedown', this.onStart.bind(this));
+                document.addEventListener('mousemove', this.onMove.bind(this));
+                document.addEventListener('mouseup', this.onEnd.bind(this));
+                
+                // Touch events
+                this.knob.addEventListener('touchstart', this.onStart.bind(this), { passive: false });
+                document.addEventListener('touchmove', this.onMove.bind(this), { passive: false });
+                document.addEventListener('touchend', this.onEnd.bind(this));
+                document.addEventListener('touchcancel', this.onEnd.bind(this));
                 
                 this.updateDisplay();
             }
             
-            onMouseDown(e) {
+            onStart(e) {
+                e.preventDefault();
                 this.isDragging = true;
-                this.startY = e.clientY;
+                const clientY = e.touches ? e.touches[0].clientY : e.clientY;
+                this.startY = clientY;
                 this.startValue = this.value;
                 this.knob.style.cursor = 'grabbing';
             }
             
-            onMouseMove(e) {
+            onMove(e) {
                 if (!this.isDragging) return;
-                const delta = this.startY - e.clientY;
+                e.preventDefault();
+                const clientY = e.touches ? e.touches[0].clientY : e.clientY;
+                const delta = this.startY - clientY;
                 const range = this.max - this.min;
                 const newValue = this.startValue + (delta / 100) * range;
                 this.setValue(Math.max(this.min, Math.min(this.max, newValue)));
             }
             
-            onMouseUp() {
+            onEnd(e) {
+                if (!this.isDragging) return;
+                e.preventDefault();
                 this.isDragging = false;
                 this.knob.style.cursor = 'pointer';
             }
@@ -1140,7 +1153,7 @@
             document.getElementById('ch1FreqKnob'),
             document.getElementById('ch1FreqIndicator'),
             document.getElementById('ch1FreqDisplay'),
-            0.05, 2, 0.02, 1, ' Hz'
+            0.05, 2, 0.01, 1, ' Hz'
         );
         ch1FreqKnob.onUpdate = (val) => scope.ch1.frequency = val;
         Object.defineProperty(ch1FreqKnob, 'value', {
@@ -1177,7 +1190,7 @@
             document.getElementById('ch2FreqKnob'),
             document.getElementById('ch2FreqIndicator'),
             document.getElementById('ch2FreqDisplay'),
-            0.05, 2, 0.02, 2, ' Hz'
+            0.05, 2, 0.01, 2, ' Hz'
         );
         Object.defineProperty(ch2FreqKnob, 'value', {
             get() { return this._value; },
@@ -1341,24 +1354,24 @@
                         scope.mode = 'yt';
                         scope.ch1.waveform = 'sine';
                         scope.ch2.waveform = 'sine';
-                        ch1FreqKnob.setValue(5);
-                        ch2FreqKnob.setValue(10);
+                        ch1FreqKnob.setValue(1);
+                        ch2FreqKnob.setValue(1.5);
                         document.getElementById('modeYT').click();
                         break;
                     case 'square':
                         scope.mode = 'yt';
                         scope.ch1.waveform = 'square';
                         scope.ch2.waveform = 'square';
-                        ch1FreqKnob.setValue(2);
-                        ch2FreqKnob.setValue(4);
+                        ch1FreqKnob.setValue(0.5);
+                        ch2FreqKnob.setValue(1);
                         document.getElementById('ch1Waveform').value = 'square';
                         document.getElementById('ch2Waveform').value = 'square';
                         document.getElementById('modeYT').click();
                         break;
                     case 'modulation':
                         scope.mode = 'yt';
-                        ch1FreqKnob.setValue(10);
-                        ch2FreqKnob.setValue(1);
+                        ch1FreqKnob.setValue(2);
+                        ch2FreqKnob.setValue(0.2);
                         scope.math.operation = 'multiply';
                         document.getElementById('mathOperation').value = 'multiply';
                         document.getElementById('modeYT').click();
