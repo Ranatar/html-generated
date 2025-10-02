@@ -1,0 +1,1390 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Ретро-осциллограф DSO-4000</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Courier New', monospace;
+            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .oscilloscope-body {
+            background: linear-gradient(145deg, #4a4a4a, #2a2a2a);
+            border-radius: 15px;
+            padding: 30px;
+            box-shadow: 
+                0 30px 90px rgba(0, 0, 0, 0.9),
+                inset 0 1px 0 rgba(255, 255, 255, 0.1),
+                inset 0 -5px 20px rgba(0, 0, 0, 0.5);
+            max-width: 1500px;
+            width: 100%;
+            border: 3px solid #1a1a1a;
+            position: relative;
+        }
+
+        .oscilloscope-body::before {
+            content: '';
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            right: 10px;
+            height: 2px;
+            background: linear-gradient(90deg, transparent, rgba(255,255,255,0.1), transparent);
+        }
+
+        .brand-plate {
+            background: linear-gradient(145deg, #3a3a3a, #2a2a2a);
+            padding: 15px 30px;
+            margin-bottom: 25px;
+            border-radius: 8px;
+            border: 2px solid #1a1a1a;
+            box-shadow: inset 0 2px 5px rgba(0,0,0,0.5);
+            text-align: center;
+        }
+
+        .brand-name {
+            color: #888;
+            font-size: 28px;
+            font-weight: bold;
+            letter-spacing: 4px;
+            text-transform: uppercase;
+            text-shadow: 0 1px 0 rgba(255,255,255,0.1);
+        }
+
+        .model-number {
+            color: #666;
+            font-size: 14px;
+            letter-spacing: 2px;
+            margin-top: 5px;
+        }
+
+        .main-layout {
+            display: grid;
+            grid-template-columns: 1fr 380px;
+            gap: 25px;
+        }
+
+        .screen-area {
+            background: #1a1a1a;
+            padding: 20px;
+            border-radius: 12px;
+            box-shadow: 
+                inset 0 8px 20px rgba(0,0,0,0.9),
+                0 2px 5px rgba(0,0,0,0.5);
+            border: 4px solid #0a0a0a;
+        }
+
+        .screen-bezel {
+            background: linear-gradient(145deg, #2a2a2a, #1a1a1a);
+            padding: 15px;
+            border-radius: 8px;
+            border: 3px solid #0a0a0a;
+            box-shadow: inset 0 0 30px rgba(0,0,0,0.8);
+            position: relative;
+        }
+
+        .screen-bezel::after {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: radial-gradient(ellipse at center, transparent 60%, rgba(0,0,0,0.3));
+            border-radius: 5px;
+            pointer-events: none;
+        }
+
+        canvas {
+            display: block;
+            width: 100%;
+            background: radial-gradient(ellipse at center, #001a00 0%, #000a00 100%);
+            border-radius: 5px;
+            box-shadow: 
+                0 0 40px rgba(0, 255, 0, 0.2),
+                inset 0 0 100px rgba(0, 0, 0, 0.5);
+        }
+
+        .measurements-panel {
+            background: linear-gradient(145deg, #2a2a2a, #1a1a1a);
+            padding: 15px;
+            margin-top: 15px;
+            border-radius: 8px;
+            border: 2px solid #0a0a0a;
+            box-shadow: inset 0 2px 5px rgba(0,0,0,0.5);
+        }
+
+        .measurements-title {
+            color: #ff6600;
+            font-size: 11px;
+            font-weight: bold;
+            letter-spacing: 2px;
+            margin-bottom: 12px;
+            text-transform: uppercase;
+            border-bottom: 1px solid #333;
+            padding-bottom: 8px;
+        }
+
+        .measure-row {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 10px;
+            margin-bottom: 8px;
+        }
+
+        .measure-box {
+            background: #000;
+            padding: 8px;
+            border-radius: 4px;
+            border: 1px solid #333;
+            box-shadow: inset 0 1px 3px rgba(0,0,0,0.8);
+        }
+
+        .measure-label {
+            color: #666;
+            font-size: 8px;
+            text-transform: uppercase;
+            margin-bottom: 3px;
+        }
+
+        .measure-value {
+            color: #00ff00;
+            font-size: 13px;
+            font-weight: bold;
+            text-shadow: 0 0 5px rgba(0,255,0,0.5);
+        }
+
+        .measure-value.ch2 {
+            color: #ffaa00;
+            text-shadow: 0 0 5px rgba(255,170,0,0.5);
+        }
+
+        .control-section {
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+        }
+
+        .control-group {
+            background: linear-gradient(145deg, #3a3a3a, #2a2a2a);
+            padding: 18px;
+            border-radius: 10px;
+            border: 2px solid #1a1a1a;
+            box-shadow: 
+                inset 0 1px 0 rgba(255,255,255,0.05),
+                0 3px 8px rgba(0,0,0,0.5);
+        }
+
+        .group-title {
+            color: #ff6600;
+            font-size: 11px;
+            font-weight: bold;
+            letter-spacing: 2px;
+            margin-bottom: 15px;
+            text-transform: uppercase;
+            border-bottom: 2px solid #1a1a1a;
+            padding-bottom: 8px;
+        }
+
+        .mode-buttons {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 10px;
+        }
+
+        .mode-btn {
+            background: linear-gradient(145deg, #2a2a2a, #1a1a1a);
+            color: #888;
+            border: 2px solid #1a1a1a;
+            padding: 12px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 11px;
+            font-weight: bold;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            transition: all 0.2s;
+            box-shadow: 0 3px 6px rgba(0,0,0,0.4);
+        }
+
+        .mode-btn:hover {
+            background: linear-gradient(145deg, #3a3a3a, #2a2a2a);
+            transform: translateY(-1px);
+            box-shadow: 0 4px 8px rgba(0,0,0,0.5);
+        }
+
+        .mode-btn:active {
+            transform: translateY(1px);
+            box-shadow: 0 1px 2px rgba(0,0,0,0.4);
+        }
+
+        .mode-btn.active {
+            background: linear-gradient(145deg, #ff6600, #cc5500);
+            color: #fff;
+            border-color: #ff6600;
+            box-shadow: 
+                0 3px 6px rgba(0,0,0,0.4),
+                0 0 20px rgba(255,102,0,0.4);
+        }
+
+        .channel-tabs {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 5px;
+            margin-bottom: 15px;
+        }
+
+        .channel-tab {
+            background: linear-gradient(145deg, #2a2a2a, #1a1a1a);
+            color: #666;
+            border: 2px solid #1a1a1a;
+            padding: 10px;
+            border-radius: 5px 5px 0 0;
+            cursor: pointer;
+            font-size: 10px;
+            font-weight: bold;
+            text-align: center;
+            transition: all 0.2s;
+        }
+
+        .channel-tab.active {
+            background: linear-gradient(145deg, #3a3a3a, #2a2a2a);
+            color: #ff6600;
+            border-bottom: 3px solid #ff6600;
+        }
+
+        .tab-panel {
+            display: none;
+        }
+
+        .tab-panel.active {
+            display: block;
+        }
+
+        .channel-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 15px;
+        }
+
+        .channel-name {
+            color: #00ff00;
+            font-size: 13px;
+            font-weight: bold;
+            text-transform: uppercase;
+        }
+
+        .channel-name.ch2 {
+            color: #ffaa00;
+        }
+
+        .power-switch {
+            width: 50px;
+            height: 26px;
+            background: linear-gradient(145deg, #1a1a1a, #0a0a0a);
+            border-radius: 13px;
+            position: relative;
+            cursor: pointer;
+            border: 2px solid #000;
+            box-shadow: inset 0 2px 5px rgba(0,0,0,0.8);
+        }
+
+        .power-switch.on {
+            background: linear-gradient(145deg, #003300, #001a00);
+            box-shadow: 
+                inset 0 2px 5px rgba(0,0,0,0.8),
+                0 0 10px rgba(0,255,0,0.3);
+        }
+
+        .power-switch-knob {
+            position: absolute;
+            width: 22px;
+            height: 22px;
+            background: linear-gradient(145deg, #4a4a4a, #2a2a2a);
+            border-radius: 50%;
+            top: 0;
+            left: 0;
+            transition: all 0.3s;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.6);
+        }
+
+        .power-switch.on .power-switch-knob {
+            left: 24px;
+            background: linear-gradient(145deg, #00ff00, #00aa00);
+            box-shadow: 0 0 15px rgba(0,255,0,0.6);
+        }
+
+        .knob-control {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            margin-bottom: 15px;
+        }
+
+        .knob-label {
+            color: #aaa;
+            font-size: 9px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            margin-bottom: 8px;
+        }
+
+        .knob {
+            width: 60px;
+            height: 60px;
+            background: radial-gradient(circle at 30% 30%, #4a4a4a, #1a1a1a);
+            border-radius: 50%;
+            position: relative;
+            cursor: pointer;
+            box-shadow: 
+                0 5px 15px rgba(0,0,0,0.8),
+                inset 0 1px 0 rgba(255,255,255,0.1),
+                inset 0 -2px 5px rgba(0,0,0,0.5);
+            border: 3px solid #0a0a0a;
+        }
+
+        .knob::before {
+            content: '';
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            width: 50px;
+            height: 50px;
+            transform: translate(-50%, -50%);
+            border-radius: 50%;
+            background: radial-gradient(circle at 35% 35%, #3a3a3a, #0a0a0a);
+            box-shadow: inset 0 2px 5px rgba(0,0,0,0.8);
+        }
+
+        .knob-indicator {
+            position: absolute;
+            top: 8px;
+            left: 50%;
+            width: 3px;
+            height: 20px;
+            background: #ff6600;
+            transform: translateX(-50%);
+            border-radius: 2px;
+            box-shadow: 0 0 5px rgba(255,102,0,0.8);
+        }
+
+        .knob-value {
+            color: #00ff00;
+            font-size: 11px;
+            font-weight: bold;
+            margin-top: 8px;
+            background: #000;
+            padding: 4px 10px;
+            border-radius: 3px;
+            border: 1px solid #003300;
+            min-width: 60px;
+            text-align: center;
+            box-shadow: inset 0 1px 3px rgba(0,0,0,0.8);
+            text-shadow: 0 0 5px rgba(0,255,0,0.3);
+        }
+
+        .selector {
+            width: 100%;
+            background: linear-gradient(145deg, #1a1a1a, #0a0a0a);
+            color: #00ff00;
+            border: 2px solid #003300;
+            padding: 10px;
+            border-radius: 5px;
+            font-family: 'Courier New', monospace;
+            font-size: 11px;
+            font-weight: bold;
+            cursor: pointer;
+            box-shadow: inset 0 2px 5px rgba(0,0,0,0.5);
+            margin-bottom: 12px;
+        }
+
+        .selector option {
+            background: #0a0a0a;
+            color: #00ff00;
+        }
+
+        .preset-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 8px;
+        }
+
+        .preset-btn {
+            background: linear-gradient(145deg, #2a2a2a, #1a1a1a);
+            color: #888;
+            border: 2px solid #1a1a1a;
+            padding: 12px;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 10px;
+            font-weight: bold;
+            text-align: center;
+            transition: all 0.2s;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.4);
+        }
+
+        .preset-btn:hover {
+            background: linear-gradient(145deg, #3a3a3a, #2a2a2a);
+            color: #ff6600;
+            border-color: #ff6600;
+        }
+
+        .export-btn {
+            width: 100%;
+            background: linear-gradient(145deg, #ff6600, #cc5500);
+            color: #fff;
+            border: 2px solid #ff6600;
+            padding: 12px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 11px;
+            font-weight: bold;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            margin-top: 10px;
+            transition: all 0.2s;
+            box-shadow: 0 3px 6px rgba(0,0,0,0.4);
+        }
+
+        .export-btn:hover {
+            transform: translateY(-1px);
+            box-shadow: 
+                0 4px 8px rgba(0,0,0,0.5),
+                0 0 20px rgba(255,102,0,0.3);
+        }
+
+        .knobs-row {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 15px;
+        }
+
+        .led-indicator {
+            display: inline-block;
+            width: 8px;
+            height: 8px;
+            background: #00ff00;
+            border-radius: 50%;
+            box-shadow: 
+                0 0 10px rgba(0,255,0,0.8),
+                inset 0 0 3px rgba(255,255,255,0.3);
+            animation: pulse 2s infinite;
+            margin-right: 8px;
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+
+        @media (max-width: 1200px) {
+            .main-layout {
+                grid-template-columns: 1fr;
+            }
+            
+            .control-section {
+                display: grid;
+                grid-template-columns: repeat(2, 1fr);
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="oscilloscope-body">
+        <div class="brand-plate">
+            <div class="brand-name">◆ TEKTRONIX ◆</div>
+            <div class="model-number">Model DSO-4000 Series</div>
+        </div>
+
+        <div class="main-layout">
+            <div class="screen-area">
+                <div class="screen-bezel">
+                    <canvas id="oscilloscope" width="1000" height="600"></canvas>
+                </div>
+
+                <div class="measurements-panel">
+                    <div class="measurements-title">
+                        <span class="led-indicator"></span>
+                        AUTOMATIC MEASUREMENTS
+                    </div>
+                    <div class="measure-row">
+                        <div class="measure-box">
+                            <div class="measure-label">CH1 FREQ</div>
+                            <div class="measure-value" id="ch1Freq">0.00 Hz</div>
+                        </div>
+                        <div class="measure-box">
+                            <div class="measure-label">CH1 PERIOD</div>
+                            <div class="measure-value" id="ch1Period">0.00 ms</div>
+                        </div>
+                        <div class="measure-box">
+                            <div class="measure-label">CH1 Vpp</div>
+                            <div class="measure-value" id="ch1Vpp">0.00 V</div>
+                        </div>
+                        <div class="measure-box">
+                            <div class="measure-label">CH1 RMS</div>
+                            <div class="measure-value" id="ch1Rms">0.00 V</div>
+                        </div>
+                    </div>
+                    <div class="measure-row">
+                        <div class="measure-box">
+                            <div class="measure-label">CH2 FREQ</div>
+                            <div class="measure-value ch2" id="ch2Freq">0.00 Hz</div>
+                        </div>
+                        <div class="measure-box">
+                            <div class="measure-label">CH2 PERIOD</div>
+                            <div class="measure-value ch2" id="ch2Period">0.00 ms</div>
+                        </div>
+                        <div class="measure-box">
+                            <div class="measure-label">CH2 Vpp</div>
+                            <div class="measure-value ch2" id="ch2Vpp">0.00 V</div>
+                        </div>
+                        <div class="measure-box">
+                            <div class="measure-label">CH2 RMS</div>
+                            <div class="measure-value ch2" id="ch2Rms">0.00 V</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="control-section">
+                <div class="control-group">
+                    <div class="group-title">DISPLAY MODE</div>
+                    <div class="mode-buttons">
+                        <button class="mode-btn active" id="modeYT">Y-T</button>
+                        <button class="mode-btn" id="modeXY">X-Y</button>
+                        <button class="mode-btn" id="modeFFT">FFT</button>
+                        <button class="mode-btn" id="modeDual">DUAL</button>
+                    </div>
+                </div>
+
+                <div class="control-group">
+                    <div class="channel-tabs">
+                        <button class="channel-tab active" data-tab="ch1">CH 1</button>
+                        <button class="channel-tab" data-tab="ch2">CH 2</button>
+                        <button class="channel-tab" data-tab="trigger">TRIG</button>
+                        <button class="channel-tab" data-tab="math">MATH</button>
+                    </div>
+
+                    <div class="tab-panel active" id="ch1">
+                        <div class="channel-header">
+                            <div class="channel-name">CHANNEL 1</div>
+                            <div class="power-switch on" id="ch1Toggle">
+                                <div class="power-switch-knob"></div>
+                            </div>
+                        </div>
+                        
+                        <select class="selector" id="ch1Waveform">
+                            <option value="sine">SINE WAVE</option>
+                            <option value="square">SQUARE WAVE</option>
+                            <option value="triangle">TRIANGLE</option>
+                            <option value="sawtooth">SAWTOOTH</option>
+                            <option value="pulse">PULSE</option>
+                            <option value="noise">NOISE</option>
+                        </select>
+
+                        <div class="knobs-row">
+                            <div class="knob-control">
+                                <div class="knob-label">FREQUENCY</div>
+                                <div class="knob" id="ch1FreqKnob">
+                                    <div class="knob-indicator" id="ch1FreqIndicator"></div>
+                                </div>
+                                <div class="knob-value" id="ch1FreqDisplay">1.0 Hz</div>
+                            </div>
+
+                            <div class="knob-control">
+                                <div class="knob-label">AMPLITUDE</div>
+                                <div class="knob" id="ch1AmpKnob">
+                                    <div class="knob-indicator" id="ch1AmpIndicator"></div>
+                                </div>
+                                <div class="knob-value" id="ch1AmpDisplay">2.0 V</div>
+                            </div>
+                        </div>
+
+                        <div class="knobs-row">
+                            <div class="knob-control">
+                                <div class="knob-label">OFFSET</div>
+                                <div class="knob" id="ch1OffsetKnob">
+                                    <div class="knob-indicator" id="ch1OffsetIndicator"></div>
+                                </div>
+                                <div class="knob-value" id="ch1OffsetDisplay">0.0 V</div>
+                            </div>
+
+                            <div class="knob-control">
+                                <div class="knob-label">COUPLING</div>
+                                <select class="selector" id="ch1Coupling">
+                                    <option value="dc">DC</option>
+                                    <option value="ac">AC</option>
+                                    <option value="gnd">GND</option>
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="tab-panel" id="ch2">
+                        <div class="channel-header">
+                            <div class="channel-name ch2">CHANNEL 2</div>
+                            <div class="power-switch on" id="ch2Toggle">
+                                <div class="power-switch-knob"></div>
+                            </div>
+                        </div>
+                        
+                        <select class="selector" id="ch2Waveform">
+                            <option value="sine" selected>SINE WAVE</option>
+                            <option value="square">SQUARE WAVE</option>
+                            <option value="triangle">TRIANGLE</option>
+                            <option value="sawtooth">SAWTOOTH</option>
+                            <option value="pulse">PULSE</option>
+                            <option value="noise">NOISE</option>
+                        </select>
+
+                        <div class="knobs-row">
+                            <div class="knob-control">
+                                <div class="knob-label">FREQUENCY</div>
+                                <div class="knob" id="ch2FreqKnob">
+                                    <div class="knob-indicator" id="ch2FreqIndicator"></div>
+                                </div>
+                                <div class="knob-value" id="ch2FreqDisplay">2.0 Hz</div>
+                            </div>
+
+                            <div class="knob-control">
+                                <div class="knob-label">AMPLITUDE</div>
+                                <div class="knob" id="ch2AmpKnob">
+                                    <div class="knob-indicator" id="ch2AmpIndicator"></div>
+                                </div>
+                                <div class="knob-value" id="ch2AmpDisplay">2.0 V</div>
+                            </div>
+                        </div>
+
+                        <div class="knobs-row">
+                            <div class="knob-control">
+                                <div class="knob-label">PHASE</div>
+                                <div class="knob" id="ch2PhaseKnob">
+                                    <div class="knob-indicator" id="ch2PhaseIndicator"></div>
+                                </div>
+                                <div class="knob-value" id="ch2PhaseDisplay">90°</div>
+                            </div>
+
+                            <div class="knob-control">
+                                <div class="knob-label">OFFSET</div>
+                                <div class="knob" id="ch2OffsetKnob">
+                                    <div class="knob-indicator" id="ch2OffsetIndicator"></div>
+                                </div>
+                                <div class="knob-value" id="ch2OffsetDisplay">0.0 V</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="tab-panel" id="trigger">
+                        <div class="group-title" style="margin-bottom: 15px;">TRIGGER</div>
+                        
+                        <div class="knob-label">SOURCE</div>
+                        <select class="selector" id="triggerSource">
+                            <option value="ch1">CHANNEL 1</option>
+                            <option value="ch2">CHANNEL 2</option>
+                            <option value="ext">EXTERNAL</option>
+                        </select>
+
+                        <div class="knob-label">MODE</div>
+                        <select class="selector" id="triggerMode">
+                            <option value="auto">AUTO</option>
+                            <option value="normal">NORMAL</option>
+                            <option value="single">SINGLE</option>
+                        </select>
+
+                        <div class="knob-control">
+                            <div class="knob-label">LEVEL</div>
+                            <div class="knob" id="triggerLevelKnob">
+                                <div class="knob-indicator" id="triggerLevelIndicator"></div>
+                            </div>
+                            <div class="knob-value" id="triggerLevelDisplay">0.0 V</div>
+                        </div>
+                    </div>
+
+                    <div class="tab-panel" id="math">
+                        <div class="group-title" style="margin-bottom: 15px;">MATH OPERATIONS</div>
+                        
+                        <div class="knob-label">OPERATION</div>
+                        <select class="selector" id="mathOperation">
+                            <option value="none">NONE</option>
+                            <option value="add">CH1 + CH2</option>
+                            <option value="subtract">CH1 - CH2</option>
+                            <option value="multiply">CH1 × CH2</option>
+                            <option value="fft">FFT CH1</option>
+                        </select>
+
+                        <div class="knob-control">
+                            <div class="knob-label">SCALE</div>
+                            <div class="knob" id="mathScaleKnob">
+                                <div class="knob-indicator" id="mathScaleIndicator"></div>
+                            </div>
+                            <div class="knob-value" id="mathScaleDisplay">1.0x</div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="control-group">
+                    <div class="group-title">TIME BASE</div>
+                    <div class="knobs-row">
+                        <div class="knob-control">
+                            <div class="knob-label">TIME/DIV</div>
+                            <div class="knob" id="timeScaleKnob">
+                                <div class="knob-indicator" id="timeScaleIndicator"></div>
+                            </div>
+                            <div class="knob-value" id="timeScaleDisplay">100 ms</div>
+                        </div>
+
+                        <div class="knob-control">
+                            <div class="knob-label">POSITION</div>
+                            <div class="knob" id="timePositionKnob">
+                                <div class="knob-indicator" id="timePositionIndicator"></div>
+                            </div>
+                            <div class="knob-value" id="timePositionDisplay">0</div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="control-group">
+                    <div class="group-title">PRESETS</div>
+                    <div class="preset-grid">
+                        <div class="preset-btn" data-preset="lissajous">LISSAJOUS</div>
+                        <div class="preset-btn" data-preset="sine">SINE</div>
+                        <div class="preset-btn" data-preset="square">SQUARE</div>
+                        <div class="preset-btn" data-preset="modulation">AM MOD</div>
+                    </div>
+                    <button class="export-btn" id="exportBtn">EXPORT DATA</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const canvas = document.getElementById('oscilloscope');
+        const ctx = canvas.getContext('2d');
+        
+        let scope = {
+            mode: 'yt',
+            timeScale: 0.1,
+            timePosition: 0,
+            ch1: {
+                enabled: true,
+                waveform: 'sine',
+                frequency: 1,
+                amplitude: 2,
+                phase: 0,
+                offset: 0,
+                coupling: 'dc',
+                color: '#00ff00'
+            },
+            ch2: {
+                enabled: true,
+                waveform: 'sine',
+                frequency: 2,
+                amplitude: 2,
+                phase: Math.PI / 2,
+                offset: 0,
+                coupling: 'dc',
+                color: '#ffaa00'
+            },
+            trigger: {
+                source: 'ch1',
+                mode: 'auto',
+                slope: 'rising',
+                level: 0
+            },
+            math: {
+                operation: 'none',
+                scale: 1
+            },
+            time: 0,
+            sampleData: {
+                ch1: [],
+                ch2: []
+            }
+        };
+
+        function sine(t) { return Math.sin(t); }
+        function square(t) { return Math.sin(t) >= 0 ? 1 : -1; }
+        function triangle(t) { return (2 / Math.PI) * Math.asin(Math.sin(t)); }
+        function sawtooth(t) { return 2 * ((t / (2 * Math.PI)) - Math.floor((t / (2 * Math.PI)) + 0.5)); }
+        function pulse(t) { return (t % (2 * Math.PI)) < Math.PI / 4 ? 1 : -1; }
+        function noise() { return Math.random() * 2 - 1; }
+
+        function getWaveValue(t, waveform) {
+            switch(waveform) {
+                case 'sine': return sine(t);
+                case 'square': return square(t);
+                case 'triangle': return triangle(t);
+                case 'sawtooth': return sawtooth(t);
+                case 'pulse': return pulse(t);
+                case 'noise': return noise();
+                default: return sine(t);
+            }
+        }
+
+        function generateSignal(channel, t) {
+            let value = getWaveValue(2 * Math.PI * channel.frequency * t + channel.phase, channel.waveform);
+            value *= channel.amplitude;
+            value += channel.offset;
+            if (channel.coupling === 'ac') value -= channel.offset;
+            else if (channel.coupling === 'gnd') value = 0;
+            return value;
+        }
+
+        function drawGrid() {
+            ctx.strokeStyle = 'rgba(0, 100, 0, 0.2)';
+            ctx.lineWidth = 1;
+            const divisions = 10;
+            for (let i = 0; i <= divisions; i++) {
+                const x = (canvas.width / divisions) * i;
+                const y = (canvas.height / divisions) * i;
+                ctx.beginPath();
+                ctx.moveTo(x, 0);
+                ctx.lineTo(x, canvas.height);
+                ctx.stroke();
+                ctx.beginPath();
+                ctx.moveTo(0, y);
+                ctx.lineTo(canvas.width, y);
+                ctx.stroke();
+            }
+            ctx.strokeStyle = 'rgba(0, 150, 0, 0.35)';
+            ctx.lineWidth = 2;
+            ctx.beginPath();
+            ctx.moveTo(canvas.width / 2, 0);
+            ctx.lineTo(canvas.width / 2, canvas.height);
+            ctx.stroke();
+            ctx.beginPath();
+            ctx.moveTo(0, canvas.height / 2);
+            ctx.lineTo(canvas.width, canvas.height / 2);
+            ctx.stroke();
+        }
+
+        function drawYTMode() {
+            const points = 1000;
+            
+            if (scope.ch1.enabled) {
+                ctx.strokeStyle = scope.ch1.color;
+                ctx.lineWidth = 2.5;
+                ctx.shadowBlur = 8;
+                ctx.shadowColor = scope.ch1.color;
+                ctx.beginPath();
+                for (let i = 0; i < points; i++) {
+                    const t = scope.time + (i / points) * 10 * scope.timeScale;
+                    const value = generateSignal(scope.ch1, t);
+                    const x = (i / points) * canvas.width;
+                    const y = canvas.height / 2 - (value / 5) * (canvas.height / 2) * 0.8;
+                    if (i === 0) ctx.moveTo(x, y);
+                    else ctx.lineTo(x, y);
+                    if (i % 5 === 0) scope.sampleData.ch1[i] = value;
+                }
+                ctx.stroke();
+                ctx.shadowBlur = 0;
+            }
+
+            if (scope.ch2.enabled) {
+                ctx.strokeStyle = scope.ch2.color;
+                ctx.lineWidth = 2.5;
+                ctx.shadowBlur = 8;
+                ctx.shadowColor = scope.ch2.color;
+                ctx.beginPath();
+                for (let i = 0; i < points; i++) {
+                    const t = scope.time + (i / points) * 10 * scope.timeScale;
+                    const value = generateSignal(scope.ch2, t);
+                    const x = (i / points) * canvas.width;
+                    const y = canvas.height / 2 - (value / 5) * (canvas.height / 2) * 0.8;
+                    if (i === 0) ctx.moveTo(x, y);
+                    else ctx.lineTo(x, y);
+                    if (i % 5 === 0) scope.sampleData.ch2[i] = value;
+                }
+                ctx.stroke();
+                ctx.shadowBlur = 0;
+            }
+
+            if (scope.math.operation !== 'none' && scope.ch1.enabled && scope.ch2.enabled) {
+                ctx.strokeStyle = '#ff00ff';
+                ctx.lineWidth = 2.5;
+                ctx.shadowBlur = 8;
+                ctx.shadowColor = '#ff00ff';
+                ctx.beginPath();
+                for (let i = 0; i < points; i++) {
+                    const t = scope.time + (i / points) * 10 * scope.timeScale;
+                    const v1 = generateSignal(scope.ch1, t);
+                    const v2 = generateSignal(scope.ch2, t);
+                    let value = 0;
+                    switch(scope.math.operation) {
+                        case 'add': value = v1 + v2; break;
+                        case 'subtract': value = v1 - v2; break;
+                        case 'multiply': value = v1 * v2; break;
+                    }
+                    value *= scope.math.scale;
+                    const x = (i / points) * canvas.width;
+                    const y = canvas.height / 2 - (value / 5) * (canvas.height / 2) * 0.8;
+                    if (i === 0) ctx.moveTo(x, y);
+                    else ctx.lineTo(x, y);
+                }
+                ctx.stroke();
+                ctx.shadowBlur = 0;
+            }
+        }
+
+        function drawXYMode() {
+            if (!scope.ch1.enabled || !scope.ch2.enabled) return;
+            ctx.strokeStyle = 'rgba(0, 255, 0, 0.9)';
+            ctx.lineWidth = 2.5;
+            ctx.shadowBlur = 12;
+            ctx.shadowColor = 'rgba(0, 255, 0, 0.7)';
+            ctx.beginPath();
+            const points = 2000;
+            for (let i = 0; i <= points; i++) {
+                const t = (i / points) * 4 * Math.PI + scope.time;
+                const x = generateSignal(scope.ch1, t);
+                const y = generateSignal(scope.ch2, t);
+                const screenX = canvas.width / 2 + (x / 5) * (canvas.width / 2) * 0.8;
+                const screenY = canvas.height / 2 - (y / 5) * (canvas.height / 2) * 0.8;
+                if (i === 0) ctx.moveTo(screenX, screenY);
+                else ctx.lineTo(screenX, screenY);
+            }
+            ctx.stroke();
+            ctx.shadowBlur = 0;
+        }
+
+        function drawFFTMode() {
+            if (!scope.ch1.enabled) return;
+            ctx.strokeStyle = scope.ch1.color;
+            ctx.fillStyle = scope.ch1.color + '30';
+            ctx.lineWidth = 2;
+            ctx.shadowBlur = 8;
+            ctx.shadowColor = scope.ch1.color;
+            const bins = 100;
+            const maxFreq = 50;
+            ctx.beginPath();
+            ctx.moveTo(0, canvas.height);
+            for (let i = 0; i < bins; i++) {
+                const freq = (i / bins) * maxFreq;
+                let magnitude = 0;
+                if (Math.abs(freq - scope.ch1.frequency) < 0.5) {
+                    magnitude = scope.ch1.amplitude * 100;
+                }
+                if (scope.ch1.waveform !== 'sine') {
+                    for (let h = 2; h <= 5; h++) {
+                        if (Math.abs(freq - scope.ch1.frequency * h) < 0.5) {
+                            magnitude += (scope.ch1.amplitude * 100) / h;
+                        }
+                    }
+                }
+                const x = (i / bins) * canvas.width;
+                const y = canvas.height - magnitude;
+                ctx.lineTo(x, y);
+            }
+            ctx.lineTo(canvas.width, canvas.height);
+            ctx.closePath();
+            ctx.fill();
+            ctx.stroke();
+            ctx.shadowBlur = 0;
+        }
+
+        function drawDualMode() {
+            const halfHeight = canvas.height / 2;
+            if (scope.ch1.enabled) {
+                ctx.save();
+                ctx.beginPath();
+                ctx.rect(0, 0, canvas.width, halfHeight);
+                ctx.clip();
+                ctx.strokeStyle = scope.ch1.color;
+                ctx.lineWidth = 2.5;
+                ctx.shadowBlur = 8;
+                ctx.shadowColor = scope.ch1.color;
+                ctx.beginPath();
+                for (let i = 0; i < 1000; i++) {
+                    const t = scope.time + (i / 1000) * 10 * scope.timeScale;
+                    const value = generateSignal(scope.ch1, t);
+                    const x = (i / 1000) * canvas.width;
+                    const y = halfHeight / 2 - (value / 5) * (halfHeight / 2) * 0.8;
+                    if (i === 0) ctx.moveTo(x, y);
+                    else ctx.lineTo(x, y);
+                }
+                ctx.stroke();
+                ctx.shadowBlur = 0;
+                ctx.restore();
+            }
+            if (scope.ch2.enabled) {
+                ctx.save();
+                ctx.beginPath();
+                ctx.rect(0, halfHeight, canvas.width, halfHeight);
+                ctx.clip();
+                ctx.strokeStyle = scope.ch2.color;
+                ctx.lineWidth = 2.5;
+                ctx.shadowBlur = 8;
+                ctx.shadowColor = scope.ch2.color;
+                ctx.beginPath();
+                for (let i = 0; i < 1000; i++) {
+                    const t = scope.time + (i / 1000) * 10 * scope.timeScale;
+                    const value = generateSignal(scope.ch2, t);
+                    const x = (i / 1000) * canvas.width;
+                    const y = halfHeight + halfHeight / 2 - (value / 5) * (halfHeight / 2) * 0.8;
+                    if (i === 0) ctx.moveTo(x, y);
+                    else ctx.lineTo(x, y);
+                }
+                ctx.stroke();
+                ctx.shadowBlur = 0;
+                ctx.restore();
+            }
+            ctx.strokeStyle = 'rgba(0, 150, 0, 0.4)';
+            ctx.lineWidth = 2;
+            ctx.beginPath();
+            ctx.moveTo(0, halfHeight);
+            ctx.lineTo(canvas.width, halfHeight);
+            ctx.stroke();
+        }
+
+        function updateMeasurements() {
+            document.getElementById('ch1Freq').textContent = scope.ch1.frequency.toFixed(2) + ' Hz';
+            document.getElementById('ch1Period').textContent = (1000 / scope.ch1.frequency).toFixed(2) + ' ms';
+            document.getElementById('ch1Vpp').textContent = (scope.ch1.amplitude * 2).toFixed(2) + ' V';
+            document.getElementById('ch1Rms').textContent = (scope.ch1.amplitude / Math.sqrt(2)).toFixed(2) + ' V';
+            document.getElementById('ch2Freq').textContent = scope.ch2.frequency.toFixed(2) + ' Hz';
+            document.getElementById('ch2Period').textContent = (1000 / scope.ch2.frequency).toFixed(2) + ' ms';
+            document.getElementById('ch2Vpp').textContent = (scope.ch2.amplitude * 2).toFixed(2) + ' V';
+            document.getElementById('ch2Rms').textContent = (scope.ch2.amplitude / Math.sqrt(2)).toFixed(2) + ' V';
+        }
+
+        function animate() {
+            ctx.fillStyle = '#001a00';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            drawGrid();
+            switch(scope.mode) {
+                case 'yt': drawYTMode(); break;
+                case 'xy': drawXYMode(); break;
+                case 'fft': drawFFTMode(); break;
+                case 'dual': drawDualMode(); break;
+            }
+            scope.time += 0.005;
+            updateMeasurements();
+            requestAnimationFrame(animate);
+        }
+
+        // Knob control system
+        class Knob {
+            constructor(knobEl, indicatorEl, displayEl, min, max, step, initialValue, unit, formatter) {
+                this.knob = knobEl;
+                this.indicator = indicatorEl;
+                this.display = displayEl;
+                this.min = min;
+                this.max = max;
+                this.step = step;
+                this.value = initialValue;
+                this.unit = unit;
+                this.formatter = formatter;
+                this.isDragging = false;
+                this.startY = 0;
+                this.startValue = 0;
+                
+                this.knob.addEventListener('mousedown', this.onMouseDown.bind(this));
+                document.addEventListener('mousemove', this.onMouseMove.bind(this));
+                document.addEventListener('mouseup', this.onMouseUp.bind(this));
+                
+                this.updateDisplay();
+            }
+            
+            onMouseDown(e) {
+                this.isDragging = true;
+                this.startY = e.clientY;
+                this.startValue = this.value;
+                this.knob.style.cursor = 'grabbing';
+            }
+            
+            onMouseMove(e) {
+                if (!this.isDragging) return;
+                const delta = this.startY - e.clientY;
+                const range = this.max - this.min;
+                const newValue = this.startValue + (delta / 100) * range;
+                this.setValue(Math.max(this.min, Math.min(this.max, newValue)));
+            }
+            
+            onMouseUp() {
+                this.isDragging = false;
+                this.knob.style.cursor = 'pointer';
+            }
+            
+            setValue(value) {
+                this.value = Math.round(value / this.step) * this.step;
+                this.updateDisplay();
+            }
+            
+            updateDisplay() {
+                const percent = (this.value - this.min) / (this.max - this.min);
+                const rotation = -135 + (percent * 270);
+                this.indicator.style.transform = `translateX(-50%) rotate(${rotation}deg)`;
+                this.indicator.style.transformOrigin = 'bottom center';
+                
+                let displayValue = this.formatter ? this.formatter(this.value) : this.value.toFixed(1);
+                this.display.textContent = displayValue + (this.unit || '');
+            }
+        }
+
+        // Initialize knobs
+        const ch1FreqKnob = new Knob(
+            document.getElementById('ch1FreqKnob'),
+            document.getElementById('ch1FreqIndicator'),
+            document.getElementById('ch1FreqDisplay'),
+            0.05, 20, 0.05, 1, ' Hz'
+        );
+        ch1FreqKnob.onUpdate = (val) => scope.ch1.frequency = val;
+        Object.defineProperty(ch1FreqKnob, 'value', {
+            get() { return this._value; },
+            set(v) { this._value = v; this.updateDisplay(); scope.ch1.frequency = v; }
+        });
+        ch1FreqKnob._value = 1;
+
+        const ch1AmpKnob = new Knob(
+            document.getElementById('ch1AmpKnob'),
+            document.getElementById('ch1AmpIndicator'),
+            document.getElementById('ch1AmpDisplay'),
+            0, 5, 0.1, 2, ' V'
+        );
+        Object.defineProperty(ch1AmpKnob, 'value', {
+            get() { return this._value; },
+            set(v) { this._value = v; this.updateDisplay(); scope.ch1.amplitude = v; }
+        });
+        ch1AmpKnob._value = 2;
+
+        const ch1OffsetKnob = new Knob(
+            document.getElementById('ch1OffsetKnob'),
+            document.getElementById('ch1OffsetIndicator'),
+            document.getElementById('ch1OffsetDisplay'),
+            -5, 5, 0.1, 0, ' V'
+        );
+        Object.defineProperty(ch1OffsetKnob, 'value', {
+            get() { return this._value; },
+            set(v) { this._value = v; this.updateDisplay(); scope.ch1.offset = v; }
+        });
+        ch1OffsetKnob._value = 0;
+
+        const ch2FreqKnob = new Knob(
+            document.getElementById('ch2FreqKnob'),
+            document.getElementById('ch2FreqIndicator'),
+            document.getElementById('ch2FreqDisplay'),
+            0.05, 20, 0.05, 2, ' Hz'
+        );
+        Object.defineProperty(ch2FreqKnob, 'value', {
+            get() { return this._value; },
+            set(v) { this._value = v; this.updateDisplay(); scope.ch2.frequency = v; }
+        });
+        ch2FreqKnob._value = 2;
+
+        const ch2AmpKnob = new Knob(
+            document.getElementById('ch2AmpKnob'),
+            document.getElementById('ch2AmpIndicator'),
+            document.getElementById('ch2AmpDisplay'),
+            0, 5, 0.1, 2, ' V'
+        );
+        Object.defineProperty(ch2AmpKnob, 'value', {
+            get() { return this._value; },
+            set(v) { this._value = v; this.updateDisplay(); scope.ch2.amplitude = v; }
+        });
+        ch2AmpKnob._value = 2;
+
+        const ch2PhaseKnob = new Knob(
+            document.getElementById('ch2PhaseKnob'),
+            document.getElementById('ch2PhaseIndicator'),
+            document.getElementById('ch2PhaseDisplay'),
+            0, 360, 1, 90, '°'
+        );
+        Object.defineProperty(ch2PhaseKnob, 'value', {
+            get() { return this._value; },
+            set(v) { this._value = v; this.updateDisplay(); scope.ch2.phase = v * Math.PI / 180; }
+        });
+        ch2PhaseKnob._value = 90;
+
+        const ch2OffsetKnob = new Knob(
+            document.getElementById('ch2OffsetKnob'),
+            document.getElementById('ch2OffsetIndicator'),
+            document.getElementById('ch2OffsetDisplay'),
+            -5, 5, 0.1, 0, ' V'
+        );
+        Object.defineProperty(ch2OffsetKnob, 'value', {
+            get() { return this._value; },
+            set(v) { this._value = v; this.updateDisplay(); scope.ch2.offset = v; }
+        });
+        ch2OffsetKnob._value = 0;
+
+        const timeScaleKnob = new Knob(
+            document.getElementById('timeScaleKnob'),
+            document.getElementById('timeScaleIndicator'),
+            document.getElementById('timeScaleDisplay'),
+            0.001, 1, 0.001, 0.1, '', (v) => {
+                if (v >= 1) return v.toFixed(0) + ' s';
+                if (v >= 0.001) return (v * 1000).toFixed(0) + ' ms';
+                return (v * 1000000).toFixed(0) + ' μs';
+            }
+        );
+        Object.defineProperty(timeScaleKnob, 'value', {
+            get() { return this._value; },
+            set(v) { this._value = v; this.updateDisplay(); scope.timeScale = v; }
+        });
+        timeScaleKnob._value = 0.1;
+
+        const timePositionKnob = new Knob(
+            document.getElementById('timePositionKnob'),
+            document.getElementById('timePositionIndicator'),
+            document.getElementById('timePositionDisplay'),
+            -50, 50, 1, 0, ''
+        );
+        Object.defineProperty(timePositionKnob, 'value', {
+            get() { return this._value; },
+            set(v) { this._value = v; this.updateDisplay(); scope.timePosition = v; }
+        });
+        timePositionKnob._value = 0;
+
+        const triggerLevelKnob = new Knob(
+            document.getElementById('triggerLevelKnob'),
+            document.getElementById('triggerLevelIndicator'),
+            document.getElementById('triggerLevelDisplay'),
+            -5, 5, 0.1, 0, ' V'
+        );
+        Object.defineProperty(triggerLevelKnob, 'value', {
+            get() { return this._value; },
+            set(v) { this._value = v; this.updateDisplay(); scope.trigger.level = v; }
+        });
+        triggerLevelKnob._value = 0;
+
+        const mathScaleKnob = new Knob(
+            document.getElementById('mathScaleKnob'),
+            document.getElementById('mathScaleIndicator'),
+            document.getElementById('mathScaleDisplay'),
+            0.1, 5, 0.1, 1, 'x'
+        );
+        Object.defineProperty(mathScaleKnob, 'value', {
+            get() { return this._value; },
+            set(v) { this._value = v; this.updateDisplay(); scope.math.scale = v; }
+        });
+        mathScaleKnob._value = 1;
+
+        // Tabs
+        document.querySelectorAll('.channel-tab').forEach(tab => {
+            tab.addEventListener('click', () => {
+                document.querySelectorAll('.channel-tab').forEach(t => t.classList.remove('active'));
+                document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+                tab.classList.add('active');
+                document.getElementById(tab.dataset.tab).classList.add('active');
+            });
+        });
+
+        // Mode buttons
+        document.getElementById('modeYT').addEventListener('click', function() {
+            scope.mode = 'yt';
+            document.querySelectorAll('.mode-btn').forEach(b => b.classList.remove('active'));
+            this.classList.add('active');
+        });
+        document.getElementById('modeXY').addEventListener('click', function() {
+            scope.mode = 'xy';
+            document.querySelectorAll('.mode-btn').forEach(b => b.classList.remove('active'));
+            this.classList.add('active');
+        });
+        document.getElementById('modeFFT').addEventListener('click', function() {
+            scope.mode = 'fft';
+            document.querySelectorAll('.mode-btn').forEach(b => b.classList.remove('active'));
+            this.classList.add('active');
+        });
+        document.getElementById('modeDual').addEventListener('click', function() {
+            scope.mode = 'dual';
+            document.querySelectorAll('.mode-btn').forEach(b => b.classList.remove('active'));
+            this.classList.add('active');
+        });
+
+        // Channel controls
+        document.getElementById('ch1Waveform').addEventListener('change', e => scope.ch1.waveform = e.target.value);
+        document.getElementById('ch1Coupling').addEventListener('change', e => scope.ch1.coupling = e.target.value);
+        document.getElementById('ch1Toggle').addEventListener('click', function() {
+            scope.ch1.enabled = !scope.ch1.enabled;
+            this.classList.toggle('on');
+        });
+
+        document.getElementById('ch2Waveform').addEventListener('change', e => scope.ch2.waveform = e.target.value);
+        document.getElementById('ch2Toggle').addEventListener('click', function() {
+            scope.ch2.enabled = !scope.ch2.enabled;
+            this.classList.toggle('on');
+        });
+
+        document.getElementById('triggerSource').addEventListener('change', e => scope.trigger.source = e.target.value);
+        document.getElementById('triggerMode').addEventListener('change', e => scope.trigger.mode = e.target.value);
+        document.getElementById('mathOperation').addEventListener('change', e => scope.math.operation = e.target.value);
+
+        // Presets
+        document.querySelectorAll('.preset-btn').forEach(btn => {
+            btn.addEventListener('click', function() {
+                const preset = this.dataset.preset;
+                switch(preset) {
+                    case 'lissajous':
+                        scope.mode = 'xy';
+                        ch1FreqKnob.setValue(1);
+                        ch2FreqKnob.setValue(2);
+                        ch2PhaseKnob.setValue(90);
+                        ch1AmpKnob.setValue(2);
+                        ch2AmpKnob.setValue(2);
+                        document.getElementById('modeXY').click();
+                        break;
+                    case 'sine':
+                        scope.mode = 'yt';
+                        scope.ch1.waveform = 'sine';
+                        scope.ch2.waveform = 'sine';
+                        ch1FreqKnob.setValue(5);
+                        ch2FreqKnob.setValue(10);
+                        document.getElementById('modeYT').click();
+                        break;
+                    case 'square':
+                        scope.mode = 'yt';
+                        scope.ch1.waveform = 'square';
+                        scope.ch2.waveform = 'square';
+                        ch1FreqKnob.setValue(2);
+                        ch2FreqKnob.setValue(4);
+                        document.getElementById('ch1Waveform').value = 'square';
+                        document.getElementById('ch2Waveform').value = 'square';
+                        document.getElementById('modeYT').click();
+                        break;
+                    case 'modulation':
+                        scope.mode = 'yt';
+                        ch1FreqKnob.setValue(10);
+                        ch2FreqKnob.setValue(1);
+                        scope.math.operation = 'multiply';
+                        document.getElementById('mathOperation').value = 'multiply';
+                        document.getElementById('modeYT').click();
+                        break;
+                }
+            });
+        });
+
+        // Export
+        document.getElementById('exportBtn').addEventListener('click', () => {
+            const data = {
+                timestamp: new Date().toISOString(),
+                config: scope,
+                ch1Data: scope.sampleData.ch1,
+                ch2Data: scope.sampleData.ch2
+            };
+            const blob = new Blob([JSON.stringify(data, null, 2)], {type: 'application/json'});
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = 'oscilloscope_data_' + Date.now() + '.json';
+            a.click();
+            URL.revokeObjectURL(url);
+        });
+
+        animate();
+    </script>
+</body>
+</html>
