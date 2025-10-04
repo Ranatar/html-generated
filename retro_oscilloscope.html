@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Ретро-осциллограф DSO-4000</title>
+    <title>Профессиональный ретро-осциллограф DSO-4000</title>
     <style>
         * {
             margin: 0;
@@ -29,7 +29,7 @@
                 0 30px 90px rgba(0, 0, 0, 0.9),
                 inset 0 1px 0 rgba(255, 255, 255, 0.1),
                 inset 0 -5px 20px rgba(0, 0, 0, 0.5);
-            max-width: 1500px;
+            max-width: 1600px;
             width: 100%;
             border: 3px solid #1a1a1a;
             position: relative;
@@ -52,7 +52,13 @@
             border-radius: 8px;
             border: 2px solid #1a1a1a;
             box-shadow: inset 0 2px 5px rgba(0,0,0,0.5);
-            text-align: center;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .brand-info {
+            text-align: left;
         }
 
         .brand-name {
@@ -71,9 +77,32 @@
             margin-top: 5px;
         }
 
+        .status-indicators {
+            display: flex;
+            gap: 20px;
+        }
+
+        .status-item {
+            text-align: center;
+        }
+
+        .status-label {
+            color: #666;
+            font-size: 9px;
+            text-transform: uppercase;
+            margin-bottom: 5px;
+        }
+
+        .status-value {
+            color: #00ff00;
+            font-size: 12px;
+            font-weight: bold;
+            text-shadow: 0 0 5px rgba(0,255,0,0.5);
+        }
+
         .main-layout {
             display: grid;
-            grid-template-columns: 1fr 380px;
+            grid-template-columns: 1fr 420px;
             gap: 25px;
         }
 
@@ -108,6 +137,10 @@
             pointer-events: none;
         }
 
+        #canvasContainer {
+            position: relative;
+        }
+
         canvas {
             display: block;
             width: 100%;
@@ -116,6 +149,71 @@
             box-shadow: 
                 0 0 40px rgba(0, 255, 0, 0.2),
                 inset 0 0 100px rgba(0, 0, 0, 0.5);
+        }
+
+        .cursor-line {
+            position: absolute;
+            pointer-events: none;
+        }
+
+        .cursor-v {
+            width: 2px;
+            height: 100%;
+            background: rgba(255, 255, 0, 0.6);
+            box-shadow: 0 0 5px rgba(255, 255, 0, 0.8);
+        }
+
+        .cursor-h {
+            width: 100%;
+            height: 2px;
+            background: rgba(255, 255, 0, 0.6);
+            box-shadow: 0 0 5px rgba(255, 255, 0, 0.8);
+        }
+
+        .cursor-label {
+            position: absolute;
+            background: rgba(0, 0, 0, 0.9);
+            color: #ffff00;
+            padding: 3px 8px;
+            font-size: 10px;
+            border-radius: 3px;
+            border: 1px solid #ffff00;
+            font-weight: bold;
+            pointer-events: none;
+        }
+
+        .screen-controls {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 10px;
+            margin-top: 15px;
+        }
+
+        .screen-btn {
+            background: linear-gradient(145deg, #2a2a2a, #1a1a1a);
+            color: #888;
+            border: 2px solid #1a1a1a;
+            padding: 10px;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 10px;
+            font-weight: bold;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            transition: all 0.2s;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.4);
+        }
+
+        .screen-btn:hover {
+            background: linear-gradient(145deg, #3a3a3a, #2a2a2a);
+            transform: translateY(-1px);
+        }
+
+        .screen-btn.active {
+            background: linear-gradient(145deg, #ff6600, #cc5500);
+            color: #fff;
+            border-color: #ff6600;
+            box-shadow: 0 0 15px rgba(255,102,0,0.4);
         }
 
         .measurements-panel {
@@ -141,13 +239,13 @@
         .measure-row {
             display: grid;
             grid-template-columns: repeat(4, 1fr);
-            gap: 10px;
+            gap: 8px;
             margin-bottom: 8px;
         }
 
         .measure-box {
             background: #000;
-            padding: 8px;
+            padding: 6px;
             border-radius: 4px;
             border: 1px solid #333;
             box-shadow: inset 0 1px 3px rgba(0,0,0,0.8);
@@ -162,7 +260,7 @@
 
         .measure-value {
             color: #00ff00;
-            font-size: 13px;
+            font-size: 11px;
             font-weight: bold;
             text-shadow: 0 0 5px rgba(0,255,0,0.5);
         }
@@ -172,10 +270,32 @@
             text-shadow: 0 0 5px rgba(255,170,0,0.5);
         }
 
+        .measure-value.cursor {
+            color: #ffff00;
+            text-shadow: 0 0 5px rgba(255,255,0,0.5);
+        }
+
         .control-section {
             display: flex;
             flex-direction: column;
             gap: 20px;
+            max-height: 85vh;
+            overflow-y: auto;
+            padding-right: 10px;
+        }
+
+        .control-section::-webkit-scrollbar {
+            width: 8px;
+        }
+
+        .control-section::-webkit-scrollbar-track {
+            background: #1a1a1a;
+            border-radius: 4px;
+        }
+
+        .control-section::-webkit-scrollbar-thumb {
+            background: #3a3a3a;
+            border-radius: 4px;
         }
 
         .control-group {
@@ -491,7 +611,97 @@
             50% { opacity: 0.5; }
         }
 
-        @media (max-width: 1200px) {
+        .slider-control {
+            margin-bottom: 15px;
+        }
+
+        .slider-row {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .slider {
+            flex: 1;
+            height: 6px;
+            background: #1a1a1a;
+            border-radius: 3px;
+            outline: none;
+            border: 1px solid #0a0a0a;
+            -webkit-appearance: none;
+        }
+
+        .slider::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            width: 16px;
+            height: 16px;
+            background: radial-gradient(circle, #ff6600, #cc5500);
+            border: 2px solid #1a1a1a;
+            border-radius: 50%;
+            cursor: pointer;
+            box-shadow: 0 0 5px rgba(255,102,0,0.5);
+        }
+
+        .slider::-moz-range-thumb {
+            width: 16px;
+            height: 16px;
+            background: radial-gradient(circle, #ff6600, #cc5500);
+            border: 2px solid #1a1a1a;
+            border-radius: 50%;
+            cursor: pointer;
+            box-shadow: 0 0 5px rgba(255,102,0,0.5);
+        }
+
+        .slider-value {
+            color: #00ff00;
+            font-size: 11px;
+            font-weight: bold;
+            background: #000;
+            padding: 4px 8px;
+            border-radius: 3px;
+            border: 1px solid #003300;
+            min-width: 60px;
+            text-align: center;
+            box-shadow: inset 0 1px 3px rgba(0,0,0,0.8);
+        }
+
+        .checkbox-control {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-bottom: 10px;
+        }
+
+        .checkbox {
+            width: 18px;
+            height: 18px;
+            background: #1a1a1a;
+            border: 2px solid #333;
+            border-radius: 3px;
+            cursor: pointer;
+            position: relative;
+            box-shadow: inset 0 2px 5px rgba(0,0,0,0.5);
+        }
+
+        .checkbox.checked::after {
+            content: '✓';
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            color: #ff6600;
+            font-size: 14px;
+            font-weight: bold;
+        }
+
+        .checkbox-label {
+            color: #aaa;
+            font-size: 10px;
+            text-transform: uppercase;
+            cursor: pointer;
+        }
+
+        @media (max-width: 1400px) {
             .main-layout {
                 grid-template-columns: 1fr;
             }
@@ -499,21 +709,73 @@
             .control-section {
                 display: grid;
                 grid-template-columns: repeat(2, 1fr);
+                max-height: none;
+            }
+        }
+
+        @media (max-width: 768px) {
+            .control-section {
+                grid-template-columns: 1fr;
+            }
+
+            .measure-row {
+                grid-template-columns: repeat(2, 1fr);
             }
         }
     </style>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/tone/14.8.49/Tone.js"></script>
 </head>
 <body>
     <div class="oscilloscope-body">
         <div class="brand-plate">
-            <div class="brand-name">◆ TEKTRONIX ◆</div>
-            <div class="model-number">Model DSO-4000 Series</div>
+            <div class="brand-info">
+                <div class="brand-name">◆ TEKTRONIX ◆</div>
+                <div class="model-number">Model DSO-4000 Series</div>
+            </div>
+            <div class="status-indicators">
+                <div class="status-item">
+                    <div class="status-label">SAMPLE RATE</div>
+                    <div class="status-value">1.0 MS/s</div>
+                </div>
+                <div class="status-item">
+                    <div class="status-label">STATUS</div>
+                    <div class="status-value"><span class="led-indicator"></span>RUN</div>
+                </div>
+
+                <div class="status-item">
+                    <div class="status-label">MONITOR</div>
+                    <div class="status-value" id="monitorStatus" style="color: #666;">OFF</div>
+                </div>
+
+            </div>
+
+            <div class="status-item" style="cursor: pointer;" id="audioToggle">
+                <div class="status-label">AUDIO</div>
+                <div class="status-value" id="audioStatus">ON</div>
+            </div>
+
         </div>
 
         <div class="main-layout">
             <div class="screen-area">
                 <div class="screen-bezel">
-                    <canvas id="oscilloscope" width="1000" height="600"></canvas>
+                    <div id="canvasContainer" style="position: relative;">
+                        <canvas id="oscilloscope" width="1000" height="600"></canvas>
+                        <div id="cursors"></div>
+                    </div>
+                </div>
+
+                <div class="screen-controls">
+                    <button class="screen-btn" id="btnAutoset">AUTOSET</button>
+                    <button class="screen-btn" id="btnRun">RUN/STOP</button>
+                    <button class="screen-btn" id="btnSingle">SINGLE</button>
+                    <button class="screen-btn" id="btnCursors">CURSORS</button>
+                    <button class="screen-btn" id="btnPersistence">PERSIST</button>
+                    <button class="screen-btn" id="btnZoom">ZOOM</button>
+                    <button class="screen-btn" id="btnHold">HOLD</button>
+                    <button class="screen-btn" id="btnSnapshot">SNAPSHOT</button>
+                    <button class="screen-btn" id="btnOverlay">OVERLAY</button>
+                    <button class="screen-btn" id="btnMonitor">MONITOR</button>
                 </div>
 
                 <div class="measurements-panel">
@@ -557,7 +819,66 @@
                             <div class="measure-value ch2" id="ch2Rms">0.00 V</div>
                         </div>
                     </div>
+                    <div class="measure-row" id="cursorMeasurements" style="display: none;">
+                        <div class="measure-box">
+                            <div class="measure-label">ΔT</div>
+                            <div class="measure-value cursor" id="deltaT">0.00 ms</div>
+                        </div>
+                        <div class="measure-box">
+                            <div class="measure-label">1/ΔT</div>
+                            <div class="measure-value cursor" id="frequency">0.00 Hz</div>
+                        </div>
+                        <div class="measure-box">
+                            <div class="measure-label">ΔV</div>
+                            <div class="measure-value cursor" id="deltaV">0.00 V</div>
+                        </div>
+                        <div class="measure-box">
+                            <div class="measure-label">RATIO</div>
+                            <div class="measure-value cursor" id="ratio">0.00</div>
+                        </div>
+                    </div>
                 </div>
+
+                <div class="measurements-panel" style="margin-top: 10px;">
+                    <div class="measurements-title">РАСШИРЕННЫЕ ИЗМЕРЕНИЯ</div>
+                    <div class="measure-row">
+                        <div class="measure-box">
+                            <div class="measure-label">CH1 DUTY</div>
+                            <div class="measure-value" id="ch1Duty">50.0 %</div>
+                        </div>
+                        <div class="measure-box">
+                            <div class="measure-label">CH1 RISE</div>
+                            <div class="measure-value" id="ch1Rise">0.00 μs</div>
+                        </div>
+                        <div class="measure-box">
+                            <div class="measure-label">CH1 MIN</div>
+                            <div class="measure-value" id="ch1Min">0.00 V</div>
+                        </div>
+                        <div class="measure-box">
+                            <div class="measure-label">CH1 MAX</div>
+                            <div class="measure-value" id="ch1Max">0.00 V</div>
+                        </div>
+                    </div>
+                    <div class="measure-row">
+                        <div class="measure-box">
+                            <div class="measure-label">PHASE DIFF</div>
+                            <div class="measure-value cursor" id="phaseDiff">0.0°</div>
+                        </div>
+                        <div class="measure-box">
+                            <div class="measure-label">SNAPSHOTS</div>
+                            <div class="measure-value cursor" id="snapshotCount">0</div>
+                        </div>
+                        <div class="measure-box">
+                            <div class="measure-label">ZOOM</div>
+                            <div class="measure-value cursor" id="currentZoom">1.0x</div>
+                        </div>
+                        <div class="measure-box">
+                            <div class="measure-label">TRIGGER</div>
+                            <div class="measure-value" id="triggerStatus">AUTO</div>
+                        </div>
+                    </div>
+                </div>
+
             </div>
 
             <div class="control-section">
@@ -632,6 +953,20 @@
                                 </select>
                             </div>
                         </div>
+
+                        <div class="checkbox-control">
+                            <div class="checkbox" id="ch1Invert"></div>
+                            <label class="checkbox-label" for="ch1Invert">INVERT</label>
+                        </div>
+
+                        <div class="slider-control">
+                            <div class="knob-label">BANDWIDTH LIMIT</div>
+                            <select class="selector" id="ch1Bandwidth">
+                                <option value="full">FULL</option>
+                                <option value="20mhz">20 MHz</option>
+                                <option value="250mhz">250 MHz</option>
+                            </select>
+                        </div>
                     </div>
 
                     <div class="tab-panel" id="ch2">
@@ -686,6 +1021,11 @@
                                 <div class="knob-value" id="ch2OffsetDisplay">0.0 V</div>
                             </div>
                         </div>
+
+                        <div class="checkbox-control">
+                            <div class="checkbox" id="ch2Invert"></div>
+                            <label class="checkbox-label" for="ch2Invert">INVERT</label>
+                        </div>
                     </div>
 
                     <div class="tab-panel" id="trigger">
@@ -705,12 +1045,34 @@
                             <option value="single">SINGLE</option>
                         </select>
 
+                        <div class="knob-label">TYPE</div>
+                        <select class="selector" id="triggerType">
+                            <option value="edge">EDGE</option>
+                            <option value="pulse">PULSE WIDTH</option>
+                            <option value="video">VIDEO</option>
+                        </select>
+
+                        <div class="knob-label">SLOPE</div>
+                        <select class="selector" id="triggerSlope">
+                            <option value="rising">RISING ↑</option>
+                            <option value="falling">FALLING ↓</option>
+                            <option value="both">BOTH ↕</option>
+                        </select>
+
                         <div class="knob-control">
                             <div class="knob-label">LEVEL</div>
                             <div class="knob" id="triggerLevelKnob">
                                 <div class="knob-indicator" id="triggerLevelIndicator"></div>
                             </div>
                             <div class="knob-value" id="triggerLevelDisplay">0.0 V</div>
+                        </div>
+
+                        <div class="slider-control">
+                            <div class="knob-label">HOLDOFF (ms)</div>
+                            <div class="slider-row">
+                                <input type="range" class="slider" id="triggerHoldoff" min="0" max="100" step="1" value="0">
+                                <div class="slider-value" id="triggerHoldoffDisplay">0 ms</div>
+                            </div>
                         </div>
                     </div>
 
@@ -723,7 +1085,19 @@
                             <option value="add">CH1 + CH2</option>
                             <option value="subtract">CH1 - CH2</option>
                             <option value="multiply">CH1 × CH2</option>
+                            <option value="divide">CH1 ÷ CH2</option>
+                            <option value="integrate">INTEGRATE CH1</option>
+                            <option value="differentiate">DIFFERENTIATE CH1</option>
                             <option value="fft">FFT CH1</option>
+                            <option value="average">AVERAGE CH1</option>
+                        </select>
+
+                        <div class="knob-label">FFT WINDOW</div>
+                        <select class="selector" id="fftWindow">
+                            <option value="rectangular">RECTANGULAR</option>
+                            <option value="hanning" selected>HANNING</option>
+                            <option value="hamming">HAMMING</option>
+                            <option value="blackman">BLACKMAN</option>
                         </select>
 
                         <div class="knob-control">
@@ -732,6 +1106,19 @@
                                 <div class="knob-indicator" id="mathScaleIndicator"></div>
                             </div>
                             <div class="knob-value" id="mathScaleDisplay">1.0x</div>
+                        </div>
+
+                        <div class="checkbox-control">
+                            <div class="checkbox checked" id="mathEnable"></div>
+                            <label class="checkbox-label" for="mathEnable">ENABLE MATH</label>
+                        </div>
+
+                        <div class="slider-control">
+                            <div class="knob-label">AVERAGING (SAMPLES)</div>
+                            <div class="slider-row">
+                                <input type="range" class="slider" id="mathAveraging" min="2" max="64" step="2" value="16">
+                                <div class="slider-value" id="mathAveragingDisplay">16</div>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -755,10 +1142,55 @@
                             <div class="knob-value" id="timePositionDisplay">0</div>
                         </div>
                     </div>
+
+                    <div class="slider-control">
+                        <div class="knob-label">ZOOM FACTOR</div>
+                        <div class="slider-row">
+                            <input type="range" class="slider" id="zoomFactor" min="1" max="10" step="0.5" value="1">
+                            <div class="slider-value" id="zoomFactorDisplay">1.0x</div>
+                        </div>
+                    </div>
                 </div>
 
                 <div class="control-group">
-                    <div class="group-title">PRESETS</div>
+                    <div class="group-title">ACQUISITION</div>
+                    
+                    <div class="knob-label">MODE</div>
+                    <select class="selector" id="acqMode">
+                        <option value="sample">SAMPLE</option>
+                        <option value="peak">PEAK DETECT</option>
+                        <option value="average">AVERAGE</option>
+                        <option value="highres">HIGH RES</option>
+                    </select>
+
+                    <div class="slider-control">
+                        <div class="knob-label">PERSISTENCE (sec)</div>
+                        <div class="slider-row">
+                            <input type="range" class="slider" id="persistence" min="0" max="10" step="0.5" value="0">
+                            <div class="slider-value" id="persistenceDisplay">OFF</div>
+                        </div>
+                    </div>
+
+                    <div class="slider-control">
+                        <div class="knob-label">INTENSITY</div>
+                        <div class="slider-row">
+                            <input type="range" class="slider" id="intensity" min="0.3" max="1" step="0.1" value="1">
+                            <div class="slider-value" id="intensityDisplay">100%</div>
+                        </div>
+                    </div>
+
+                    <div class="slider-control">
+                        <div class="knob-label">MONITOR VOLUME</div>
+                        <div class="slider-row">
+                            <input type="range" class="slider" id="monitorVol" min="-40" max="-5" step="1" value="-20">
+                            <div class="slider-value" id="monitorVolDisplay">50%</div>
+                        </div>
+                    </div>
+
+                </div>
+
+                <div class="control-group">
+                    <div class="group-title">PRESETS & UTILITIES</div>
                     <div class="preset-grid">
                         <div class="preset-btn" data-preset="lissajous">LISSAJOUS</div>
                         <div class="preset-btn" data-preset="sine">SINE</div>
@@ -766,6 +1198,26 @@
                         <div class="preset-btn" data-preset="modulation">AM MOD</div>
                     </div>
                     <button class="export-btn" id="exportBtn">EXPORT DATA</button>
+                    <button class="export-btn" id="saveConfig" style="margin-top: 5px;">SAVE CONFIG</button>
+                    <button class="export-btn" id="loadConfig" style="margin-top: 5px;">LOAD CONFIG</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="measurements-panel" id="audioLevels" style="margin-top: 10px; display: none;">
+        <div class="measurements-title">AUDIO MONITORING LEVELS</div>
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 10px;">
+            <div>
+                <div style="color: #00ff00; font-size: 10px; margin-bottom: 5px;">CH1 LEVEL</div>
+                <div style="background: #000; height: 20px; border-radius: 3px; overflow: hidden; border: 1px solid #003300;">
+                    <div id="ch1AudioLevel" style="height: 100%; width: 0%; background: linear-gradient(90deg, #00ff00, #00aa00); transition: width 0.1s;"></div>
+                </div>
+            </div>
+            <div>
+                <div style="color: #ffaa00; font-size: 10px; margin-bottom: 5px;">CH2 LEVEL</div>
+                <div style="background: #000; height: 20px; border-radius: 3px; overflow: hidden; border: 1px solid #333;">
+                    <div id="ch2AudioLevel" style="height: 100%; width: 0%; background: linear-gradient(90deg, #ffaa00, #cc8800); transition: width 0.1s;"></div>
                 </div>
             </div>
         </div>
@@ -775,10 +1227,265 @@
         const canvas = document.getElementById('oscilloscope');
         const ctx = canvas.getContext('2d');
         
+        // Аудио система
+        let audioInitialized = false;
+        let audioSystem = {
+            synth1: null,
+            synth2: null,
+            clickNoise: null,
+            knobNoise: null,
+            beep: null,
+            enabled: true,
+            volume: -12,
+            // Новые параметры для мониторинга
+            monitoring: false,
+            monitorSynth1: null,
+            monitorSynth2: null,
+            monitorVolume: -20,
+            panner1: null,
+            panner2: null,
+            masterVolume: null
+        };
+
+        function initAudio() {
+            if (audioInitialized) return;
+            
+            // Мастер-громкость
+            audioSystem.masterVolume = new Tone.Volume(0).toDestination();
+            
+            // Синтезаторы для кликов и событий (как раньше)
+            audioSystem.synth1 = new Tone.Synth({
+                oscillator: { type: 'sine' },
+                envelope: { attack: 0.005, decay: 0.1, sustain: 0.3, release: 0.1 }
+            }).connect(audioSystem.masterVolume);
+            audioSystem.synth1.volume.value = audioSystem.volume;
+            
+            audioSystem.synth2 = new Tone.Synth({
+                oscillator: { type: 'sine' },
+                envelope: { attack: 0.005, decay: 0.1, sustain: 0.3, release: 0.1 }
+            }).connect(audioSystem.masterVolume);
+            audioSystem.synth2.volume.value = audioSystem.volume;
+            
+            // Шум для кликов
+            audioSystem.clickNoise = new Tone.NoiseSynth({
+                noise: { type: 'white' },
+                envelope: { attack: 0.001, decay: 0.05, sustain: 0 }
+            }).connect(audioSystem.masterVolume);
+            audioSystem.clickNoise.volume.value = -20;
+            
+            // Шум для вращения ручек
+            audioSystem.knobNoise = new Tone.NoiseSynth({
+                noise: { type: 'pink' },
+                envelope: { attack: 0.001, decay: 0.02, sustain: 0 }
+            }).connect(audioSystem.masterVolume);
+            audioSystem.knobNoise.volume.value = -25;
+            
+            // Звуковой сигнал для уведомлений
+            audioSystem.beep = new Tone.Synth({
+                oscillator: { type: 'square' },
+                envelope: { attack: 0.001, decay: 0.1, sustain: 0, release: 0.1 }
+            }).connect(audioSystem.masterVolume);
+            audioSystem.beep.volume.value = -15;
+            
+            // === НОВОЕ: Синтезаторы для мониторинга сигналов ===
+            
+            // Панорамирование: CH1 слева, CH2 справа
+            audioSystem.panner1 = new Tone.Panner(-0.7).connect(audioSystem.masterVolume);
+            audioSystem.panner2 = new Tone.Panner(0.7).connect(audioSystem.masterVolume);
+            
+            // Синтезатор для CH1
+            audioSystem.monitorSynth1 = new Tone.Synth({
+                oscillator: { type: 'sine' },
+                envelope: { attack: 0.01, decay: 0, sustain: 1, release: 0.05 }
+            }).connect(audioSystem.panner1);
+            audioSystem.monitorSynth1.volume.value = audioSystem.monitorVolume;
+            
+            // Синтезатор для CH2
+            audioSystem.monitorSynth2 = new Tone.Synth({
+                oscillator: { type: 'sine' },
+                envelope: { attack: 0.01, decay: 0, sustain: 1, release: 0.05 }
+            }).connect(audioSystem.panner2);
+            audioSystem.monitorSynth2.volume.value = audioSystem.monitorVolume;
+            
+            audioInitialized = true;
+        }
+
+        function startMonitoring() {
+            if (!audioInitialized || !audioSystem.monitoring) return;
+            
+            // Запускаем непрерывный сигнал для CH1
+            if (scope.ch1.enabled && scope.ch1.frequency > 0) {
+                try {
+                    audioSystem.monitorSynth1.triggerRelease(); // Останавливаем предыдущий
+                    const freq = Math.max(20, Math.min(2000, scope.ch1.frequency));
+                    audioSystem.monitorSynth1.triggerAttack(freq);
+                } catch (e) {}
+            }
+            
+            // Запускаем непрерывный сигнал для CH2
+            if (scope.ch2.enabled && scope.ch2.frequency > 0) {
+                try {
+                    audioSystem.monitorSynth2.triggerRelease();
+                    const freq = Math.max(20, Math.min(2000, scope.ch2.frequency));
+                    audioSystem.monitorSynth2.triggerAttack(freq);
+                } catch (e) {}
+            }
+        }
+
+        function stopMonitoring() {
+            if (!audioInitialized) return;
+            try {
+                audioSystem.monitorSynth1.triggerRelease();
+                audioSystem.monitorSynth2.triggerRelease();
+            } catch (e) {}
+        }
+
+        function updateMonitoringParams() {
+            if (!audioInitialized || !audioSystem.monitoring) return;
+            
+            // Обновляем CH1
+            if (scope.ch1.enabled) {
+                const freq = Math.max(20, Math.min(2000, scope.ch1.frequency));
+                audioSystem.monitorSynth1.frequency.rampTo(freq, 0.1);
+                
+                // Громкость зависит от амплитуды
+                const vol = audioSystem.monitorVolume + (scope.ch1.amplitude / 5) * 6;
+                audioSystem.monitorSynth1.volume.rampTo(vol, 0.1);
+                
+                // Форма волны
+                const waveformMap = {
+                    'sine': 'sine',
+                    'square': 'square',
+                    'triangle': 'triangle',
+                    'sawtooth': 'sawtooth',
+                    'pulse': 'pulse',
+                    'noise': 'sine' // Шум не поддерживается напрямую
+                };
+                audioSystem.monitorSynth1.oscillator.type = waveformMap[scope.ch1.waveform] || 'sine';
+            } else {
+                audioSystem.monitorSynth1.triggerRelease();
+            }
+            
+            // Обновляем CH2
+            if (scope.ch2.enabled) {
+                const freq = Math.max(20, Math.min(2000, scope.ch2.frequency));
+                audioSystem.monitorSynth2.frequency.rampTo(freq, 0.1);
+                
+                const vol = audioSystem.monitorVolume + (scope.ch2.amplitude / 5) * 6;
+                audioSystem.monitorSynth2.volume.rampTo(vol, 0.1);
+                
+                const waveformMap = {
+                    'sine': 'sine',
+                    'square': 'square',
+                    'triangle': 'triangle',
+                    'sawtooth': 'sawtooth',
+                    'pulse': 'pulse',
+                    'noise': 'sine'
+                };
+                audioSystem.monitorSynth2.oscillator.type = waveformMap[scope.ch2.waveform] || 'sine';
+            } else {
+                audioSystem.monitorSynth2.triggerRelease();
+            }
+
+            // Обновляем визуальные индикаторы уровня
+            const ch1Level = document.getElementById('ch1AudioLevel');
+            const ch2Level = document.getElementById('ch2AudioLevel');
+            if (ch1Level && scope.ch1.enabled) {
+                const level = (scope.ch1.amplitude / 5) * 100;
+                ch1Level.style.width = level + '%';
+            } else if (ch1Level) {
+                ch1Level.style.width = '0%';
+            }
+            if (ch2Level && scope.ch2.enabled) {
+                const level = (scope.ch2.amplitude / 5) * 100;
+                ch2Level.style.width = level + '%';
+            } else if (ch2Level) {
+                ch2Level.style.width = '0%';
+            }
+            
+        }
+
+        function toggleMonitoring() {
+            if (!audioInitialized) {
+                alert('Кликните на экран для инициализации аудио');
+                return;
+            }
+            
+            audioSystem.monitoring = !audioSystem.monitoring;
+            
+            if (audioSystem.monitoring) {
+                startMonitoring();
+                playBeep(800, '16n');
+                document.getElementById('audioLevels').style.display = 'block'; // ДОБАВИТЬ
+            } else {
+                stopMonitoring();
+                playBeep(400, '16n');
+                document.getElementById('audioLevels').style.display = 'none'; // ДОБАВИТЬ
+            }
+            
+            const btn = document.getElementById('btnMonitor');
+            if (btn) {
+                btn.classList.toggle('active', audioSystem.monitoring);
+                btn.textContent = audioSystem.monitoring ? 'MONITORING' : 'MONITOR';
+            }
+            
+            const status = document.getElementById('monitorStatus');
+            if (status) {
+                status.textContent = audioSystem.monitoring ? 'ON' : 'OFF';
+                status.style.color = audioSystem.monitoring ? '#00ff00' : '#666';
+            }
+        }
+
+        function playClick() {
+            if (!audioSystem.enabled || !audioInitialized) return;
+            audioSystem.clickNoise.triggerAttackRelease('8n');
+        }
+
+        function playKnobTick() {
+            if (!audioSystem.enabled || !audioInitialized) return;
+            audioSystem.knobNoise.triggerAttackRelease('32n');
+        }
+
+        function playBeep(frequency = 800, duration = '16n') {
+            if (!audioSystem.enabled || !audioInitialized) return;
+            audioSystem.beep.triggerAttackRelease(frequency, duration);
+        }
+
+        function updateChannelAudio() {
+            if (!audioSystem.enabled || !audioInitialized) return;
+            
+            if (scope.ch1.enabled && scope.running) {
+                const freq = scope.ch1.frequency;
+                if (freq > 0 && freq < 20000) {
+                    audioSystem.synth1.triggerAttackRelease(freq, '8n');
+                }
+            }
+            
+            if (scope.ch2.enabled && scope.running) {
+                const freq = scope.ch2.frequency;
+                if (freq > 0 && freq < 20000) {
+                    setTimeout(() => {
+                        audioSystem.synth2.triggerAttackRelease(freq, '8n');
+                    }, 50);
+                }
+            }
+        }
+
+        // Инициализация при первом взаимодействии
+        document.addEventListener('click', () => {
+            if (!audioInitialized) {
+                Tone.start().then(() => {
+                    initAudio();
+                });
+            }
+        }, { once: true });
+
         let scope = {
             mode: 'yt',
             timeScale: 0.1,
             timePosition: 0,
+            running: true,
+            frozen: false,
             ch1: {
                 enabled: true,
                 waveform: 'sine',
@@ -787,7 +1494,9 @@
                 phase: 0,
                 offset: 0,
                 coupling: 'dc',
-                color: '#00ff00'
+                color: '#00ff00',
+                invert: false,
+                bandwidth: 'full'
             },
             ch2: {
                 enabled: true,
@@ -797,22 +1506,83 @@
                 phase: Math.PI / 2,
                 offset: 0,
                 coupling: 'dc',
-                color: '#ffaa00'
+                color: '#ffaa00',
+                invert: false
             },
             trigger: {
                 source: 'ch1',
                 mode: 'auto',
+                type: 'edge',
                 slope: 'rising',
-                level: 0
+                level: 0,
+                holdoff: 0,
+                armed: true,
+                triggered: false,
+                triggerPoint: 0,
+                lastTriggerTime: 0
             },
             math: {
                 operation: 'none',
-                scale: 1
+                scale: 1,
+                enabled: true,
+                averaging: 16,
+                averageBuffer: [],
+                fftWindow: 'hanning'
+            },
+            acquisition: {
+                mode: 'sample',
+                persistence: 0,
+                intensity: 1,
+                persistenceBuffer: []
+            },
+            cursors: {
+                enabled: false,
+                v1: 250,
+                v2: 750,
+                h1: 150,
+                h2: 450,
+                dragging: null
+            },
+            zoom: {
+                factor: 1,
+                enabled: false,
+                offsetX: 0,
+                offsetY: 0,
+                panStartX: 0,
+                panStartY: 0,
+                panning: false
             },
             time: 0,
             sampleData: {
                 ch1: [],
-                ch2: []
+                ch2: [],
+                time: []
+            },
+            history: {
+                enabled: false,
+                snapshots: [],
+                maxSnapshots: 5,
+                overlay: false
+            },
+            measurements: {
+                ch1: {
+                    freq: 0, period: 0, vpp: 0, vrms: 0,
+                    duty: 0, riseTime: 0, fallTime: 0,
+                    min: 0, max: 0, overshoot: 0, undershoot: 0
+                },
+                ch2: {
+                    freq: 0, period: 0, vpp: 0, vrms: 0,
+                    duty: 0, riseTime: 0, fallTime: 0,
+                    min: 0, max: 0, overshoot: 0, undershoot: 0
+                },
+                phase: 0,
+                correlation: 0
+            },
+            protocol: {
+                enabled: false,
+                type: 'uart',
+                baudRate: 9600,
+                decodedData: []
             }
         };
 
@@ -838,28 +1608,87 @@
         function generateSignal(channel, t) {
             let value = getWaveValue(2 * Math.PI * channel.frequency * t + channel.phase, channel.waveform);
             value *= channel.amplitude;
+            if (channel.invert) value = -value;
             value += channel.offset;
             if (channel.coupling === 'ac') value -= channel.offset;
             else if (channel.coupling === 'gnd') value = 0;
             return value;
         }
 
+        function findTriggerPoint(samples, threshold, slope) {
+            for (let i = 1; i < samples.length; i++) {
+                const prev = samples[i - 1];
+                const curr = samples[i];
+                
+                if (slope === 'rising' && prev < threshold && curr >= threshold) {
+                    return i;
+                } else if (slope === 'falling' && prev > threshold && curr <= threshold) {
+                    return i;
+                } else if (slope === 'both' && 
+                           ((prev < threshold && curr >= threshold) || 
+                            (prev > threshold && curr <= threshold))) {
+                    return i;
+                }
+            }
+            return -1;
+        }
+
+        function checkTrigger() {
+            if (scope.trigger.mode === 'auto') {
+                return true; // В авто-режиме всегда триггерим
+            }
+            
+            const now = scope.time;
+            if (now - scope.trigger.lastTriggerTime < scope.trigger.holdoff / 1000) {
+                return false; // Holdoff период
+            }
+            
+            const sourceChannel = scope.trigger.source === 'ch1' ? scope.ch1 : scope.ch2;
+            if (!sourceChannel.enabled) return false;
+            
+            // Генерируем небольшой буфер для поиска триггера
+            const samples = [];
+            for (let i = 0; i < 50; i++) {
+                const t = now + i * 0.001;
+                samples.push(generateSignal(sourceChannel, t));
+            }
+            
+            const triggerIdx = findTriggerPoint(samples, scope.trigger.level, scope.trigger.slope);
+            
+            if (triggerIdx >= 0) {
+                scope.trigger.triggered = true;
+                scope.trigger.triggerPoint = triggerIdx;
+                scope.trigger.lastTriggerTime = now;
+                return true;
+            }
+            
+            return false;
+        }
+
         function drawGrid() {
             ctx.strokeStyle = 'rgba(0, 100, 0, 0.2)';
             ctx.lineWidth = 1;
             const divisions = 10;
+            
+            // Вертикальные линии
             for (let i = 0; i <= divisions; i++) {
                 const x = (canvas.width / divisions) * i;
-                const y = (canvas.height / divisions) * i;
                 ctx.beginPath();
                 ctx.moveTo(x, 0);
                 ctx.lineTo(x, canvas.height);
                 ctx.stroke();
+            }
+            
+            // Горизонтальные линии
+            for (let i = 0; i <= divisions; i++) {
+                const y = (canvas.height / divisions) * i;
                 ctx.beginPath();
                 ctx.moveTo(0, y);
                 ctx.lineTo(canvas.width, y);
                 ctx.stroke();
             }
+            
+            // Центральные линии
             ctx.strokeStyle = 'rgba(0, 150, 0, 0.35)';
             ctx.lineWidth = 2;
             ctx.beginPath();
@@ -870,6 +1699,73 @@
             ctx.moveTo(0, canvas.height / 2);
             ctx.lineTo(canvas.width, canvas.height / 2);
             ctx.stroke();
+            
+            // Метки времени
+            ctx.fillStyle = 'rgba(0, 255, 0, 0.6)';
+            ctx.font = '10px "Courier New"';
+            for (let i = 0; i <= divisions; i++) {
+                const x = (canvas.width / divisions) * i;
+                const timeValue = (i - divisions/2) * scope.timeScale * 2;
+                let label;
+                if (Math.abs(timeValue) >= 1) {
+                    label = timeValue.toFixed(1) + 's';
+                } else if (Math.abs(timeValue) >= 0.001) {
+                    label = (timeValue * 1000).toFixed(0) + 'ms';
+                } else {
+                    label = (timeValue * 1000000).toFixed(0) + 'μs';
+                }
+                ctx.fillText(label, x + 2, canvas.height - 5);
+            }
+            
+            // Метки напряжения
+            for (let i = 0; i <= divisions; i++) {
+                const y = (canvas.height / divisions) * i;
+                const voltValue = (divisions/2 - i) * 1; // 1V на деление
+                ctx.fillText(voltValue.toFixed(1) + 'V', 5, y + 12);
+            }
+        }
+
+        function drawPersistence() {
+            if (scope.acquisition.persistence > 0 && scope.acquisition.persistenceBuffer.length > 0) {
+                const maxFrames = Math.floor(scope.acquisition.persistence * 30);
+                scope.acquisition.persistenceBuffer = scope.acquisition.persistenceBuffer.slice(-maxFrames);
+                
+                scope.acquisition.persistenceBuffer.forEach((frame, index) => {
+                    const alpha = (index / scope.acquisition.persistenceBuffer.length) * 0.3;
+                    ctx.globalAlpha = alpha;
+                    ctx.putImageData(frame, 0, 0);
+                });
+                ctx.globalAlpha = 1;
+            }
+        }
+
+        function captureSnapshot() {
+            if (!scope.history.enabled) return;
+            
+            const snapshot = {
+                timestamp: Date.now(),
+                imageData: ctx.getImageData(0, 0, canvas.width, canvas.height),
+                config: JSON.parse(JSON.stringify({
+                    ch1: scope.ch1,
+                    ch2: scope.ch2,
+                    measurements: scope.measurements
+                }))
+            };
+            
+            scope.history.snapshots.push(snapshot);
+            
+            if (scope.history.snapshots.length > scope.history.maxSnapshots) {
+                scope.history.snapshots.shift();
+            }
+        }
+
+        function drawHistoryOverlay() {
+            if (!scope.history.overlay || scope.history.snapshots.length === 0) return;
+            
+            const lastSnapshot = scope.history.snapshots[scope.history.snapshots.length - 1];
+            ctx.globalAlpha = 0.3;
+            ctx.putImageData(lastSnapshot.imageData, 0, 0);
+            ctx.globalAlpha = 1;
         }
 
         function drawYTMode() {
@@ -878,11 +1774,12 @@
             if (scope.ch1.enabled) {
                 ctx.strokeStyle = scope.ch1.color;
                 ctx.lineWidth = 2.5;
+                ctx.globalAlpha = scope.acquisition.intensity;
                 ctx.shadowBlur = 8;
                 ctx.shadowColor = scope.ch1.color;
                 ctx.beginPath();
                 for (let i = 0; i < points; i++) {
-                    const t = scope.time + (i / points) * 10 * scope.timeScale;
+                    const t = scope.time + (i / points) * 10 * scope.timeScale / scope.zoom.factor;
                     const value = generateSignal(scope.ch1, t);
                     const x = (i / points) * canvas.width;
                     const y = canvas.height / 2 - (value / 5) * (canvas.height / 2) * 0.8;
@@ -892,16 +1789,18 @@
                 }
                 ctx.stroke();
                 ctx.shadowBlur = 0;
+                ctx.globalAlpha = 1;
             }
 
             if (scope.ch2.enabled) {
                 ctx.strokeStyle = scope.ch2.color;
                 ctx.lineWidth = 2.5;
+                ctx.globalAlpha = scope.acquisition.intensity;
                 ctx.shadowBlur = 8;
                 ctx.shadowColor = scope.ch2.color;
                 ctx.beginPath();
                 for (let i = 0; i < points; i++) {
-                    const t = scope.time + (i / points) * 10 * scope.timeScale;
+                    const t = scope.time + (i / points) * 10 * scope.timeScale / scope.zoom.factor;
                     const value = generateSignal(scope.ch2, t);
                     const x = (i / points) * canvas.width;
                     const y = canvas.height / 2 - (value / 5) * (canvas.height / 2) * 0.8;
@@ -911,24 +1810,32 @@
                 }
                 ctx.stroke();
                 ctx.shadowBlur = 0;
+                ctx.globalAlpha = 1;
             }
 
-            if (scope.math.operation !== 'none' && scope.ch1.enabled && scope.ch2.enabled) {
+            if (scope.math.enabled && scope.math.operation !== 'none' && scope.ch1.enabled) {
                 ctx.strokeStyle = '#ff00ff';
                 ctx.lineWidth = 2.5;
+                ctx.globalAlpha = scope.acquisition.intensity;
                 ctx.shadowBlur = 8;
                 ctx.shadowColor = '#ff00ff';
                 ctx.beginPath();
                 for (let i = 0; i < points; i++) {
-                    const t = scope.time + (i / points) * 10 * scope.timeScale;
+                    const t = scope.time + (i / points) * 10 * scope.timeScale / scope.zoom.factor;
                     const v1 = generateSignal(scope.ch1, t);
-                    const v2 = generateSignal(scope.ch2, t);
+                    const v2 = scope.ch2.enabled ? generateSignal(scope.ch2, t) : 0;
                     let value = 0;
+                    
                     switch(scope.math.operation) {
                         case 'add': value = v1 + v2; break;
                         case 'subtract': value = v1 - v2; break;
                         case 'multiply': value = v1 * v2; break;
+                        case 'divide': value = v2 !== 0 ? v1 / v2 : 0; break;
+                        case 'integrate': value = v1 * 0.5; break;
+                        case 'differentiate': value = v1 * 2; break;
+                        case 'average': value = v1; break;
                     }
+                    
                     value *= scope.math.scale;
                     const x = (i / points) * canvas.width;
                     const y = canvas.height / 2 - (value / 5) * (canvas.height / 2) * 0.8;
@@ -937,6 +1844,7 @@
                 }
                 ctx.stroke();
                 ctx.shadowBlur = 0;
+                ctx.globalAlpha = 1;
             }
         }
 
@@ -944,6 +1852,7 @@
             if (!scope.ch1.enabled || !scope.ch2.enabled) return;
             ctx.strokeStyle = 'rgba(0, 255, 0, 0.9)';
             ctx.lineWidth = 2.5;
+            ctx.globalAlpha = scope.acquisition.intensity;
             ctx.shadowBlur = 12;
             ctx.shadowColor = 'rgba(0, 255, 0, 0.7)';
             ctx.beginPath();
@@ -959,41 +1868,102 @@
             }
             ctx.stroke();
             ctx.shadowBlur = 0;
+            ctx.globalAlpha = 1;
+        }
+
+        function applyWindow(data, windowType) {
+            const N = data.length;
+            const windowed = [];
+            
+            for (let i = 0; i < N; i++) {
+                let w = 1;
+                switch(windowType) {
+                    case 'hanning':
+                        w = 0.5 - 0.5 * Math.cos(2 * Math.PI * i / (N - 1));
+                        break;
+                    case 'hamming':
+                        w = 0.54 - 0.46 * Math.cos(2 * Math.PI * i / (N - 1));
+                        break;
+                    case 'blackman':
+                        w = 0.42 - 0.5 * Math.cos(2 * Math.PI * i / (N - 1)) + 
+                            0.08 * Math.cos(4 * Math.PI * i / (N - 1));
+                        break;
+                    default: // rectangular
+                        w = 1;
+                }
+                windowed.push(data[i] * w);
+            }
+            return windowed;
         }
 
         function drawFFTMode() {
             if (!scope.ch1.enabled) return;
+            
+            // Применяем оконную функцию
+            const windowedData = applyWindow(scope.sampleData.ch1.slice(0, 512), scope.math.fftWindow);
+            
             ctx.strokeStyle = scope.ch1.color;
             ctx.fillStyle = scope.ch1.color + '30';
             ctx.lineWidth = 2;
+            ctx.globalAlpha = scope.acquisition.intensity;
             ctx.shadowBlur = 8;
             ctx.shadowColor = scope.ch1.color;
-            const bins = 100;
+            
+            const bins = 256;
             const maxFreq = 50;
+            
+            // Простая FFT симуляция
+            const spectrum = [];
+            for (let k = 0; k < bins; k++) {
+                let real = 0, imag = 0;
+                for (let n = 0; n < Math.min(windowedData.length, 512); n++) {
+                    const angle = -2 * Math.PI * k * n / 512;
+                    real += windowedData[n] * Math.cos(angle);
+                    imag += windowedData[n] * Math.sin(angle);
+                }
+                const magnitude = Math.sqrt(real * real + imag * imag);
+                const dB = 20 * Math.log10(magnitude + 1e-10);
+                spectrum.push(dB);
+            }
+            
+            // Нормализация
+            const maxMag = Math.max(...spectrum);
+            
             ctx.beginPath();
             ctx.moveTo(0, canvas.height);
+            
             for (let i = 0; i < bins; i++) {
-                const freq = (i / bins) * maxFreq;
-                let magnitude = 0;
-                if (Math.abs(freq - scope.ch1.frequency) < 0.5) {
-                    magnitude = scope.ch1.amplitude * 100;
-                }
-                if (scope.ch1.waveform !== 'sine') {
-                    for (let h = 2; h <= 5; h++) {
-                        if (Math.abs(freq - scope.ch1.frequency * h) < 0.5) {
-                            magnitude += (scope.ch1.amplitude * 100) / h;
-                        }
-                    }
-                }
                 const x = (i / bins) * canvas.width;
-                const y = canvas.height - magnitude;
+                const normalized = (spectrum[i] - maxMag + 60) / 60; // 60 dB динамический диапазон
+                const y = canvas.height - (Math.max(0, normalized) * canvas.height);
                 ctx.lineTo(x, y);
             }
+            
             ctx.lineTo(canvas.width, canvas.height);
             ctx.closePath();
             ctx.fill();
             ctx.stroke();
+            
+            // Метки пиков
+            ctx.fillStyle = '#ffff00';
+            ctx.font = '12px "Courier New"';
+            let peaks = [];
+            for (let i = 1; i < spectrum.length - 1; i++) {
+                if (spectrum[i] > spectrum[i-1] && spectrum[i] > spectrum[i+1] && spectrum[i] > maxMag - 30) {
+                    const freq = (i / bins) * maxFreq;
+                    peaks.push({freq, mag: spectrum[i], idx: i});
+                }
+            }
+            
+            peaks.sort((a, b) => b.mag - a.mag).slice(0, 5).forEach(peak => {
+                const x = (peak.idx / bins) * canvas.width;
+                const normalized = (peak.mag - maxMag + 60) / 60;
+                const y = canvas.height - (Math.max(0, normalized) * canvas.height);
+                ctx.fillText(peak.freq.toFixed(2) + ' Hz', x + 5, y - 5);
+            });
+            
             ctx.shadowBlur = 0;
+            ctx.globalAlpha = 1;
         }
 
         function drawDualMode() {
@@ -1005,11 +1975,12 @@
                 ctx.clip();
                 ctx.strokeStyle = scope.ch1.color;
                 ctx.lineWidth = 2.5;
+                ctx.globalAlpha = scope.acquisition.intensity;
                 ctx.shadowBlur = 8;
                 ctx.shadowColor = scope.ch1.color;
                 ctx.beginPath();
                 for (let i = 0; i < 1000; i++) {
-                    const t = scope.time + (i / 1000) * 10 * scope.timeScale;
+                    const t = scope.time + (i / 1000) * 10 * scope.timeScale / scope.zoom.factor;
                     const value = generateSignal(scope.ch1, t);
                     const x = (i / 1000) * canvas.width;
                     const y = halfHeight / 2 - (value / 5) * (halfHeight / 2) * 0.8;
@@ -1018,6 +1989,7 @@
                 }
                 ctx.stroke();
                 ctx.shadowBlur = 0;
+                ctx.globalAlpha = 1;
                 ctx.restore();
             }
             if (scope.ch2.enabled) {
@@ -1027,11 +1999,12 @@
                 ctx.clip();
                 ctx.strokeStyle = scope.ch2.color;
                 ctx.lineWidth = 2.5;
+                ctx.globalAlpha = scope.acquisition.intensity;
                 ctx.shadowBlur = 8;
                 ctx.shadowColor = scope.ch2.color;
                 ctx.beginPath();
                 for (let i = 0; i < 1000; i++) {
-                    const t = scope.time + (i / 1000) * 10 * scope.timeScale;
+                    const t = scope.time + (i / 1000) * 10 * scope.timeScale / scope.zoom.factor;
                     const value = generateSignal(scope.ch2, t);
                     const x = (i / 1000) * canvas.width;
                     const y = halfHeight + halfHeight / 2 - (value / 5) * (halfHeight / 2) * 0.8;
@@ -1040,6 +2013,7 @@
                 }
                 ctx.stroke();
                 ctx.shadowBlur = 0;
+                ctx.globalAlpha = 1;
                 ctx.restore();
             }
             ctx.strokeStyle = 'rgba(0, 150, 0, 0.4)';
@@ -1051,27 +2025,152 @@
         }
 
         function updateMeasurements() {
-            document.getElementById('ch1Freq').textContent = scope.ch1.frequency.toFixed(2) + ' Hz';
-            document.getElementById('ch1Period').textContent = (1000 / scope.ch1.frequency).toFixed(2) + ' ms';
-            document.getElementById('ch1Vpp').textContent = (scope.ch1.amplitude * 2).toFixed(2) + ' V';
-            document.getElementById('ch1Rms').textContent = (scope.ch1.amplitude / Math.sqrt(2)).toFixed(2) + ' V';
-            document.getElementById('ch2Freq').textContent = scope.ch2.frequency.toFixed(2) + ' Hz';
-            document.getElementById('ch2Period').textContent = (1000 / scope.ch2.frequency).toFixed(2) + ' ms';
-            document.getElementById('ch2Vpp').textContent = (scope.ch2.amplitude * 2).toFixed(2) + ' V';
-            document.getElementById('ch2Rms').textContent = (scope.ch2.amplitude / Math.sqrt(2)).toFixed(2) + ' V';
+            // CH1 измерения
+            if (scope.ch1.enabled && scope.sampleData.ch1.length > 0) {
+                const ch1Data = scope.sampleData.ch1.filter(v => v !== undefined);
+                
+                scope.measurements.ch1.freq = scope.ch1.frequency;
+                scope.measurements.ch1.period = 1000 / scope.ch1.frequency;
+                scope.measurements.ch1.vpp = (Math.max(...ch1Data) - Math.min(...ch1Data));
+                
+                // RMS расчет
+                const sumSquares = ch1Data.reduce((sum, v) => sum + v * v, 0);
+                scope.measurements.ch1.vrms = Math.sqrt(sumSquares / ch1Data.length);
+                
+                scope.measurements.ch1.min = Math.min(...ch1Data);
+                scope.measurements.ch1.max = Math.max(...ch1Data);
+                
+                // Duty cycle для прямоугольного сигнала
+                if (scope.ch1.waveform === 'square' || scope.ch1.waveform === 'pulse') {
+                    const high = ch1Data.filter(v => v > 0).length;
+                    scope.measurements.ch1.duty = (high / ch1Data.length) * 100;
+                } else {
+                    scope.measurements.ch1.duty = 50;
+                }
+                
+                // Поиск времени нарастания/спада (10%-90%)
+                const vpp = scope.measurements.ch1.vpp;
+                const v10 = scope.measurements.ch1.min + vpp * 0.1;
+                const v90 = scope.measurements.ch1.min + vpp * 0.9;
+                
+                let riseStart = -1, riseEnd = -1;
+                for (let i = 1; i < ch1Data.length; i++) {
+                    if (riseStart === -1 && ch1Data[i-1] < v10 && ch1Data[i] >= v10) {
+                        riseStart = i;
+                    }
+                    if (riseStart !== -1 && riseEnd === -1 && ch1Data[i] >= v90) {
+                        riseEnd = i;
+                        break;
+                    }
+                }
+                if (riseStart !== -1 && riseEnd !== -1) {
+                    scope.measurements.ch1.riseTime = (riseEnd - riseStart) * scope.timeScale * 10 / ch1Data.length * 1000;
+                }
+            }
+            
+            // CH2 измерения
+            if (scope.ch2.enabled && scope.sampleData.ch2.length > 0) {
+                const ch2Data = scope.sampleData.ch2.filter(v => v !== undefined);
+                
+                scope.measurements.ch2.freq = scope.ch2.frequency;
+                scope.measurements.ch2.period = 1000 / scope.ch2.frequency;
+                scope.measurements.ch2.vpp = (Math.max(...ch2Data) - Math.min(...ch2Data));
+                
+                const sumSquares = ch2Data.reduce((sum, v) => sum + v * v, 0);
+                scope.measurements.ch2.vrms = Math.sqrt(sumSquares / ch2Data.length);
+                
+                scope.measurements.ch2.min = Math.min(...ch2Data);
+                scope.measurements.ch2.max = Math.max(...ch2Data);
+            }
+            
+            // Фазовый сдвиг между каналами
+            if (scope.ch1.enabled && scope.ch2.enabled) {
+                scope.measurements.phase = ((scope.ch2.phase - scope.ch1.phase) * 180 / Math.PI) % 360;
+            }
+            
+            // Обновление UI
+            document.getElementById('ch1Freq').textContent = scope.measurements.ch1.freq.toFixed(2) + ' Hz';
+            document.getElementById('ch1Period').textContent = scope.measurements.ch1.period.toFixed(2) + ' ms';
+            document.getElementById('ch1Vpp').textContent = scope.measurements.ch1.vpp.toFixed(2) + ' V';
+            document.getElementById('ch1Rms').textContent = scope.measurements.ch1.vrms.toFixed(2) + ' V';
+            
+            document.getElementById('ch2Freq').textContent = scope.measurements.ch2.freq.toFixed(2) + ' Hz';
+            document.getElementById('ch2Period').textContent = scope.measurements.ch2.period.toFixed(2) + ' ms';
+            document.getElementById('ch2Vpp').textContent = scope.measurements.ch2.vpp.toFixed(2) + ' V';
+            document.getElementById('ch2Rms').textContent = scope.measurements.ch2.vrms.toFixed(2) + ' V';
+
+            if (scope.cursors.enabled) {
+                const deltaT = Math.abs(scope.cursors.v2 - scope.cursors.v1) / canvas.width * 10 * scope.timeScale;
+                const deltaV = Math.abs(scope.cursors.h2 - scope.cursors.h1) / canvas.height * 10;
+                document.getElementById('deltaT').textContent = (deltaT * 1000).toFixed(2) + ' ms';
+                document.getElementById('frequency').textContent = (1 / deltaT).toFixed(2) + ' Hz';
+                document.getElementById('deltaV').textContent = deltaV.toFixed(2) + ' V';
+                document.getElementById('ratio').textContent = (deltaV / deltaT).toFixed(2);
+            }
+
+            // Обновление расширенных измерений
+            document.getElementById('ch1Duty').textContent = scope.measurements.ch1.duty.toFixed(1) + ' %';
+            document.getElementById('ch1Rise').textContent = scope.measurements.ch1.riseTime.toFixed(2) + ' μs';
+            document.getElementById('ch1Min').textContent = scope.measurements.ch1.min.toFixed(2) + ' V';
+            document.getElementById('ch1Max').textContent = scope.measurements.ch1.max.toFixed(2) + ' V';
+            document.getElementById('phaseDiff').textContent = scope.measurements.phase.toFixed(1) + '°';
+            document.getElementById('snapshotCount').textContent = scope.history.snapshots.length.toString();
+            document.getElementById('currentZoom').textContent = scope.zoom.factor.toFixed(1) + 'x';
+            document.getElementById('triggerStatus').textContent = scope.trigger.mode.toUpperCase();
+
         }
+
+        // Управление звуком
+        document.getElementById('audioToggle').addEventListener('click', function() {
+            audioSystem.enabled = !audioSystem.enabled;
+            document.getElementById('audioStatus').textContent = audioSystem.enabled ? 'ON' : 'OFF';
+            if (audioSystem.enabled) {
+                playBeep(800, '16n');
+            }
+        });
+
+        document.getElementById('monitorVol').addEventListener('input', e => {
+            if (Math.random() < 0.3) playKnobTick();
+            audioSystem.monitorVolume = parseInt(e.target.value);
+            const percent = Math.round(((parseInt(e.target.value) + 40) / 35) * 100);
+            document.getElementById('monitorVolDisplay').textContent = percent + '%';
+            
+            if (audioInitialized) {
+                audioSystem.monitorSynth1.volume.value = audioSystem.monitorVolume;
+                audioSystem.monitorSynth2.volume.value = audioSystem.monitorVolume;
+            }
+        });
 
         function animate() {
             ctx.fillStyle = '#001a00';
             ctx.fillRect(0, 0, canvas.width, canvas.height);
+            
+            drawPersistence();
+            drawHistoryOverlay(); // Добавляем overlay
             drawGrid();
+
+            // Проверка триггера
+            if (scope.trigger.mode !== 'auto') {
+                checkTrigger();
+            }
+
             switch(scope.mode) {
                 case 'yt': drawYTMode(); break;
                 case 'xy': drawXYMode(); break;
                 case 'fft': drawFFTMode(); break;
                 case 'dual': drawDualMode(); break;
             }
-            scope.time += 0.005;
+
+            if (scope.acquisition.persistence > 0) {
+                scope.acquisition.persistenceBuffer.push(
+                    ctx.getImageData(0, 0, canvas.width, canvas.height)
+                );
+            }
+
+            if (scope.running && !scope.frozen) {
+                scope.time += 0.005;
+            }
+            
             updateMeasurements();
             requestAnimationFrame(animate);
         }
@@ -1092,12 +2191,9 @@
                 this.startY = 0;
                 this.startValue = 0;
                 
-                // Mouse events
                 this.knob.addEventListener('mousedown', this.onStart.bind(this));
                 document.addEventListener('mousemove', this.onMove.bind(this));
                 document.addEventListener('mouseup', this.onEnd.bind(this));
-                
-                // Touch events
                 this.knob.addEventListener('touchstart', this.onStart.bind(this), { passive: false });
                 document.addEventListener('touchmove', this.onMove.bind(this), { passive: false });
                 document.addEventListener('touchend', this.onEnd.bind(this));
@@ -1133,7 +2229,11 @@
             }
             
             setValue(value) {
+                const oldValue = this.value;
                 this.value = Math.round(value / this.step) * this.step;
+                if (Math.abs(this.value - oldValue) > this.step / 2) {
+                    playKnobTick();
+                }
                 this.updateDisplay();
             }
             
@@ -1142,7 +2242,6 @@
                 const rotation = -135 + (percent * 270);
                 this.indicator.style.transform = `translateX(-50%) rotate(${rotation}deg)`;
                 this.indicator.style.transformOrigin = 'bottom center';
-                
                 let displayValue = this.formatter ? this.formatter(this.value) : this.value.toFixed(1);
                 this.display.textContent = displayValue + (this.unit || '');
             }
@@ -1155,10 +2254,9 @@
             document.getElementById('ch1FreqDisplay'),
             0.05, 2, 0.01, 1, ' Hz'
         );
-        ch1FreqKnob.onUpdate = (val) => scope.ch1.frequency = val;
         Object.defineProperty(ch1FreqKnob, 'value', {
             get() { return this._value; },
-            set(v) { this._value = v; this.updateDisplay(); scope.ch1.frequency = v; }
+            set(v) { this._value = v; this.updateDisplay(); scope.ch1.frequency = v; updateMonitoringParams(); }
         });
         ch1FreqKnob._value = 1;
 
@@ -1170,7 +2268,7 @@
         );
         Object.defineProperty(ch1AmpKnob, 'value', {
             get() { return this._value; },
-            set(v) { this._value = v; this.updateDisplay(); scope.ch1.amplitude = v; }
+            set(v) { this._value = v; this.updateDisplay(); scope.ch1.amplitude = v; updateMonitoringParams(); }
         });
         ch1AmpKnob._value = 2;
 
@@ -1194,7 +2292,7 @@
         );
         Object.defineProperty(ch2FreqKnob, 'value', {
             get() { return this._value; },
-            set(v) { this._value = v; this.updateDisplay(); scope.ch2.frequency = v; }
+            set(v) { this._value = v; this.updateDisplay(); scope.ch2.frequency = v; updateMonitoringParams(); }
         });
         ch2FreqKnob._value = 2;
 
@@ -1206,7 +2304,7 @@
         );
         Object.defineProperty(ch2AmpKnob, 'value', {
             get() { return this._value; },
-            set(v) { this._value = v; this.updateDisplay(); scope.ch2.amplitude = v; }
+            set(v) { this._value = v; this.updateDisplay(); scope.ch2.amplitude = v; updateMonitoringParams(); }
         });
         ch2AmpKnob._value = 2;
 
@@ -1289,6 +2387,7 @@
         // Tabs
         document.querySelectorAll('.channel-tab').forEach(tab => {
             tab.addEventListener('click', () => {
+                playClick();
                 document.querySelectorAll('.channel-tab').forEach(t => t.classList.remove('active'));
                 document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
                 tab.classList.add('active');
@@ -1298,47 +2397,366 @@
 
         // Mode buttons
         document.getElementById('modeYT').addEventListener('click', function() {
+            playClick();
             scope.mode = 'yt';
             document.querySelectorAll('.mode-btn').forEach(b => b.classList.remove('active'));
             this.classList.add('active');
         });
         document.getElementById('modeXY').addEventListener('click', function() {
+            playClick();
             scope.mode = 'xy';
             document.querySelectorAll('.mode-btn').forEach(b => b.classList.remove('active'));
             this.classList.add('active');
         });
         document.getElementById('modeFFT').addEventListener('click', function() {
+            playClick();
             scope.mode = 'fft';
             document.querySelectorAll('.mode-btn').forEach(b => b.classList.remove('active'));
             this.classList.add('active');
         });
         document.getElementById('modeDual').addEventListener('click', function() {
+            playClick();
             scope.mode = 'dual';
             document.querySelectorAll('.mode-btn').forEach(b => b.classList.remove('active'));
             this.classList.add('active');
         });
 
+        // Screen controls
+        document.getElementById('btnAutoset').addEventListener('click', () => {
+            playBeep(1200, '16n');
+            ch1AmpKnob.setValue(2);
+            ch2AmpKnob.setValue(2);
+            timeScaleKnob.setValue(0.1);
+            ch1OffsetKnob.setValue(0);
+            ch2OffsetKnob.setValue(0);
+        });
+
+        document.getElementById('btnRun').addEventListener('click', function() {
+            playClick();
+            scope.running = !scope.running;
+            this.classList.toggle('active');
+            this.textContent = scope.running ? 'RUN' : 'STOP';
+            if (scope.running) {
+                playBeep(600, '8n');
+                if (audioSystem.monitoring) {
+                    startMonitoring();
+                }
+            } else {
+                playBeep(400, '8n');
+                stopMonitoring();
+            }
+        });
+
+        document.getElementById('btnSingle').addEventListener('click', function() {
+            playClick();
+            playBeep(500, '16n');
+            scope.running = false;
+            document.getElementById('btnRun').classList.remove('active');
+        });
+
+        document.getElementById('btnCursors').addEventListener('click', function() {
+            playClick();
+            scope.cursors.enabled = !scope.cursors.enabled;
+            this.classList.toggle('active');
+            updateCursors();
+            document.getElementById('cursorMeasurements').style.display = scope.cursors.enabled ? 'grid' : 'none';
+            if (scope.cursors.enabled) playBeep(700, '16n');
+        });
+
+        document.getElementById('btnPersistence').addEventListener('click', function() {
+            playClick();
+            this.classList.toggle('active');
+            if (this.classList.contains('active')) {
+                scope.acquisition.persistence = 2;
+                document.getElementById('persistence').value = 2;
+                document.getElementById('persistenceDisplay').textContent = '2.0 s';
+                playBeep(650, '16n');
+            } else {
+                scope.acquisition.persistence = 0;
+                scope.acquisition.persistenceBuffer = [];
+                document.getElementById('persistence').value = 0;
+                document.getElementById('persistenceDisplay').textContent = 'OFF';
+            }
+        });
+
+        document.getElementById('btnZoom').addEventListener('click', function() {
+            playClick();
+            scope.zoom.enabled = !scope.zoom.enabled;
+            this.classList.toggle('active');
+            scope.zoom.factor = scope.zoom.enabled ? 2 : 1;
+            if (scope.zoom.enabled) playBeep(800, '16n');
+        });
+
+        document.getElementById('btnHold').addEventListener('click', function() {
+            playClick();
+            scope.frozen = !scope.frozen;
+            this.classList.toggle('active');
+            this.textContent = scope.frozen ? 'RESUME' : 'HOLD';
+            playBeep(scope.frozen ? 450 : 550, '16n');
+        });
+
+        document.getElementById('btnSnapshot').addEventListener('click', function() {
+            playBeep(1000, '32n');
+            scope.history.enabled = true;
+            captureSnapshot();
+            this.classList.add('active');
+            setTimeout(() => {
+                this.classList.remove('active');
+                playBeep(1200, '32n');
+            }, 100);
+        });
+
+        document.getElementById('btnOverlay').addEventListener('click', function() {
+            playClick();
+            if (scope.history.snapshots.length === 0) {
+                playBeep(300, '8n');
+                alert('Сделайте сначала Snapshot!');
+                return;
+            }
+            scope.history.overlay = !scope.history.overlay;
+            this.classList.toggle('active');
+            if (scope.history.overlay) playBeep(750, '16n');
+        });
+
+        document.getElementById('btnMonitor').addEventListener('click', function() {
+            toggleMonitoring();
+        });
+
+        // Cursors
+        function updateCursors() {
+            const container = document.getElementById('cursors');
+            container.innerHTML = '';
+            
+            if (!scope.cursors.enabled) return;
+
+            const v1 = document.createElement('div');
+            v1.className = 'cursor-line cursor-v';
+            v1.style.left = scope.cursors.v1 + 'px';
+            v1.innerHTML = `<div class="cursor-label" style="top: 5px; left: 5px;">T1</div>`;
+            container.appendChild(v1);
+
+            const v2 = document.createElement('div');
+            v2.className = 'cursor-line cursor-v';
+            v2.style.left = scope.cursors.v2 + 'px';
+            v2.innerHTML = `<div class="cursor-label" style="top: 5px; left: 5px;">T2</div>`;
+            container.appendChild(v2);
+
+            const h1 = document.createElement('div');
+            h1.className = 'cursor-line cursor-h';
+            h1.style.top = scope.cursors.h1 + 'px';
+            h1.innerHTML = `<div class="cursor-label" style="left: 5px; top: -20px;">V1</div>`;
+            container.appendChild(h1);
+
+            const h2 = document.createElement('div');
+            h2.className = 'cursor-line cursor-h';
+            h2.style.top = scope.cursors.h2 + 'px';
+            h2.innerHTML = `<div class="cursor-label" style="left: 5px; top: -20px;">V2</div>`;
+            container.appendChild(h2);
+        }
+
+        // Интерактивное управление курсорами
+        let cursorDragging = null;
+
+        canvas.addEventListener('mousedown', (e) => {
+            if (!scope.cursors.enabled) {
+                // Панорамирование
+                if (e.shiftKey) {
+                    scope.zoom.panning = true;
+                    scope.zoom.panStartX = e.offsetX;
+                    scope.zoom.panStartY = e.offsetY;
+                }
+                return;
+            }
+            
+            const rect = canvas.getBoundingClientRect();
+            const x = e.clientX - rect.left;
+            const y = e.clientY - rect.top;
+            
+            // Проверяем близость к курсорам (в пикселях)
+            const threshold = 10;
+            
+            if (Math.abs(x - scope.cursors.v1 * canvas.width / 1000) < threshold) {
+                cursorDragging = 'v1';
+            } else if (Math.abs(x - scope.cursors.v2 * canvas.width / 1000) < threshold) {
+                cursorDragging = 'v2';
+            } else if (Math.abs(y - scope.cursors.h1 * canvas.height / 600) < threshold) {
+                cursorDragging = 'h1';
+            } else if (Math.abs(y - scope.cursors.h2 * canvas.height / 600) < threshold) {
+                cursorDragging = 'h2';
+            }
+        });
+
+        canvas.addEventListener('mousemove', (e) => {
+            if (scope.zoom.panning) {
+                const dx = e.offsetX - scope.zoom.panStartX;
+                const dy = e.offsetY - scope.zoom.panStartY;
+                scope.zoom.offsetX += dx;
+                scope.zoom.offsetY += dy;
+                scope.zoom.panStartX = e.offsetX;
+                scope.zoom.panStartY = e.offsetY;
+                return;
+            }
+            
+            if (!cursorDragging) return;
+            
+            const rect = canvas.getBoundingClientRect();
+            const x = (e.clientX - rect.left) * 1000 / canvas.width;
+            const y = (e.clientY - rect.top) * 600 / canvas.height;
+            
+            if (cursorDragging === 'v1') {
+                scope.cursors.v1 = Math.max(0, Math.min(1000, x));
+            } else if (cursorDragging === 'v2') {
+                scope.cursors.v2 = Math.max(0, Math.min(1000, x));
+            } else if (cursorDragging === 'h1') {
+                scope.cursors.h1 = Math.max(0, Math.min(600, y));
+            } else if (cursorDragging === 'h2') {
+                scope.cursors.h2 = Math.max(0, Math.min(600, y));
+            }
+            
+            updateCursors();
+            updateMeasurements();
+        });
+
+        canvas.addEventListener('mouseup', () => {
+            cursorDragging = null;
+            scope.zoom.panning = false;
+        });
+
+        // Zoom колесом мыши
+        canvas.addEventListener('wheel', (e) => {
+            e.preventDefault();
+            const delta = e.deltaY > 0 ? 0.9 : 1.1;
+            scope.zoom.factor = Math.max(0.5, Math.min(10, scope.zoom.factor * delta));
+            document.getElementById('zoomFactor').value = scope.zoom.factor;
+            document.getElementById('zoomFactorDisplay').textContent = scope.zoom.factor.toFixed(1) + 'x';
+        });
+
         // Channel controls
-        document.getElementById('ch1Waveform').addEventListener('change', e => scope.ch1.waveform = e.target.value);
-        document.getElementById('ch1Coupling').addEventListener('change', e => scope.ch1.coupling = e.target.value);
+        document.getElementById('ch1Waveform').addEventListener('change', e => {
+            playClick();
+            scope.ch1.waveform = e.target.value;
+            updateMonitoringParams();
+        });
+        document.getElementById('ch1Coupling').addEventListener('change', e => {
+            playClick();
+            scope.ch1.coupling = e.target.value;
+        });
+        document.getElementById('ch1Bandwidth').addEventListener('change', e => {
+            playClick();
+            scope.ch1.bandwidth = e.target.value;
+        });
+        document.getElementById('ch1Invert').addEventListener('click', function() {
+            playClick();
+            scope.ch1.invert = !scope.ch1.invert;
+            this.classList.toggle('checked');
+        });
         document.getElementById('ch1Toggle').addEventListener('click', function() {
+            playClick();
             scope.ch1.enabled = !scope.ch1.enabled;
             this.classList.toggle('on');
+            playBeep(scope.ch1.enabled ? 900 : 400, '16n');
+            updateMonitoringParams();
         });
 
-        document.getElementById('ch2Waveform').addEventListener('change', e => scope.ch2.waveform = e.target.value);
+        document.getElementById('ch2Waveform').addEventListener('change', e => {
+            playClick();
+            scope.ch2.waveform = e.target.value;
+            updateMonitoringParams();
+        });
+        document.getElementById('ch2Invert').addEventListener('click', function() {
+            playClick();
+            scope.ch2.invert = !scope.ch2.invert;
+            this.classList.toggle('checked');
+        });
         document.getElementById('ch2Toggle').addEventListener('click', function() {
+            playClick();
             scope.ch2.enabled = !scope.ch2.enabled;
             this.classList.toggle('on');
+            playBeep(scope.ch2.enabled ? 1000 : 400, '16n');
+            updateMonitoringParams();
         });
 
-        document.getElementById('triggerSource').addEventListener('change', e => scope.trigger.source = e.target.value);
-        document.getElementById('triggerMode').addEventListener('change', e => scope.trigger.mode = e.target.value);
-        document.getElementById('mathOperation').addEventListener('change', e => scope.math.operation = e.target.value);
+        // Trigger controls
+        document.getElementById('triggerSource').addEventListener('change', e => {
+            playClick();
+            scope.trigger.source = e.target.value;
+        });
+        document.getElementById('triggerMode').addEventListener('change', e => {
+            playClick();
+            scope.trigger.mode = e.target.value;
+            playBeep(600, '16n');
+        });
+        document.getElementById('triggerType').addEventListener('change', e => {
+            playClick();
+            scope.trigger.type = e.target.value;
+        });
+        document.getElementById('triggerSlope').addEventListener('change', e => {
+            playClick();
+            scope.trigger.slope = e.target.value;
+        });
+        document.getElementById('triggerHoldoff').addEventListener('input', e => {
+            if (Math.random() < 0.3) playKnobTick(); // Случайные тики для плавного слайдера
+            scope.trigger.holdoff = parseInt(e.target.value);
+            document.getElementById('triggerHoldoffDisplay').textContent = e.target.value + ' ms';
+        });
+
+        // Math controls
+        document.getElementById('mathOperation').addEventListener('change', e => {
+            playClick();
+            scope.math.operation = e.target.value;
+            if (e.target.value !== 'none') playBeep(850, '16n');
+        });
+        document.getElementById('mathEnable').addEventListener('click', function() {
+            playClick();
+            scope.math.enabled = !scope.math.enabled;
+            this.classList.toggle('checked');
+            playBeep(scope.math.enabled ? 700 : 500, '16n');
+        });
+        document.getElementById('mathAveraging').addEventListener('input', e => {
+            if (Math.random() < 0.3) playKnobTick();
+            scope.math.averaging = parseInt(e.target.value);
+            document.getElementById('mathAveragingDisplay').textContent = e.target.value;
+        });
+
+        document.getElementById('fftWindow').addEventListener('change', e => {
+            playClick();
+            scope.math.fftWindow = e.target.value;
+        });
+
+        // Acquisition controls
+        document.getElementById('acqMode').addEventListener('change', e => {
+            playClick();
+            scope.acquisition.mode = e.target.value;
+        });
+        document.getElementById('persistence').addEventListener('input', e => {
+            if (Math.random() < 0.3) playKnobTick();
+            scope.acquisition.persistence = parseFloat(e.target.value);
+            document.getElementById('persistenceDisplay').textContent = e.target.value === '0' ? 'OFF' : e.target.value + ' s';
+            if (e.target.value === '0') {
+                scope.acquisition.persistenceBuffer = [];
+                document.getElementById('btnPersistence').classList.remove('active');
+            } else {
+                document.getElementById('btnPersistence').classList.add('active');
+            }
+        });
+        document.getElementById('intensity').addEventListener('input', e => {
+            if (Math.random() < 0.3) playKnobTick();
+            scope.acquisition.intensity = parseFloat(e.target.value);
+            document.getElementById('intensityDisplay').textContent = Math.round(e.target.value * 100) + '%';
+        });
+
+        // Zoom
+        document.getElementById('zoomFactor').addEventListener('input', e => {
+            if (Math.random() < 0.3) playKnobTick();
+            scope.zoom.factor = parseFloat(e.target.value);
+            document.getElementById('zoomFactorDisplay').textContent = e.target.value + 'x';
+        });
 
         // Presets
         document.querySelectorAll('.preset-btn').forEach(btn => {
             btn.addEventListener('click', function() {
+                playClick();
+                playBeep(950, '16n');
                 const preset = this.dataset.preset;
                 switch(preset) {
                     case 'lissajous':
@@ -1356,6 +2774,8 @@
                         scope.ch2.waveform = 'sine';
                         ch1FreqKnob.setValue(1);
                         ch2FreqKnob.setValue(1.5);
+                        document.getElementById('ch1Waveform').value = 'sine';
+                        document.getElementById('ch2Waveform').value = 'sine';
                         document.getElementById('modeYT').click();
                         break;
                     case 'square':
@@ -1380,8 +2800,10 @@
             });
         });
 
-        // Export
+        // Export & Save/Load
         document.getElementById('exportBtn').addEventListener('click', () => {
+            playClick();
+            playBeep(1100, '16n');
             const data = {
                 timestamp: new Date().toISOString(),
                 config: scope,
@@ -1395,6 +2817,56 @@
             a.download = 'oscilloscope_data_' + Date.now() + '.json';
             a.click();
             URL.revokeObjectURL(url);
+            setTimeout(() => playBeep(1300, '32n'), 200);
+        });
+
+        document.getElementById('saveConfig').addEventListener('click', () => {
+            playClick();
+            playBeep(1000, '16n');
+            const config = {
+                timestamp: new Date().toISOString(),
+                scope: scope
+            };
+            const blob = new Blob([JSON.stringify(config, null, 2)], {type: 'application/json'});
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = 'oscilloscope_config_' + Date.now() + '.json';
+            a.click();
+            URL.revokeObjectURL(url);
+            setTimeout(() => playBeep(1200, '32n'), 200);
+        });
+
+        document.getElementById('loadConfig').addEventListener('click', () => {
+            playClick();
+            const input = document.createElement('input');
+            input.type = 'file';
+            input.accept = '.json';
+            input.onchange = e => {
+                const file = e.target.files[0];
+                const reader = new FileReader();
+                reader.onload = event => {
+                    try {
+                        const config = JSON.parse(event.target.result);
+                        if (config.scope) {
+                            Object.assign(scope, config.scope);
+                            ch1FreqKnob.setValue(scope.ch1.frequency);
+                            ch1AmpKnob.setValue(scope.ch1.amplitude);
+                            ch2FreqKnob.setValue(scope.ch2.frequency);
+                            ch2AmpKnob.setValue(scope.ch2.amplitude);
+                            timeScaleKnob.setValue(scope.timeScale);
+                            playBeep(1400, '16n');
+                            setTimeout(() => playBeep(1600, '16n'), 150);
+                            alert('Configuration loaded successfully!');
+                        }
+                    } catch (err) {
+                        playBeep(300, '8n');
+                        alert('Error loading configuration: ' + err.message);
+                    }
+                };
+                reader.readAsText(file);
+            };
+            input.click();
         });
 
         animate();
