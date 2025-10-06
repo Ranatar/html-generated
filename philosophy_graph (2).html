@@ -26,7 +26,7 @@
         }
 
         .node {
-            cursor: move;
+            cursor: pointer;
             transition: all 0.3s ease;
         }
 
@@ -37,6 +37,19 @@
         .node circle {
             stroke-width: 3px;
             filter: drop-shadow(0 0 10px rgba(255,255,255,0.4));
+        }
+
+        .node.dimmed {
+            opacity: 0.2;
+        }
+
+        .node.highlighted {
+            opacity: 1;
+        }
+
+        .node.highlighted circle {
+            stroke-width: 5px;
+            filter: drop-shadow(0 0 20px rgba(255,255,255,0.8));
         }
 
         .node text {
@@ -57,6 +70,16 @@
         .link:hover {
             opacity: 0.9;
             stroke-width: 3.5px;
+        }
+
+        .link.dimmed {
+            opacity: 0.1;
+        }
+
+        .link.highlighted {
+            opacity: 1;
+            stroke-width: 4px;
+            filter: drop-shadow(0 0 5px currentColor);
         }
 
         .link.bidirectional {
@@ -254,7 +277,7 @@
         </div>
 
         <div id="info">
-            💡 Перетаскивайте категории • Наведите для подробностей
+            💡 Клик - подсветить связи • Перетаскивайте • Колесо - масштаб
         </div>
 
         <div class="tooltip" id="tooltip"></div>
@@ -699,6 +722,25 @@
             .attr("width", width)
             .attr("height", height);
 
+        // Контейнер для масштабирования и прокрутки
+        const g = svg.append("g");
+
+        // Настройка zoom
+        const zoom = d3.zoom()
+            .scaleExtent([0.1, 4])
+            .on("zoom", (event) => {
+                g.attr("transform", event.transform);
+            });
+
+        svg.call(zoom);
+
+        // Клик на фон для сброса подсветки
+        svg.on("click", function(event) {
+            if (event.target === this) {
+                resetHighlight();
+            }
+        });
+
         const defs = svg.append("defs");
         
         Object.keys(relationTypes).forEach(type => {
@@ -739,8 +781,9 @@
         });
 
         let isGrouped = false;
+        let selectedNode = null;
 
-        const link = svg.append("g")
+        const link = g.append("g")
             .selectAll("path")
             .data(links)
             .enter()
@@ -749,7 +792,7 @@
             .attr("stroke", d => relationTypes[d.type].color)
             .attr("marker-end", d => `url(#arrow-${d.type})`);
 
-        const node = svg.append("g")
+        const node = g.append("g")
             .selectAll("g")
             .data(nodes)
             .enter()
@@ -770,6 +813,57 @@
             .attr("text-anchor", "middle")
             .text(d => d.label);
 
+        // Обработка клика на узле
+        node.on("click", function(event, d) {
+            event.stopPropagation();
+            
+            if (selectedNode === d) {
+                // Повторный клик - снимаем подсветку
+                resetHighlight();
+            } else {
+                // Выбираем новый узел
+                selectedNode = d;
+                highlightConnected(d);
+            }
+        });
+
+        // Подсветка связанных узлов и связей
+        function highlightConnected(selectedData) {
+            const connectedNodes = new Set();
+            connectedNodes.add(selectedData.id);
+            
+            const connectedLinks = new Set();
+            
+            // Находим все связанные узлы и связи
+            links.forEach(l => {
+                if (l.source.id === selectedData.id) {
+                    connectedNodes.add(l.target.id);
+                    connectedLinks.add(l);
+                } else if (l.target.id === selectedData.id) {
+                    connectedNodes.add(l.source.id);
+                    connectedLinks.add(l);
+                }
+            });
+            
+            // Применяем стили
+            node.classed("dimmed", d => !connectedNodes.has(d.id))
+                .classed("highlighted", d => connectedNodes.has(d.id));
+            
+            link.classed("dimmed", l => !connectedLinks.has(l))
+                .classed("highlighted", l => connectedLinks.has(l));
+        }
+
+        // Сброс подсветки
+        function resetHighlight() {
+            selectedNode = null;
+            node.classed("dimmed", false)
+                .classed("highlighted", false);
+            link.classed("dimmed", false)
+                .classed("highlighted", false);
+        }
+
+        // Tooltip
+        // Tooltip
         const tooltip = d3.select("#tooltip");
 
         node.on("mouseover", function(event, d) {
@@ -830,10 +924,15 @@
                 n.fx = null;
                 n.fy = null;
             });
+            resetHighlight();
             simulation.alpha(1).restart();
         }
 
         function centerGraph() {
+            const transform = d3.zoomIdentity
+                .translate(window.innerWidth / 2, window.innerHeight / 2)
+                .scale(1);
+            svg.transition().duration(750).call(zoom.transform, transform);
             simulation.force("center", d3.forceCenter(window.innerWidth / 2, window.innerHeight / 2));
             simulation.alpha(0.3).restart();
         }
@@ -841,6 +940,8 @@
         function toggleGrouping() {
             isGrouped = !isGrouped;
             const btn = document.getElementById('groupBtn');
+            
+            resetHighlight();
             
             if (isGrouped) {
                 btn.classList.add('active');
