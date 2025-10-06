@@ -1,0 +1,826 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Расширенный граф философских концепций</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/d3/7.8.5/d3.min.js"></script>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #0f0c29 0%, #302b63 50%, #24243e 100%);
+            overflow: hidden;
+        }
+
+        #container {
+            width: 100vw;
+            height: 100vh;
+            position: relative;
+        }
+
+        #graph {
+            width: 100%;
+            height: 100%;
+        }
+
+        .node {
+            cursor: move;
+            transition: all 0.3s ease;
+        }
+
+        .node:hover {
+            filter: brightness(1.3);
+        }
+
+        .node circle {
+            stroke-width: 3px;
+            filter: drop-shadow(0 0 10px rgba(255,255,255,0.4));
+        }
+
+        .node text {
+            font-size: 10px;
+            font-weight: 600;
+            pointer-events: none;
+            text-shadow: 0 0 4px black, 0 0 4px black, 0 0 4px black;
+            fill: #fff;
+        }
+
+        .link {
+            fill: none;
+            stroke-width: 2px;
+            opacity: 0.4;
+            transition: opacity 0.3s, stroke-width 0.3s;
+        }
+
+        .link:hover {
+            opacity: 0.9;
+            stroke-width: 3.5px;
+        }
+
+        .link.bidirectional {
+            stroke-dasharray: 5, 5;
+        }
+
+        #legend {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            background: rgba(255, 255, 255, 0.97);
+            padding: 20px;
+            border-radius: 15px;
+            box-shadow: 0 8px 32px rgba(0,0,0,0.4);
+            max-width: 340px;
+            backdrop-filter: blur(10px);
+            max-height: 85vh;
+            overflow-y: auto;
+        }
+
+        #legend h3 {
+            margin: 0 0 15px 0;
+            color: #1a1a2e;
+            font-size: 19px;
+            border-bottom: 3px solid #6c5ce7;
+            padding-bottom: 10px;
+        }
+
+        .legend-section {
+            margin-bottom: 18px;
+        }
+
+        .legend-section h4 {
+            margin: 0 0 10px 0;
+            color: #2d3436;
+            font-size: 13px;
+            font-weight: 700;
+        }
+
+        .legend-item {
+            display: flex;
+            align-items: center;
+            margin: 6px 0;
+            font-size: 11px;
+            color: #2d3436;
+        }
+
+        .legend-color {
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+            margin-right: 10px;
+            border: 2px solid #2d3436;
+            flex-shrink: 0;
+        }
+
+        .legend-line {
+            width: 35px;
+            height: 2.5px;
+            margin-right: 10px;
+            flex-shrink: 0;
+        }
+
+        .tooltip {
+            position: absolute;
+            background: rgba(0, 0, 0, 0.92);
+            color: white;
+            padding: 12px 18px;
+            border-radius: 10px;
+            font-size: 13px;
+            pointer-events: none;
+            opacity: 0;
+            transition: opacity 0.3s;
+            box-shadow: 0 6px 20px rgba(0,0,0,0.5);
+            max-width: 280px;
+            border: 1px solid rgba(255,255,255,0.2);
+            z-index: 1000;
+        }
+
+        .tooltip strong {
+            font-size: 15px;
+            display: block;
+            margin-bottom: 5px;
+            color: #a29bfe;
+        }
+
+        #controls {
+            position: absolute;
+            bottom: 20px;
+            left: 20px;
+            background: rgba(255, 255, 255, 0.97);
+            padding: 15px;
+            border-radius: 12px;
+            box-shadow: 0 6px 20px rgba(0,0,0,0.3);
+        }
+
+        #controls button {
+            background: #6c5ce7;
+            color: white;
+            border: none;
+            padding: 8px 15px;
+            border-radius: 6px;
+            cursor: pointer;
+            margin: 3px;
+            font-size: 12px;
+            font-weight: 600;
+            transition: background 0.3s;
+        }
+
+        #controls button:hover {
+            background: #5f4fd1;
+        }
+
+        #info {
+            position: absolute;
+            bottom: 20px;
+            right: 20px;
+            background: rgba(255, 255, 255, 0.97);
+            padding: 15px 20px;
+            border-radius: 12px;
+            font-size: 13px;
+            color: #2d3436;
+            box-shadow: 0 6px 20px rgba(0,0,0,0.3);
+            font-weight: 500;
+        }
+
+        #legend::-webkit-scrollbar {
+            width: 6px;
+        }
+
+        #legend::-webkit-scrollbar-track {
+            background: rgba(0,0,0,0.1);
+            border-radius: 10px;
+        }
+
+        #legend::-webkit-scrollbar-thumb {
+            background: #6c5ce7;
+            border-radius: 10px;
+        }
+    </style>
+</head>
+<body>
+    <div id="container">
+        <svg id="graph"></svg>
+        
+        <div id="legend">
+            <h3>📖 Философские концепции</h3>
+            
+            <div class="legend-section">
+                <h4>Философы:</h4>
+                <div class="legend-item"><div class="legend-color" style="background: #e74c3c;"></div><span>Сократ</span></div>
+                <div class="legend-item"><div class="legend-color" style="background: #c0392b;"></div><span>Платон</span></div>
+                <div class="legend-item"><div class="legend-color" style="background: #3498db;"></div><span>Аристотель</span></div>
+                <div class="legend-item"><div class="legend-color" style="background: #8e44ad;"></div><span>Августин</span></div>
+                <div class="legend-item"><div class="legend-color" style="background: #9b59b6;"></div><span>Фома Аквинский</span></div>
+                <div class="legend-item"><div class="legend-color" style="background: #2ecc71;"></div><span>Декарт</span></div>
+                <div class="legend-item"><div class="legend-color" style="background: #27ae60;"></div><span>Спиноза</span></div>
+                <div class="legend-item"><div class="legend-color" style="background: #16a085;"></div><span>Лейбниц</span></div>
+                <div class="legend-item"><div class="legend-color" style="background: #1abc9c;"></div><span>Юм</span></div>
+                <div class="legend-item"><div class="legend-color" style="background: #f39c12;"></div><span>Кант</span></div>
+                <div class="legend-item"><div class="legend-color" style="background: #d35400;"></div><span>Фихте</span></div>
+                <div class="legend-item"><div class="legend-color" style="background: #e67e22;"></div><span>Гегель</span></div>
+                <div class="legend-item"><div class="legend-color" style="background: #95a5a6;"></div><span>Шопенгауэр</span></div>
+                <div class="legend-item"><div class="legend-color" style="background: #7f8c8d;"></div><span>Кьеркегор</span></div>
+                <div class="legend-item"><div class="legend-color" style="background: #c0392b;"></div><span>Маркс</span></div>
+                <div class="legend-item"><div class="legend-color" style="background: #2c3e50;"></div><span>Ницше</span></div>
+                <div class="legend-item"><div class="legend-color" style="background: #34495e;"></div><span>Гуссерль</span></div>
+                <div class="legend-item"><div class="legend-color" style="background: #e67e22;"></div><span>Хайдеггер</span></div>
+                <div class="legend-item"><div class="legend-color" style="background: #2980b9;"></div><span>Витгенштейн</span></div>
+                <div class="legend-item"><div class="legend-color" style="background: #8e44ad;"></div><span>Сартр</span></div>
+                <div class="legend-item"><div class="legend-color" style="background: #16a085;"></div><span>Фуко</span></div>
+                <div class="legend-item"><div class="legend-color" style="background: #27ae60;"></div><span>Делёз</span></div>
+            </div>
+
+            <div class="legend-section">
+                <h4>Типы связей:</h4>
+                <div class="legend-item"><div class="legend-line" style="background: #e74c3c;"></div><span>Противопоставление</span></div>
+                <div class="legend-item"><div class="legend-line" style="background: #3498db;"></div><span>Обоснование</span></div>
+                <div class="legend-item"><div class="legend-line" style="background: #2ecc71;"></div><span>Развитие</span></div>
+                <div class="legend-item"><div class="legend-line" style="background: #f39c12;"></div><span>Критика</span></div>
+                <div class="legend-item"><div class="legend-line" style="background: #9b59b6;"></div><span>Синтез</span></div>
+                <div class="legend-item"><div class="legend-line" style="background: #1abc9c;"></div><span>Влияние</span></div>
+                <div class="legend-item"><div class="legend-line" style="background: #95a5a6; opacity: 0.6;"></div><span>Диалог (↔)</span></div>
+            </div>
+        </div>
+
+        <div id="controls">
+            <button onclick="resetSimulation()">🔄 Перезапустить</button>
+            <button onclick="centerGraph()">🎯 Центрировать</button>
+        </div>
+
+        <div id="info">
+            💡 Перетаскивайте категории • Наведите для подробностей
+        </div>
+
+        <div class="tooltip" id="tooltip"></div>
+    </div>
+
+    <script>
+        const philosopherConcepts = {
+            "Сократ": "#e74c3c",
+            "Платон": "#c0392b",
+            "Аристотель": "#3498db",
+            "Августин": "#8e44ad",
+            "Фома Аквинский": "#9b59b6",
+            "Декарт": "#2ecc71",
+            "Спиноза": "#27ae60",
+            "Лейбниц": "#16a085",
+            "Юм": "#1abc9c",
+            "Кант": "#f39c12",
+            "Фихте": "#d35400",
+            "Гегель": "#e67e22",
+            "Шопенгауэр": "#95a5a6",
+            "Кьеркегор": "#7f8c8d",
+            "Маркс": "#c0392b",
+            "Ницше": "#2c3e50",
+            "Гуссерль": "#34495e",
+            "Хайдеггер": "#e67e22",
+            "Витгенштейн": "#2980b9",
+            "Сартр": "#8e44ad",
+            "Фуко": "#16a085",
+            "Делёз": "#27ae60"
+        };
+
+        const relationTypes = {
+            "oppose": { color: "#e74c3c", label: "противопоставление" },
+            "ground": { color: "#3498db", label: "обосновывает" },
+            "develop": { color: "#2ecc71", label: "развивает" },
+            "critique": { color: "#f39c12", label: "критикует" },
+            "synthesize": { color: "#9b59b6", label: "синтезирует" },
+            "influence": { color: "#1abc9c", label: "влияет" },
+            "dialogue": { color: "#95a5a6", label: "диалог" }
+        };
+
+        const nodes = [
+            // Сократ
+            { id: "maieutics", label: "Майевтика", concept: "Сократ", description: "Метод извлечения знания через вопросы" },
+            { id: "know_nothing", label: "Знаю, что ничего не знаю", concept: "Сократ", description: "Осознание границ собственного знания" },
+            { id: "virtue_knowledge", label: "Добродетель = знание", concept: "Сократ", description: "Единство морали и познания" },
+            { id: "daimonion", label: "Даймоний", concept: "Сократ", description: "Внутренний голос совести" },
+            { id: "care_soul", label: "Забота о душе", concept: "Сократ", description: "Приоритет духовного развития" },
+            
+            // Платон
+            { id: "ideas", label: "Мир идей", concept: "Платон", description: "Вечный мир совершенных форм" },
+            { id: "eidos", label: "Эйдос", concept: "Платон", description: "Идеальная сущность вещи" },
+            { id: "anamnesis", label: "Анамнесис", concept: "Платон", description: "Воспоминание души об идеях" },
+            { id: "demiurge", label: "Демиург", concept: "Платон", description: "Творец материального мира" },
+            { id: "cave", label: "Миф о пещере", concept: "Платон", description: "Аллегория познания истины" },
+            { id: "ideal_state", label: "Идеальное государство", concept: "Платон", description: "Справедливое политическое устройство" },
+            { id: "tripartite_soul", label: "Трёхчастная душа", concept: "Платон", description: "Разум, воля, чувства" },
+            
+            // Аристотель
+            { id: "form", label: "Форма", concept: "Аристотель", description: "Активное начало, определяющее вещь" },
+            { id: "matter_ar", label: "Материя", concept: "Аристотель", description: "Пассивное начало, субстрат" },
+            { id: "entelechy", label: "Энтелехия", concept: "Аристотель", description: "Внутренняя цель, осуществление" },
+            { id: "four_causes", label: "Четыре причины", concept: "Аристотель", description: "Материальная, формальная, движущая, целевая" },
+            { id: "unmoved_mover", label: "Перводвигатель", concept: "Аристотель", description: "Неподвижный источник движения" },
+            { id: "golden_mean", label: "Золотая середина", concept: "Аристотель", description: "Этический принцип умеренности" },
+            { id: "categories", label: "Категории", concept: "Аристотель", description: "Основные роды бытия" },
+            
+            // Августин
+            { id: "grace", label: "Благодать", concept: "Августин", description: "Божественная милость к человеку" },
+            { id: "original_sin", label: "Первородный грех", concept: "Августин", description: "Наследственная греховность" },
+            { id: "two_cities", label: "Два града", concept: "Августин", description: "Град Божий и град земной" },
+            { id: "time_augustine", label: "Время", concept: "Августин", description: "Растяжение души" },
+            { id: "confession", label: "Исповедь", concept: "Августин", description: "Путь к Богу через самопознание" },
+            { id: "faith_reason", label: "Вера и разум", concept: "Августин", description: "Верю, чтобы понимать" },
+            
+            // Фома Аквинский
+            { id: "essence_existence", label: "Сущность и существование", concept: "Фома Аквинский", description: "Различение эссенции и экзистенции" },
+            { id: "five_ways", label: "Пять путей", concept: "Фома Аквинский", description: "Доказательства бытия Бога" },
+            { id: "natural_law", label: "Естественный закон", concept: "Фома Аквинский", description: "Рациональная основа морали" },
+            { id: "analogy", label: "Аналогия бытия", concept: "Фома Аквинский", description: "Подобие между Богом и творением" },
+            { id: "thomistic_synthesis", label: "Синтез Аристотеля", concept: "Фома Аквинский", description: "Христианизация философии Аристотеля" },
+            
+            // Декарт
+            { id: "cogito", label: "Cogito ergo sum", concept: "Декарт", description: "Я мыслю, следовательно существую" },
+            { id: "dualism", label: "Дуализм", concept: "Декарт", description: "Разделение мышления и протяжения" },
+            { id: "res_cogitans", label: "Res cogitans", concept: "Декарт", description: "Мыслящая субстанция" },
+            { id: "res_extensa", label: "Res extensa", concept: "Декарт", description: "Протяженная субстанция" },
+            { id: "method", label: "Метод сомнения", concept: "Декарт", description: "Радикальный скептицизм как путь к истине" },
+            { id: "clear_distinct", label: "Ясные и отчётливые идеи", concept: "Декарт", description: "Критерий истинности" },
+            { id: "innate_ideas", label: "Врождённые идеи", concept: "Декарт", description: "Априорное знание" },
+            
+            // Спиноза
+            { id: "substance_spinoza", label: "Субстанция", concept: "Спиноза", description: "Бог или природа (Deus sive Natura)" },
+            { id: "modes", label: "Модусы", concept: "Спиноза", description: "Проявления единой субстанции" },
+            { id: "attributes", label: "Атрибуты", concept: "Спиноза", description: "Мышление и протяжение" },
+            { id: "conatus", label: "Conatus", concept: "Спиноза", description: "Стремление к самосохранению" },
+            { id: "intellectual_love", label: "Интеллектуальная любовь", concept: "Спиноза", description: "Amor Dei intellectualis" },
+            { id: "determinism", label: "Детерминизм", concept: "Спиноза", description: "Необходимость всего существующего" },
+            
+            // Лейбниц
+            { id: "monads", label: "Монады", concept: "Лейбниц", description: "Простые неделимые субстанции" },
+            { id: "preestablished", label: "Предустановленная гармония", concept: "Лейбниц", description: "Согласованность монад" },
+            { id: "best_worlds", label: "Лучший из миров", concept: "Лейбниц", description: "Теодицея" },
+            { id: "petites_perceptions", label: "Малые перцепции", concept: "Лейбниц", description: "Бессознательные восприятия" },
+            { id: "sufficient_reason", label: "Достаточное основание", concept: "Лейбниц", description: "Принцип рациональности" },
+            
+            // Юм
+            { id: "impressions", label: "Впечатления", concept: "Юм", description: "Первичные чувственные данные" },
+            { id: "ideas_hume", label: "Идеи", concept: "Юм", description: "Копии впечатлений" },
+            { id: "causality_critique", label: "Критика причинности", concept: "Юм", description: "Привычка, не необходимость" },
+            { id: "bundle_theory", label: "Теория пучка", concept: "Юм", description: "Я как связка восприятий" },
+            { id: "is_ought", label: "Гильотина Юма", concept: "Юм", description: "Разрыв между сущим и должным" },
+            { id: "custom", label: "Привычка", concept: "Юм", description: "Основа веры и ожиданий" },
+            
+            // Кант
+            { id: "thing_itself", label: "Вещь в себе", concept: "Кант", description: "Непознаваемая сущность" },
+            { id: "phenomenon", label: "Феномен", concept: "Кант", description: "Явление для нас" },
+            { id: "categorical", label: "Категорический императив", concept: "Кант", description: "Безусловный моральный закон" },
+            { id: "apriori", label: "Априорные формы", concept: "Кант", description: "Врожденные структуры познания" },
+            { id: "synthetic_apriori", label: "Синтетические априори", concept: "Кант", description: "Расширяющие априорные суждения" },
+            { id: "transcendental", label: "Трансцендентальное", concept: "Кант", description: "Условия возможности опыта" },
+            { id: "autonomy", label: "Автономия воли", concept: "Кант", description: "Самозаконодательство разума" },
+            
+            // Фихте
+            { id: "absolute_ego", label: "Абсолютное Я", concept: "Фихте", description: "Самополагающее сознание" },
+            { id: "non_ego", label: "Не-Я", concept: "Фихте", description: "Противоположность Я" },
+            { id: "tathandlung", label: "Татхандлунг", concept: "Фихте", description: "Действие-поступок Я" },
+            { id: "striving", label: "Стремление", concept: "Фихте", description: "Бесконечная активность Я" },
+            { id: "practical_primacy", label: "Примат практического", concept: "Фихте", description: "Приоритет действия над познанием" },
+            
+            // Гегель
+            { id: "absolute_idea", label: "Абсолютная идея", concept: "Гегель", description: "Саморазвивающийся мировой дух" },
+            { id: "dialectic", label: "Диалектика", concept: "Гегель", description: "Тезис-антитезис-синтез" },
+            { id: "weltgeist", label: "Weltgeist", concept: "Гегель", description: "Мировой дух в истории" },
+            { id: "aufhebung", label: "Aufhebung", concept: "Гегель", description: "Снятие противоречий" },
+            { id: "master_slave", label: "Господин и раб", concept: "Гегель", description: "Диалектика признания" },
+            { id: "objective_spirit", label: "Объективный дух", concept: "Гегель", description: "Дух в социальных институтах" },
+            { id: "cunning_reason", label: "Хитрость разума", concept: "Гегель", description: "Самореализация духа через историю" },
+            
+            // Шопенгауэр
+            { id: "will_schop", label: "Мировая воля", concept: "Шопенгауэр", description: "Слепая иррациональная сила" },
+            { id: "representation", label: "Представление", concept: "Шопенгауэр", description: "Мир как иллюзия" },
+            { id: "suffering", label: "Страдание", concept: "Шопенгауэр", description: "Сущность жизни" },
+            { id: "denial_will", label: "Отрицание воли", concept: "Шопенгауэр", description: "Путь к освобождению" },
+            { id: "aesthetics_schop", label: "Эстетическое созерцание", concept: "Шопенгауэр", description: "Временное освобождение от воли" },
+            { id: "compassion", label: "Сострадание", concept: "Шопенгауэр", description: "Основа морали" },
+            
+            // Кьеркегор
+            { id: "stages_existence", label: "Стадии существования", concept: "Кьеркегор", description: "Эстетическая, этическая, религиозная" },
+            { id: "leap_faith", label: "Прыжок веры", concept: "Кьеркегор", description: "Иррациональное решение" },
+            { id: "anxiety", label: "Тревога", concept: "Кьеркегор", description: "Головокружение свободы" },
+            { id: "despair", label: "Отчаяние", concept: "Кьеркегор", description: "Болезнь к смерти" },
+            { id: "individual", label: "Единичный", concept: "Кьеркегор", description: "Противостояние толпе" },
+            { id: "subjective_truth", label: "Субъективная истина", concept: "Кьеркегор", description: "Истина как страсть" },
+            
+            // Маркс
+            { id: "praxis", label: "Праксис", concept: "Маркс", description: "Революционная практика" },
+            { id: "alienation", label: "Отчуждение", concept: "Маркс", description: "Отчуждение труда" },
+            { id: "base_superstructure", label: "Базис и надстройка", concept: "Маркс", description: "Экономика и идеология" },
+            { id: "class_struggle", label: "Классовая борьба", concept: "Маркс", description: "Двигатель истории" },
+            { id: "commodity_fetish", label: "Товарный фетишизм", concept: "Маркс", description: "Овеществление социальных отношений" },
+            { id: "historical_materialism", label: "Исторический материализм", concept: "Маркс", description: "Материалистическое понимание истории" },
+            
+            // Ницше
+            { id: "will_power", label: "Воля к власти", concept: "Ницше", description: "Фундаментальная жизненная сила" },
+            { id: "ubermensch", label: "Сверхчеловек", concept: "Ницше", description: "Преодолевший себя человек" },
+            { id: "eternal_return", label: "Вечное возвращение", concept: "Ницше", description: "Циклическое повторение бытия" },
+            { id: "god_dead", label: "Смерть Бога", concept: "Ницше", description: "Конец метафизических абсолютов" },
+            { id: "perspectivism", label: "Перспективизм", concept: "Ницше", description: "Множественность интерпретаций" },
+            { id: "master_morality", label: "Мораль господ", concept: "Ницше", description: "Аристократическая этика" },
+            { id: "slave_morality", label: "Мораль рабов", concept: "Ницше", description: "Ресентимент слабых" },
+            
+            // Гуссерль
+            { id: "intentionality", label: "Интенциональность", concept: "Гуссерль", description: "Направленность сознания" },
+            { id: "epoché", label: "Эпохе", concept: "Гуссерль", description: "Феноменологическая редукция" },
+            { id: "lifeworld", label: "Жизненный мир", concept: "Гуссерль", description: "Дорефлективный опыт" },
+            { id: "transcendental_ego", label: "Трансцендентальное Я", concept: "Гуссерль", description: "Чистое сознание" },
+            { id: "eidetic", label: "Эйдетическая интуиция", concept: "Гуссерль", description: "Усмотрение сущностей" },
+            
+            // Хайдеггер
+            { id: "dasein", label: "Dasein", concept: "Хайдеггер", description: "Человеческое бытие-в-мире" },
+            { id: "sein", label: "Sein", concept: "Хайдеггер", description: "Бытие как таковое" },
+            { id: "geworfenheit", label: "Geworfenheit", concept: "Хайдеггер", description: "Заброшенность в мир" },
+            { id: "sorge", label: "Sorge", concept: "Хайдеггер", description: "Забота как основа бытия" },
+            { id: "sein_zum_tode", label: "Sein-zum-Tode", concept: "Хайдеггер", description: "Бытие-к-смерти" },
+            { id: "aletheia", label: "Aletheia", concept: "Хайдеггер", description: "Истина как несокрытость" },
+            { id: "dwelling", label: "Обитание", concept: "Хайдеггер", description: "Аутентичное пребывание" },
+            
+            // Витгенштейн
+            { id: "language_game", label: "Языковые игры", concept: "Витгенштейн", description: "Контекстуальное использование языка" },
+            { id: "picture_theory", label: "Теория изображения", concept: "Витгенштейн", description: "Язык как картина мира" },
+            { id: "limits_language", label: "Границы языка", concept: "Витгенштейн", description: "О чем невозможно говорить" },
+            { id: "family_resemblance", label: "Семейное сходство", concept: "Витгенштейн", description: "Нечёткие категории" },
+            { id: "form_of_life", label: "Форма жизни", concept: "Витгенштейн", description: "Практический контекст языка" },
+            
+            // Сартр
+            { id: "existence", label: "Существование", concept: "Сартр", description: "Первично перед сущностью" },
+            { id: "nothingness", label: "Ничто", concept: "Сартр", description: "Источник свободы" },
+            { id: "bad_faith", label: "Дурная вера", concept: "Сартр", description: "Самообман и бегство от свободы" },
+            { id: "freedom_sartre", label: "Свобода", concept: "Сартр", description: "Осужденность быть свободным" },
+            { id: "for_itself", label: "Для-себя-бытие", concept: "Сартр", description: "Сознание" },
+            { id: "in_itself", label: "В-себе-бытие", concept: "Сартр", description: "Вещи без сознания" },
+            { id: "look", label: "Взгляд Другого", concept: "Сартр", description: "Объективация через Другого" },
+            
+            // Фуко
+            { id: "power_knowledge", label: "Власть-знание", concept: "Фуко", description: "Неразрывность власти и знания" },
+            { id: "episteme", label: "Эпистема", concept: "Фуко", description: "Исторические структуры знания" },
+            { id: "discipline", label: "Дисциплина", concept: "Фуко", description: "Микрофизика власти" },
+            { id: "biopower", label: "Биовласть", concept: "Фуко", description: "Власть над жизнью" },
+            { id: "care_self", label: "Забота о себе", concept: "Фуко", description: "Этика самопреобразования" },
+            { id: "archaeology", label: "Археология знания", concept: "Фуко", description: "Метод анализа дискурсов" },
+            
+            // Делёз
+            { id: "rhizome", label: "Ризома", concept: "Делёз", description: "Нелинейная структура" },
+            { id: "difference", label: "Различие", concept: "Делёз", description: "Онтология множественности" },
+            { id: "body_without_organs", label: "Тело без органов", concept: "Делёз", description: "Недифференцированная полнота" },
+            { id: "desiring_machines", label: "Машины желания", concept: "Делёз", description: "Производство желания" },
+            { id: "assemblage", label: "Ассамбляж", concept: "Делёз", description: "Множественное единство" },
+            { id: "deterritorialization", label: "Детерриториализация", concept: "Делёз", description: "Разрушение структур" }
+        ];
+
+        const links = [
+            // Сократ → Платон
+            { source: "maieutics", target: "anamnesis", type: "influence" },
+            { source: "virtue_knowledge", target: "ideas", type: "influence" },
+            { source: "care_soul", target: "tripartite_soul", type: "develop" },
+            
+            // Платон → Аристотель
+            { source: "eidos", target: "form", type: "develop" },
+            { source: "ideas", target: "form", type: "critique" },
+            { source: "demiurge", target: "unmoved_mover", type: "develop" },
+            { source: "tripartite_soul", target: "golden_mean", type: "influence" },
+            
+            // Внутренние связи Платона
+            { source: "ideas", target: "eidos", type: "ground" },
+            { source: "eidos", target: "anamnesis", type: "ground" },
+            { source: "cave", target: "ideas", type: "ground" },
+            { source: "demiurge", target: "ideas", type: "influence" },
+            { source: "ideal_state", target: "tripartite_soul", type: "ground" },
+            
+            // Внутренние связи Аристотеля
+            { source: "form", target: "matter_ar", type: "dialogue", bidirectional: true },
+            { source: "form", target: "entelechy", type: "ground" },
+            { source: "four_causes", target: "entelechy", type: "ground" },
+            { source: "unmoved_mover", target: "entelechy", type: "ground" },
+            { source: "categories", target: "form", type: "ground" },
+            
+            // Аристотель → Средневековье
+            { source: "form", target: "essence_existence", type: "influence" },
+            { source: "four_causes", target: "five_ways", type: "influence" },
+            
+            // Внутренние связи Августина
+            { source: "grace", target: "original_sin", type: "oppose" },
+            { source: "faith_reason", target: "confession", type: "ground" },
+            { source: "two_cities", target: "grace", type: "ground" },
+            { source: "time_augustine", target: "confession", type: "ground" },
+            
+            // Августин → Фома
+            { source: "faith_reason", target: "thomistic_synthesis", type: "influence" },
+            { source: "grace", target: "natural_law", type: "influence" },
+            
+            // Внутренние связи Фомы
+            { source: "essence_existence", target: "five_ways", type: "ground" },
+            { source: "natural_law", target: "thomistic_synthesis", type: "ground" },
+            { source: "analogy", target: "essence_existence", type: "ground" },
+            { source: "thomistic_synthesis", target: "form", type: "develop" },
+            
+            // Декарт
+            { source: "cogito", target: "dualism", type: "ground" },
+            { source: "res_cogitans", target: "res_extensa", type: "oppose" },
+            { source: "dualism", target: "res_cogitans", type: "ground" },
+            { source: "method", target: "cogito", type: "ground" },
+            { source: "clear_distinct", target: "innate_ideas", type: "ground" },
+            { source: "innate_ideas", target: "res_cogitans", type: "ground" },
+            { source: "cogito", target: "know_nothing", type: "critique" },
+            
+            // Спиноза
+            { source: "substance_spinoza", target: "modes", type: "ground" },
+            { source: "attributes", target: "substance_spinoza", type: "ground" },
+            { source: "conatus", target: "modes", type: "ground" },
+            { source: "intellectual_love", target: "substance_spinoza", type: "ground" },
+            { source: "determinism", target: "substance_spinoza", type: "ground" },
+            { source: "substance_spinoza", target: "dualism", type: "critique" },
+            { source: "determinism", target: "autonomy", type: "oppose" },
+            
+            // Лейбниц
+            { source: "monads", target: "preestablished", type: "ground" },
+            { source: "sufficient_reason", target: "best_worlds", type: "ground" },
+            { source: "petites_perceptions", target: "monads", type: "ground" },
+            { source: "monads", target: "substance_spinoza", type: "critique" },
+            { source: "preestablished", target: "dualism", type: "synthesize" },
+            
+            // Юм
+            { source: "impressions", target: "ideas_hume", type: "ground" },
+            { source: "causality_critique", target: "custom", type: "ground" },
+            { source: "bundle_theory", target: "impressions", type: "ground" },
+            { source: "is_ought", target: "natural_law", type: "critique" },
+            { source: "causality_critique", target: "four_causes", type: "critique" },
+            { source: "impressions", target: "innate_ideas", type: "critique" },
+            
+            // Кант
+            { source: "thing_itself", target: "phenomenon", type: "oppose" },
+            { source: "apriori", target: "phenomenon", type: "ground" },
+            { source: "categorical", target: "autonomy", type: "ground" },
+            { source: "synthetic_apriori", target: "transcendental", type: "ground" },
+            { source: "transcendental", target: "apriori", type: "ground" },
+            { source: "thing_itself", target: "ideas", type: "critique" },
+            { source: "apriori", target: "impressions", type: "critique" },
+            { source: "synthetic_apriori", target: "innate_ideas", type: "develop" },
+            { source: "categorical", target: "natural_law", type: "develop" },
+            
+            // Фихте
+            { source: "absolute_ego", target: "non_ego", type: "oppose" },
+            { source: "tathandlung", target: "absolute_ego", type: "ground" },
+            { source: "striving", target: "non_ego", type: "ground" },
+            { source: "practical_primacy", target: "tathandlung", type: "ground" },
+            { source: "absolute_ego", target: "transcendental", type: "develop" },
+            { source: "tathandlung", target: "cogito", type: "critique" },
+            
+            // Гегель
+            { source: "dialectic", target: "aufhebung", type: "ground" },
+            { source: "absolute_idea", target: "weltgeist", type: "ground" },
+            { source: "dialectic", target: "absolute_idea", type: "ground" },
+            { source: "master_slave", target: "dialectic", type: "ground" },
+            { source: "objective_spirit", target: "weltgeist", type: "ground" },
+            { source: "cunning_reason", target: "weltgeist", type: "ground" },
+            { source: "aufhebung", target: "non_ego", type: "synthesize" },
+            { source: "dialectic", target: "thing_itself", type: "synthesize" },
+            { source: "absolute_idea", target: "absolute_ego", type: "develop" },
+            
+            // Шопенгауэр
+            { source: "will_schop", target: "representation", type: "oppose" },
+            { source: "suffering", target: "will_schop", type: "ground" },
+            { source: "denial_will", target: "suffering", type: "oppose" },
+            { source: "aesthetics_schop", target: "denial_will", type: "ground" },
+            { source: "compassion", target: "denial_will", type: "ground" },
+            { source: "will_schop", target: "absolute_idea", type: "critique" },
+            { source: "representation", target: "phenomenon", type: "develop" },
+            
+            // Кьеркегор
+            { source: "stages_existence", target: "leap_faith", type: "ground" },
+            { source: "anxiety", target: "leap_faith", type: "ground" },
+            { source: "despair", target: "anxiety", type: "ground" },
+            { source: "individual", target: "subjective_truth", type: "ground" },
+            { source: "subjective_truth", target: "leap_faith", type: "ground" },
+            { source: "individual", target: "absolute_idea", type: "critique" },
+            { source: "leap_faith", target: "dialectic", type: "critique" },
+            
+            // Маркс
+            { source: "praxis", target: "alienation", type: "oppose" },
+            { source: "base_superstructure", target: "class_struggle", type: "ground" },
+            { source: "commodity_fetish", target: "alienation", type: "ground" },
+            { source: "historical_materialism", target: "base_superstructure", type: "ground" },
+            { source: "praxis", target: "tathandlung", type: "develop" },
+            { source: "dialectic", target: "historical_materialism", type: "influence" },
+            { source: "alienation", target: "objective_spirit", type: "critique" },
+            
+            // Ницше
+            { source: "will_power", target: "ubermensch", type: "ground" },
+            { source: "god_dead", target: "ubermensch", type: "ground" },
+            { source: "eternal_return", target: "will_power", type: "ground" },
+            { source: "perspectivism", target: "god_dead", type: "ground" },
+            { source: "master_morality", target: "slave_morality", type: "oppose" },
+            { source: "will_power", target: "will_schop", type: "develop" },
+            { source: "god_dead", target: "absolute_idea", type: "critique" },
+            { source: "ubermensch", target: "categorical", type: "critique" },
+            { source: "perspectivism", target: "thing_itself", type: "critique" },
+            { source: "master_morality", target: "natural_law", type: "critique" },
+            
+            // Гуссерль
+            { source: "intentionality", target: "epoché", type: "ground" },
+            { source: "transcendental_ego", target: "eidetic", type: "ground" },
+            { source: "lifeworld", target: "epoché", type: "oppose" },
+            { source: "eidetic", target: "intentionality", type: "ground" },
+            { source: "transcendental_ego", target: "cogito", type: "develop" },
+            { source: "epoché", target: "method", type: "develop" },
+            
+            // Хайдеггер
+            { source: "dasein", target: "sein", type: "ground" },
+            { source: "geworfenheit", target: "sorge", type: "ground" },
+            { source: "dasein", target: "geworfenheit", type: "ground" },
+            { source: "sein_zum_tode", target: "dasein", type: "ground" },
+            { source: "aletheia", target: "sein", type: "ground" },
+            { source: "dwelling", target: "dasein", type: "ground" },
+            { source: "sein", target: "absolute_idea", type: "critique" },
+            { source: "dasein", target: "transcendental_ego", type: "critique" },
+            { source: "sorge", target: "intentionality", type: "develop" },
+            
+            // Витгенштейн
+            { source: "language_game", target: "form_of_life", type: "ground" },
+            { source: "picture_theory", target: "limits_language", type: "ground" },
+            { source: "family_resemblance", target: "language_game", type: "ground" },
+            { source: "limits_language", target: "categories", type: "critique" },
+            { source: "language_game", target: "picture_theory", type: "critique" },
+            
+            // Сартр
+            { source: "existence", target: "nothingness", type: "ground" },
+            { source: "freedom_sartre", target: "bad_faith", type: "oppose" },
+            { source: "nothingness", target: "freedom_sartre", type: "ground" },
+            { source: "for_itself", target: "in_itself", type: "oppose" },
+            { source: "look", target: "for_itself", type: "ground" },
+            { source: "existence", target: "dasein", type: "develop" },
+            { source: "nothingness", target: "sein", type: "develop" },
+            { source: "freedom_sartre", target: "geworfenheit", type: "dialogue", bidirectional: true },
+            { source: "bad_faith", target: "dualism", type: "critique" },
+            
+            // Фуко
+            { source: "power_knowledge", target: "episteme", type: "ground" },
+            { source: "discipline", target: "biopower", type: "ground" },
+            { source: "archaeology", target: "episteme", type: "ground" },
+            { source: "care_self", target: "care_soul", type: "develop" },
+            { source: "power_knowledge", target: "transcendental", type: "critique" },
+            { source: "episteme", target: "apriori", type: "critique" },
+            { source: "biopower", target: "conatus", type: "develop" },
+            
+            // Делёз
+            { source: "rhizome", target: "assemblage", type: "ground" },
+            { source: "difference", target: "body_without_organs", type: "ground" },
+            { source: "desiring_machines", target: "body_without_organs", type: "ground" },
+            { source: "deterritorialization", target: "rhizome", type: "ground" },
+            { source: "difference", target: "dialectic", type: "critique" },
+            { source: "rhizome", target: "weltgeist", type: "critique" },
+            { source: "body_without_organs", target: "res_extensa", type: "critique" },
+            { source: "desiring_machines", target: "conatus", type: "develop" },
+            
+            // Дополнительные межконцептуальные связи
+            { source: "will_power", target: "conatus", type: "dialogue", bidirectional: true },
+            { source: "eternal_return", target: "dialectic", type: "critique" },
+            { source: "compassion", target: "categorical", type: "dialogue", bidirectional: true },
+            { source: "alienation", target: "bad_faith", type: "dialogue", bidirectional: true },
+            { source: "determinism", target: "freedom_sartre", type: "oppose" },
+            { source: "entelechy", target: "conatus", type: "influence" },
+            { source: "geworfenheit", target: "original_sin", type: "dialogue", bidirectional: true },
+            { source: "look", target: "master_slave", type: "develop" },
+            { source: "intentionality", target: "lifeworld", type: "ground" }
+        ];
+
+        const width = window.innerWidth;
+        const height = window.innerHeight;
+        
+        const svg = d3.select("#graph")
+            .attr("width", width)
+            .attr("height", height);
+
+        const defs = svg.append("defs");
+        
+        Object.keys(relationTypes).forEach(type => {
+            defs.append("marker")
+                .attr("id", `arrow-${type}`)
+                .attr("viewBox", "0 -5 10 10")
+                .attr("refX", 26)
+                .attr("refY", 0)
+                .attr("markerWidth", 6)
+                .attr("markerHeight", 6)
+                .attr("orient", "auto")
+                .append("path")
+                .attr("d", "M0,-5L10,0L0,5")
+                .attr("fill", relationTypes[type].color);
+        });
+
+        let simulation = d3.forceSimulation(nodes)
+            .force("link", d3.forceLink(links).id(d => d.id).distance(160))
+            .force("charge", d3.forceManyBody().strength(-350))
+            .force("center", d3.forceCenter(width / 2, height / 2))
+            .force("collision", d3.forceCollide().radius(45));
+
+        const link = svg.append("g")
+            .selectAll("path")
+            .data(links)
+            .enter()
+            .append("path")
+            .attr("class", d => d.bidirectional ? "link bidirectional" : "link")
+            .attr("stroke", d => relationTypes[d.type].color)
+            .attr("marker-end", d => `url(#arrow-${d.type})`);
+
+        const node = svg.append("g")
+            .selectAll("g")
+            .data(nodes)
+            .enter()
+            .append("g")
+            .attr("class", "node")
+            .call(d3.drag()
+                .on("start", dragstarted)
+                .on("drag", dragged)
+                .on("end", dragended));
+
+        node.append("circle")
+            .attr("r", 18)
+            .attr("fill", d => philosopherConcepts[d.concept])
+            .attr("stroke", "#fff");
+
+        node.append("text")
+            .attr("dy", -25)
+            .attr("text-anchor", "middle")
+            .text(d => d.label);
+
+        const tooltip = d3.select("#tooltip");
+
+        node.on("mouseover", function(event, d) {
+            tooltip
+                .style("opacity", 1)
+                .html(`<strong>${d.label}</strong><br/>${d.description}<br/><em>${d.concept}</em>`)
+                .style("left", (event.pageX + 15) + "px")
+                .style("top", (event.pageY - 15) + "px");
+        })
+        .on("mouseout", function() {
+            tooltip.style("opacity", 0);
+        });
+
+        link.on("mouseover", function(event, d) {
+            const sourceNode = nodes.find(n => n.id === d.source.id);
+            const targetNode = nodes.find(n => n.id === d.target.id);
+            const direction = d.bidirectional ? "↔" : "→";
+            tooltip
+                .style("opacity", 1)
+                .html(`<strong>${relationTypes[d.type].label}</strong><br/>${sourceNode.label} ${direction} ${targetNode.label}`)
+                .style("left", (event.pageX + 15) + "px")
+                .style("top", (event.pageY - 15) + "px");
+        })
+        .on("mouseout", function() {
+            tooltip.style("opacity", 0);
+        });
+
+        simulation.on("tick", () => {
+            link.attr("d", d => {
+                const dx = d.target.x - d.source.x;
+                const dy = d.target.y - d.source.y;
+                const dr = Math.sqrt(dx * dx + dy * dy) * 1.5;
+                return `M${d.source.x},${d.source.y}A${dr},${dr} 0 0,1 ${d.target.x},${d.target.y}`;
+            });
+
+            node.attr("transform", d => `translate(${d.x},${d.y})`);
+        });
+
+        function dragstarted(event, d) {
+            if (!event.active) simulation.alphaTarget(0.3).restart();
+            d.fx = d.x;
+            d.fy = d.y;
+        }
+
+        function dragged(event, d) {
+            d.fx = event.x;
+            d.fy = event.y;
+        }
+
+        function dragended(event, d) {
+            if (!event.active) simulation.alphaTarget(0);
+            d.fx = null;
+            d.fy = null;
+        }
+
+        function resetSimulation() {
+            nodes.forEach(n => {
+                n.fx = null;
+                n.fy = null;
+            });
+            simulation.alpha(1).restart();
+        }
+
+        function centerGraph() {
+            simulation.force("center", d3.forceCenter(window.innerWidth / 2, window.innerHeight / 2));
+            simulation.alpha(0.3).restart();
+        }
+
+        window.addEventListener('resize', () => {
+            const newWidth = window.innerWidth;
+            const newHeight = window.innerHeight;
+            svg.attr("width", newWidth).attr("height", newHeight);
+            simulation.force("center", d3.forceCenter(newWidth / 2, newHeight / 2));
+            simulation.alpha(0.3).restart();
+        });
+    </script>
+</body>
+</html>
