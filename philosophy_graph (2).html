@@ -2402,28 +2402,83 @@
         // Экспорт в PNG
         function exportToPNG() {
             const svgElement = document.getElementById('graph');
-            const svgData = new XMLSerializer().serializeToString(svgElement);
+            const svgClone = svgElement.cloneNode(true);
             
+            // Получаем текущий transform от zoom
+            const gElement = svgClone.querySelector('g');
+            const transform = g.attr('transform');
+            if (transform) {
+                gElement.setAttribute('transform', transform);
+            }
+            
+            // Применяем инлайн-стили к тексту
+            const textElements = svgClone.querySelectorAll('text');
+            textElements.forEach(text => {
+                text.style.fontFamily = "'Segoe UI', Tahoma, Geneva, Verdana, sans-serif";
+                text.style.fontSize = '10px';
+                text.style.fontWeight = '600';
+                text.style.fill = '#fff';
+                text.style.textShadow = '0 0 4px black';
+            });
+            
+            // Применяем инлайн-стили к узлам
+            const circles = svgClone.querySelectorAll('circle');
+            circles.forEach(circle => {
+                const computedStyle = window.getComputedStyle(circle);
+                circle.style.strokeWidth = '3px';
+                circle.style.filter = 'drop-shadow(0 0 10px rgba(255,255,255,0.4))';
+            });
+            
+            // Применяем инлайн-стили к связям
+            const paths = svgClone.querySelectorAll('path.link');
+            paths.forEach(path => {
+                path.style.fill = 'none';
+                const computedStyle = window.getComputedStyle(path);
+                path.style.stroke = computedStyle.stroke;
+                path.style.strokeWidth = computedStyle.strokeWidth;
+                path.style.opacity = computedStyle.opacity;
+            });
+            
+            // Увеличиваем разрешение для лучшего качества
+            const scale = 2;
             const canvas = document.createElement('canvas');
             const ctx = canvas.getContext('2d');
+            
+            canvas.width = width * scale;
+            canvas.height = height * scale;
+            ctx.scale(scale, scale);
+            
+            const svgData = new XMLSerializer().serializeToString(svgClone);
             const img = new Image();
             
-            canvas.width = width;
-            canvas.height = height;
-            
             img.onload = function() {
-                ctx.fillStyle = '#0f0c29'; // Фоновый цвет
+                // Рисуем фон
+                ctx.fillStyle = '#0f0c29';
                 ctx.fillRect(0, 0, canvas.width, canvas.height);
-                ctx.drawImage(img, 0, 0);
                 
-                const pngData = canvas.toDataURL('image/png');
-                const link = document.createElement('a');
-                link.download = 'philosophy-graph.png';
-                link.href = pngData;
-                link.click();
+                // Рисуем SVG
+                ctx.drawImage(img, 0, 0, width, height);
+                
+                // Конвертируем в PNG
+                canvas.toBlob(function(blob) {
+                    const url = URL.createObjectURL(blob);
+                    const link = document.createElement('a');
+                    link.download = 'philosophy-graph.png';
+                    link.href = url;
+                    link.click();
+                    URL.revokeObjectURL(url);
+                }, 'image/png');
             };
             
-            img.src = 'data:image/svg+xml;base64,' + btoa(unescape(encodeURIComponent(svgData)));
+            img.onerror = function(e) {
+                console.error('Ошибка загрузки изображения:', e);
+                alert('Ошибка при экспорте. Попробуйте использовать экспорт в SVG.');
+            };
+            
+            // Кодируем SVG данные
+            const svgBlob = new Blob([svgData], { type: 'image/svg+xml;charset=utf-8' });
+            const url = URL.createObjectURL(svgBlob);
+            img.src = url;
         }
         
         // Экспорт в SVG
