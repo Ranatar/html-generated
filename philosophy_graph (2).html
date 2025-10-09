@@ -52,6 +52,12 @@
             filter: drop-shadow(0 0 20px rgba(255,255,255,0.8));
         }
 
+        .node.selected circle {
+            stroke-width: 6px;
+            stroke: #ffd700 !important;
+            filter: drop-shadow(0 0 15px #ffd700);
+        }
+
         .node text {
             font-size: 10px;
             font-weight: 600;
@@ -120,6 +126,15 @@
             display: flex;
             justify-content: space-between;
             align-items: center;
+        }
+        
+        /* Стили для radio buttons */
+        .legend-item input[type="radio"] {
+            margin-right: 8px;
+            cursor: pointer;
+            width: 16px;
+            height: 16px;
+            accent-color: #6c5ce7;
         }
         
         .filter-controls {
@@ -743,6 +758,36 @@
         
             <div class="legend-section">
                 <h4>
+                    <span>Режим фильтрации:</span>
+                </h4>
+                <div class="legend-item">
+                    <input type="radio" id="filterAll" name="filterMode" value="all" checked onchange="changeFilterMode('all')">
+                    <label for="filterAll" style="font-size: 11px;">
+                        <span>Только выбранные философы</span>
+                    </label>
+                </div>
+                <div class="legend-item">
+                    <input type="radio" id="filterInternal" name="filterMode" value="internal" onchange="changeFilterMode('internal')">
+                    <label for="filterInternal" style="font-size: 11px;">
+                        <span>Только внутренние связи</span>
+                    </label>
+                </div>
+                <div class="legend-item">
+                    <input type="radio" id="filterContext" name="filterMode" value="context" onchange="changeFilterMode('context')">
+                    <label for="filterContext" style="font-size: 11px;">
+                        <span>С соседними узлами</span>
+                    </label>
+                </div>
+                <div style="font-size: 10px; color: #7f8c8d; margin-top: 8px; padding: 8px; background: rgba(108, 92, 231, 0.05); border-radius: 5px; line-height: 1.4;">
+                    <strong>Режимы:</strong><br>
+                    • <em>Только выбранные</em> - узлы и связи между ними<br>
+                    • <em>Только внутренние</em> - связи внутри систем<br>
+                    • <em>С соседними</em> - включая связанные узлы других философов
+                </div>
+            </div>
+        
+            <div class="legend-section">
+                <h4>
                     <span>Типы связей:</span>
                 </h4>
                 <div class="filter-controls">
@@ -814,7 +859,7 @@
         </div>
 
         <div id="info">
-            💡 Один клик - подсветка • Двойной клик - детали • Перетаскивайте • Колесо - масштаб
+            💡 Клик - подсветка • Ctrl+клик - множественный выбор • Двойной клик - детали • Перетаскивайте • Колесо - масштаб
         </div>
 
         <div class="tooltip" id="tooltip"></div>
@@ -1874,6 +1919,9 @@
         let selectedPhilosophers = new Set(Object.keys(philosopherConcepts));
         let selectedRelations = new Set(Object.keys(relationTypes));
         
+        // Режимы фильтрации: 'all' - только выбранные, 'internal' - только внутренние, 'context' - с соседними
+        let filterMode = 'all';
+        
         // Инициализация селектов для поиска пути
         function initPathFinder() {
             const sourceSelect = document.getElementById('sourceSelect');
@@ -2091,61 +2139,145 @@
             applyFilters();
         }
         
+        // Переключение режима фильтрации
+        function changeFilterMode(mode) {
+            filterMode = mode;
+            applyFilters();
+        }
+        
         // Применение фильтров с взаимосвязанной логикой
         function applyFilters() {
             const allRelationsSelected = selectedRelations.size === Object.keys(relationTypes).length;
-            // Шаг 1: Находим связи, которые:
-            // - Имеют выбранный тип И
-            // - ОБА узла принадлежат выбранным философам
-            const validLinks = links.filter(l => {
-                const typeSelected = selectedRelations.has(l.type);
-                const sourcePhilosopherSelected = selectedPhilosophers.has(l.source.concept);
-                const targetPhilosopherSelected = selectedPhilosophers.has(l.target.concept);
-                return typeSelected && sourcePhilosopherSelected && targetPhilosopherSelected;
-            });
             
-            // Шаг 2: Извлекаем узлы, участвующие в валидных связях
-            const nodesInValidLinks = new Set();
-            validLinks.forEach(l => {
-                nodesInValidLinks.add(l.source.id || l.source);
-                nodesInValidLinks.add(l.target.id || l.target);
-            });
-            
-            // Шаг 3: Определяем видимость узлов
-            // Узел виден, если:
-            // - Его философ выбран И
-            // - Он участвует в валидных связях (или выбраны все типы связей)
-            node.style("display", d => {
-                const philosopherSelected = selectedPhilosophers.has(d.concept);
-                const inValidLinks = allRelationsSelected || nodesInValidLinks.has(d.id);
-                return (philosopherSelected && inValidLinks) ? null : "none";
-            });
-            
-            // Шаг 4: Показываем только валидные связи
-            link.style("display", l => {
-                const typeSelected = selectedRelations.has(l.type);
-                const sourcePhilosopherSelected = selectedPhilosophers.has(l.source.concept);
-                const targetPhilosopherSelected = selectedPhilosophers.has(l.target.concept);
-                const sourceInValidLinks = allRelationsSelected || nodesInValidLinks.has(l.source.id);
-                const targetInValidLinks = allRelationsSelected || nodesInValidLinks.has(l.target.id);
+            if (filterMode === 'all') {
+                // Режим 1: Только выбранные философы
+                // Связи, где ОБА узла принадлежат выбранным философам
+                const validLinks = links.filter(l => {
+                    const typeSelected = selectedRelations.has(l.type);
+                    const sourcePhilosopherSelected = selectedPhilosophers.has(l.source.concept);
+                    const targetPhilosopherSelected = selectedPhilosophers.has(l.target.concept);
+                    return typeSelected && sourcePhilosopherSelected && targetPhilosopherSelected;
+                });
                 
-                return (typeSelected && sourcePhilosopherSelected && targetPhilosopherSelected && 
-                        sourceInValidLinks && targetInValidLinks) ? null : "none";
-            });
+                const nodesInValidLinks = new Set();
+                validLinks.forEach(l => {
+                    nodesInValidLinks.add(l.source.id || l.source);
+                    nodesInValidLinks.add(l.target.id || l.target);
+                });
+                
+                node.style("display", d => {
+                    const philosopherSelected = selectedPhilosophers.has(d.concept);
+                    const inValidLinks = allRelationsSelected || nodesInValidLinks.has(d.id);
+                    return (philosopherSelected && inValidLinks) ? null : "none";
+                });
+                
+                link.style("display", l => {
+                    const typeSelected = selectedRelations.has(l.type);
+                    const sourcePhilosopherSelected = selectedPhilosophers.has(l.source.concept);
+                    const targetPhilosopherSelected = selectedPhilosophers.has(l.target.concept);
+                    const sourceInValidLinks = allRelationsSelected || nodesInValidLinks.has(l.source.id);
+                    const targetInValidLinks = allRelationsSelected || nodesInValidLinks.has(l.target.id);
+                    
+                    return (typeSelected && sourcePhilosopherSelected && targetPhilosopherSelected && 
+                            sourceInValidLinks && targetInValidLinks) ? null : "none";
+                });
+                
+            } else if (filterMode === 'internal') {
+                // Режим 2: Только внутренние связи
+                // Связи, где оба узла от ОДНОГО философа из выбранных
+                const validLinks = links.filter(l => {
+                    const typeSelected = selectedRelations.has(l.type);
+                    const sourcePhilosopherSelected = selectedPhilosophers.has(l.source.concept);
+                    const targetPhilosopherSelected = selectedPhilosophers.has(l.target.concept);
+                    const samePhilosopher = l.source.concept === l.target.concept;
+                    return typeSelected && sourcePhilosopherSelected && targetPhilosopherSelected && samePhilosopher;
+                });
+                
+                const nodesInValidLinks = new Set();
+                validLinks.forEach(l => {
+                    nodesInValidLinks.add(l.source.id || l.source);
+                    nodesInValidLinks.add(l.target.id || l.target);
+                });
+                
+                node.style("display", d => {
+                    const philosopherSelected = selectedPhilosophers.has(d.concept);
+                    const inValidLinks = allRelationsSelected || nodesInValidLinks.has(d.id);
+                    return (philosopherSelected && inValidLinks) ? null : "none";
+                });
+                
+                link.style("display", l => {
+                    const typeSelected = selectedRelations.has(l.type);
+                    const sourcePhilosopherSelected = selectedPhilosophers.has(l.source.concept);
+                    const targetPhilosopherSelected = selectedPhilosophers.has(l.target.concept);
+                    const samePhilosopher = l.source.concept === l.target.concept;
+                    const sourceInValidLinks = allRelationsSelected || nodesInValidLinks.has(l.source.id);
+                    const targetInValidLinks = allRelationsSelected || nodesInValidLinks.has(l.target.id);
+                    
+                    return (typeSelected && sourcePhilosopherSelected && targetPhilosopherSelected && 
+                            samePhilosopher && sourceInValidLinks && targetInValidLinks) ? null : "none";
+                });
+                
+            } else if (filterMode === 'context') {
+                // Режим 3: С соседними узлами
+                // Показываем выбранных философов + все узлы, с которыми они связаны
+                
+                // Сначала находим все связи, где хотя бы ОДИН конец - выбранный философ
+                const validLinks = links.filter(l => {
+                    const typeSelected = selectedRelations.has(l.type);
+                    const sourcePhilosopherSelected = selectedPhilosophers.has(l.source.concept);
+                    const targetPhilosopherSelected = selectedPhilosophers.has(l.target.concept);
+                    // Связь валидна, если хотя бы один конец принадлежит выбранному философу
+                    return typeSelected && (sourcePhilosopherSelected || targetPhilosopherSelected);
+                });
+                
+                // Собираем все узлы, участвующие в этих связях (включая "соседей")
+                const visibleNodes = new Set();
+                validLinks.forEach(l => {
+                    visibleNodes.add(l.source.id || l.source);
+                    visibleNodes.add(l.target.id || l.target);
+                });
+                
+                // Показываем все узлы, которые участвуют в валидных связях
+                node.style("display", d => {
+                    return visibleNodes.has(d.id) ? null : "none";
+                });
+                
+                // Показываем все валидные связи
+                link.style("display", l => {
+                    const typeSelected = selectedRelations.has(l.type);
+                    const sourcePhilosopherSelected = selectedPhilosophers.has(l.source.concept);
+                    const targetPhilosopherSelected = selectedPhilosophers.has(l.target.concept);
+                    const sourceVisible = visibleNodes.has(l.source.id);
+                    const targetVisible = visibleNodes.has(l.target.id);
+                    
+                    return (typeSelected && (sourcePhilosopherSelected || targetPhilosopherSelected) && 
+                            sourceVisible && targetVisible) ? null : "none";
+                });
+            }
             
             // Обновляем статистику
             updateFilterStats();
             
-            // Сбрасываем подсветку если выбранный узел скрыт
-            if (selectedNode) {
-                const philosopherSelected = selectedPhilosophers.has(selectedNode.concept);
-                const inValidLinks = allRelationsSelected || nodesInValidLinks.has(selectedNode.id);
-                if (!philosopherSelected || !inValidLinks) {
-                    resetHighlight();
+            // Сбрасываем подсветку для скрытых узлов
+            const visibleNodeIds = new Set();
+            node.each(function(d) {
+                if (this.style.display !== "none") {
+                    visibleNodeIds.add(d.id);
                 }
+            });
+            
+            selectedNodes.forEach(node => {
+                if (!visibleNodeIds.has(node.id)) {
+                    selectedNodes.delete(node);
+                }
+            });
+        
+            if (selectedNodes.size === 0) {
+                resetHighlight();
+            } else {
+                highlightConnected(Array.from(selectedNodes));
             }
         }
-        
         // Обновление статистики фильтров
         function updateFilterStats() {
             let visibleNodesCount = 0;
@@ -2251,8 +2383,9 @@
         function highlightNodeById(nodeId) {
             const nodeData = nodes.find(n => n.id === nodeId);
             if (nodeData) {
-                selectedNode = nodeData;
-                highlightConnected(nodeData);
+                selectedNodes.clear();
+                selectedNodes.add(nodeData);
+                highlightConnected([nodeData]);
                 
                 // Центрируем на узле
                 const nodeElement = node.filter(d => d.id === nodeId);
@@ -2388,7 +2521,7 @@
         });
 
         let isGrouped = false;
-        let selectedNode = null;
+        let selectedNodes = new Set(); // Множество выбранных узлов
 
         const link = g.append("g")
             .selectAll("path")
@@ -2444,11 +2577,27 @@
                 // Первый клик - ждём, будет ли второй
                 clickTimer = setTimeout(() => {
                     // Одинарный клик - подсветка связей
-                    if (selectedNode === d) {
-                        resetHighlight();
+                    if (event.ctrlKey || event.metaKey) {
+                        // Ctrl зажат - множественный выбор
+                        if (selectedNodes.has(d)) {
+                            selectedNodes.delete(d);
+                        } else {
+                            selectedNodes.add(d);
+                        }
                     } else {
-                        selectedNode = d;
-                        highlightConnected(d);
+                        // Ctrl не зажат - одиночный выбор
+                        if (selectedNodes.size === 1 && selectedNodes.has(d)) {
+                            selectedNodes.clear();
+                        } else {
+                            selectedNodes.clear();
+                            selectedNodes.add(d);
+                        }
+                    }
+                    
+                    if (selectedNodes.size > 0) {
+                        highlightConnected(Array.from(selectedNodes));
+                    } else {
+                        resetHighlight();
                     }
                     clickCount = 0;
                 }, 300);
@@ -2461,29 +2610,34 @@
         });
 
         // Подсветка связанных узлов и связей
-        function highlightConnected(selectedData) {
+        function highlightConnected(selectedDataArray) {
             const connectedNodes = new Set();
-            connectedNodes.add(selectedData.id);
-            
             const connectedLinks = new Set();
             
-            // Находим все связанные узлы и связи
-            links.forEach(l => {
-                if (l.source.id === selectedData.id) {
-                    connectedNodes.add(l.target.id);
-                    connectedLinks.add(l);
-                } else if (l.target.id === selectedData.id) {
-                    connectedNodes.add(l.source.id);
-                    connectedLinks.add(l);
-                }
+            // Обрабатываем каждый выбранный узел
+            selectedDataArray.forEach(selectedData => {
+                connectedNodes.add(selectedData.id);
+                
+                // Находим все связанные узлы и связи
+                links.forEach(l => {
+                    if (l.source.id === selectedData.id) {
+                        connectedNodes.add(l.target.id);
+                        connectedLinks.add(l);
+                    } else if (l.target.id === selectedData.id) {
+                        connectedNodes.add(l.source.id);
+                        connectedLinks.add(l);
+                    }
+                });
             });
             
             // Применяем стили только к видимым элементам
             node.each(function(d) {
                 const element = d3.select(this);
                 if (element.style("display") !== "none") {
+                    const isSelected = selectedDataArray.some(sd => sd.id === d.id);
                     element.classed("dimmed", !connectedNodes.has(d.id))
-                           .classed("highlighted", connectedNodes.has(d.id));
+                           .classed("highlighted", connectedNodes.has(d.id))
+                           .classed("selected", isSelected);
                 }
             });
             
@@ -2498,9 +2652,10 @@
 
         // Сброс подсветки
         function resetHighlight() {
-            selectedNode = null;
+            selectedNodes.clear();
             node.classed("dimmed", false)
-                .classed("highlighted", false);
+                .classed("highlighted", false)
+                .classed("selected", false);
             link.classed("dimmed", false)
                 .classed("highlighted", false);
         }
