@@ -832,6 +832,20 @@
                 </select>
             </div>
             <button id="findPathBtn" onclick="findAndShowPath()">Найти путь</button>
+            
+            <div style="margin-top: 10px; padding-top: 10px; border-top: 1px solid #dfe6e9;">
+                <div style="font-size: 11px; margin-bottom: 8px;">
+                    <label style="display: flex; align-items: center; margin-bottom: 5px; cursor: pointer;">
+                        <input type="checkbox" id="respectChronology" checked style="margin-right: 8px;">
+                        <span>Учитывать хронологию</span>
+                    </label>
+                    <label style="display: flex; align-items: center; cursor: pointer;">
+                        <input type="checkbox" id="respectDirection" checked style="margin-right: 8px;">
+                        <span>Учитывать направленность связей</span>
+                    </label>
+                </div>
+            </div>
+            
             <div id="pathResult"></div>
         </div>
         
@@ -867,30 +881,55 @@
 
     <script>
         const philosopherConcepts = {
-            "Сократ": "#e74c3c",
-            "Платон": "#c0392b",
-            "Аристотель": "#3498db",
-            "Августин": "#8e44ad",
-            "Фома Аквинский": "#9b59b6",
-            "Декарт": "#2ecc71",
-            "Спиноза": "#27ae60",
-            "Лейбниц": "#16a085",
-            "Юм": "#1abc9c",
-            "Кант": "#f39c12",
-            "Фихте": "#d35400",
-            "Гегель": "#e67e22",
-            "Шопенгауэр": "#95a5a6",
-            "Кьеркегор": "#7f8c8d",
-            "Маркс": "#c0392b",
-            "Ницше": "#2c3e50",
-            "Гуссерль": "#34495e",
-            "Хайдеггер": "#e67e22",
-            "Витгенштейн": "#2980b9",
-            "Сартр": "#8e44ad",
-            "Фуко": "#16a085",
-            "Делёз": "#27ae60"
+            "Сократ": { color: "#e74c3c", years: "469-399 до н.э." },
+            "Платон": { color: "#c0392b", years: "428-348 до н.э." },
+            "Аристотель": { color: "#3498db", years: "384-322 до н.э." },
+            "Августин": { color: "#8e44ad", years: "354-430" },
+            "Фома Аквинский": { color: "#9b59b6", years: "1225-1274" },
+            "Декарт": { color: "#2ecc71", years: "1596-1650" },
+            "Спиноза": { color: "#27ae60", years: "1632-1677" },
+            "Лейбниц": { color: "#16a085", years: "1646-1716" },
+            "Юм": { color: "#1abc9c", years: "1711-1776" },
+            "Кант": { color: "#f39c12", years: "1724-1804" },
+            "Фихте": { color: "#d35400", years: "1762-1814" },
+            "Гегель": { color: "#e67e22", years: "1770-1831" },
+            "Шопенгауэр": { color: "#95a5a6", years: "1788-1860" },
+            "Кьеркегор": { color: "#7f8c8d", years: "1813-1855" },
+            "Маркс": { color: "#c0392b", years: "1818-1883" },
+            "Ницше": { color: "#2c3e50", years: "1844-1900" },
+            "Гуссерль": { color: "#34495e", years: "1859-1938" },
+            "Хайдеггер": { color: "#e67e22", years: "1889-1976" },
+            "Витгенштейн": { color: "#2980b9", years: "1889-1951" },
+            "Сартр": { color: "#8e44ad", years: "1905-1980" },
+            "Фуко": { color: "#16a085", years: "1926-1984" },
+            "Делёз": { color: "#27ae60", years: "1925-1995" }
         };
-
+        
+        // Порядковые номера для хронологического сравнения
+        const philosopherOrder = {
+            "Сократ": -469,
+            "Платон": -428,
+            "Аристотель": -384,
+            "Августин": 354,
+            "Фома Аквинский": 1225,
+            "Декарт": 1596,
+            "Спиноза": 1632,
+            "Лейбниц": 1646,
+            "Юм": 1711,
+            "Кант": 1724,
+            "Фихте": 1762,
+            "Гегель": 1770,
+            "Шопенгауэр": 1788,
+            "Кьеркегор": 1813,
+            "Маркс": 1818,
+            "Ницше": 1844,
+            "Гуссерль": 1859,
+            "Хайдеггер": 1889,
+            "Витгенштейн": 1889,
+            "Сартр": 1905,
+            "Делёз": 1925,
+            "Фуко": 1926
+        };
         const relationTypes = {
             "oppose": { color: "#e74c3c", label: "противопоставление" },
             "ground": { color: "#3498db", label: "обосновывает" },
@@ -1391,7 +1430,7 @@
             { source: "eternal_return", target: "will_power", type: "ground" },
             { source: "perspectivism", target: "god_dead", type: "ground" },
             { source: "master_morality", target: "slave_morality", type: "oppose" },
-            { source: "will_power", target: "will_schop", type: "develop" },
+            { source: "will_schop", target: "will_power", type: "develop" },
             { source: "god_dead", target: "absolute_idea", type: "critique" },
             { source: "ubermensch", target: "categorical", type: "critique" },
             { source: "perspectivism", target: "thing_itself", type: "critique" },
@@ -1464,13 +1503,13 @@
             { source: "desiring_machines", target: "conatus", type: "develop" },
             
             // Дополнительные межконцептуальные связи
-            { source: "will_power", target: "conatus", type: "dialogue", bidirectional: true },
+            { source: "conatus", target: "will_power", type: "influence" },
             { source: "eternal_return", target: "dialectic", type: "critique" },
-            { source: "compassion", target: "categorical", type: "dialogue", bidirectional: true },
-            { source: "alienation", target: "bad_faith", type: "dialogue", bidirectional: true },
+            { source: "compassion", target: "categorical", type: "influence" },
+            { source: "alienation", target: "bad_faith", type: "influence" },
             { source: "determinism", target: "freedom_sartre", type: "oppose" },
             { source: "entelechy", target: "conatus", type: "influence" },
-            { source: "geworfenheit", target: "original_sin", type: "dialogue", bidirectional: true },
+            { source: "original_sin", target: "geworfenheit", type: "influence" },
             { source: "look", target: "master_slave", type: "develop" },
             { source: "intentionality", target: "lifeworld", type: "ground" },
             
@@ -1488,7 +1527,7 @@
             { source: "soul", target: "entelechy", type: "influence" },
             { source: "soul", target: "confession", type: "influence" },
             { source: "soul", target: "res_cogitans", type: "influence" },
-            { source: "soul", target: "despair", type: "dialogue", bidirectional: true },
+            { source: "soul", target: "despair", type: "influence" },
             
             // Идеология в критике и диалоге
             { source: "ideology", target: "absolute_idea", type: "critique" },
@@ -1496,7 +1535,7 @@
             { source: "ideology", target: "power_knowledge", type: "dialogue", bidirectional: true },
             { source: "ideology", target: "episteme", type: "dialogue", bidirectional: true },
             { source: "ideology", target: "slave_morality", type: "dialogue", bidirectional: true },
-            { source: "ideology", target: "bad_faith", type: "dialogue", bidirectional: true },
+            { source: "ideology", target: "bad_faith", type: "influence" },
             { source: "ideology", target: "perspectivism", type: "dialogue", bidirectional: true },
             { source: "ideology", target: "deterritorialization", type: "influence" },
             
@@ -1632,7 +1671,7 @@
             // Гегель: новые связи
             { source: "negative", target: "dialectic", type: "ground" },
             { source: "negative", target: "aufhebung", type: "ground" },
-            { source: "negative", target: "nothingness", type: "dialogue", bidirectional: true },
+            { source: "negative", target: "nothingness", type: "develop" },
             { source: "concrete", target: "abstract", type: "oppose" },        // Оппозиция
             { source: "abstract", target: "dialectic", type: "ground" },       // Обоснование
             { source: "abstract", target: "aufhebung", type: "synthesize" },   // Синтез
@@ -1657,7 +1696,7 @@
             { source: "constitution", target: "transcendental_ego", type: "ground" },
             { source: "constitution", target: "intentionality", type: "ground" },
             { source: "intersubjectivity", target: "lifeworld", type: "ground" },
-            { source: "intersubjectivity", target: "look", type: "dialogue", bidirectional: true },
+            { source: "intersubjectivity", target: "look", type: "influence" },
             { source: "intersubjectivity", target: "transcendental_ego", type: "critique" },
             
             // Хайдеггер: новые связи
@@ -1941,7 +1980,7 @@
         }
         
         // Поиск кратчайшего пути между двумя концепциями (BFS)
-        function findShortestPath(sourceId, targetId) {
+        function findShortestPath(sourceId, targetId, respectChronology = true, respectDirection = true) {
             if (sourceId === targetId) return [sourceId];
             
             const queue = [[sourceId]];
@@ -1950,29 +1989,51 @@
             // Создаем граф смежности
             const adjacency = {};
             nodes.forEach(n => adjacency[n.id] = []);
+            
             links.forEach(l => {
                 const src = l.source.id || l.source;
                 const tgt = l.target.id || l.target;
-                adjacency[src].push(tgt);
-                // Для двунаправленных связей
-                if (l.bidirectional) {
+                
+                if (respectDirection) {
+                    // Учитываем направленность связей
+                    adjacency[src].push(tgt);
+                    if (l.bidirectional) {
+                        adjacency[tgt].push(src);
+                    }
+                } else {
+                    // Игнорируем направленность - граф становится неориентированным
+                    adjacency[src].push(tgt);
                     adjacency[tgt].push(src);
                 }
             });
             
             while (queue.length > 0) {
                 const path = queue.shift();
-                const node = path[path.length - 1];
+                const currentNodeId = path[path.length - 1];
                 
-                if (node === targetId) {
+                if (currentNodeId === targetId) {
                     return path;
                 }
                 
-                const neighbors = adjacency[node] || [];
-                for (const neighbor of neighbors) {
-                    if (!visited.has(neighbor)) {
-                        visited.add(neighbor);
-                        queue.push([...path, neighbor]);
+                const neighbors = adjacency[currentNodeId] || [];
+                for (const neighborId of neighbors) {
+                    if (!visited.has(neighborId)) {
+                        // Проверка хронологии
+                        if (respectChronology) {
+                            const currentNode = nodes.find(n => n.id === currentNodeId);
+                            const nextNode = nodes.find(n => n.id === neighborId);
+                            
+                            const currentYear = philosopherOrder[currentNode.concept];
+                            const nextYear = philosopherOrder[nextNode.concept];
+                            
+                            // Разрешаем переход только вперёд во времени или к современникам (±50 лет)
+                            if (nextYear < currentYear - 50) {
+                                continue; // Пропускаем переход "в прошлое"
+                            }
+                        }
+                        
+                        visited.add(neighborId);
+                        queue.push([...path, neighborId]);
                     }
                 }
             }
@@ -1986,6 +2047,9 @@
             const targetId = document.getElementById('targetSelect').value;
             const resultDiv = document.getElementById('pathResult');
             
+            const respectChronology = document.getElementById('respectChronology').checked;
+            const respectDirection = document.getElementById('respectDirection').checked;
+            
             if (!sourceId || !targetId) {
                 alert('Выберите обе концепции');
                 return;
@@ -1996,12 +2060,30 @@
                 return;
             }
             
-            const path = findShortestPath(sourceId, targetId);
+            const path = findShortestPath(sourceId, targetId, respectChronology, respectDirection);
             
             if (!path) {
+                const sourceNode = nodes.find(n => n.id === sourceId);
+                const targetNode = nodes.find(n => n.id === targetId);
+                
+                let message = 'Эти концепции не связаны';
+                if (respectChronology && respectDirection) {
+                    message += ' хронологически корректным путём с учётом направленности связей.';
+                } else if (respectChronology) {
+                    message += ' хронологически корректным путём.';
+                } else if (respectDirection) {
+                    message += ' с учётом направленности связей.';
+                } else {
+                    message += ' в графе.';
+                }
+                
                 resultDiv.innerHTML = `
                     <div class="path-length">❌ Путь не найден</div>
-                    <div class="path-chain">Эти концепции не связаны напрямую в графе.</div>
+                    <div class="path-chain">${message}<br><br>
+                    <small style="color: #95a5a6;">Попробуйте снять ограничения ниже.</small></div>
+                    <button onclick="clearPathHighlight()" style="width: 100%; margin-top: 10px; background: #95a5a6; color: white; border: none; padding: 8px; border-radius: 6px; cursor: pointer; font-size: 12px;">
+                        Очистить
+                    </button>
                 `;
                 resultDiv.classList.add('show');
                 resetHighlight();
@@ -2011,21 +2093,32 @@
             // Формируем визуальное представление пути
             const pathNodes = path.map(id => nodes.find(n => n.id === id));
             const pathHTML = pathNodes.map(n => 
-                `<span class="path-node">${n.label}</span>`
+                `<span class="path-node" title="${n.concept}">${n.label}</span>`
             ).join('<span class="path-arrow">→</span>');
+            
+            // Добавляем информацию о хронологии
+            const years = pathNodes.map(n => philosopherConcepts[n.concept].years);
+            const chronologyInfo = respectChronology ? 
+                `<div style="margin-top: 8px; font-size: 10px; color: #7f8c8d;">
+                    Хронология: ${years[0]} → ${years[years.length - 1]}
+                </div>` : '';
             
             resultDiv.innerHTML = `
                 <div class="path-length">✅ Длина пути: ${path.length} концепций</div>
                 <div class="path-chain">${pathHTML}</div>
+                ${chronologyInfo}
+                <button onclick="clearPathHighlight()" style="width: 100%; margin-top: 10px; background: #e74c3c; color: white; border: none; padding: 8px; border-radius: 6px; cursor: pointer; font-size: 12px; transition: background 0.3s;" onmouseover="this.style.background='#c0392b'" onmouseout="this.style.background='#e74c3c'">
+                    🔄 Сбросить подсветку
+                </button>
             `;
             resultDiv.classList.add('show');
             
             // Подсвечиваем путь на графе
-            highlightPath(path);
+            highlightPath(path, respectDirection);
         }
         
         // Подсветка пути на графе
-        function highlightPath(path) {
+        function highlightPath(path, respectDirection = true) {
             resetHighlight();
             
             const pathSet = new Set(path);
@@ -2033,12 +2126,24 @@
             
             // Находим связи, которые входят в путь
             for (let i = 0; i < path.length - 1; i++) {
+                const currentNode = path[i];
+                const nextNode = path[i + 1];
+                
                 const link = links.find(l => {
                     const src = l.source.id || l.source;
                     const tgt = l.target.id || l.target;
-                    return (src === path[i] && tgt === path[i + 1]) ||
-                           (l.bidirectional && src === path[i + 1] && tgt === path[i]);
+                    
+                    if (respectDirection) {
+                        // Учитываем направленность: ищем связь в прямом направлении или bidirectional
+                        return (src === currentNode && tgt === nextNode) ||
+                               (l.bidirectional && src === nextNode && tgt === currentNode);
+                    } else {
+                        // Не учитываем направленность: любая связь между этими узлами подходит
+                        return (src === currentNode && tgt === nextNode) ||
+                               (src === nextNode && tgt === currentNode);
+                    }
                 });
+                
                 if (link) pathLinks.add(link);
             }
             
@@ -2050,33 +2155,41 @@
                 .classed("path-highlight", l => pathLinks.has(l));
         }
         
+        // Очистка подсветки пути
+        function clearPathHighlight() {
+            resetHighlight();
+            const resultDiv = document.getElementById('pathResult');
+            resultDiv.classList.remove('show');
+            resultDiv.innerHTML = '';
+        }
+        
         // Инициализация фильтров
         function initFilters() {
             // Создаем фильтры философов
             const philContainer = document.getElementById('philosopherFilters');
-            Object.entries(philosopherConcepts).forEach(([name, color]) => {
+            Object.entries(philosopherConcepts).forEach(([name, data]) => {
                 const item = document.createElement('div');
                 item.className = 'legend-item';
                 item.innerHTML = `
                     <input type="checkbox" id="phil-${name}" checked onchange="togglePhilosopher('${name}')">
                     <label for="phil-${name}">
-                        <div class="legend-color" style="background: ${color}"></div>
-                        <span>${name}</span>
+                        <div class="legend-color" style="background: ${data.color}"></div>
+                        <span>${name}<small style="color: #95a5a6; font-size: 9px;"> (${data.years})</small></span>
                     </label>
                 `;
                 philContainer.appendChild(item);
             });
         
-            // Создаем фильтры связей
+            // Создаем фильтры связей (без изменений)
             const relContainer = document.getElementById('relationFilters');
-            Object.entries(relationTypes).forEach(([type, data]) => {
+            Object.entries(relationTypes).forEach(([type, typeData]) => {
                 const item = document.createElement('div');
                 item.className = 'legend-item';
                 item.innerHTML = `
                     <input type="checkbox" id="rel-${type}" checked onchange="toggleRelation('${type}')">
                     <label for="rel-${type}">
-                        <div class="legend-line" style="background: ${data.color}"></div>
-                        <span>${data.label}</span>
+                        <div class="legend-line" style="background: ${typeData.color}"></div>
+                        <span>${typeData.label}</span>
                     </label>
                 `;
                 relContainer.appendChild(item);
@@ -2611,7 +2724,7 @@
 
         node.append("circle")
             .attr("r", 18)
-            .attr("fill", d => philosopherConcepts[d.concept])
+            .attr("fill", d => philosopherConcepts[d.concept].color)
             .attr("stroke", "#fff");
 
         node.append("text")
@@ -2860,7 +2973,7 @@
             
             let html = `
                 <h2>${conceptData.label}</h2>
-                <div class="philosopher-tag" style="background: ${philosopherConcepts[conceptData.concept]}">
+                <div class="philosopher-tag" style="background: ${philosopherConcepts[conceptData.concept].color}">
                     ${conceptData.concept}
                 </div>
                 <div class="description">${conceptData.description}</div>
@@ -2882,7 +2995,7 @@
                                 <div class="related-title">Также в этой рубрике: (${relatedConcepts.length}):</div>
                                 ${relatedConcepts.map(c => `
                                     <div class="concept-item" onclick="closeDetailModal(); setTimeout(() => showDetailModal(nodes.find(n => n.id === '${c.id}')), 100);">
-                                        <div class="concept-color" style="background: ${philosopherConcepts[c.concept]}"></div>
+                                        <div class="concept-color" style="background: ${philosopherConcepts[c.concept].color}"></div>
                                         <div class="concept-name">${c.label}</div>
                                         <div class="concept-philosopher">${c.concept}</div>
                                     </div>
