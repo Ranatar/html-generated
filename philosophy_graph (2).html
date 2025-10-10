@@ -469,7 +469,7 @@
             background: #8b7fe6;
         }
         
-        /* Панель поиска пути */
+        /* Панель поиска пути - с возможностью сворачивания */
         #pathFinder {
             position: absolute;
             top: 20px;
@@ -481,6 +481,16 @@
             max-width: 320px;
             backdrop-filter: blur(10px);
             z-index: 100;
+            transition: all 0.3s ease;
+        }
+        
+        #pathFinder.collapsed {
+            max-width: 60px;
+            padding: 10px;
+        }
+        
+        #pathFinder.collapsed .panel-content {
+            display: none;
         }
         
         #pathFinder h3 {
@@ -489,6 +499,15 @@
             font-size: 17px;
             border-bottom: 3px solid #e74c3c;
             padding-bottom: 10px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        #pathFinder.collapsed h3 {
+            border-bottom: none;
+            margin: 0;
+            padding: 0;
         }
         
         .path-select-group {
@@ -577,7 +596,7 @@
             margin: 0 5px;
         }
         
-        /* Панель статистики */
+        /* Панель статистики - с возможностью сворачивания */
         #statsPanel {
             position: absolute;
             bottom: 20px;
@@ -590,6 +609,18 @@
             max-height: 450px;
             overflow-y: auto;
             backdrop-filter: blur(10px);
+            transition: all 0.3s ease;
+        }
+        
+        #statsPanel.collapsed {
+            max-width: 60px;
+            max-height: 60px;
+            padding: 10px;
+            overflow: hidden;
+        }
+        
+        #statsPanel.collapsed .panel-content {
+            display: none;
         }
         
         #statsPanel h3 {
@@ -598,6 +629,43 @@
             font-size: 17px;
             border-bottom: 3px solid #3498db;
             padding-bottom: 10px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        #statsPanel.collapsed h3 {
+            border-bottom: none;
+            margin: 0;
+            padding: 0;
+        }
+        
+        /* Кнопка сворачивания */
+        .collapse-btn {
+            background: rgba(0, 0, 0, 0.1);
+            border: none;
+            border-radius: 50%;
+            width: 24px;
+            height: 24px;
+            cursor: pointer;
+            font-size: 14px;
+            line-height: 1;
+            transition: all 0.2s;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 0;
+        }
+        
+        .collapse-btn:hover {
+            background: rgba(0, 0, 0, 0.2);
+            transform: scale(1.1);
+        }
+        
+        .collapsed .collapse-btn {
+            width: 40px;
+            height: 40px;
+            font-size: 20px;
         }
         
         .stats-section {
@@ -730,6 +798,23 @@
         .weight-line.medium { width: 20px; height: 3px; }
         .weight-line.strong { width: 20px; height: 5px; }
         
+        /* Плавная анимация для заголовков при сворачивании */
+        .panel-title {
+            transition: opacity 0.2s;
+        }
+        
+        .collapsed .panel-title {
+            opacity: 0;
+            font-size: 0;
+            overflow: hidden;
+        }
+        
+        /* Иконка разворачивания для свернутых панелей */
+        .collapsed .collapse-btn .expand-icon {
+            font-size: 24px;
+            font-weight: bold;
+        }
+        
     </style>
 </head>
 <body>
@@ -818,47 +903,61 @@
         
         <!-- Панель поиска пути -->
         <div id="pathFinder">
-            <h3>🔍 Путь между концепциями</h3>
-            <div class="path-select-group">
-                <label for="sourceSelect">От концепции:</label>
-                <select id="sourceSelect">
-                    <option value="">Выберите концепцию...</option>
-                </select>
-            </div>
-            <div class="path-select-group">
-                <label for="targetSelect">К концепции:</label>
-                <select id="targetSelect">
-                    <option value="">Выберите концепцию...</option>
-                </select>
-            </div>
-            <button id="findPathBtn" onclick="findAndShowPath()">Найти путь</button>
-            
-            <div style="margin-top: 10px; padding-top: 10px; border-top: 1px solid #dfe6e9;">
-                <div style="font-size: 11px; margin-bottom: 8px;">
-                    <label style="display: flex; align-items: center; margin-bottom: 5px; cursor: pointer;">
-                        <input type="checkbox" id="respectChronology" checked style="margin-right: 8px;">
-                        <span>Учитывать хронологию</span>
-                    </label>
-                    <label style="display: flex; align-items: center; cursor: pointer;">
-                        <input type="checkbox" id="respectDirection" checked style="margin-right: 8px;">
-                        <span>Учитывать направленность связей</span>
-                    </label>
+            <h3>
+                <span class="panel-title">🔍 Путь между концепциями</span>
+                <button class="collapse-btn" onclick="togglePanel('pathFinder')" title="Свернуть/Развернуть">
+                    <span class="expand-icon">−</span>
+                </button>
+            </h3>
+            <div class="panel-content">
+                <div class="path-select-group">
+                    <label for="sourceSelect">От концепции:</label>
+                    <select id="sourceSelect">
+                        <option value="">Выберите концепцию...</option>
+                    </select>
                 </div>
+                <div class="path-select-group">
+                    <label for="targetSelect">К концепции:</label>
+                    <select id="targetSelect">
+                        <option value="">Выберите концепцию...</option>
+                    </select>
+                </div>
+                <button id="findPathBtn" onclick="findAndShowPath()">Найти путь</button>
+                
+                <div style="margin-top: 10px; padding-top: 10px; border-top: 1px solid #dfe6e9;">
+                    <div style="font-size: 11px; margin-bottom: 8px;">
+                        <label style="display: flex; align-items: center; margin-bottom: 5px; cursor: pointer;">
+                            <input type="checkbox" id="respectChronology" checked style="margin-right: 8px;">
+                            <span>Учитывать хронологию</span>
+                        </label>
+                        <label style="display: flex; align-items: center; cursor: pointer;">
+                            <input type="checkbox" id="respectDirection" checked style="margin-right: 8px;">
+                            <span>Учитывать направленность связей</span>
+                        </label>
+                    </div>
+                </div>
+                
+                <div id="pathResult"></div>
             </div>
-            
-            <div id="pathResult"></div>
         </div>
         
         <!-- Панель статистики -->
         <div id="statsPanel">
-            <h3>📊 Аналитика графа</h3>
-            <div class="stats-section">
-                <h4>Самые влиятельные концепции:</h4>
-                <div id="topConcepts"></div>
-            </div>
-            <div class="stats-section">
-                <h4>Узлы-мосты (betweenness):</h4>
-                <div id="bridgeNodes"></div>
+            <h3>
+                <span class="panel-title">📊 Аналитика графа</span>
+                <button class="collapse-btn" onclick="togglePanel('statsPanel')" title="Свернуть/Развернуть">
+                    <span class="expand-icon">−</span>
+                </button>
+            </h3>
+            <div class="panel-content">
+                <div class="stats-section">
+                    <h4>Самые влиятельные концепции:</h4>
+                    <div id="topConcepts"></div>
+                </div>
+                <div class="stats-section">
+                    <h4>Узлы-мосты (betweenness):</h4>
+                    <div id="bridgeNodes"></div>
+                </div>
             </div>
         </div>
 
@@ -3051,6 +3150,43 @@
                 .classed("highlighted", false);
         }
 
+        // Управление сворачиванием панелей
+        function togglePanel(panelId) {
+            const panel = document.getElementById(panelId);
+            const isCollapsed = panel.classList.contains('collapsed');
+            
+            if (isCollapsed) {
+                panel.classList.remove('collapsed');
+                // Меняем иконку на минус
+                const btn = panel.querySelector('.collapse-btn .expand-icon');
+                btn.textContent = '−';
+                // Сохраняем состояние
+                localStorage.setItem(`${panelId}_collapsed`, 'false');
+            } else {
+                panel.classList.add('collapsed');
+                // Меняем иконку на плюс
+                const btn = panel.querySelector('.collapse-btn .expand-icon');
+                btn.textContent = '+';
+                // Сохраняем состояние
+                localStorage.setItem(`${panelId}_collapsed`, 'true');
+            }
+        }
+        
+        // Восстановление состояния панелей при загрузке
+        function restorePanelStates() {
+            const panels = ['pathFinder', 'statsPanel'];
+            
+            panels.forEach(panelId => {
+                const collapsed = localStorage.getItem(`${panelId}_collapsed`) === 'true';
+                if (collapsed) {
+                    const panel = document.getElementById(panelId);
+                    panel.classList.add('collapsed');
+                    const btn = panel.querySelector('.collapse-btn .expand-icon');
+                    if (btn) btn.textContent = '+';
+                }
+            });
+        }
+
         // Tooltip
         // Tooltip
         const tooltip = d3.select("#tooltip");
@@ -3273,6 +3409,9 @@
         // Инициализируем новые функции
         initPathFinder();
         displayStatistics();
+        
+        // Восстанавливаем состояние панелей
+        restorePanelStates();
         
         // Обновляем статистику после завершения симуляции
         simulation.on("end", () => {
