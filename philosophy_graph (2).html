@@ -596,6 +596,45 @@
             margin: 0 5px;
         }
         
+        /* Контейнер для узла пути с философом */
+        .path-node-container {
+            display: inline-flex;
+            flex-direction: column;
+            align-items: center;
+            margin: 2px;
+            vertical-align: middle;
+        }
+        
+        .path-philosopher {
+            font-size: 9px;
+            color: #95a5a6;
+            font-style: italic;
+            margin-bottom: 2px;
+            white-space: nowrap;
+        }
+        
+        .path-node {
+            display: inline-block;
+            padding: 3px 8px;
+            background: white;
+            border-radius: 4px;
+            margin: 0;
+            border: 1px solid;
+        }
+        
+        .path-arrow {
+            display: inline-flex;
+            align-items: center;
+            margin: 0 5px;
+            font-weight: bold;
+            font-size: 14px;
+            vertical-align: middle;
+        }
+        
+        .path-arrow.bidirectional {
+            font-size: 12px;
+        }
+        
         /* Панель статистики - с возможностью сворачивания */
         #statsPanel {
             position: absolute;
@@ -2414,9 +2453,72 @@
             
             // Формируем визуальное представление пути
             const pathNodes = path.map(id => nodes.find(n => n.id === id));
-            const pathHTML = pathNodes.map(n => 
-                `<span class="path-node" title="${n.concept}">${n.label}</span>`
-            ).join('<span class="path-arrow">→</span>');
+            
+            // Создаём HTML с узлами и стрелками
+            let pathHTML = '';
+            
+            for (let i = 0; i < pathNodes.length; i++) {
+                const node = pathNodes[i];
+                const philosopherColor = philosopherConcepts[node.concept].color;
+                
+                // Добавляем узел с философом
+                pathHTML += `
+                    <span class="path-node-container">
+                        <span class="path-philosopher">${node.concept}</span>
+                        <span class="path-node" style="border-color: ${philosopherColor};" title="${node.concept}: ${node.description}">
+                            ${node.label}
+                        </span>
+                    </span>
+                `;
+                
+                // Добавляем стрелку, если это не последний узел
+                if (i < pathNodes.length - 1) {
+                    const currentNode = pathNodes[i];
+                    const nextNode = pathNodes[i + 1];
+                    
+                    // Находим связь между текущим и следующим узлом
+                    const link = links.find(l => {
+                        const src = l.source.id || l.source;
+                        const tgt = l.target.id || l.target;
+                        
+                        if (respectDirection) {
+                            return (src === currentNode.id && tgt === nextNode.id) ||
+                                   (l.bidirectional && src === nextNode.id && tgt === currentNode.id);
+                        } else {
+                            return (src === currentNode.id && tgt === nextNode.id) ||
+                                   (src === nextNode.id && tgt === currentNode.id);
+                        }
+                    });
+                    
+                    if (link) {
+                        const linkColor = relationTypesObj[link.type].color;
+                        const linkLabel = relationTypesObj[link.type].label;
+                        const src = link.source.id || link.source;
+                        const tgt = link.target.id || link.target;
+                        
+                        // Определяем направление стрелки
+                        let arrow;
+                        if (link.bidirectional) {
+                            arrow = '↔';
+                        } else if (src === currentNode.id && tgt === nextNode.id) {
+                            arrow = '→';
+                        } else {
+                            arrow = '←';
+                        }
+                        
+                        pathHTML += `
+                            <span class="path-arrow ${link.bidirectional ? 'bidirectional' : ''}" 
+                                  style="color: ${linkColor};" 
+                                  title="${linkLabel}">
+                                ${arrow}
+                            </span>
+                        `;
+                    } else {
+                        // Если связь не найдена (не должно происходить)
+                        pathHTML += `<span class="path-arrow" style="color: #95a5a6;">→</span>`;
+                    }
+                }
+            }
             
             // Добавляем информацию о хронологии
             const years = pathNodes.map(n => philosopherConcepts[n.concept].years);
@@ -2427,7 +2529,7 @@
             
             resultDiv.innerHTML = `
                 <div class="path-length">✅ Длина пути: ${path.length} концепций</div>
-                <div class="path-chain">${pathHTML}</div>
+                <div class="path-chain" style="line-height: 2;">${pathHTML}</div>
                 ${chronologyInfo}
                 <button onclick="clearPathHighlight()" style="width: 100%; margin-top: 10px; background: #e74c3c; color: white; border: none; padding: 8px; border-radius: 6px; cursor: pointer; font-size: 12px; transition: background 0.3s;" onmouseover="this.style.background='#c0392b'" onmouseout="this.style.background='#e74c3c'">
                     🔄 Сбросить подсветку
