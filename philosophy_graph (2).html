@@ -1121,6 +1121,87 @@
         .uniform-width-links .link {
             stroke-width: 2px !important;
         }
+
+        /* Стили для режима хронологии */
+        .chronology-mode-selector {
+            margin-top: 10px;
+            padding-top: 10px;
+            border-top: 1px solid #dfe6e9;
+        }
+
+        .chronology-mode-selector label {
+            display: block;
+            font-size: 11px;
+            font-weight: 700;
+            color: #2d3436;
+            margin-bottom: 5px;
+        }
+
+        .chronology-mode-selector select {
+            width: 100%;
+            padding: 6px 8px;
+            border: 2px solid #dfe6e9;
+            border-radius: 6px;
+            font-size: 11px;
+            background: white;
+            cursor: pointer;
+            transition: border-color 0.3s;
+        }
+
+        .chronology-mode-selector select:focus {
+            outline: none;
+            border-color: #e74c3c;
+        }
+
+        .chronology-info {
+            margin-top: 8px;
+            padding: 8px;
+            background: rgba(231, 76, 60, 0.05);
+            border-radius: 5px;
+            font-size: 10px;
+            color: #7f8c8d;
+            line-height: 1.4;
+        }
+
+        .chronology-info strong {
+            color: #2d3436;
+        }
+
+        /* Предупреждения об анахронизмах */
+        .anachronism-warnings {
+            margin-top: 10px;
+            padding: 10px;
+            background: rgba(255, 193, 7, 0.1);
+            border-left: 3px solid #ffc107;
+            border-radius: 5px;
+        }
+
+        .anachronism-warnings-title {
+            font-size: 11px;
+            font-weight: 700;
+            color: #f39c12;
+            margin-bottom: 6px;
+            display: flex;
+            align-items: center;
+        }
+
+        .anachronism-warnings-title::before {
+            content: "⚠️";
+            margin-right: 5px;
+        }
+
+        .anachronism-item {
+            font-size: 10px;
+            color: #856404;
+            padding: 4px 0;
+            line-height: 1.4;
+        }
+
+        .anachronism-item::before {
+            content: "→";
+            margin-right: 5px;
+            color: #f39c12;
+        }
         
     </style>
 </head>
@@ -1295,6 +1376,19 @@
                             <input type="checkbox" id="useWeightsPath" checked style="margin-right: 8px;">
                             <span>Учитывать веса связей</span>
                         </label>
+                    </div>
+                    
+                    <!-- Режим строгости хронологии -->
+                    <div class="chronology-mode-selector" id="chronologyModeContainer">
+                        <label for="chronologyModeSelect">Режим хронологии:</label>
+                        <select id="chronologyModeSelect">
+                            <option value="strict">Строгий (периоды активности)</option>
+                            <option value="moderate">Умеренный (±50 лет)</option>
+                            <option value="loose">Свободный (±100 лет)</option>
+                        </select>
+                        <div class="chronology-info" id="chronologyModeInfo">
+                            <strong>Строгий режим:</strong> учитывает реальные периоды жизни и активности философов. Блокирует анахронизмы.
+                        </div>
                     </div>
                 </div>
                 
@@ -5017,11 +5111,23 @@
         // Глобальные переменные для переключения режимов расчёта
         let useWeightedPaths = true;
         let respectDirection = true;
-        
+
         // Независимые настройки для поиска пути
         let useWeightsInPathFinding = true;
         let respectDirectionInPathFinding = true;
 
+        // Режимы строгости хронологии
+        const CHRONOLOGY_MODES = {
+            STRICT: 'strict',       // Строгая: учёт реальных периодов активности
+            MODERATE: 'moderate',   // Умеренная: окно ±50 лет от рождения
+            LOOSE: 'loose'          // Свободная: окно ±100 лет от рождения
+        };
+
+        // Текущий режим хронологии (по умолчанию строгий)
+        let currentChronologyMode = CHRONOLOGY_MODES.STRICT;
+
+        // Возраст начала интеллектуальной активности
+        const MATURITY_AGE = 25;
 
         // Функция для генерации ключа связи
         function getLinkKey(link) {
@@ -5104,6 +5210,153 @@
             });
         }
         
+        // ============================================
+        // ПРОВЕРКА ХРОНОЛОГИЧЕСКОЙ КОРРЕКТНОСТИ
+        // ============================================
+
+        /**
+         * Строгая проверка хронологии: учитывает реальные периоды активности
+         * @param {Object} fromPhil - Философ "от кого"
+         * @param {Object} toPhil - Философ "к кому"
+         * @returns {boolean} - Может ли fromPhil повлиять на toPhil
+         */
+        function strictChronologyCheck(fromPhil, toPhil) {
+            // Периоды активной деятельности (с MATURITY_AGE лет до смерти)
+            const fromActiveStart = fromPhil.birth + MATURITY_AGE;
+            const fromActiveEnd = fromPhil.death;
+            const toActiveStart = toPhil.birth + MATURITY_AGE;
+            const toActiveEnd = toPhil.death;
+            
+            // Случай 1: fromPhil умер до начала активности toPhil
+            // Посмертное влияние через тексты и идеи
+            if (fromActiveEnd < toActiveStart) {
+                return true;
+            }
+            
+            // Случай 2: Современники
+            // fromPhil стал активным раньше или одновременно с toPhil
+            // И дожил хотя бы до начала активности toPhil
+            if (fromActiveStart <= toActiveStart && fromActiveEnd >= toActiveStart) {
+                return true;
+            }
+            
+            // Случай 3: fromPhil стал активным позже, но их периоды пересекаются
+            // И toPhil дожил до активности fromPhil (может быть взаимное влияние)
+            // НО этот случай сложный - лучше блокировать, если fromPhil младше
+            if (fromActiveStart > toActiveStart && fromActiveStart <= toActiveEnd) {
+                // Дополнительная проверка: разница в возрасте не должна быть слишком большой
+                // Если fromPhil значительно младше, он вряд ли мог повлиять на уже зрелого toPhil
+                const ageDifference = fromPhil.birth - toPhil.birth;
+                if (ageDifference > 20) {
+                    return false; // fromPhil слишком молод, чтобы повлиять на toPhil
+                }
+                return true; // Современники с небольшой разницей в возрасте
+            }
+            
+            // Все остальные случаи - анахронизм
+            return false;
+        }
+
+        /**
+         * Умеренная проверка: окно ±50 лет от рождения
+         * @param {Object} fromPhil - Философ "от кого"
+         * @param {Object} toPhil - Философ "к кому"
+         * @returns {boolean}
+         */
+        function moderateChronologyCheck(fromPhil, toPhil) {
+            // toPhil должен родиться не раньше чем за 50 лет до fromPhil
+            return toPhil.birth >= fromPhil.birth - 50;
+        }
+
+        /**
+         * Свободная проверка: окно ±100 лет от рождения
+         * @param {Object} fromPhil - Философ "от кого"
+         * @param {Object} toPhil - Философ "к кому"
+         * @returns {boolean}
+         */
+        function looseChronologyCheck(fromPhil, toPhil) {
+            // toPhil должен родиться не раньше чем за 100 лет до fromPhil
+            return toPhil.birth >= fromPhil.birth - 100;
+        }
+
+        /**
+         * Универсальная функция проверки хронологической корректности
+         * @param {string} fromNodeId - ID узла "от"
+         * @param {string} toNodeId - ID узла "к"
+         * @param {string} mode - Режим проверки (strict/moderate/loose)
+         * @returns {boolean} - Валиден ли переход
+         */
+        function isChronologicallyValid(fromNodeId, toNodeId, mode = currentChronologyMode) {
+            const fromNode = nodes.find(n => n.id === fromNodeId);
+            const toNode = nodes.find(n => n.id === toNodeId);
+            
+            if (!fromNode || !toNode) return true; // Если узлы не найдены, разрешаем
+            
+            // Находим данные философов по имени (nameRu)
+            const fromPhil = philosophers.find(p => p.nameRu === fromNode.concept);
+            const toPhil = philosophers.find(p => p.nameRu === toNode.concept);
+            
+            if (!fromPhil || !toPhil) return true; // Если философы не найдены, разрешаем
+            
+            // Если один и тот же философ - всегда разрешаем
+            if (fromPhil.id === toPhil.id) return true;
+            
+            // Применяем соответствующую проверку
+            switch(mode) {
+                case CHRONOLOGY_MODES.STRICT:
+                    return strictChronologyCheck(fromPhil, toPhil);
+                    
+                case CHRONOLOGY_MODES.MODERATE:
+                    return moderateChronologyCheck(fromPhil, toPhil);
+                    
+                case CHRONOLOGY_MODES.LOOSE:
+                    return looseChronologyCheck(fromPhil, toPhil);
+                    
+                default:
+                    return true; // По умолчанию разрешаем
+            }
+        }
+
+        /**
+         * Анализ пути на наличие анахронизмов
+         * @param {Array} path - Массив ID узлов пути
+         * @param {string} mode - Режим проверки (strict/moderate/loose)
+         * @returns {Array} - Массив предупреждений об анахронизмах
+         */
+        function analyzePath(path, mode = CHRONOLOGY_MODES.STRICT) {
+            const warnings = [];
+            
+            for (let i = 0; i < path.length - 1; i++) {
+                const fromId = path[i];
+                const toId = path[i + 1];
+                
+                // Проверяем по СТРОГОМУ режиму, независимо от выбранного
+                // чтобы показать потенциальные проблемы
+                if (!isChronologicallyValid(fromId, toId, mode)) {
+                    const fromNode = nodes.find(n => n.id === fromId);
+                    const toNode = nodes.find(n => n.id === toId);
+                    
+                    if (fromNode && toNode) {
+                        const fromPhil = philosophers.find(p => p.nameRu === fromNode.concept);
+                        const toPhil = philosophers.find(p => p.nameRu === toNode.concept);
+                        
+                        if (fromPhil && toPhil) {
+                            warnings.push({
+                                from: fromNode.label,
+                                to: toNode.label,
+                                fromPhil: fromNode.concept,
+                                toPhil: toNode.concept,
+                                fromYears: `${fromPhil.birth}-${fromPhil.death}`,
+                                toYears: `${toPhil.birth}-${toPhil.death}`
+                            });
+                        }
+                    }
+                }
+            }
+            
+            return warnings;
+        }
+
         // Поиск кратчайшего пути между двумя концепциями (BFS)
         function findShortestPath(sourceId, targetId, respectChronology = true, useDirection = null) {
             // Используем глобальный параметр, если не передан явно
@@ -5185,11 +5438,10 @@
                         const alt = distances[current] + cost;
                         
                         if (respectChronology) {
-                            const nextNode = nodes.find(n => n.id === neighbor);
-                            const currentYear = philosopherOrder[currentNode.concept];
-                            const nextYear = philosopherOrder[nextNode.concept];
-                            
-                            if (nextYear < currentYear - 50) return;
+                            // Используем новую функцию проверки с выбранным режимом
+                            if (!isChronologicallyValid(current, neighbor, currentChronologyMode)) {
+                                return; // Пропускаем этот переход как хронологически некорректный
+                            }
                         }
                         
                         if (alt < distances[neighbor]) {
@@ -5250,14 +5502,9 @@
                 for (const neighborId of neighbors) {
                     if (!visited.has(neighborId)) {
                         if (respectChronology) {
-                            const currentNode = nodes.find(n => n.id === currentNodeId);
-                            const nextNode = nodes.find(n => n.id === neighborId);
-                            
-                            const currentYear = philosopherOrder[currentNode.concept];
-                            const nextYear = philosopherOrder[nextNode.concept];
-                            
-                            if (nextYear < currentYear - 50) {
-                                continue;
+                            // Используем новую функцию проверки с выбранным режимом
+                            if (!isChronologicallyValid(currentNodeId, neighborId, currentChronologyMode)) {
+                                continue; // Пропускаем этот переход как хронологически некорректный
                             }
                         }
                         
@@ -5280,6 +5527,9 @@
             const respectDirectionPath = document.getElementById('respectDirectionPath').checked;
             const useWeightsPath = document.getElementById('useWeightsPath').checked;
             
+            // НОВОЕ: Получаем выбранный режим хронологии
+            const selectedChronologyMode = document.getElementById('chronologyModeSelect').value;
+            
             if (!sourceId || !targetId) {
                 alert('Выберите обе концепции');
                 return;
@@ -5293,15 +5543,18 @@
             // Временно меняем глобальные переменные для поиска пути
             const originalWeights = useWeightedPaths;
             const originalDirection = respectDirection;
+            const originalChronologyMode = currentChronologyMode; // НОВОЕ: Сохраняем режим
             
             useWeightedPaths = useWeightsPath;
             respectDirection = respectDirectionPath;
+            currentChronologyMode = selectedChronologyMode; // НОВОЕ: Устанавливаем выбранный режим
             
             const path = findShortestPath(sourceId, targetId, respectChronology, respectDirectionPath);
             
             // Восстанавливаем глобальные переменные
             useWeightedPaths = originalWeights;
             respectDirection = originalDirection;
+            currentChronologyMode = originalChronologyMode; // НОВОЕ: Восстанавливаем режим
             
             if (!path) {
                 const sourceNode = nodes.find(n => n.id === sourceId);
@@ -5317,7 +5570,7 @@
                 } else {
                     message += ' в графе.';
                 }
-                
+
                 resultDiv.innerHTML = `
                     <div class="path-length">❌ Путь не найден</div>
                     <div class="path-chain">${message}<br><br>
@@ -5331,6 +5584,9 @@
                 return;
             }
             
+            // Анализируем путь на анахронизмы
+            const anachronismWarnings = analyzePath(path, selectedChronologyMode);
+
             // Формируем визуальное представление пути
             const pathNodes = path.map(id => nodes.find(n => n.id === id));
             
@@ -5399,17 +5655,44 @@
                 }
             }
             
-            // Добавляем информацию о хронологии
+            // Добавляем информацию о хронологии и режиме
             const years = pathNodes.map(n => philosopherConcepts[n.concept].years);
+            const modeNames = {
+                strict: 'строгий',
+                moderate: 'умеренный', 
+                loose: 'свободный'
+            };
+            
             const chronologyInfo = respectChronology ? 
                 `<div style="margin-top: 8px; font-size: 10px; color: #7f8c8d;">
-                    Хронология: ${years[0]} → ${years[years.length - 1]}
+                    <strong>Хронология:</strong> ${years[0]} → ${years[years.length - 1]}<br>
+                    <strong>Режим:</strong> ${modeNames[selectedChronologyMode]}
                 </div>` : '';
+            
+            // Формируем предупреждения об анахронизмах
+            let warningsHTML = '';
+            if (anachronismWarnings.length > 0) {
+                warningsHTML = `
+                    <div class="anachronism-warnings">
+                        <div class="anachronism-warnings-title">Обнаружены анахронизмы</div>
+                        ${anachronismWarnings.map(w => `
+                            <div class="anachronism-item">
+                                <strong>${w.from}</strong> (${w.fromPhil}, ${w.fromYears}) → 
+                                <strong>${w.to}</strong> (${w.toPhil}, ${w.toYears})
+                            </div>
+                        `).join('')}
+                        <div style="font-size: 9px; color: #856404; margin-top: 6px; font-style: italic;">
+                            Эти переходы могут быть хронологически некорректны в строгом режиме.
+                        </div>
+                    </div>
+                `;
+            }
             
             resultDiv.innerHTML = `
                 <div class="path-length">✅ Длина пути: ${path.length} концепций</div>
                 <div class="path-chain" style="line-height: 2;">${pathHTML}</div>
                 ${chronologyInfo}
+                ${warningsHTML}
                 <button onclick="clearPathHighlight()" style="width: 100%; margin-top: 10px; background: #e74c3c; color: white; border: none; padding: 8px; border-radius: 6px; cursor: pointer; font-size: 12px; transition: background 0.3s;" onmouseover="this.style.background='#c0392b'" onmouseout="this.style.background='#e74c3c'">
                      Сбросить подсветку
                 </button>
@@ -8152,6 +8435,37 @@
         console.log("Граф инициализирован. Используйте кнопки для запуска анализа.");
         console.log("Текущий режим: веса -", useWeightedPaths ? "ВКЛ" : "ВЫКЛ", 
                     ", направленность -", respectDirection ? "ВКЛ" : "ВЫКЛ");
+
+        // ============================================
+        // ИНИЦИАЛИЗАЦИЯ ОБРАБОТЧИКОВ СОБЫТИЙ ХРОНОЛОГИИ
+        // ============================================
+
+        // Показывать/скрывать селектор режима при изменении чекбокса
+        document.getElementById('respectChronology').addEventListener('change', function() {
+            const container = document.getElementById('chronologyModeContainer');
+            container.style.display = this.checked ? 'block' : 'none';
+        });
+
+        // Обновлять описание при смене режима
+        document.getElementById('chronologyModeSelect').addEventListener('change', function() {
+            const infoDiv = document.getElementById('chronologyModeInfo');
+            const descriptions = {
+                strict: '<strong>Строгий режим:</strong> учитывает реальные периоды жизни и активности философов (с 25 лет). Блокирует все анахронизмы. Пример: Гегель не может влиять на Канта.',
+                moderate: '<strong>Умеренный режим:</strong> допускает влияние современников в пределах ±50 лет от рождения. Менее строгий, но всё ещё блокирует явные анахронизмы.',
+                loose: '<strong>Свободный режим:</strong> разрешает влияние в пределах ±100 лет. Подходит для поиска концептуальных связей без строгой хронологии.'
+            };
+            infoDiv.innerHTML = descriptions[this.value];
+            
+            // Обновляем глобальную переменную режима
+            currentChronologyMode = this.value;
+        });
+
+        // Инициализация: показать селектор, если хронология включена
+        if (document.getElementById('respectChronology').checked) {
+            document.getElementById('chronologyModeContainer').style.display = 'block';
+        }
+
+        console.log('Обработчики событий хронологии инициализированы');
         
     </script>
 </body>
