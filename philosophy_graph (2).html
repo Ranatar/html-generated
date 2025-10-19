@@ -1224,6 +1224,17 @@
             margin-right: 5px;
             color: #f39c12;
         }
+
+        @keyframes slideDown {
+            from {
+                opacity: 0;
+                transform: translateX(-50%) translateY(-20px);
+            }
+            to {
+                opacity: 1;
+                transform: translateX(-50%) translateY(0);
+            }
+        }
         
     </style>
 </head>
@@ -1310,12 +1321,26 @@
                         <span>Только внешние связи</span>
                     </label>
                 </div>
+                <div class="legend-item">
+                    <input type="radio" id="filterCrossSelected" name="filterMode" value="cross_selected" onchange="changeFilterMode('cross_selected')">
+                    <label for="filterCrossSelected" style="font-size: 11px;">
+                        <span>Межфилософские связи выбранных</span>
+                    </label>
+                </div>
+                <div class="legend-item">
+                    <input type="radio" id="filterChains" name="filterMode" value="chains" onchange="changeFilterMode('chains')">
+                    <label for="filterChains" style="font-size: 11px;">
+                        <span>Сквозные цепочки</span>
+                    </label>
+                </div>
                 <div style="font-size: 10px; color: #7f8c8d; margin-top: 8px; padding: 8px; background: rgba(108, 92, 231, 0.05); border-radius: 5px; line-height: 1.4;">
                     <strong>Режимы:</strong><br>
-                    • <em>Только выбранные</em> - узлы и связи между ними<br>
-                    • <em>Только внутренние</em> - связи внутри систем<br>
-                    • <em>С соседними</em> - включая связанные узлы других философов<br>
-                    • <em>Только внешние</em> - узлы с внешними связями
+                    • <em>Только выбранные</em> - узлы систем выбранных философов и связи между выбранными философами<br>
+                    • <em>Только внутренние</em> - узлы систем выбранных философов без связей с другими философами<br>
+                    • <em>С соседними</em> - включая связанные узлы систем невыбранных философов<br>
+                    • <em>Только внешние</em> - только узлы, связанные с другими философами, в том числе невыбранными<br>
+                    • <em>Межфилософские связи выбранных</em> - только узлы выбранных философов, связанные между собой<br>
+                    • <em>Сквозные цепочки</em> - непрерывные пути через все выбранные философские системы (для 3+ философов)
                 </div>
             </div>
 
@@ -1647,11 +1672,11 @@
         const relationTypes = [
         // Исходные типы
         { id: "oppose", label: "противопоставление", color: "#E74C3C" },
-        { id: "ground", label: "обосновывает", color: "#3498DB" },
-        { id: "develop", label: "развивает", color: "#2ECC71" },
-        { id: "critique", label: "критикует", color: "#F39C12" },
-        { id: "synthesize", label: "синтезирует", color: "#9B59B6" },
-        { id: "influence", label: "влияет", color: "#1ABC9C" },
+        { id: "consequence", label: "следствие", color: "#3498DB" },
+        { id: "develop", label: "развитие", color: "#2ECC71" },
+        { id: "critique", label: "критика", color: "#F39C12" },
+        { id: "synthesize", label: "синтез", color: "#9B59B6" },
+        { id: "influence", label: "влияние", color: "#1ABC9C" },
         { id: "dialogue", label: "диалог", color: "#34495E" },
         { id: "internal_contradiction", label: "внутреннее противоречие", color: "#C0392B" },
         
@@ -1659,13 +1684,13 @@
         { id: "presuppose", label: "предполагает", color: "#27AE60" },
         { id: "apply", label: "применяет", color: "#8E44AD" },
         { id: "condition", label: "условие", color: "#2980B9" },
-        { id: "exemplify", label: "иллюстрирует", color: "#D35400" },
+        { id: "exemplify", label: "иллюстрация", color: "#D35400" },
         { id: "instrument", label: "инструмент для", color: "#7F8C8D" },
         { id: "complement", label: "дополняет", color: "#E67E22" },
         { id: "culminate", label: "кульминирует в", color: "#16A085" },
         { id: "mediate", label: "опосредует", color: "#F1C40F" },
         { id: "emerge_from", label: "возникает из", color: "#2C3E50" },
-        { id: "limit", label: "ограничивает", color: "#BDC3C7" }
+        { id: "limit", label: "ограничение", color: "#BDC3C7" }
         ];
         
         // ============================================
@@ -2050,6 +2075,31 @@
                 rubrics: ["being"], 
                 description: "Разумное начало, слово, принцип",
                 extendedDescription: "Многозначное понятие, обозначающее разум, слово, определение, пропорцию, закон. У Аристотеля логос - это прежде всего определяющая формула сущности, выражающая в речи то, что есть вещь. Человек - логическое животное (зоон логон эхон), обладающее способностью к разумной речи. Логос пронизывает реальность как принцип рациональной упорядоченности и познаваемости бытия."
+            },
+
+            { 
+                id: "theoria", 
+                label: "Θεωρία", 
+                philosopher: "aristotle", 
+                rubrics: ["knowledge", "ethics"], 
+                description: "Созерцательная жизнь, высшая форма деятельности",
+                extendedDescription: "Высшая форма человеческой деятельности, превосходящая практическую жизнь (praxis) и ремесленное производство (poiesis). Теория - это созерцание вечных и неизменных истин ради них самих, деятельность, подобная божественной. В 'Никомаховой этике' Аристотель утверждает, что именно созерцательная жизнь философа приближает человека к божественному и составляет совершенное счастье (eudaimonia). Теория - это актуализация высшей части души (nous), деятельность чистого мышления, мыслящего само себя, подобно перводвигателю. Хотя человек смертен, в моменты теоретического созерцания он причастен бессмертному и божественному."
+            },
+            { 
+                id: "nous_poietikos", 
+                label: "Νοῦς ποιητικός", 
+                philosopher: "aristotle", 
+                rubrics: ["consciousness", "knowledge"], 
+                description: "Творческий/активный ум",
+                extendedDescription: "Активное начало познания, творящий или производящий ум, который делает потенциально мыслимое актуально мыслимым - подобно тому, как свет делает потенциально видимые цвета актуально видимыми. Это божественная часть души, вечная и бессмертная, не смешанная с телом. Nous poietikos 'приходит извне' и не возникает вместе с телом, он - чистая актуальность (energeia), всегда деятельный. Именно благодаря активному уму возможно абстрагирование форм от материи и постижение универсального в единичном. Загадочность этой концепции породила множество интерпретаций в средневековой философии, от Авиценны до Аверроэса, и повлияла на неоплатоническое понимание Ума."
+            },
+            { 
+                id: "nous_pathetikos", 
+                label: "Νοῦς παθητικός", 
+                philosopher: "aristotle", 
+                rubrics: ["consciousness"], 
+                description: "Страдательный/пассивный ум",
+                extendedDescription: "Пассивное, воспринимающее начало познания, потенциально способное стать всем мыслимым - подобно чистой доске (tabula rasa), на которой ещё ничего не написано. Это индивидуальный ум каждого человека, возникающий вместе с телом и погибающий вместе с ним. Пассивный ум получает формы от чувственного восприятия и хранит их в виде представлений (phantasmata). Он - материальная потенциальность, которая нуждается в активном уме для актуализации познания. В отличие от активного ума, пассивный ум смертен и связан с телесностью. Различение двух умов создаёт фундаментальную проблему: как бессмертный активный ум связан со смертным индивидом? Эта апория станет предметом многовековых споров."
             },
             
             // ПЛОТИН
@@ -2721,6 +2771,15 @@
                 description: "Суждение вкуса, незаинтересованное удовольствие",
                 extendedDescription: "Суждение о прекрасном, основанное на чувстве удовольствия, которое субъективно, но претендует на всеобщность. Незаинтересованное - не связано с желанием обладать объектом или пользой. Суждение вкуса не когнитивно (не дает знания об объекте), но и не просто субъективно - оно предполагает общее чувство (sensus communis), позволяющее нам ожидать согласия других. Эстетическое суждение - мост между теоретическим и практическим разумом, природой и свободой."
             },
+
+            { 
+                id: "schematism", 
+                label: "Схематизм", 
+                philosopher: "kant", 
+                rubrics: ["knowledge"], 
+                description: "Связь между категориями и чувственностью",
+                extendedDescription: "Таинственное искусство, скрытое в глубинах человеческой души, опосредующее между чистыми рассудочными категориями и многообразием чувственных созерцаний. Схема - это трансцендентальное временное определение, позволяющее применять категории к явлениям. Без схематизма категории были бы пустыми формами, неспособными схватить опыт. Схема величины - это число как единство синтеза однородного многообразия во времени; схема реальности - это бытие во времени; схема субстанции - постоянство реального во времени. Продуктивное воображение создаёт схемы, действуя по правилу, но это действие остаётся неосознанным. Схематизм - самая тёмная глава 'Критики чистого разума', но без него невозможно понять, как возможно синтетическое априорное знание."
+            },
             
             // ФИХТЕ
             { 
@@ -2868,6 +2927,15 @@
                 rubrics: ["being"], 
                 description: "Одностороннее, неполное определение",
                 extendedDescription: "Абстрактное - односторонне, изолированно взятое определение, оторванное от целого и противопоставленное другим. Рассудочное мышление фиксирует абстрактные определения в их раздельности. Но всякая абстракция содержит момент истины и должна быть снята в конкретной тотальности. Даже 'чувственная достоверность' абстрактна, ибо схватывает лишь 'это здесь и теперь' вне всеобщих связей. Путь от абстрактного к конкретному - путь познания истины."
+            },
+
+            { 
+                id: "an_sich_fur_sich", 
+                label: "В-себе/Для-себя", 
+                philosopher: "hegel", 
+                rubrics: ["being", "dialectics"], 
+                description: "Диалектическая пара: непосредственное и опосредованное бытие",
+                extendedDescription: "Фундаментальное диалектическое различение, проходящее через всю систему Гегеля. Бытие-в-себе (An-sich) - это непосредственное, неразвитое бытие, скрытая возможность, бытие лишь по своему понятию, ещё не ставшее для самого себя. Бытие-для-себя (Für-sich) - это опосредованное собой бытие, вернувшееся к себе из своего инобытия, осознавшее себя бытие. Движение от в-себе к для-себя - это движение самого духа, его самопознание. Истинное бытие - это бытие-в-себе-и-для-себя (an und für sich), единство непосредственности и опосредования, снятие их различия. Эта структура определяет развитие всего: от чистого бытия к абсолютной идее, от субъективного духа к абсолютному духу. Сартр переосмыслит это различение в экзистенциальных терминах, но сохранит его фундаментальность."
             },
             
             // ШОПЕНГАУЭР
@@ -3034,6 +3102,15 @@
                 rubrics: ["time"], 
                 description: "Atom вечности, встреча времени и вечного",
                 extendedDescription: "Øjeblik - миг, в котором вечное касается времени, парадоксальная точка встречи несоизмеримого. Не математическая точка времени, а качественный атом - полнота времени. В мгновении совершается решение, прыжок веры, происходит событие откровения. Это временная категория и одновременно вечности - вечное входит во время, не становясь временным. Воплощение - абсолютный парадокс мгновения: вечное стало историческим фактом."
+            },
+
+            { 
+                id: "absurd", 
+                label: "Абсурд", 
+                philosopher: "kierkegaard", 
+                rubrics: ["knowledge", "freedom"], 
+                description: "Парадоксальность веры, невозможность рационального обоснования",
+                extendedDescription: "Парадокс, скандал для разума, перед которым останавливается всякое мышление - и именно здесь начинается вера. Абсурд - это вочеловечение вечного Бога, соединение противоположностей, немыслимое для разума: Бог становится единичным человеком в определённый исторический момент. Это не иррациональность, но сверх-рациональность, требующая прыжка веры вопреки разуму (credo quia absurdum). В абсурде Авраама, готового принести в жертву Исаака по повелению Бога, открывается телеологическое приостановление этического - единичный оказывается выше всеобщего. Абсурд невыносим для разума, порождает тревогу и отчаяние, но именно через принятие абсурда осуществляется религиозное существование. Это предвосхищение экзистенциалистского абсурда у Камю и Сартра, но с сохранением религиозного измерения."
             },
             
             // МАРКС
@@ -3563,6 +3640,22 @@
                 description: "Die Kehre - поворот в мышлении бытия",
                 extendedDescription: "Двойной смысл: поворот в самом Бытии (от забвения к раскрытию) и поворот в мысли Хайдеггера (от аналитики Dasein к истории Бытия). После Поворота не Dasein проектирует бытие, а Бытие посылает себя, вручает себя человеку. Не человек - субъект метафизики, а Бытие - дарящее. Поворот - от трансценденции к Ereignis, от воли к Gelassenheit (отрешенности). История метафизики ведет к Повороту - возможному новому началу."
             },
+            { 
+                id: "vorhanden", 
+                label: "Vorhandensein", 
+                philosopher: "heidegger", 
+                rubrics: ["being"], 
+                description: "Наличное бытие вещей",
+                extendedDescription: "Способ бытия сущего как просто присутствующего, наличествующего перед нами - традиционный модус бытия, которым занималась вся предшествующая метафизика. Vorhandene - это вещи в их чистом присутствии, рассматриваемые безотносительно к нашим практическим интересам, теоретически, как объекты созерцания и познания. Это производный модус бытия, возникающий из разрушения практического отношения: когда молоток ломается, он из подручного орудия превращается в просто наличную, бесполезную вещь. Наличное бытие - абстракция, отвлечение от первичной практической вовлечённости Dasein в мир. Вся западная метафизика от Платона до Декарта понимала бытие как Vorhandenheit, упуская тем самым более исходный экзистенциальный смысл бытия. Критика этой установки - центр хайдеггеровской деструкции метафизики."
+            },
+            { 
+                id: "zuhanden", 
+                label: "Zuhandensein", 
+                philosopher: "heidegger", 
+                rubrics: ["being"], 
+                description: "Подручное бытие орудий",
+                extendedDescription: "Первичный способ данности сущего в повседневном обхождении - бытие подручного, готового к руке орудия. Zuhandenes - это не объект теоретического созерцания, но то, чем мы пользуемся в заботе, не замечая, не тематизируя. Молоток существует как подручное, пока мы просто им пользуемся; лишь когда он ломается, он становится наличным. Подручность - это сеть отсылок: молоток отсылает к гвоздям, гвозди - к доскам, доски - к дому, дом - к обитанию. Эта целостность отсылок конституирует мир. Подручное всегда дано в модусе 'для-того-чтобы', оно встроено в практический контекст заботы. Открытие Zuhandenheit - революция в онтологии: бытие не есть присутствие перед теоретическим взором, но практическая вовлечённость в контекст значимости. Это предвосхищает прагматизм и энактивизм XX века."
+            },
             
             // ВИТГЕНШТЕЙН
             { 
@@ -3835,6 +3928,14 @@
                 description: "Превращение данности в вопрос",
                 extendedDescription: "Задача критической мысли - не принимать очевидности, а проблематизировать их, показывая, как данное стало данным, что сделало возможным его принятие. Не 'что думать?' а 'как стало возможным так думать?' Безумие, сексуальность, преступность - не вечные сущности, а исторические проблематизации. Проблематизация - не релятивизм, а выявление произвольности настоящего, открытие возможности думать иначе. Свобода как критическая дистанция к данности."
             },
+            { 
+                id: "dispositif", 
+                label: "Диспозитив", 
+                philosopher: "foucault", 
+                rubrics: ["politics", "knowledge"], 
+                description: "Аппарат власти-знания, гетерогенная совокупность элементов",
+                extendedDescription: "Стратегическая сеть, состоящая из гетерогенных элементов - дискурсов, институций, архитектурных форм, регулирующих решений, законов, административных мер, научных высказываний, философских и моральных положений. Диспозитив - это система отношений между этими элементами, отвечающая на некоторую историческую неотложность, решающая определённую стратегическую задачу. Он всегда вписан в игру власти, но всегда связан с границами знания, которые из него происходят и, в то же время, обусловливают его. Примеры диспозитивов: сексуальность, безумие, дисциплина, биополитика. Это не просто структура, но динамический аппарат, производящий субъективность. Паноптикум - частный случай дисциплинарного диспозитива. Понятие dispositif - методологический ключ поздних работ Фуко, инструмент анализа исторических конфигураций власти-знания. Делёз разовьёт это понятие, связав его с концепцией ассамбляжа."
+            },
             
             // ДЕЛЁЗ
             { 
@@ -3908,6 +4009,14 @@
                 rubrics: ["being"], 
                 description: "Le pli - складывание, барочная топология",
                 extendedDescription: "Барокко как ключ к Лейбницу и современности: мир - бесконечное складывание, а не развертывание заданного. Материя складывается в органические тела; душа - складка, включающая весь мир. Не внешнее и внутреннее, а разные режимы складки. Субъект - результат складывания, а не субстанция. Против диалектики: не снятие противоположностей, а их складывание друг на друга. Современная философия - искусство складок, создание новых сгибов мысли."
+            },
+            { 
+                id: "multiplicity", 
+                label: "Множественность", 
+                philosopher: "deleuze", 
+                rubrics: ["being"], 
+                description: "Не единство и не множество, а становление-множественным",
+                extendedDescription: "Фундаментальное онтологическое понятие, отличное и от единства, и от множества точек - это становление, непрерывное варьирование, не сводимое к метрическим измерениям. Множественность у Делёза - это не 'много единиц', но континуум интенсивностей, плоскость имманенции, на которой распределяются сингулярности. Она определяется не элементами, но связями между ними, не формой, но динамизмом. Бергсоновская длительность - пример множественности: она едина, но гетерогенна, непрерывна, но дифференцирована. Ризома - структура множественности, в отличие от древовидной структуры единства. Множественность противостоит как платоническому Единому, так и атомистическому множеству. Это реальность виртуального - не возможное, но реальное-ещё-не-актуализированное. Концепт множественности - альтернатива всей метафизической традиции от Парменида до Гегеля, утверждавшей примат Единого."
             }
         ];
         
@@ -3919,13 +4028,13 @@
             { source: "maieutics", target: "anamnesis", type: "influence", weight: 2 },
             { source: "virtue_knowledge", target: "ideas", type: "influence", weight: 2 },
             { source: "care_soul", target: "tripartite_soul", type: "develop", weight: 2 },
-            { source: "daimonion", target: "care_soul", type: "ground", weight: 1 },
+            { source: "daimonion", target: "care_soul", type: "consequence", weight: 1 },
             { source: "know_nothing", target: "maieutics", type: "condition", weight: 2 },
             { source: "virtue_knowledge", target: "maieutics", type: "presuppose", weight: 2 },
             { source: "care_soul", target: "virtue_knowledge", type: "culminate", weight: 2 },
             { source: "daimonion", target: "soul", type: "influence", weight: 1 },
             { source: "soul", target: "care_soul", type: "presuppose", weight: 2 },
-            { source: "soul", target: "virtue_knowledge", type: "ground", weight: 2 },
+            { source: "soul", target: "virtue_knowledge", type: "consequence", weight: 2 },
             { source: "daimonion", target: "maieutics", type: "mediate", weight: 1 },
             
             // ПЛАТОН → АРИСТОТЕЛЬ
@@ -3937,50 +4046,61 @@
             // ВНУТРИ ПЛАТОНА
             { source: "ideas", target: "eidos", type: "presuppose", weight: 3 },
             { source: "eidos", target: "anamnesis", type: "condition", weight: 2 },
-            { source: "cave", target: "ideas", type: "ground", weight: 2 },
+            { source: "cave", target: "ideas", type: "consequence", weight: 2 },
             { source: "demiurge", target: "ideas", type: "apply", weight: 2 },
-            { source: "ideal_state", target: "tripartite_soul", type: "ground", weight: 2 },
-            { source: "tripartite_soul", target: "care_soul", type: "ground", weight: 2 },
-            { source: "ideal_state", target: "ideas", type: "ground", weight: 2 },
+            { source: "ideal_state", target: "tripartite_soul", type: "consequence", weight: 2 },
+            { source: "tripartite_soul", target: "care_soul", type: "consequence", weight: 2 },
+            { source: "ideal_state", target: "ideas", type: "consequence", weight: 2 },
             { source: "good", target: "ideas", type: "culminate", weight: 3 },
             { source: "good", target: "eidos", type: "culminate", weight: 3 },
             { source: "cave", target: "good", type: "influence", weight: 2 },
             { source: "good", target: "demiurge", type: "influence", weight: 2 },
             { source: "eros", target: "anamnesis", type: "instrument", weight: 2 },
             { source: "eros", target: "care_soul", type: "influence", weight: 2 },
-            { source: "eros", target: "good", type: "ground", weight: 2 },
+            { source: "eros", target: "good", type: "consequence", weight: 2 },
             { source: "eros", target: "cave", type: "influence", weight: 1 },
-            { source: "eros", target: "tripartite_soul", type: "ground", weight: 2 },
-            { source: "methexis", target: "eidos", type: "mediate", weight: 3, bidirectional: true },
-            { source: "methexis", target: "cave", type: "ground", weight: 2 },
-            { source: "methexis", target: "ideas", type: "ground", weight: 3 },
+            { source: "eros", target: "tripartite_soul", type: "consequence", weight: 2 },
+            { source: "eidos", target: "methexis", type: "consequence", weight: 3 },
+            { source: "methexis", target: "eidos", type: "presuppose", weight: 3 },
+            { source: "methexis", target: "cave", type: "consequence", weight: 2 },
+            { source: "methexis", target: "ideas", type: "consequence", weight: 3 },
             { source: "mimesis", target: "methexis", type: "apply", weight: 2 },
-            { source: "mimesis", target: "ideas", type: "ground", weight: 2 },
+            { source: "mimesis", target: "ideas", type: "consequence", weight: 2 },
             { source: "chora", target: "demiurge", type: "condition", weight: 2 },
             { source: "chora", target: "matter_ar", type: "dialogue", weight: 1, bidirectional: true },
             { source: "good", target: "methexis", type: "influence", weight: 2 },
+            { source: "eros", target: "good", type: "culminate", weight: 3 },
+            { source: "mimesis", target: "eidos", type: "presuppose", weight: 2 },
             
             // ВНУТРИ АРИСТОТЕЛЯ
             { source: "form", target: "matter_ar", type: "presuppose", weight: 3, bidirectional: true },
             { source: "form", target: "entelechy", type: "culminate", weight: 2 },
             { source: "four_causes", target: "entelechy", type: "presuppose", weight: 2 },
-            { source: "unmoved_mover", target: "entelechy", type: "ground", weight: 2 },
-            { source: "categories", target: "form", type: "ground", weight: 2 },
+            { source: "unmoved_mover", target: "entelechy", type: "consequence", weight: 2 },
+            { source: "categories", target: "form", type: "consequence", weight: 2 },
             { source: "golden_mean", target: "virtue_knowledge", type: "develop", weight: 2 },
-            { source: "golden_mean", target: "entelechy", type: "ground", weight: 2 },
+            { source: "golden_mean", target: "entelechy", type: "consequence", weight: 2 },
             { source: "act_potency", target: "form", type: "presuppose", weight: 3, bidirectional: true },
             { source: "act_potency", target: "matter_ar", type: "presuppose", weight: 3, bidirectional: true },
             { source: "act_potency", target: "entelechy", type: "presuppose", weight: 3 },
-            { source: "act_potency", target: "unmoved_mover", type: "ground", weight: 3 },
-            { source: "four_causes", target: "act_potency", type: "ground", weight: 2 },
+            { source: "act_potency", target: "unmoved_mover", type: "consequence", weight: 3 },
+            { source: "four_causes", target: "act_potency", type: "consequence", weight: 2 },
             { source: "phronesis", target: "golden_mean", type: "instrument", weight: 3 },
             { source: "phronesis", target: "virtue_knowledge", type: "develop", weight: 3 },
             { source: "phronesis", target: "eudaimonia", type: "instrument", weight: 3 },
             { source: "eudaimonia", target: "entelechy", type: "culminate", weight: 3 },
-            { source: "eudaimonia", target: "golden_mean", type: "ground", weight: 3 },
+            { source: "eudaimonia", target: "golden_mean", type: "consequence", weight: 3 },
             { source: "logos", target: "form", type: "presuppose", weight: 3 },
-            { source: "logos", target: "categories", type: "ground", weight: 3 },
-            { source: "logos", target: "unmoved_mover", type: "ground", weight: 3 },
+            { source: "logos", target: "categories", type: "consequence", weight: 3 },
+            { source: "logos", target: "unmoved_mover", type: "consequence", weight: 3 },
+            { source: "theoria", target: "eudaimonia", type: "culminate", weight: 3 },
+            { source: "nous_poietikos", target: "nous_pathetikos", type: "dialogue", weight: 3, bidirectional: true },
+            { source: "logos", target: "theoria", type: "consequence", weight: 2 },
+            { source: "logos", target: "eudaimonia", type: "condition", weight: 3 },
+            { source: "entelechy", target: "four_causes", type: "synthesize", weight: 3 },
+            { source: "form", target: "four_causes", type: "consequence", weight: 3 },
+            { source: "matter_ar", target: "four_causes", type: "consequence", weight: 3 },
+            { source: "act_potency", target: "four_causes", type: "consequence", weight: 2 },
             
             // ПЛАТОН → ПЛОТИН
             { source: "good", target: "the_one", type: "develop", weight: 3 },
@@ -3995,16 +4115,22 @@
             { source: "unmoved_mover", target: "the_one", type: "influence", weight: 2 },
             { source: "entelechy", target: "emanation", type: "influence", weight: 2 },
             { source: "form", target: "nous", type: "influence", weight: 2 },
+            { source: "theoria", target: "contemplation", type: "influence", weight: 2 }, 
+            { source: "nous_poietikos", target: "nous", type: "influence", weight: 2 },
             
             // ВНУТРИ ПЛОТИНА
             { source: "the_one", target: "emanation", type: "emerge_from", weight: 3 },
             { source: "emanation", target: "nous", type: "emerge_from", weight: 3 },
             { source: "emanation", target: "world_soul", type: "emerge_from", weight: 3 },
-            { source: "nous", target: "world_soul", type: "ground", weight: 2 },
+            { source: "nous", target: "world_soul", type: "consequence", weight: 2 },
             { source: "world_soul", target: "matter_plotinus", type: "oppose", weight: 2 },
             { source: "henosis", target: "the_one", type: "culminate", weight: 3 },
-            { source: "contemplation", target: "nous", type: "ground", weight: 2 },
+            { source: "contemplation", target: "nous", type: "consequence", weight: 2 },
             { source: "contemplation", target: "henosis", type: "instrument", weight: 2 },
+            { source: "the_one", target: "nous", type: "emerge_from", weight: 3 },
+            { source: "nous", target: "emanation", type: "exemplify", weight: 2 },
+            { source: "contemplation", target: "the_one", type: "consequence", weight: 3 },
+            { source: "henosis", target: "contemplation", type: "culminate", weight: 3 },
             
             // ПЛОТИН → АВГУСТИН
             { source: "the_one", target: "grace", type: "influence", weight: 2 },
@@ -4027,10 +4153,10 @@
             // ВНУТРИ АВГУСТИНА
             { source: "grace", target: "original_sin", type: "complement", weight: 2 },
             { source: "faith_reason", target: "confession", type: "presuppose", weight: 2 },
-            { source: "two_cities", target: "grace", type: "ground", weight: 2 },
+            { source: "two_cities", target: "grace", type: "consequence", weight: 2 },
             { source: "time_augustine", target: "confession", type: "condition", weight: 2 },
-            { source: "two_cities", target: "faith_reason", type: "ground", weight: 2 },
-            { source: "original_sin", target: "confession", type: "ground", weight: 2 },
+            { source: "two_cities", target: "faith_reason", type: "consequence", weight: 2 },
+            { source: "original_sin", target: "confession", type: "consequence", weight: 2 },
             { source: "grace", target: "confession", type: "influence", weight: 2 },
             
             // АВГУСТИН → ФОМА
@@ -4041,31 +4167,33 @@
             { source: "good", target: "grace", type: "influence", weight: 2 },
             { source: "ideas", target: "faith_reason", type: "influence", weight: 2 },
             { source: "anamnesis", target: "confession", type: "influence", weight: 2 },
-            { source: "eidos", target: "grace", type: "influence", weight: 1 },
             { source: "tripartite_soul", target: "two_cities", type: "influence", weight: 1 },
             
             // ВНУТРИ ФОМЫ
             { source: "essence_existence", target: "five_ways", type: "presuppose", weight: 3 },
             { source: "natural_law", target: "thomistic_synthesis", type: "apply", weight: 2 },
-            { source: "analogy", target: "essence_existence", type: "ground", weight: 2 },
+            { source: "analogy", target: "essence_existence", type: "consequence", weight: 2 },
             { source: "thomistic_synthesis", target: "form", type: "develop", weight: 2 },
-            { source: "thomistic_synthesis", target: "essence_existence", type: "ground", weight: 2 },
-            { source: "natural_law", target: "five_ways", type: "ground", weight: 2 },
-            { source: "accidents", target: "essence_existence", type: "ground", weight: 2 },
+            { source: "thomistic_synthesis", target: "essence_existence", type: "consequence", weight: 2 },
+            { source: "natural_law", target: "five_ways", type: "consequence", weight: 2 },
+            { source: "accidents", target: "essence_existence", type: "consequence", weight: 2 },
             { source: "actual_being", target: "act_potency", type: "apply", weight: 3 },
-            { source: "actual_being", target: "essence_existence", type: "ground", weight: 3 },
+            { source: "actual_being", target: "essence_existence", type: "consequence", weight: 3 },
             { source: "participatio", target: "methexis", type: "apply", weight: 3 },
             { source: "participatio", target: "essence_existence", type: "mediate", weight: 3 },
-            { source: "participatio", target: "analogy", type: "ground", weight: 3 },
+            { source: "participatio", target: "analogy", type: "consequence", weight: 3 },
             
             // ДЕКАРТ
             { source: "cogito", target: "dualism", type: "emerge_from", weight: 3 },
             { source: "res_cogitans", target: "res_extensa", type: "oppose", weight: 3 },
             { source: "dualism", target: "res_cogitans", type: "presuppose", weight: 2 },
-            { source: "method", target: "cogito", type: "instrument", weight: 2 },
+            { source: "method", target: "cogito", type: "instrument", weight: 3 },
             { source: "clear_distinct", target: "innate_ideas", type: "condition", weight: 2 },
-            { source: "innate_ideas", target: "res_cogitans", type: "ground", weight: 2 },
+            { source: "innate_ideas", target: "res_cogitans", type: "consequence", weight: 2 },
             { source: "cogito", target: "know_nothing", type: "critique", weight: 2 },
+            { source: "method", target: "dualism", type: "consequence", weight: 2 },
+            { source: "method", target: "clear_distinct", type: "consequence", weight: 3 },
+            { source: "cogito", target: "clear_distinct", type: "exemplify", weight: 3 },
             
             // ДЕКАРТ → ЛОКК
             { source: "innate_ideas", target: "tabula_rasa", type: "oppose", weight: 3 },
@@ -4077,7 +4205,7 @@
             { source: "simple_ideas", target: "complex_ideas", type: "emerge_from", weight: 3 },
             { source: "primary_qualities", target: "secondary_qualities", type: "oppose", weight: 2 },
             { source: "primary_qualities", target: "substance_locke", type: "presuppose", weight: 2 },
-            { source: "substance_locke", target: "simple_ideas", type: "ground", weight: 2 },
+            { source: "substance_locke", target: "simple_ideas", type: "consequence", weight: 2 },
             { source: "personal_identity", target: "complex_ideas", type: "emerge_from", weight: 2 },
             
             // ЛОКК → БЕРКЛИ
@@ -4102,16 +4230,20 @@
             // СПИНОЗА
             { source: "substance_spinoza", target: "modes", type: "emerge_from", weight: 3 },
             { source: "attributes", target: "substance_spinoza", type: "presuppose", weight: 2 },
-            { source: "conatus", target: "modes", type: "ground", weight: 2 },
-            { source: "intellectual_love", target: "substance_spinoza", type: "ground", weight: 2 },
-            { source: "determinism", target: "substance_spinoza", type: "ground", weight: 2 },
+            { source: "conatus", target: "modes", type: "consequence", weight: 2 },
+            { source: "intellectual_love", target: "substance_spinoza", type: "consequence", weight: 2 },
+            { source: "determinism", target: "substance_spinoza", type: "consequence", weight: 2 },
             { source: "substance_spinoza", target: "dualism", type: "critique", weight: 2 },
             { source: "determinism", target: "autonomy", type: "oppose", weight: 2 },
-            { source: "natura_naturans", target: "substance_spinoza", type: "ground", weight: 3 },
-            { source: "natura_naturata", target: "modes", type: "ground", weight: 3 },
+            { source: "natura_naturans", target: "substance_spinoza", type: "consequence", weight: 3 },
+            { source: "natura_naturata", target: "modes", type: "consequence", weight: 3 },
             { source: "natura_naturans", target: "natura_naturata", type: "presuppose", weight: 2, bidirectional: true },
             { source: "adequate_ideas", target: "intellectual_love", type: "instrument", weight: 2 },
             { source: "adequate_ideas", target: "clear_distinct", type: "dialogue", weight: 1, bidirectional: true },
+            { source: "substance_spinoza", target: "attributes", type: "consequence", weight: 3 },
+            { source: "attributes", target: "modes", type: "consequence", weight: 3 },
+            { source: "conatus", target: "adequate_ideas", type: "consequence", weight: 2 },
+            { source: "natura_naturans", target: "attributes", type: "consequence", weight: 2 },
             
             // АРИСТОТЕЛЬ → СПИНОЗА
             { source: "entelechy", target: "substance_spinoza", type: "influence", weight: 2 },
@@ -4123,19 +4255,21 @@
             // ЛЕЙБНИЦ
             { source: "monads", target: "preestablished", type: "presuppose", weight: 2 },
             { source: "sufficient_reason", target: "best_worlds", type: "condition", weight: 2 },
-            { source: "petites_perceptions", target: "monads", type: "ground", weight: 2 },
+            { source: "petites_perceptions", target: "monads", type: "consequence", weight: 2 },
             { source: "monads", target: "substance_spinoza", type: "critique", weight: 2 },
             { source: "preestablished", target: "dualism", type: "synthesize", weight: 2 },
             { source: "best_worlds", target: "demiurge", type: "develop", weight: 1 },
             { source: "sufficient_reason", target: "four_causes", type: "develop", weight: 1 },
-            { source: "sufficient_reason", target: "preestablished", type: "ground", weight: 2 },
-            { source: "best_worlds", target: "monads", type: "ground", weight: 2 },
+            { source: "sufficient_reason", target: "preestablished", type: "consequence", weight: 2 },
+            { source: "best_worlds", target: "monads", type: "consequence", weight: 2 },
             { source: "apperception", target: "monads", type: "exemplify", weight: 3 },
             { source: "apperception", target: "petites_perceptions", type: "oppose", weight: 2 },
             { source: "apperception", target: "transcendental_ego", type: "influence", weight: 2 },
             { source: "apperception", target: "intentionality", type: "influence", weight: 2 },
             { source: "continuity", target: "preestablished", type: "presuppose", weight: 2 },
             { source: "continuity", target: "monads", type: "presuppose", weight: 2 },
+            { source: "sufficient_reason", target: "monads", type: "consequence", weight: 3 },
+            { source: "best_worlds", target: "sufficient_reason", type: "consequence", weight: 3 },
             
             // ЛЕЙБНИЦ → КАНТ
             { source: "apperception", target: "transcendental_ego", type: "influence", weight: 2 },
@@ -4146,7 +4280,7 @@
             
             // ВНУТРИ БЕРКЛИ
             { source: "esse_percipi", target: "immaterialism", type: "presuppose", weight: 3 },
-            { source: "immaterialism", target: "ideas_berkeley", type: "ground", weight: 2 },
+            { source: "immaterialism", target: "ideas_berkeley", type: "consequence", weight: 2 },
             { source: "god_perceiver", target: "esse_percipi", type: "condition", weight: 2 },
             { source: "ideas_berkeley", target: "esse_percipi", type: "presuppose", weight: 2 },
             
@@ -4165,9 +4299,9 @@
             { source: "is_ought", target: "natural_law", type: "critique", weight: 2 },
             { source: "causality_critique", target: "four_causes", type: "critique", weight: 2 },
             { source: "impressions", target: "innate_ideas", type: "critique", weight: 2 },
-            { source: "causality_critique", target: "impressions", type: "ground", weight: 2 },
+            { source: "causality_critique", target: "impressions", type: "consequence", weight: 2 },
             { source: "custom", target: "ideas_hume", type: "mediate", weight: 2 },
-            { source: "is_ought", target: "impressions", type: "ground", weight: 2 },
+            { source: "is_ought", target: "impressions", type: "consequence", weight: 2 },
             
             // КАНТ
             { source: "thing_itself", target: "phenomenon", type: "oppose", weight: 3 },
@@ -4180,18 +4314,25 @@
             { source: "synthetic_apriori", target: "innate_ideas", type: "develop", weight: 2 },
             { source: "categorical", target: "natural_law", type: "develop", weight: 2 },
             { source: "categorical", target: "apriori", type: "emerge_from", weight: 3 },
-            { source: "autonomy", target: "transcendental", type: "ground", weight: 2 },
+            { source: "autonomy", target: "transcendental", type: "consequence", weight: 2 },
             { source: "categorical", target: "phenomenon", type: "influence", weight: 1 },
             { source: "antinomies", target: "thing_itself", type: "limit", weight: 3 },
-            { source: "transcendental", target: "antinomies", type: "ground", weight: 3 },
+            { source: "transcendental", target: "antinomies", type: "consequence", weight: 3 },
             { source: "synthetic_apriori", target: "antinomies", type: "influence", weight: 2 },
             { source: "sublime", target: "thing_itself", type: "influence", weight: 2 },
-            { source: "sublime", target: "aesthetic_judgment", type: "ground", weight: 2 },
+            { source: "sublime", target: "aesthetic_judgment", type: "consequence", weight: 2 },
             { source: "sublime", target: "dionysian", type: "dialogue", weight: 1, bidirectional: true },
             { source: "postulates", target: "categorical", type: "condition", weight: 3 },
             { source: "postulates", target: "autonomy", type: "condition", weight: 3 },
-            { source: "aesthetic_judgment", target: "phenomenon", type: "ground", weight: 2 },
-            { source: "aesthetic_judgment", target: "transcendental", type: "ground", weight: 2 },
+            { source: "aesthetic_judgment", target: "phenomenon", type: "consequence", weight: 2 },
+            { source: "aesthetic_judgment", target: "transcendental", type: "consequence", weight: 2 },
+            { source: "schematism", target: "apriori", type: "consequence", weight: 3 },
+            { source: "schematism", target: "phenomenon", type: "consequence", weight: 3 },
+            { source: "synthetic_apriori", target: "schematism", type: "consequence", weight: 2 },
+            { source: "phenomenon", target: "apriori", type: "presuppose", weight: 3 },
+            { source: "synthetic_apriori", target: "phenomenon", type: "condition", weight: 3 },
+            { source: "transcendental", target: "phenomenon", type: "condition", weight: 3 },
+            { source: "categorical", target: "autonomy", type: "exemplify", weight: 3 },
             
             // КАНТ → ГЕГЕЛЬ
             { source: "antinomies", target: "dialectic", type: "influence", weight: 3 },
@@ -4210,8 +4351,8 @@
             // ФИХТЕ
             { source: "absolute_ego", target: "non_ego", type: "oppose", weight: 3 },
             { source: "tathandlung", target: "absolute_ego", type: "presuppose", weight: 2 },
-            { source: "striving", target: "non_ego", type: "ground", weight: 2 },
-            { source: "practical_primacy", target: "tathandlung", type: "ground", weight: 2 },
+            { source: "striving", target: "non_ego", type: "consequence", weight: 2 },
+            { source: "practical_primacy", target: "tathandlung", type: "consequence", weight: 2 },
             { source: "absolute_ego", target: "transcendental", type: "develop", weight: 3 },
             { source: "tathandlung", target: "cogito", type: "critique", weight: 2 },
             { source: "imagination", target: "absolute_ego", type: "mediate", weight: 3 },
@@ -4219,6 +4360,9 @@
             { source: "imagination", target: "tathandlung", type: "mediate", weight: 3 },
             { source: "wissenschaftslehre", target: "tathandlung", type: "presuppose", weight: 2 },
             { source: "wissenschaftslehre", target: "absolute_ego", type: "presuppose", weight: 2 },
+            { source: "absolute_ego", target: "tathandlung", type: "consequence", weight: 3 },
+            { source: "striving", target: "absolute_ego", type: "consequence", weight: 3 },
+            { source: "imagination", target: "striving", type: "consequence", weight: 2 },
             
             // ФИХТЕ → ГЕГЕЛЬ
             { source: "absolute_ego", target: "absolute_idea", type: "influence", weight: 3 },
@@ -4226,26 +4370,34 @@
             
             // ГЕГЕЛЬ
             { source: "dialectic", target: "aufhebung", type: "instrument", weight: 3 },
-            { source: "absolute_idea", target: "weltgeist", type: "ground", weight: 2 },
+            { source: "absolute_idea", target: "weltgeist", type: "consequence", weight: 2 },
             { source: "dialectic", target: "absolute_idea", type: "instrument", weight: 3 },
-            { source: "master_slave", target: "dialectic", type: "ground", weight: 2 },
-            { source: "objective_spirit", target: "weltgeist", type: "ground", weight: 2 },
-            { source: "cunning_reason", target: "weltgeist", type: "ground", weight: 2 },
+            { source: "master_slave", target: "dialectic", type: "consequence", weight: 2 },
+            { source: "objective_spirit", target: "weltgeist", type: "consequence", weight: 2 },
+            { source: "cunning_reason", target: "weltgeist", type: "consequence", weight: 2 },
             { source: "aufhebung", target: "non_ego", type: "synthesize", weight: 2 },
             { source: "dialectic", target: "thing_itself", type: "synthesize", weight: 2 },
             { source: "absolute_idea", target: "absolute_ego", type: "develop", weight: 3 },
             { source: "dialectic", target: "aufhebung", type: "instrument", weight: 3 },
-            { source: "absolute_idea", target: "weltgeist", type: "ground", weight: 2 },
+            { source: "absolute_idea", target: "weltgeist", type: "consequence", weight: 2 },
             { source: "dialectic", target: "absolute_idea", type: "instrument", weight: 3 },
-            { source: "master_slave", target: "dialectic", type: "ground", weight: 2 },
-            { source: "objective_spirit", target: "weltgeist", type: "ground", weight: 2 },
-            { source: "cunning_reason", target: "weltgeist", type: "ground", weight: 2 },
+            { source: "master_slave", target: "dialectic", type: "consequence", weight: 2 },
+            { source: "objective_spirit", target: "weltgeist", type: "consequence", weight: 2 },
+            { source: "cunning_reason", target: "weltgeist", type: "consequence", weight: 2 },
             { source: "negative", target: "nothingness", type: "develop", weight: 2 },
+            { source: "negative", target: "dialectic", type: "consequence", weight: 3 },
             { source: "concrete", target: "abstract", type: "presuppose", weight: 3, bidirectional: true },
-            { source: "abstract", target: "dialectic", type: "ground", weight: 2 },
+            { source: "abstract", target: "dialectic", type: "consequence", weight: 2 },
             { source: "abstract", target: "aufhebung", type: "limit", weight: 2 },
             { source: "concrete", target: "absolute_idea", type: "culminate", weight: 2 },
-            { source: "concrete", target: "dialectic", type: "ground", weight: 2 },
+            { source: "concrete", target: "dialectic", type: "consequence", weight: 2 },
+            { source: "an_sich_fur_sich", target: "dialectic", type: "consequence", weight: 3 },
+            { source: "an_sich_fur_sich", target: "aufhebung", type: "consequence", weight: 3 },
+            { source: "absolute_idea", target: "dialectic", type: "culminate", weight: 3 },
+            { source: "weltgeist", target: "objective_spirit", type: "consequence", weight: 3 },
+            { source: "entfremdung", target: "master_slave", type: "exemplify", weight: 3 },
+            { source: "cunning_reason", target: "absolute_idea", type: "instrument", weight: 2 },
+            { source: "negative", target: "aufhebung", type: "condition", weight: 3 },
             
             // ГЕГЕЛЬ → МАРКС
             { source: "entfremdung", target: "alienation", type: "influence", weight: 3 },
@@ -4255,6 +4407,10 @@
             { source: "objective_spirit", target: "subjective_truth", type: "oppose", weight: 2 },
             { source: "dialectic", target: "stages_existence", type: "critique", weight: 2 },
             { source: "aufhebung", target: "leap_faith", type: "oppose", weight: 2 },
+
+            // ГЕГЕЛЬ → САРТР
+            { source: "an_sich_fur_sich", target: "for_itself", type: "influence", weight: 3 },
+            { source: "an_sich_fur_sich", target: "in_itself", type: "influence", weight: 3 },
             
             // ШОПЕНГАУЭР
             { source: "will_schop", target: "representation", type: "oppose", weight: 3 },
@@ -4265,8 +4421,10 @@
             { source: "will_schop", target: "absolute_idea", type: "critique", weight: 3 },
             { source: "representation", target: "phenomenon", type: "develop", weight: 2 },
             { source: "individuation", target: "representation", type: "condition", weight: 3 },
-            { source: "individuation", target: "will_schop", type: "oppose", weight: 2 },
+            { source: "individuation", target: "will_schop", type: "oppose", weight: 2, bidirectional: true},
             { source: "individuation", target: "suffering", type: "condition", weight: 2 },
+            { source: "aesthetics_schop", target: "individuation", type: "oppose", weight: 2 },
+            { source: "compassion", target: "individuation", type: "oppose", weight: 3 },
             
             // ШОПЕНГАУЭР → ВИТГЕНШТЕЙН
             { source: "will_schop", target: "showing_saying", type: "influence", weight: 2 },
@@ -4276,31 +4434,42 @@
             // КЬЕРКЕГОР
             { source: "stages_existence", target: "leap_faith", type: "culminate", weight: 2 },
             { source: "anxiety", target: "leap_faith", type: "condition", weight: 2 },
-            { source: "despair", target: "anxiety", type: "ground", weight: 2 },
+            { source: "despair", target: "anxiety", type: "consequence", weight: 2 },
             { source: "individual", target: "subjective_truth", type: "presuppose", weight: 2 },
             { source: "subjective_truth", target: "leap_faith", type: "presuppose", weight: 2 },
-            { source: "individual", target: "absolute_idea", type: "critique", weight: 2 },
+            { source: "individual", target: "absolute_idea", type: "critique", weight: 3 },
             { source: "leap_faith", target: "dialectic", type: "critique", weight: 2 },
             { source: "repetition", target: "eternal_return", type: "dialogue", weight: 2, bidirectional: true },
             { source: "repetition", target: "stages_existence", type: "mediate", weight: 2 },
             { source: "moment", target: "leap_faith", type: "condition", weight: 3 },
             { source: "moment", target: "time_augustine", type: "develop", weight: 2 },
-            { source: "moment", target: "anxiety", type: "ground", weight: 2 },
+            { source: "moment", target: "anxiety", type: "consequence", weight: 2 },
+            { source: "absurd", target: "leap_faith", type: "consequence", weight: 3 },
+            { source: "absurd", target: "subjective_truth", type: "consequence", weight: 2 },
+            { source: "absurd", target: "nothingness", type: "influence", weight: 2 }, 
+            { source: "absurd", target: "anxiety", type: "consequence", weight: 2 },
+            { source: "stages_existence", target: "anxiety", type: "presuppose", weight: 2 },
+            { source: "moment", target: "stages_existence", type: "consequence", weight: 2 },
+            { source: "stages_existence", target: "despair", type: "presuppose", weight: 2 },
+            { source: "repetition", target: "moment", type: "consequence", weight: 3 },
             
             // МАРКС
             { source: "praxis", target: "alienation", type: "complement", weight: 2 },
             { source: "base_superstructure", target: "class_struggle", type: "condition", weight: 2 },
-            { source: "commodity_fetish", target: "alienation", type: "ground", weight: 2 },
-            { source: "historical_materialism", target: "base_superstructure", type: "ground", weight: 2 },
+            { source: "commodity_fetish", target: "alienation", type: "consequence", weight: 2 },
+            { source: "historical_materialism", target: "base_superstructure", type: "consequence", weight: 2 },
             { source: "praxis", target: "tathandlung", type: "develop", weight: 2 },
             { source: "dialectic", target: "historical_materialism", type: "influence", weight: 3 },
             { source: "alienation", target: "objective_spirit", type: "critique", weight: 2 },
             { source: "historical_materialism", target: "praxis", type: "presuppose", weight: 2 },
-            { source: "base_superstructure", target: "alienation", type: "ground", weight: 2 },
-            { source: "class_struggle", target: "praxis", type: "ground", weight: 2 },
-            { source: "commodity_fetish", target: "base_superstructure", type: "ground", weight: 2 },
-            { source: "ideology", target: "base_superstructure", type: "ground", weight: 2 },
+            { source: "base_superstructure", target: "alienation", type: "consequence", weight: 2 },
+            { source: "class_struggle", target: "praxis", type: "consequence", weight: 2 },
+            { source: "commodity_fetish", target: "base_superstructure", type: "consequence", weight: 2 },
+            { source: "ideology", target: "base_superstructure", type: "consequence", weight: 2 },
             { source: "ideology", target: "alienation", type: "mediate", weight: 2 },
+            { source: "base_superstructure", target: "praxis", type: "emerge_from", weight: 3 },
+            { source: "commodity_fetish", target: "class_struggle", type: "mediate", weight: 2 },
+            { source: "historical_materialism", target: "dialectic", type: "develop", weight: 3 },
             
             // МАРКС → ФУКО
             { source: "base_superstructure", target: "episteme", type: "dialogue", weight: 2, bidirectional: true },
@@ -4308,17 +4477,17 @@
             
             // НИЦШЕ
             { source: "will_power", target: "ubermensch", type: "culminate", weight: 3 },
-            { source: "god_dead", target: "ubermensch", type: "ground", weight: 2 },
+            { source: "god_dead", target: "ubermensch", type: "consequence", weight: 2 },
             { source: "eternal_return", target: "will_power", type: "presuppose", weight: 2 },
             { source: "perspectivism", target: "god_dead", type: "emerge_from", weight: 2 },
             { source: "master_morality", target: "slave_morality", type: "oppose", weight: 3 },
-            { source: "will_schop", target: "will_power", type: "develop", weight: 3 },
+            { source: "will_schop", target: "will_power", type: "oppose", weight: 3 },
             { source: "god_dead", target: "absolute_idea", type: "critique", weight: 3 },
             { source: "ubermensch", target: "categorical", type: "critique", weight: 2 },
             { source: "perspectivism", target: "thing_itself", type: "critique", weight: 2 },
             { source: "master_morality", target: "natural_law", type: "critique", weight: 2 },
             { source: "master_morality", target: "will_power", type: "exemplify", weight: 3 },
-            { source: "master_morality", target: "ubermensch", type: "ground", weight: 3 },
+            { source: "master_morality", target: "ubermensch", type: "consequence", weight: 3 },
             { source: "slave_morality", target: "god_dead", type: "influence", weight: 2 },
             { source: "dionysian", target: "apollonian", type: "presuppose", weight: 3 },
             { source: "dionysian", target: "apollonian", type: "internal_contradiction", weight: 3 },
@@ -4329,6 +4498,11 @@
             { source: "ressentiment", target: "slave_morality", type: "emerge_from", weight: 3 },
             { source: "ressentiment", target: "master_morality", type: "oppose", weight: 2 },
             { source: "ressentiment", target: "will_power", type: "oppose", weight: 2 },
+            { source: "will_power", target: "eternal_return", type: "consequence", weight: 3 },
+            { source: "ubermensch", target: "eternal_return", type: "mediate", weight: 3 },
+            { source: "perspectivism", target: "will_power", type: "consequence", weight: 3 },
+            { source: "eternal_return", target: "dionysian", type: "culminate", weight: 2 },
+            { source: "apollonian", target: "individuation", type: "emerge_from", weight: 2 },
             
             // НИЦШЕ → СОВРЕМЕННЫЕ
             { source: "perspectivism", target: "episteme", type: "influence", weight: 2 },
@@ -4344,17 +4518,18 @@
             { source: "intentionality", target: "epoché", type: "presuppose", weight: 3 },
             { source: "transcendental_ego", target: "eidetic", type: "instrument", weight: 2 },
             { source: "lifeworld", target: "epoché", type: "oppose", weight: 2 },
-            { source: "eidetic", target: "intentionality", type: "ground", weight: 2 },
+            { source: "eidetic", target: "intentionality", type: "consequence", weight: 2 },
             { source: "transcendental_ego", target: "cogito", type: "develop", weight: 3 },
             { source: "epoché", target: "method", type: "develop", weight: 2 },
             { source: "noesis_noema", target: "intentionality", type: "presuppose", weight: 3 },
-            { source: "noesis_noema", target: "eidetic", type: "ground", weight: 3 },
+            { source: "noesis_noema", target: "eidetic", type: "consequence", weight: 3 },
             { source: "constitution", target: "transcendental_ego", type: "presuppose", weight: 3 },
             { source: "constitution", target: "intentionality", type: "presuppose", weight: 3 },
-            { source: "intersubjectivity", target: "lifeworld", type: "presuppose", weight: 2 },
             { source: "intersubjectivity", target: "look", type: "influence", weight: 2 },
             { source: "intersubjectivity", target: "transcendental_ego", type: "critique", weight: 2 },
             { source: "intentionality", target: "lifeworld", type: "condition", weight: 2 },
+            { source: "intersubjectivity", target: "lifeworld", type: "condition", weight: 3 },
+            { source: "epoché", target: "transcendental_ego", type: "instrument", weight: 3 },
             
             // ДЕКАРТ → ГУССЕРЛЬ
             { source: "cogito", target: "transcendental_ego", type: "influence", weight: 2 },
@@ -4367,7 +4542,7 @@
             { source: "dasein", target: "geworfenheit", type: "presuppose", weight: 2 },
             { source: "sein_zum_tode", target: "dasein", type: "condition", weight: 2 },
             { source: "aletheia", target: "sein", type: "presuppose", weight: 2 },
-            { source: "dwelling", target: "dasein", type: "ground", weight: 2 },
+            { source: "dwelling", target: "dasein", type: "consequence", weight: 2 },
             { source: "sein", target: "absolute_idea", type: "critique", weight: 3 },
             { source: "dasein", target: "transcendental_ego", type: "critique", weight: 2 },
             { source: "sorge", target: "intentionality", type: "develop", weight: 2 },
@@ -4376,12 +4551,22 @@
             { source: "das_man", target: "sein_zum_tode", type: "limit", weight: 2 },
             { source: "dwelling", target: "das_man", type: "oppose", weight: 2 },
             { source: "ereignis", target: "sein", type: "presuppose", weight: 3 },
-            { source: "ereignis", target: "aletheia", type: "ground", weight: 3 },
+            { source: "ereignis", target: "aletheia", type: "consequence", weight: 3 },
             { source: "ereignis", target: "event", type: "dialogue", weight: 2, bidirectional: true },
             { source: "geviert", target: "dwelling", type: "condition", weight: 2 },
-            { source: "geviert", target: "dasein", type: "ground", weight: 2 },
+            { source: "geviert", target: "dasein", type: "consequence", weight: 2 },
             { source: "kehre", target: "sein", type: "internal_contradiction", weight: 2 },
             { source: "kehre", target: "ereignis", type: "mediate", weight: 2 },
+            { source: "vorhanden", target: "zuhanden", type: "oppose", weight: 3 },
+            { source: "dasein", target: "zuhanden", type: "consequence", weight: 3 },
+            { source: "sorge", target: "zuhanden", type: "consequence", weight: 2 },
+            { source: "vorhanden", target: "thing_itself", type: "critique", weight: 2 },
+            { source: "dasein", target: "sorge", type: "consequence", weight: 3 },
+            { source: "sein_zum_tode", target: "sorge", type: "consequence", weight: 3 },
+            { source: "das_man", target: "sorge", type: "oppose", weight: 2 },
+            { source: "ereignis", target: "dasein", type: "consequence", weight: 3 },
+            { source: "geviert", target: "ereignis", type: "consequence", weight: 2 },
+            { source: "dwelling", target: "geviert", type: "exemplify", weight: 3 },
             
             // ХАЙДЕГГЕР → ФУКО
             { source: "aletheia", target: "archaeology", type: "influence", weight: 2 },
@@ -4395,11 +4580,14 @@
             { source: "language_game", target: "picture_theory", type: "critique", weight: 2 },
             { source: "picture_theory", target: "language_game", type: "internal_contradiction", weight: 2 },
             { source: "showing_saying", target: "limits_language", type: "condition", weight: 3 },
-            { source: "showing_saying", target: "picture_theory", type: "ground", weight: 3 },
+            { source: "showing_saying", target: "picture_theory", type: "consequence", weight: 3 },
             { source: "private_language", target: "form_of_life", type: "limit", weight: 3 },
-            { source: "private_language", target: "language_game", type: "ground", weight: 3 },
-            { source: "rule_following", target: "language_game", type: "presuppose", weight: 3 },
-            { source: "rule_following", target: "family_resemblance", type: "ground", weight: 3 },
+            { source: "private_language", target: "language_game", type: "consequence", weight: 3 },
+            { source: "rule_following", target: "language_game", type: "presuppose", weight: 3, bidirectional: true  },
+            { source: "rule_following", target: "family_resemblance", type: "consequence", weight: 3 },
+            { source: "picture_theory", target: "showing_saying", type: "consequence", weight: 3 },
+            { source: "form_of_life", target: "rule_following", type: "consequence", weight: 3 },
+            { source: "private_language", target: "rule_following", type: "mediate", weight: 3 },
             
             // АВГУСТИН → ВИТГЕНШТЕЙН
             { source: "confession", target: "language_game", type: "critique", weight: 1 },
@@ -4409,21 +4597,23 @@
             { source: "freedom_sartre", target: "bad_faith", type: "oppose", weight: 3 },
             { source: "nothingness", target: "freedom_sartre", type: "condition", weight: 3 },
             { source: "for_itself", target: "in_itself", type: "oppose", weight: 3 },
-            { source: "look", target: "for_itself", type: "ground", weight: 2 },
+            { source: "look", target: "for_itself", type: "consequence", weight: 2 },
             { source: "existence", target: "dasein", type: "develop", weight: 2 },
             { source: "nothingness", target: "sein", type: "develop", weight: 2 },
             { source: "freedom_sartre", target: "geworfenheit", type: "dialogue", weight: 2, bidirectional: true },
             { source: "bad_faith", target: "dualism", type: "critique", weight: 2 },
-            { source: "for_itself", target: "nothingness", type: "presuppose", weight: 2 },
-            { source: "for_itself", target: "freedom_sartre", type: "ground", weight: 2 },
+            { source: "for_itself", target: "nothingness", type: "presuppose", weight: 3 },
+            { source: "for_itself", target: "freedom_sartre", type: "consequence", weight: 2 },
             { source: "look", target: "bad_faith", type: "influence", weight: 2 },
-            { source: "in_itself", target: "existence", type: "ground", weight: 2 },
+            { source: "in_itself", target: "existence", type: "consequence", weight: 2 },
             { source: "project", target: "existence", type: "presuppose", weight: 3 },
             { source: "project", target: "freedom_sartre", type: "presuppose", weight: 3 },
-            { source: "project", target: "for_itself", type: "ground", weight: 3 },
+            { source: "project", target: "for_itself", type: "consequence", weight: 3 },
             { source: "engagement", target: "bad_faith", type: "oppose", weight: 2 },
-            { source: "engagement", target: "praxis", type: "dialogue", weight: 2, bidirectional: true },
+            { source: "praxis", target: "engagement", type: "develop", weight: 3 },
             { source: "engagement", target: "freedom_sartre", type: "culminate", weight: 2 },
+            { source: "project", target: "bad_faith", type: "oppose", weight: 3 },
+            { source: "engagement", target: "project", type: "consequence", weight: 3 },
             
             // КАНТ → САРТР
             { source: "phenomenon", target: "for_itself", type: "influence", weight: 2 },
@@ -4431,26 +4621,32 @@
             // ФУКО
             { source: "power_knowledge", target: "episteme", type: "presuppose", weight: 3 },
             { source: "discipline", target: "biopower", type: "emerge_from", weight: 2 },
-            { source: "archaeology", target: "episteme", type: "instrument", weight: 2 },
+            { source: "archaeology", target: "episteme", type: "instrument", weight: 3 },
             { source: "care_self", target: "care_soul", type: "develop", weight: 2 },
             { source: "power_knowledge", target: "transcendental", type: "critique", weight: 2 },
             { source: "episteme", target: "apriori", type: "critique", weight: 2 },
             { source: "biopower", target: "conatus", type: "develop", weight: 2 },
-            { source: "discipline", target: "power_knowledge", type: "exemplify", weight: 3 },
             { source: "biopower", target: "episteme", type: "influence", weight: 2 },
             { source: "care_self", target: "discipline", type: "oppose", weight: 2 },
             { source: "panopticon", target: "discipline", type: "exemplify", weight: 3 },
-            { source: "panopticon", target: "biopower", type: "ground", weight: 3 },
+            { source: "panopticon", target: "biopower", type: "consequence", weight: 3 },
             { source: "heterotopia", target: "episteme", type: "influence", weight: 2 },
             { source: "heterotopia", target: "power_knowledge", type: "limit", weight: 2 },
             { source: "problematization", target: "archaeology", type: "instrument", weight: 2 },
-            { source: "problematization", target: "care_self", type: "ground", weight: 2 },
+            { source: "problematization", target: "care_self", type: "consequence", weight: 2 },
+            { source: "dispositif", target: "power_knowledge", type: "consequence", weight: 3 },
+            { source: "dispositif", target: "discipline", type: "consequence", weight: 3 },
+            { source: "dispositif", target: "panopticon", type: "exemplify", weight: 2 },
+            { source: "power_knowledge", target: "discipline", type: "instrument", weight: 3 },
+            { source: "biopower", target: "discipline", type: "develop", weight: 3 },
+            { source: "panopticon", target: "power_knowledge", type: "exemplify", weight: 3 },
+            { source: "heterotopia", target: "panopticon", type: "dialogue", weight: 2, bidirectional: true },
             
             // ДЕЛЁЗ
             { source: "rhizome", target: "assemblage", type: "exemplify", weight: 2 },
             { source: "difference", target: "body_without_organs", type: "presuppose", weight: 2 },
             { source: "desiring_machines", target: "body_without_organs", type: "presuppose", weight: 2 },
-            { source: "deterritorialization", target: "rhizome", type: "instrument", weight: 2 },
+            { source: "deterritorialization", target: "rhizome", type: "instrument", weight: 3 },
             { source: "difference", target: "dialectic", type: "critique", weight: 3 },
             { source: "rhizome", target: "weltgeist", type: "critique", weight: 2 },
             { source: "body_without_organs", target: "res_extensa", type: "critique", weight: 2 },
@@ -4461,6 +4657,15 @@
             { source: "event", target: "difference", type: "exemplify", weight: 2 },
             { source: "fold", target: "body_without_organs", type: "apply", weight: 2 },
             { source: "fold", target: "rhizome", type: "presuppose", weight: 2 },
+            { source: "body_without_organs", target: "desiring_machines", type: "dialogue", weight: 2, bidirectional: true },
+            { source: "dispositif", target: "assemblage", type: "dialogue", weight: 2, bidirectional: true },
+            { source: "multiplicity", target: "difference", type: "consequence", weight: 3 },
+            { source: "multiplicity", target: "rhizome", type: "consequence", weight: 3 },
+            { source: "multiplicity", target: "one_being", type: "oppose", weight: 2 }, 
+            { source: "virtual_actual", target: "multiplicity", type: "consequence", weight: 2 },
+            { source: "difference", target: "rhizome", type: "consequence", weight: 3 },
+            { source: "virtual_actual", target: "event", type: "consequence", weight: 3 },
+            { source: "fold", target: "difference", type: "exemplify", weight: 2 },
             
             // ДОПОЛНИТЕЛЬНЫЕ МЕЖКОНЦЕПТУАЛЬНЫЕ СВЯЗИ
             { source: "conatus", target: "will_power", type: "influence", weight: 2 },
@@ -4470,7 +4675,7 @@
             { source: "determinism", target: "freedom_sartre", type: "oppose", weight: 2 },
             { source: "entelechy", target: "conatus", type: "influence", weight: 2 },
             { source: "original_sin", target: "geworfenheit", type: "influence", weight: 1 },
-            { source: "look", target: "master_slave", type: "develop", weight: 2 },
+            { source: "look", target: "master_slave", type: "develop", weight: 3 },
             
             // ВНУТРЕННИЕ ПРОТИВОРЕЧИЯ
             { source: "thing_itself", target: "phenomenon", type: "internal_contradiction", weight: 3 },
@@ -4504,7 +4709,7 @@
             
             // Внутри Локка
             { source: "personal_identity", target: "property_theory", type: "presuppose", weight: 3 },
-            { source: "tabula_rasa", target: "property_theory", type: "ground", weight: 2 },
+            { source: "tabula_rasa", target: "property_theory", type: "consequence", weight: 2 },
             
             // С предшественниками
             { source: "natural_law", target: "property_theory", type: "influence", weight: 2 },
@@ -4547,9 +4752,9 @@
             // Внутренние связи
             { source: "panta_rhei", target: "fire", type: "exemplify", weight: 3 },
             { source: "logos_heraclitus", target: "unity_opposites", type: "presuppose", weight: 3 },
-            { source: "war_father", target: "unity_opposites", type: "ground", weight: 3 },
+            { source: "war_father", target: "unity_opposites", type: "consequence", weight: 3 },
             { source: "hidden_harmony", target: "unity_opposites", type: "emerge_from", weight: 2 },
-            { source: "fire", target: "logos_heraclitus", type: "ground", weight: 2 },
+            { source: "fire", target: "logos_heraclitus", type: "consequence", weight: 2 },
             
             // Гераклит ↔ Парменид (оппозиция)
             { source: "panta_rhei", target: "immutability", type: "oppose", weight: 3 },
@@ -4578,7 +4783,7 @@
             // Внутренние связи
             { source: "number_essence", target: "harmony_spheres", type: "presuppose", weight: 3 },
             { source: "tetraktys", target: "number_essence", type: "exemplify", weight: 2 },
-            { source: "music_mathematics", target: "harmony_spheres", type: "apply", weight: 2 },
+            { source: "music_mathematics", target: "harmony_spheres", type: "exemplify", weight: 2 },
             { source: "metempsychosis", target: "harmony_spheres", type: "influence", weight: 1 },
             
             // Пифагор → Парменид
@@ -4634,8 +4839,8 @@
             // Внутренние связи
             { source: "three_stages", target: "positive_knowledge", type: "culminate", weight: 3 },
             { source: "positive_knowledge", target: "sociology", type: "apply", weight: 3 },
-            { source: "hierarchy_sciences", target: "positive_knowledge", type: "ground", weight: 2 },
-            { source: "social_physics", target: "sociology", type: "ground", weight: 2 },
+            { source: "hierarchy_sciences", target: "positive_knowledge", type: "consequence", weight: 2 },
+            { source: "social_physics", target: "sociology", type: "consequence", weight: 2 },
             { source: "hierarchy_sciences", target: "sociology", type: "culminate", weight: 2 },
             
             // Конт → Дьюи
@@ -4661,7 +4866,7 @@
             { source: "experience_dewey", target: "inquiry", type: "condition", weight: 3 },
             { source: "learning_doing", target: "inquiry", type: "instrument", weight: 2 },
             { source: "warranted_assertibility", target: "instrumentalism", type: "presuppose", weight: 3 },
-            { source: "democracy_education", target: "experience_dewey", type: "ground", weight: 2 },
+            { source: "democracy_education", target: "experience_dewey", type: "consequence", weight: 2 },
             
             // Дьюи ← Локк
             { source: "tabula_rasa", target: "experience_dewey", type: "influence", weight: 2 },
@@ -4690,7 +4895,7 @@
             { source: "sense_reference", target: "function_argument", type: "presuppose", weight: 3 },
             { source: "context_principle", target: "sense_reference", type: "condition", weight: 3 },
             { source: "logicism", target: "begriffsschrift", type: "instrument", weight: 3 },
-            { source: "function_argument", target: "begriffsschrift", type: "ground", weight: 2 },
+            { source: "function_argument", target: "begriffsschrift", type: "consequence", weight: 2 },
             { source: "thought", target: "sense_reference", type: "presuppose", weight: 2 },
             
             // Фреге ← Лейбниц
@@ -4719,8 +4924,8 @@
             // Внутренние связи
             { source: "logical_atomism", target: "theory_descriptions", type: "instrument", weight: 3 },
             { source: "acquaintance_description", target: "sense_data", type: "presuppose", weight: 3 },
-            { source: "sense_data", target: "external_world", type: "ground", weight: 2 },
-            { source: "russell_paradox", target: "logical_atomism", type: "ground", weight: 2 },
+            { source: "sense_data", target: "external_world", type: "consequence", weight: 2 },
+            { source: "russell_paradox", target: "logical_atomism", type: "consequence", weight: 2 },
             { source: "theory_descriptions", target: "acquaintance_description", type: "presuppose", weight: 2 },
             
             // Рассел ← Локк
@@ -4748,6 +4953,10 @@
             { source: "lack", target: "desire_other", type: "condition", weight: 3 },
             { source: "signifier", target: "big_other", type: "presuppose", weight: 2 },
             { source: "mirror_stage", target: "lack", type: "emerge_from", weight: 2 },
+            { source: "three_registers", target: "lack", type: "consequence", weight: 3 },
+            { source: "mirror_stage", target: "three_registers", type: "consequence", weight: 3 },
+            { source: "objet_petit_a", target: "lack", type: "consequence", weight: 3 },
+            { source: "signifier", target: "desire_other", type: "consequence", weight: 3 },
             
             // Лакан ← Декарт
             { source: "cogito", target: "mirror_stage", type: "critique", weight: 2 },
@@ -4812,12 +5021,16 @@
             { source: "duree", target: "creative_evolution", type: "presuppose", weight: 3 },
             { source: "matter_memory", target: "duree", type: "presuppose", weight: 2 },
             { source: "pure_perception", target: "matter_memory", type: "presuppose", weight: 2 },
-            { source: "image_bergson", target: "pure_perception", type: "ground", weight: 2 },
+            { source: "image_bergson", target: "pure_perception", type: "consequence", weight: 2 },
             { source: "open_closed_morality", target: "elan_vital", type: "emerge_from", weight: 2 },
-            { source: "open_closed_morality", target: "creative_evolution", type: "ground", weight: 2 },
+            { source: "open_closed_morality", target: "creative_evolution", type: "consequence", weight: 2 },
             { source: "laughter", target: "intellect_spatialization", type: "influence", weight: 1 },
-            { source: "laughter", target: "elan_vital", type: "ground", weight: 1 },
-            { source: "intuition_bergson", target: "image_bergson", type: "instrument", weight: 2 }, 
+            { source: "laughter", target: "elan_vital", type: "consequence", weight: 1 },
+            { source: "intuition_bergson", target: "image_bergson", type: "instrument", weight: 2 },
+            { source: "duree", target: "intuition_bergson", type: "presuppose", weight: 3 },
+            { source: "creative_evolution", target: "duree", type: "consequence", weight: 3 },
+            { source: "intuition_bergson", target: "intellect_spatialization", type: "oppose", weight: 3 },
+            { source: "pure_perception", target: "intellect_spatialization", type: "oppose", weight: 2 }, 
 
             // СВЯЗИ С ПРЕДШЕСТВЕННИКАМИ
             
@@ -4852,15 +5065,13 @@
             
             // Бергсон → Хайдеггер (Хайдеггер критикует, но испытывает влияние)
             { source: "duree", target: "sein_zum_tode", type: "influence", weight: 1 }, 
+            { source: "zuhanden", target: "pure_perception", type: "dialogue", weight: 1, bidirectional: true },
+            { source: "pure_perception", target: "dasein", type: "influence", weight: 1 }, 
 
             // Бергсон → Сартр (признанное влияние)
             { source: "duree", target: "for_itself", type: "influence", weight: 2 }, 
             { source: "creative_evolution", target: "freedom_sartre", type: "influence", weight: 2 }, 
             { source: "intuition_bergson", target: "nothingness", type: "influence", weight: 1 }, 
-
-            // Бергсон → Мерло-Понти (через восприятие и тело)
-            { source: "pure_perception", target: "dasein", type: "influence", weight: 1 }, 
-            { source: "image_bergson", target: "dasein", type: "influence", weight: 1 }, 
 
             // Бергсон → Делёз (ключевое влияние! Делёз написал "Бергсонизм")
             { source: "duree", target: "difference", type: "influence", weight: 3 }, 
@@ -4869,7 +5080,134 @@
             { source: "intuition_bergson", target: "event", type: "influence", weight: 2 }, 
             { source: "matter_memory", target: "virtual_actual", type: "influence", weight: 3 }, 
             { source: "image_bergson", target: "assemblage", type: "influence", weight: 2 }, 
-            { source: "duree", target: "rhizome", type: "influence", weight: 1 }
+            { source: "duree", target: "rhizome", type: "influence", weight: 1 },
+
+            // === ЦЕПОЧКА РАЗВИТИЯ СУБЪЕКТИВНОСТИ (ключевая траектория!) ===
+            { source: "cogito", target: "absolute_ego", type: "influence", weight: 3 },
+            { source: "absolute_ego", target: "transcendental_ego", type: "influence", weight: 3 },
+            { source: "transcendental_ego", target: "dasein", type: "critique", weight: 3 },
+            { source: "dasein", target: "existence", type: "influence", weight: 3 },
+
+            // === ГЕГЕЛЬ → МАРКС (критические связи) ===
+            { source: "master_slave", target: "power_knowledge", type: "influence", weight: 3 },
+            { source: "objective_spirit", target: "base_superstructure", type: "critique", weight: 3 },
+            { source: "entfremdung", target: "alienation", type: "influence", weight: 3 },
+            { source: "cunning_reason", target: "historical_materialism", type: "critique", weight: 2 },
+
+            // === ЮМ → КАНТ (критическое пробуждение) ===
+            { source: "causality_critique", target: "synthetic_apriori", type: "influence", weight: 3 },
+            { source: "custom", target: "transcendental", type: "critique", weight: 2 },
+
+            // === АНТИЧНОСТЬ → СРЕДНЕВЕКОВЬЕ ===
+            { source: "eidos", target: "essence_existence", type: "influence", weight: 3 },
+            { source: "methexis", target: "participatio", type: "influence", weight: 3 },
+            { source: "unmoved_mover", target: "five_ways", type: "influence", weight: 3 },
+            { source: "entelechy", target: "actual_being", type: "influence", weight: 3 },
+
+            // === СРЕДНЕВЕКОВЬЕ → НОВОЕ ВРЕМЯ ===
+            { source: "time_augustine", target: "duree", type: "influence", weight: 2 },
+            { source: "confession", target: "cogito", type: "influence", weight: 2 },
+            { source: "natural_law", target: "categorical", type: "influence", weight: 2 },
+
+            // === КАНТ → НЕМЕЦКИЙ ИДЕАЛИЗМ ===
+            { source: "thing_itself", target: "absolute_ego", type: "influence", weight: 3 },
+            { source: "antinomies", target: "tathandlung", type: "influence", weight: 2 },
+            { source: "autonomy", target: "practical_primacy", type: "influence", weight: 3 },
+            { source: "thing_itself", target: "absolute_idea", type: "influence", weight: 2 },
+
+            // === ФИХТЕ → ГЕГЕЛЬ ===
+            { source: "tathandlung", target: "negative", type: "influence", weight: 3 },
+            { source: "non_ego", target: "aufhebung", type: "influence", weight: 2 },
+
+            // === ГЕГЕЛЬ → КЬЕРКЕГОР (оппозиция!) ===
+            { source: "weltgeist", target: "individual", type: "oppose", weight: 3 },
+            { source: "dialectic", target: "leap_faith", type: "oppose", weight: 3 },
+
+            // === КАНТ → ШОПЕНГАУЭР ===
+            { source: "thing_itself", target: "will_schop", type: "develop", weight: 3 },
+            { source: "sublime", target: "aesthetics_schop", type: "influence", weight: 2 },
+
+            // === ШОПЕНГАУЭР → НИЦШЕ ===
+            { source: "representation", target: "perspectivism", type: "influence", weight: 2 },
+            { source: "suffering", target: "dionysian", type: "critique", weight: 2 },
+
+            // === НИЦШЕ → XX ВЕК ===
+            { source: "perspectivism", target: "language_game", type: "influence", weight: 2 },
+            { source: "will_power", target: "for_itself", type: "influence", weight: 2 },
+            { source: "god_dead", target: "nothingness", type: "influence", weight: 2 },
+            { source: "perspectivism", target: "episteme", type: "influence", weight: 2 },
+            { source: "will_power", target: "power_knowledge", type: "influence", weight: 2 },
+            { source: "will_power", target: "desiring_machines", type: "influence", weight: 2 },
+            { source: "eternal_return", target: "difference", type: "influence", weight: 2 },
+
+            // === ГУССЕРЛЬ → ХАЙДЕГГЕР (критические связи) ===
+            { source: "intentionality", target: "sorge", type: "critique", weight: 3 },
+            { source: "lifeworld", target: "dasein", type: "influence", weight: 2 },
+
+            // === ХАЙДЕГГЕР → САРТР ===
+            { source: "sein_zum_tode", target: "freedom_sartre", type: "influence", weight: 2 },
+            { source: "geworfenheit", target: "bad_faith", type: "influence", weight: 2 },
+
+            // === ВИТГЕНШТЕЙН → ДРУГИЕ ===
+            { source: "language_game", target: "episteme", type: "influence", weight: 2 },
+            { source: "form_of_life", target: "lifeworld", type: "dialogue", weight: 2, bidirectional: true },
+
+            // === БЕРГСОН → XX ВЕК (критическое влияние!) ===
+            { source: "duree", target: "dasein", type: "influence", weight: 2 },
+            { source: "duree", target: "for_itself", type: "influence", weight: 3 },
+            { source: "intuition_bergson", target: "eidetic", type: "influence", weight: 2 },
+            { source: "creative_evolution", target: "ereignis", type: "influence", weight: 1 },
+            { source: "elan_vital", target: "will_power", type: "dialogue", weight: 2, bidirectional: true },
+            { source: "elan_vital", target: "desiring_machines", type: "influence", weight: 3 },
+            { source: "creative_evolution", target: "virtual_actual", type: "influence", weight: 3 },
+            { source: "duree", target: "difference", type: "influence", weight: 3 },
+            { source: "matter_memory", target: "virtual_actual", type: "influence", weight: 3 },
+            { source: "image_bergson", target: "assemblage", type: "influence", weight: 2 },
+
+            // === СПИНОЗА → ДРУГИЕ (усиление) ===
+            { source: "substance_spinoza", target: "absolute_idea", type: "influence", weight: 3 },
+            { source: "conatus", target: "striving", type: "influence", weight: 2 },
+
+            // === ЛЕЙБНИЦ → ДРУГИЕ ===
+            { source: "monads", target: "absolute_ego", type: "influence", weight: 2 },
+            { source: "preestablished", target: "transcendental", type: "influence", weight: 2 },
+            { source: "petites_perceptions", target: "lifeworld", type: "influence", weight: 1 },
+
+            // === ЛАКАН → ДЕЛЁЗ (полемика!) ===
+            { source: "objet_petit_a", target: "desiring_machines", type: "critique", weight: 2 },
+            { source: "big_other", target: "rhizome", type: "oppose", weight: 2 },
+
+            // === ФУКО ↔ ДЕЛЁЗ (сотрудничество!) ===
+            { source: "power_knowledge", target: "desiring_machines", type: "dialogue", weight: 2, bidirectional: true },
+            { source: "biopower", target: "body_without_organs", type: "dialogue", weight: 2, bidirectional: true },
+
+            // === ТЕМАТИЧЕСКИЕ СВЯЗИ ===
+
+            // ВРЕМЯ:
+            { source: "panta_rhei", target: "duree", type: "influence", weight: 2 },
+            { source: "time_augustine", target: "moment", type: "influence", weight: 2 },
+            { source: "eternal_return", target: "repetition", type: "dialogue", weight: 3, bidirectional: true },
+
+            // СВОБОДА:
+            { source: "autonomy", target: "freedom_sartre", type: "influence", weight: 3 },
+            { source: "striving", target: "freedom_sartre", type: "influence", weight: 2 },
+
+            // МАТЕРИЯ/ТЕЛО:
+            { source: "res_extensa", target: "matter_memory", type: "dialogue", weight: 1, bidirectional: true },
+            { source: "matter_memory", target: "body_without_organs", type: "influence", weight: 2 },
+
+            // ЯЗЫК:
+            { source: "logos", target: "logos_heraclitus", type: "develop", weight: 2 },
+            { source: "signifier", target: "sense_reference", type: "dialogue", weight: 2, bidirectional: true },
+
+            // ВЛАСТЬ/ПОЛИТИКА:
+            { source: "class_struggle", target: "biopower", type: "dialogue", weight: 2, bidirectional: true },
+            { source: "ideal_state", target: "objective_spirit", type: "influence", weight: 2 },
+
+            // МЕТОД:
+            { source: "maieutics", target: "method", type: "influence", weight: 2 },
+            { source: "epoché", target: "method", type: "develop", weight: 2 },
+            { source: "archaeology", target: "problematization", type: "exemplify", weight: 2 }
             
         ];
 
@@ -5091,45 +5429,6 @@
             
         };
         
-        // Назначаем веса из relations, если они уже есть
-        links.forEach(link => {
-            const key = getLinkKey(link);
-            const reverseKey = `${typeof link.target === 'string' ? link.target : link.target.id}-${typeof link.source === 'string' ? link.source : link.source.id}`;
-            
-            // Если вес уже задан в relations, используем его
-            if (link.weight) {
-                // Ничего не делаем, вес уже установлен
-            }
-            // Проверяем специфический вес
-            else if (specificWeights[key]) {
-                link.weight = specificWeights[key];
-            } else if (specificWeights[reverseKey] && link.bidirectional) {
-                link.weight = specificWeights[reverseKey];
-            } else {
-                // Вес по умолчанию в зависимости от типа связи
-                switch(link.type) {
-                    case "ground":
-                    case "develop":
-                    case "synthesize":
-                        link.weight = 2;
-                        break;
-                    case "internal_contradiction":
-                        link.weight = 2;
-                        break;
-                    case "influence":
-                    case "dialogue":
-                        link.weight = 1;
-                        break;
-                    case "oppose":
-                    case "critique":
-                        link.weight = 2;
-                        break;
-                    default:
-                        link.weight = 2;
-                }
-            }
-        });
-        
         // Глобальные переменные для переключения режимов расчёта
         let useWeightedPaths = true;
         let respectDirection = true;
@@ -5171,7 +5470,7 @@
             } else {
                 // Вес по умолчанию в зависимости от типа связи
                 switch(link.type) {
-                    case "ground":
+                    case "consequence":
                     case "develop":
                     case "synthesize":
                         link.weight = 2; // По умолчанию среднее для этих типов
@@ -5201,7 +5500,7 @@
             // Если связь внутри системы одного философа и это ground/synthesize
             if (sourceNode && targetNode && 
                 sourceNode.concept === targetNode.concept && 
-                (link.type === "ground" || link.type === "synthesize")) {
+                (link.type === "consequence" || link.type === "synthesize")) {
                 // Увеличиваем вес на 1, но не больше 3
                 link.weight = Math.min(link.weight + 1, 3);
             }
@@ -5255,24 +5554,38 @@
                 return true;
             }
             
-            // Случай 2: Современники
-            // fromPhil стал активным раньше или одновременно с toPhil
-            // И дожил хотя бы до начала активности toPhil
-            if (fromActiveStart <= toActiveStart && fromActiveEnd >= toActiveStart) {
+            // Случай 2: fromPhil стал активным раньше toPhil И дожил хотя бы до начала активности toPhil
+            // Старший современник может влиять на младшего
+            if (fromActiveStart < toActiveStart && fromActiveEnd >= toActiveStart) {
                 return true;
             }
             
-            // Случай 3: fromPhil стал активным позже, но их периоды пересекаются
-            // И toPhil дожил до активности fromPhil (может быть взаимное влияние)
-            // НО этот случай сложный - лучше блокировать, если fromPhil младше
-            if (fromActiveStart > toActiveStart && fromActiveStart <= toActiveEnd) {
-                // Дополнительная проверка: разница в возрасте не должна быть слишком большой
-                // Если fromPhil значительно младше, он вряд ли мог повлиять на уже зрелого toPhil
-                const ageDifference = fromPhil.birth - toPhil.birth;
-                if (ageDifference > 20) {
-                    return false; // fromPhil слишком молод, чтобы повлиять на toPhil
+            // Случай 3: Они стали активными одновременно (в пределах 5 лет)
+            // Возможно взаимное влияние ровесников
+            if (Math.abs(fromActiveStart - toActiveStart) <= 5) {
+                // Но если один умер значительно раньше другого, то только старший влияет на младшего
+                if (fromActiveEnd < toActiveEnd - 10) {
+                    // fromPhil умер раньше - может влиять
+                    return true;
+                } else if (toActiveEnd < fromActiveEnd - 10) {
+                    // toPhil умер раньше - fromPhil НЕ может влиять на него
+                    return false;
                 }
-                return true; // Современники с небольшой разницей в возрасте
+                // Умерли примерно в одно время - взаимное влияние допустимо
+                return true;
+            }
+            
+            // Случай 4: fromPhil стал активным ПОЗЖЕ toPhil
+            // Младший современник НЕ может влиять на старшего, КРОМЕ особых случаев
+            if (fromActiveStart > toActiveStart) {
+                // Если toPhil всё ещё был активен, когда fromPhil начал свою деятельность,
+                // И toPhil прожил достаточно долго после начала активности fromPhil (минимум 10 лет),
+                // то возможно обратное влияние (младший на старшего)
+                if (fromActiveStart < toActiveEnd && (toActiveEnd - fromActiveStart) >= 10) {
+                    return true;
+                }
+                // Иначе - младший НЕ может влиять на старшего
+                return false;
             }
             
             // Все остальные случаи - анахронизм
@@ -5888,6 +6201,115 @@
             debouncedApplyFilters();
         }
 
+        /**
+         * Находит узлы и связи, образующие сквозные цепочки через все выбранные философские системы
+         * УНИВЕРСАЛЬНАЯ ВЕРСИЯ - работает для любого количества философов (1, 2, 3+)
+         * @param {Set} selectedPhils - множество выбранных философов
+         * @returns {{nodes: Set, links: Set}} - множества узлов и связей в цепочках
+         */
+        function findChainsThroughAllPhilosophers(selectedPhils) {
+            // Универсальный алгоритм для любого количества философов
+            const philsArray = Array.from(selectedPhils);
+            const nodesInChains = new Set();
+            const linksInChains = new Set();
+            
+            // КЛЮЧЕВОЕ ИЗМЕНЕНИЕ: Фильтруем узлы - оставляем только выбранных философов
+            const filteredNodes = nodes.filter(n => selectedPhils.has(n.concept));
+            
+            // Создаем карту узлов по ID (только выбранные философы)
+            const nodeById = new Map();
+            filteredNodes.forEach(n => nodeById.set(n.id, n));
+            
+            // Строим граф смежности ТОЛЬКО из узлов выбранных философов
+            const adjacency = new Map();
+            filteredNodes.forEach(n => adjacency.set(n.id, []));
+            
+            links.forEach(l => {
+                if (!selectedRelations.has(l.type)) return;
+                
+                const sourceId = l.source.id || l.source;
+                const targetId = l.target.id || l.target;
+                
+                // КРИТИЧНО: Добавляем связь только если оба конца - узлы выбранных философов
+                if (!nodeById.has(sourceId) || !nodeById.has(targetId)) return;
+                
+                if (!adjacency.has(sourceId)) adjacency.set(sourceId, []);
+                adjacency.get(sourceId).push({ nodeId: targetId, link: l });
+                
+                // Для двунаправленных связей добавляем обратное направление
+                if (l.bidirectional) {
+                    if (!adjacency.has(targetId)) adjacency.set(targetId, []);
+                    adjacency.get(targetId).push({ nodeId: sourceId, link: l });
+                }
+            });
+            
+            // Поиск в ширину (BFS) от каждого узла каждого выбранного философа
+            philsArray.forEach(startPhil => {
+                const startNodes = nodes.filter(n => n.concept === startPhil);
+                
+                startNodes.forEach(startNode => {
+                    const queue = [{
+                        nodeId: startNode.id,
+                        path: [startNode.id],
+                        linkPath: [],
+                        coveredPhilosophers: new Set([startPhil])
+                    }];
+                    
+                    const visited = new Map(); // nodeId -> Set of covered philosophers
+                    visited.set(startNode.id, new Set([startPhil]));
+                    
+                    const maxDepth = philsArray.length * 4; // Ограничение глубины поиска
+                    
+                    while (queue.length > 0) {
+                        const { nodeId, path, linkPath, coveredPhilosophers } = queue.shift();
+                        
+                        // Ограничение глубины
+                        if (path.length > maxDepth) continue;
+                        
+                        // Если покрыли всех философов - сохраняем путь
+                        if (coveredPhilosophers.size === philsArray.length) {
+                            path.forEach(n => nodesInChains.add(n));
+                            linkPath.forEach(l => linksInChains.add(l));
+                            continue; // Продолжаем искать другие пути от этого узла
+                        }
+                        
+                        // Обходим соседей
+                        const neighbors = adjacency.get(nodeId) || [];
+                        for (const { nodeId: nextId, link } of neighbors) {
+                            // Избегаем циклов в текущем пути
+                            if (path.includes(nextId)) continue;
+                            
+                            const nextNode = nodeById.get(nextId);
+                            if (!nextNode) continue;
+                            
+                            // Обновляем покрытие философов
+                            const nextCovered = new Set(coveredPhilosophers);
+                            if (philsArray.includes(nextNode.concept)) {
+                                nextCovered.add(nextNode.concept);
+                            }
+                            
+                            // Проверяем, не посещали ли этот узел с таким же или лучшим покрытием
+                            const prevCovered = visited.get(nextId);
+                            const shouldVisit = !prevCovered || nextCovered.size > prevCovered.size;
+                            
+                            if (shouldVisit) {
+                                visited.set(nextId, nextCovered);
+                                
+                                queue.push({
+                                    nodeId: nextId,
+                                    path: [...path, nextId],
+                                    linkPath: [...linkPath, link],
+                                    coveredPhilosophers: nextCovered
+                                });
+                            }
+                        }
+                    }
+                });
+            });
+            
+            return { nodes: nodesInChains, links: linksInChains };
+        }
+
         // Применение фильтров с взаимосвязанной логикой
         function applyFiltersImmediate() {
             const allRelationsSelected = selectedRelations.size === Object.keys(relationTypesObj).length;
@@ -5989,16 +6411,21 @@
                 });
                 
             } else if (filterMode === 'external') {
-                // Режим 4: Только внешние связи (новый)
-                // Показываем только те узлы выбранных философов, которые имеют внешние связи
+                // Режим 4: Только внешние связи
+                // Показываем узлы выбранных философов, которые имеют межфилософские связи
                 const validLinks = links.filter(l => {
                     const typeSelected = selectedRelations.has(l.type);
                     const sourcePhilosopherSelected = selectedPhilosophers.has(l.source.concept);
                     const targetPhilosopherSelected = selectedPhilosophers.has(l.target.concept);
-                    // Связь валидна, если один конец - выбранный философ, другой - нет
-                    const isExternal = (sourcePhilosopherSelected && !targetPhilosopherSelected) ||
-                                      (!sourcePhilosopherSelected && targetPhilosopherSelected);
-                    return typeSelected && isExternal;
+                    
+                    // Связь валидна, если:
+                    // 1. Тип связи выбран
+                    // 2. Хотя бы один конец принадлежит выбранному философу
+                    // 3. Концы связи принадлежат РАЗНЫМ философам (межфилософская связь)
+                    const atLeastOneSelected = sourcePhilosopherSelected || targetPhilosopherSelected;
+                    const isDifferentPhilosophers = l.source.concept !== l.target.concept;
+                    
+                    return typeSelected && atLeastOneSelected && isDifferentPhilosophers;
                 });
                 
                 const visibleNodes = new Set();
@@ -6015,13 +6442,120 @@
                     const typeSelected = selectedRelations.has(l.type);
                     const sourcePhilosopherSelected = selectedPhilosophers.has(l.source.concept);
                     const targetPhilosopherSelected = selectedPhilosophers.has(l.target.concept);
-                    const isExternal = (sourcePhilosopherSelected && !targetPhilosopherSelected) ||
-                                      (!sourcePhilosopherSelected && targetPhilosopherSelected);
+                    
+                    const atLeastOneSelected = sourcePhilosopherSelected || targetPhilosopherSelected;
+                    const isDifferentPhilosophers = l.source.concept !== l.target.concept;
                     const sourceVisible = visibleNodes.has(l.source.id);
                     const targetVisible = visibleNodes.has(l.target.id);
                     
-                    return (typeSelected && isExternal && sourceVisible && targetVisible) ? null : "none";
+                    return (typeSelected && atLeastOneSelected && isDifferentPhilosophers && 
+                            sourceVisible && targetVisible) ? null : "none";
                 });
+            } else if (filterMode === 'cross_selected') {
+                // Режим 5: Межфилософские связи выбранных
+                // Если выбран 1 философ - показываем все его связи
+                // Если выбрано 2+ философов - только межфилософские связи между выбранными
+                
+                const validLinks = links.filter(l => {
+                    const typeSelected = selectedRelations.has(l.type);
+                    const sourcePhilosopherSelected = selectedPhilosophers.has(l.source.concept);
+                    const targetPhilosopherSelected = selectedPhilosophers.has(l.target.concept);
+                    
+                    // Если выбран только один философ - не проверяем isDifferentPhilosophers
+                    // Если выбрано 2+ - требуем, чтобы концы связи были от разных философов
+                    const isDifferentPhilosophers = selectedPhilosophers.size === 1 || l.source.concept !== l.target.concept;
+                    
+                    return typeSelected && sourcePhilosopherSelected && targetPhilosopherSelected && isDifferentPhilosophers;
+                });
+                
+                const visibleNodes = new Set();
+                validLinks.forEach(l => {
+                    visibleNodes.add(l.source.id || l.source);
+                    visibleNodes.add(l.target.id || l.target);
+                });
+                
+                node.style("display", d => {
+                    return visibleNodes.has(d.id) ? null : "none";
+                });
+                
+                link.style("display", l => {
+                    const typeSelected = selectedRelations.has(l.type);
+                    const sourcePhilosopherSelected = selectedPhilosophers.has(l.source.concept);
+                    const targetPhilosopherSelected = selectedPhilosophers.has(l.target.concept);
+                    const isDifferentPhilosophers = selectedPhilosophers.size === 1 || l.source.concept !== l.target.concept;
+                    const sourceVisible = visibleNodes.has(l.source.id);
+                    const targetVisible = visibleNodes.has(l.target.id);
+                    
+                    return (typeSelected && sourcePhilosopherSelected && targetPhilosopherSelected && 
+                            isDifferentPhilosophers && sourceVisible && targetVisible) ? null : "none";
+                });
+            } else if (filterMode === 'chains') {
+                // Режим 6: Сквозные цепочки через все выбранные философские системы
+                
+                // Показываем индикатор только для 3+ философов
+                if (selectedPhilosophers.size >= 3) {
+                    // Создаем индикатор загрузки
+                    const loadingIndicator = document.createElement('div');
+                    loadingIndicator.id = 'chainLoadingIndicator';
+                    loadingIndicator.style.cssText = 'position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); background: rgba(52, 73, 94, 0.95); color: white; padding: 20px 30px; border-radius: 10px; z-index: 10000; box-shadow: 0 4px 20px rgba(0,0,0,0.3); font-size: 14px; font-weight: 600;';
+                    loadingIndicator.innerHTML = ' Поиск сквозных цепочек...<br><small style="font-size: 11px; opacity: 0.8;">Анализ связей между ' + selectedPhilosophers.size + ' философами</small>';
+                    document.body.appendChild(loadingIndicator);
+                    
+                    // Даем браузеру время отрендерить индикатор перед тяжелыми вычислениями
+                    setTimeout(() => {
+                        try {
+                            // Находим все цепочки
+                            const { nodes: chainNodes, links: chainLinks } = findChainsThroughAllPhilosophers(selectedPhilosophers);
+                            
+                            // Применяем видимость узлов
+                            node.style("display", d => {
+                                return chainNodes.has(d.id) ? null : "none";
+                            });
+                            
+                            // Применяем видимость связей
+                            link.style("display", l => {
+                                return chainLinks.has(l) ? null : "none";
+                            });
+                            
+                            // Убираем индикатор
+                            const indicator = document.getElementById('chainLoadingIndicator');
+                            if (indicator) {
+                                document.body.removeChild(indicator);
+                            }
+                            
+                            // Обновляем статистику после завершения
+                            updateFilterStats();
+                            
+                            // Информируем пользователя о результате
+                            if (chainNodes.size === 0) {
+                                showTemporaryMessage('⚠️ Сквозных цепочек не найдено. Попробуйте выбрать других философов.');
+                            }
+                            
+                        } catch (error) {
+                            console.error('Ошибка при поиске цепочек:', error);
+                            const indicator = document.getElementById('chainLoadingIndicator');
+                            if (indicator) {
+                                document.body.removeChild(indicator);
+                            }
+                            showTemporaryMessage('❌ Ошибка при поиске цепочек');
+                        }
+                    }, 50);
+                    
+                    // НЕ ВЫПОЛНЯЕМ updateFilterStats() здесь - он вызывается внутри setTimeout
+                    return; // Важно! Выходим из функции, чтобы не выполнить код ниже
+                    
+                } else {
+                    // Для 1-2 философов - без индикатора, работает быстро
+                    const { nodes: chainNodes, links: chainLinks } = findChainsThroughAllPhilosophers(selectedPhilosophers);
+                    
+                    node.style("display", d => {
+                        return chainNodes.has(d.id) ? null : "none";
+                    });
+                    
+                    link.style("display", l => {
+                        return chainLinks.has(l) ? null : "none";
+                    });
+                }
             }
             
             // Обновляем статистику
@@ -6077,6 +6611,41 @@
             
             document.getElementById('filterStats').textContent = 
                 `Показано: ${visibleNodesCount}/${totalNodes} концепций, ${visibleLinksCount}/${totalLinks} связей`;
+        }
+
+        /**
+         * Показывает временное информационное сообщение пользователю
+         * @param {string} message - текст сообщения
+         * @param {number} duration - длительность показа в мс (по умолчанию 3000)
+         */
+        function showTemporaryMessage(message, duration = 3000) {
+            const msgBox = document.createElement('div');
+            msgBox.style.cssText = `
+                position: fixed;
+                top: 20px;
+                left: 50%;
+                transform: translateX(-50%);
+                background: rgba(52, 73, 94, 0.95);
+                color: white;
+                padding: 12px 24px;
+                border-radius: 8px;
+                z-index: 10001;
+                box-shadow: 0 4px 20px rgba(0,0,0,0.3);
+                font-size: 13px;
+                animation: slideDown 0.3s ease-out;
+            `;
+            msgBox.textContent = message;
+            document.body.appendChild(msgBox);
+            
+            setTimeout(() => {
+                msgBox.style.opacity = '0';
+                msgBox.style.transition = 'opacity 0.3s ease-out';
+                setTimeout(() => {
+                    if (msgBox.parentNode) {
+                        document.body.removeChild(msgBox);
+                    }
+                }, 300);
+            }, duration);
         }
         
         // Расчет влиятельности концепций (degree centrality) с кэшированием
@@ -7697,6 +8266,12 @@
                 gElement.setAttribute('transform', transform);
             }
             
+            // ИСПРАВЛЕНИЕ: Убеждаемся, что defs с маркерами включены
+            const defsElement = svgClone.querySelector('defs');
+            if (!defsElement) {
+                console.error('Элемент defs не найден в клонированном SVG');
+            }
+            
             // Применяем инлайн-стили к тексту
             const textElements = svgClone.querySelectorAll('text');
             textElements.forEach(text => {
@@ -7710,12 +8285,11 @@
             // Применяем инлайн-стили к узлам
             const circles = svgClone.querySelectorAll('circle');
             circles.forEach(circle => {
-                const computedStyle = window.getComputedStyle(circle);
                 circle.style.strokeWidth = '3px';
                 circle.style.filter = 'drop-shadow(0 0 10px rgba(255,255,255,0.4))';
             });
             
-            // Применяем инлайн-стили к связям
+            // ИСПРАВЛЕНИЕ: Применяем полные стили к путям, включая marker-end
             const paths = svgClone.querySelectorAll('path.link');
             paths.forEach(path => {
                 path.style.fill = 'none';
@@ -7723,10 +8297,19 @@
                 path.style.stroke = computedStyle.stroke;
                 path.style.strokeWidth = computedStyle.strokeWidth;
                 path.style.opacity = computedStyle.opacity;
+                
+                // ВАЖНО: Сохраняем атрибут marker-end
+                const markerEnd = path.getAttribute('marker-end');
+                if (markerEnd) {
+                    path.setAttribute('marker-end', markerEnd);
+                }
             });
             
+            // Устанавливаем белый фон для SVG
+            svgClone.style.background = 'linear-gradient(135deg, #0f0c29 0%, #302b63 50%, #24243e 100%)';
+            
             // Увеличиваем разрешение для лучшего качества
-            const scale = 2;
+            const scale = 4;
             const canvas = document.createElement('canvas');
             const ctx = canvas.getContext('2d');
             
@@ -7734,7 +8317,13 @@
             canvas.height = height * scale;
             ctx.scale(scale, scale);
             
-            const svgData = new XMLSerializer().serializeToString(svgClone);
+            // ИСПРАВЛЕНИЕ: Добавляем XML namespace для корректного отображения
+            const svgData = '<?xml version="1.0" encoding="UTF-8"?>' + 
+                            new XMLSerializer().serializeToString(svgClone);
+            
+            const svgBlob = new Blob([svgData], { type: 'image/svg+xml;charset=utf-8' });
+            const url = URL.createObjectURL(svgBlob);
+            
             const img = new Image();
             
             img.onload = function() {
@@ -7747,23 +8336,24 @@
                 
                 // Конвертируем в PNG
                 canvas.toBlob(function(blob) {
-                    const url = URL.createObjectURL(blob);
+                    const downloadUrl = URL.createObjectURL(blob);
                     const link = document.createElement('a');
                     link.download = 'philosophy-graph.png';
-                    link.href = url;
+                    link.href = downloadUrl;
                     link.click();
+                    URL.revokeObjectURL(downloadUrl);
                     URL.revokeObjectURL(url);
                 }, 'image/png');
             };
             
             img.onerror = function(e) {
                 console.error('Ошибка загрузки изображения:', e);
-                alert('Ошибка при экспорте. Попробуйте использовать экспорт в SVG.');
+                URL.revokeObjectURL(url);
+                
+                // АЛЬТЕРНАТИВНЫЙ МЕТОД: используем canvas для рендеринга напрямую
+                alert('Ошибка при экспорте с маркерами. Попробуйте использовать экспорт в SVG, либо сделайте скриншот страницы.');
             };
             
-            // Кодируем SVG данные
-            const svgBlob = new Blob([svgData], { type: 'image/svg+xml;charset=utf-8' });
-            const url = URL.createObjectURL(svgBlob);
             img.src = url;
         }
         
@@ -7849,7 +8439,16 @@
         let tickCount = 0;
         const maxTicks = 300; // Ограничиваем количество тиков
         
+        let lastTickUpdate = 0;
+        const TICK_UPDATE_INTERVAL = 16; // ~60 FPS
+
         simulation.on("tick", () => {
+            const now = Date.now();
+            if (now - lastTickUpdate < TICK_UPDATE_INTERVAL) {
+                return; // Пропускаем обновление
+            }
+            lastTickUpdate = now;
+            
             tickCount++;
             
             // Оптимизация: обновляем только видимые элементы
@@ -7864,7 +8463,6 @@
             node.filter(function() { return this.style.display !== "none"; })
                 .attr("transform", d => `translate(${d.x},${d.y})`);
             
-            // Останавливаем после определенного количества тиков
             if (tickCount >= maxTicks) {
                 simulation.stop();
             }
