@@ -1,0 +1,1706 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Цветная Игра "Жизнь"</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 10px;
+            color: #fff;
+            overflow-x: hidden;
+        }
+
+        h1 {
+            margin-bottom: 10px;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
+            text-align: center;
+        }
+
+        .description {
+            text-align: center;
+            margin-bottom: 20px;
+            background: rgba(255,255,255,0.1);
+            padding: 15px;
+            border-radius: 10px;
+            max-width: 1400px;
+            backdrop-filter: blur(10px);
+        }
+
+        .container {
+            background: rgba(255,255,255,0.95);
+            border-radius: 15px;
+            padding: 15px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+            width: 100%;
+            max-width: 1400px;
+            display: grid;
+            grid-template-columns: 1fr;
+            gap: 15px;
+        }
+
+        /* Обёртка для canvas */
+        .game-canvas-wrapper {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+
+        canvas {
+            border: 3px solid #333;
+            border-radius: 5px;
+            cursor: crosshair;
+            display: block;
+            background: #000;
+            width: 100%;
+            height: auto;
+            max-width: 100%;
+        }
+
+        /* Обёртка для всех элементов управления */
+        .controls-wrapper {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+
+        .controls {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 6px;
+            justify-content: center;
+            align-items: center;
+        }
+
+        button {
+            padding: 8px 16px;
+            font-size: 13px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            font-weight: bold;
+            transition: all 0.2s;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+        }
+
+        button:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+        }
+
+        button:active {
+            transform: translateY(0);
+        }
+
+        button.danger {
+            background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+        }
+
+        button.success {
+            background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
+        }
+
+        button.active {
+            background: linear-gradient(135deg, #00b09b, #96c93d);
+            box-shadow: 0 0 20px rgba(0,176,155,0.5);
+        }
+
+        .slider-group {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            background: rgba(102, 126, 234, 0.1);
+            padding: 5px 10px;
+            border-radius: 5px;
+            color: #333;
+            font-size: 12px;
+            white-space: nowrap;
+            flex: 1 1 auto;
+            min-width: 180px;
+        }
+
+        .slider-group label {
+            font-weight: 600;
+            min-width: 60px;
+            font-size: 11px;
+        }
+
+        input[type="range"] {
+            flex: 1;
+            min-width: 80px;
+        }
+
+        .stats {
+            padding: 10px;
+            background: rgba(102, 126, 234, 0.1);
+            border-radius: 5px;
+            text-align: center;
+            color: #333;
+            font-weight: bold;
+        }
+
+        .patterns {
+            margin-top: 0;
+            padding: 10px;
+            background: rgba(102, 126, 234, 0.1);
+            border-radius: 5px;
+            color: #333;
+        }
+
+        .patterns h3 {
+            margin-bottom: 10px;
+            text-align: center;
+        }
+
+        .pattern-buttons {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            justify-content: center;
+        }
+
+        .pattern-buttons button {
+            font-size: 12px;
+            padding: 8px 15px;
+        }
+
+        .legend {
+            margin-top: 0;
+            padding: 10px;
+            background: rgba(102, 126, 234, 0.1);
+            border-radius: 5px;
+            color: #333;
+            font-size: 13px;
+        }
+
+        .legend h3 {
+            margin-bottom: 8px;
+        }
+
+        .legend ul {
+            list-style-position: inside;
+            line-height: 1.6;
+        }
+
+        .state-indicator {
+            padding: 8px 15px;
+            border-radius: 20px;
+            font-weight: bold;
+            background: rgba(255,255,255,0.2);
+            transition: all 0.3s ease;
+        }
+
+        .state-indicator.running {
+            background: linear-gradient(135deg, #00b09b, #96c93d);
+            animation: pulse 2s infinite;
+        }
+
+        .state-indicator.paused {
+            background: linear-gradient(135deg, #ff9a9e, #fad0c4);
+        }
+
+        @keyframes pulse {
+            0% { transform: scale(1); }
+            50% { transform: scale(1.05); }
+            100% { transform: scale(1); }
+        }
+
+        .control-panel {
+            background: rgba(255,255,255,0.1);
+            padding: 15px;
+            border-radius: 10px;
+            margin-bottom: 15px;
+            backdrop-filter: blur(10px);
+        }
+
+        .panel-section {
+            margin-top: 0;
+            padding: 15px 10px;
+            background: rgba(102, 126, 234, 0.1);
+            border-radius: 5px;
+        }
+
+        .panel-section h4 {
+            margin-bottom: 10px;
+            color: #333;
+            font-weight: bold;
+            text-align: center;
+        }
+
+        .color-mode-buttons,
+        .tool-buttons,
+        .rule-buttons {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            justify-content: center;
+        }
+
+        .color-mode-buttons button,
+        .tool-buttons button,
+        .rule-buttons button {
+            font-size: 12px;
+            padding: 8px 15px;
+        }
+
+        .advanced-stats {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 15px;
+            justify-content: center;
+            color: #333;
+        }
+
+        .advanced-stats div {
+            font-size: 14px;
+        }
+
+        .save-section {
+            margin-top: 0;
+            padding: 10px;
+            background: rgba(102, 126, 234, 0.1);
+            border-radius: 5px;
+            color: #333;
+        }
+
+        .save-controls {
+            display: flex;
+            gap: 10px;
+            justify-content: center;
+            margin-bottom: 10px;
+        }
+
+        .save-list {
+            max-height: 200px;
+            overflow-y: auto;
+            background: rgba(255, 255, 255, 0.5);
+            border-radius: 5px;
+            padding: 10px;
+        }
+
+        .save-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 8px;
+            margin-bottom: 5px;
+            background: white;
+            border-radius: 3px;
+            font-size: 12px;
+        }
+
+        .save-item button {
+            padding: 5px 10px;
+            font-size: 11px;
+        }
+
+        .save-name {
+            font-weight: bold;
+            flex: 1;
+        }
+
+        .save-time {
+            color: #666;
+            font-size: 11px;
+            margin: 0 10px;
+        }
+
+        .color-pick-btn {
+            padding: 6px 12px;
+            font-size: 11px;
+        }
+
+        .color-pick-btn.active {
+            box-shadow: 0 0 10px rgba(0,176,155,0.5);
+            border: 2px solid #00b09b;
+        }
+
+        /* ========================================
+           АДАПТИВНАЯ ВЕРСТКА
+           ======================================== */
+
+        /* Десктоп: двухколоночный layout */
+        @media (min-width: 900px) {
+            .container {
+                grid-template-columns: minmax(400px, 2fr) minmax(320px, 1fr);
+                grid-template-rows: auto;
+            }
+            
+            .game-canvas-wrapper {
+                grid-column: 1;
+                grid-row: 1 / -1;
+            }
+            
+            .controls-wrapper {
+                grid-column: 2;
+                grid-row: 1 / -1;
+                max-height: calc(100vh - 150px);
+                overflow-y: auto;
+                overflow-x: hidden;
+                padding-right: 5px;
+            }
+            
+            /* Стилизация скроллбара */
+            .controls-wrapper::-webkit-scrollbar {
+                width: 8px;
+            }
+            
+            .controls-wrapper::-webkit-scrollbar-track {
+                background: rgba(102, 126, 234, 0.1);
+                border-radius: 4px;
+            }
+            
+            .controls-wrapper::-webkit-scrollbar-thumb {
+                background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+                border-radius: 4px;
+            }
+        }
+
+        /* Планшет: одноколоночный layout с оптимизацией */
+        @media (max-width: 899px) and (min-width: 601px) {
+            .description {
+                font-size: 14px;
+            }
+        }
+
+        /* Планшет/мобильные: вертикальный layout для панелей */
+        @media (max-width: 768px) {
+            .panel-section > div[style*="grid-template-columns"] {
+                grid-template-columns: 1fr !important;
+            }
+        }
+
+        /* Мобильные устройства */
+        @media (max-width: 600px) {
+            body {
+                padding: 5px;
+            }
+            
+            h1 {
+                font-size: 20px;
+            }
+            
+            .description {
+                font-size: 12px;
+                padding: 10px;
+                margin-bottom: 10px;
+            }
+            
+            .container {
+                padding: 10px;
+                gap: 10px;
+            }
+            
+            .controls-wrapper {
+                gap: 10px;
+            }
+            
+            .controls {
+                gap: 4px;
+            }
+            
+            .controls button {
+                font-size: 11px;
+                padding: 6px 10px;
+            }
+            
+            button {
+                font-size: 11px;
+                padding: 6px 12px;
+            }
+            
+            .slider-group {
+                font-size: 11px;
+                padding: 4px 8px;
+                min-width: 150px;
+            }
+            
+            .slider-group label {
+                min-width: 50px;
+                font-size: 10px;
+            }
+            
+            .stats {
+                font-size: 11px;
+                padding: 8px;
+            }
+            
+            .patterns h3 {
+                font-size: 14px;
+            }
+            
+            .pattern-buttons button {
+                font-size: 10px;
+                padding: 6px 10px;
+            }
+            
+            .panel-section {
+                padding: 10px 8px;
+            }
+            
+            .panel-section h4 {
+                font-size: 13px;
+            }
+            
+            .legend {
+                font-size: 11px;
+            }
+            
+            .legend h3 {
+                font-size: 14px;
+            }
+            
+            .save-section h4 {
+                font-size: 13px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <h1> Цветная Игра "Жизнь" </h1>
+    
+    <div class="description">
+        <p><strong>Расширенные правила:</strong> Каждая живая ячейка имеет цветовое состояние (оттенок). При рождении новая ячейка наследует смешанный цвет от своих "родителей". Цвет эволюционирует в зависимости от возраста ячейки и цветов соседей, создавая красивые цветовые паттерны!</p>
+    </div>
+
+    <div class="container">
+        <!-- ЛЕВАЯ КОЛОНКА: Canvas и статистика -->
+        <div class="game-canvas-wrapper">
+            <canvas id="gameCanvas"></canvas>
+            <div class="stats">
+                <span>Поколение: <span id="generation">0</span></span> | 
+                <span>Живых клеток: <span id="alive">0</span></span> |
+                <span>Популяция: <span id="population">0%</span></span>
+            </div>
+        </div>
+        
+        <!-- ПРАВАЯ КОЛОНКА: Все элементы управления -->
+        <div class="controls-wrapper">
+            <!-- Основные кнопки управления -->
+            <div class="controls">
+                <button id="startBtn" class="success">▶ Старт</button>
+                <button id="stopBtn">⏸ Пауза</button>
+                <button id="stepBtn">⏭ Шаг</button>
+                <button id="clearBtn" class="danger"> Очистить</button>
+                <button id="randomBtn"> Случайно</button>
+                <button id="toggleTrailsBtn" onclick="toggleTrails()"> Шлейф</button>
+                
+                <div class="slider-group">
+                    <label for="speedSlider">Скорость:</label>
+                    <input type="range" id="speedSlider" min="1" max="60" value="10">
+                    <span id="speedValue">10</span> FPS
+                </div>
+                
+                <div class="slider-group">
+                    <label for="cellSizeSlider">Размер:</label>
+                    <input type="range" id="cellSizeSlider" min="4" max="20" value="8">
+                    <span id="cellSizeValue">8</span> px
+                </div>
+
+                <div class="slider-group">
+                    <label for="mutationRateSlider">Мутация:</label>
+                    <input type="range" id="mutationRateSlider" min="0" max="100" value="10">
+                    <span id="mutationRateValue">10%</span>
+                </div>
+
+                <div class="slider-group">
+                    <label for="brushSizeSlider">Кисть:</label>
+                    <input type="range" id="brushSizeSlider" min="1" max="5" value="1">
+                    <span id="brushSizeValue">1</span>
+                </div>
+
+                <span id="stateIndicator" class="state-indicator paused">⏸ Пауза</span>
+            </div>
+
+            <!-- Готовые паттерны -->
+            <div class="patterns">
+                <h3> Готовые паттерны:</h3>
+                <div class="pattern-buttons">
+                    <button onclick="placePattern('glider')">Планер</button>
+                    <button onclick="placePattern('blinker')">Мигалка</button>
+                    <button onclick="placePattern('toad')">Жаба</button>
+                    <button onclick="placePattern('beacon')">Маяк</button>
+                    <button onclick="placePattern('pulsar')">Пульсар</button>
+                    <button onclick="placePattern('gliderGun')">Пушка</button>
+                    <button onclick="placePattern('rainbow')">Радуга</button>
+                    <button onclick="placePattern('explosion')">Взрыв</button>
+                </div>
+            </div>
+            
+            <!-- Инструменты и цветовые режимы -->
+            <div class="panel-section">
+                <h4> Инструменты и цветовые режимы</h4>
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px;">
+                    <div>
+                        <div style="text-align: center; margin-bottom: 8px; font-size: 11px; color: #666; font-weight: 600;">
+                            Инструменты:
+                        </div>
+                        <div class="tool-buttons">
+                            <button onclick="setTool('brush', this)" class="tool-btn active" style="font-size: 11px; padding: 6px 10px;"> Кисть</button>
+                            <button onclick="setTool('eraser', this)" class="tool-btn" style="font-size: 11px; padding: 6px 10px;">粒 Ластик</button>
+                            <button onclick="setTool('line', this)" class="tool-btn" style="font-size: 11px; padding: 6px 10px;"> Линия</button>
+                            <button onclick="setTool('fill', this)" class="tool-btn" style="font-size: 11px; padding: 6px 10px;"> Заливка</button>
+                        </div>
+                        <div style="margin-top: 8px; display: flex; gap: 6px; justify-content: center; align-items: center; flex-wrap: wrap;">
+                            <span style="font-size: 11px; color: #666; font-weight: 600;">Цвет:</span>
+                            <button onclick="setDrawColor(null, this)" class="color-pick-btn active" style="background: linear-gradient(to right, red, yellow, green, cyan, blue, magenta); font-size: 10px; padding: 4px 8px;"> Случайный</button>
+                            <input type="color" id="colorPicker" value="#ff0000" onchange="setDrawColor(this.value)" style="width: 40px; height: 26px; border: none; border-radius: 3px; cursor: pointer;">
+                        </div>
+                    </div>
+                    <div>
+                        <div style="text-align: center; margin-bottom: 8px; font-size: 11px; color: #666; font-weight: 600;">
+                            Цветовые режимы:
+                        </div>
+                        <div class="color-mode-buttons">
+                            <button onclick="setColorMode('inheritance', this)" class="color-btn active" style="font-size: 11px; padding: 6px 10px;">Наследование</button>
+                            <button onclick="setColorMode('rainbow', this)" class="color-btn" style="font-size: 11px; padding: 6px 10px;">Радуга</button>
+                            <button onclick="setColorMode('thermal', this)" class="color-btn" style="font-size: 11px; padding: 6px 10px;">Тепловая</button>
+                            <button onclick="setColorMode('age', this)" class="color-btn" style="font-size: 11px; padding: 6px 10px;">Возраст</button>
+                            <button onclick="setColorMode('random', this)" class="color-btn" style="font-size: 11px; padding: 6px 10px;">Случайный</button>
+                        </div>
+                        <div style="text-align: center; margin-top: 8px; font-size: 10px; color: #555; font-style: italic;">
+                            <span id="currentColorDescription">Классическое смешивание цветов соседей</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Правила и статистика -->
+            <div class="panel-section">
+                <h4>⚙️ Правила и статистика</h4>
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px;">
+                    <div>
+                        <div style="text-align: center; margin-bottom: 8px; font-size: 11px; color: #666; font-weight: 600;">
+                            Правила игры:
+                        </div>
+                        <div class="rule-buttons">
+                            <button onclick="setRuleSet('classic', this)" class="rule-btn active" style="font-size: 11px; padding: 6px 10px;">Классические</button>
+                            <button onclick="setRuleSet('highLife', this)" class="rule-btn" style="font-size: 11px; padding: 6px 10px;">HighLife</button>
+                            <button onclick="setRuleSet('maze', this)" class="rule-btn" style="font-size: 11px; padding: 6px 10px;">Лабиринт</button>
+                            <button onclick="setRuleSet('coral', this)" class="rule-btn" style="font-size: 11px; padding: 6px 10px;">Коралл</button>
+                        </div>
+                        <div style="text-align: center; margin-top: 8px; font-size: 10px; color: #555; font-style: italic;">
+                            <span id="currentRuleDescription">B3/S23 - Стандартные правила Конвея</span>
+                        </div>
+                    </div>
+                    <div>
+                        <div style="text-align: center; margin-bottom: 8px; font-size: 11px; color: #666; font-weight: 600;">
+                            Статистика:
+                        </div>
+                        <div class="advanced-stats" style="gap: 8px; font-size: 12px;">
+                            <div>Разнообразие: <span id="diversityValue">0%</span></div>
+                            <div>Стабильность: <span id="stabilityValue">0%</span></div>
+                            <div>Тренд: <span id="trendValue">➡️</span></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Сохранение состояний -->
+            <div class="save-section">
+                <h4> Сохранение состояний</h4>
+                <div class="save-controls">
+                    <button onclick="saveCurrentState()"> Сохранить</button>
+                    <button onclick="clearSaves()"> Очистить историю</button>
+                </div>
+                <div class="save-list" id="saveList"></div>
+            </div>
+
+            <!-- Легенда правил -->
+            <div class="legend" id="rulesLegend">
+                <h3> Правила игры:</h3>
+                <ul id="rulesDescription">
+                    <li><strong>Рождение:</strong> Мёртвая ячейка с 3 соседями оживает, получая смешанный цвет родителей</li>
+                    <li><strong>Выживание:</strong> Живая ячейка с 2-3 соседями выживает</li>
+                    <li><strong>Смерть:</strong> Ячейка умирает от одиночества (&lt;2 соседей) или перенаселения (&gt;3 соседей)</li>
+                    <li><strong>Цветовая мутация:</strong> Цвет медленно дрейфует в зависимости от соседей</li>
+                    <li><strong>Возраст:</strong> Старые ячейки становятся ярче</li>
+                </ul>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // ============================================
+        // 1. НАСТРОЙКИ И КОНСТАНТЫ
+        // ============================================
+        
+        const settings = {
+            showTrails: false,
+            showGrid: false,
+            rules: {
+                survival: [2, 3],
+                birth: [3]
+            }
+        };
+
+        const ruleSets = {
+            classic: {
+                name: "Классические",
+                survival: [2, 3],
+                birth: [3],
+                description: "B3/S23 - Стандартные правила Конвея"
+            },
+            highLife: {
+                name: "HighLife", 
+                survival: [2, 3],
+                birth: [3, 6],
+                description: "B36/S23 - Альтернативные правила"
+            },
+            maze: {
+                name: "Лабиринт",
+                survival: [1, 2, 3, 4, 5],
+                birth: [3],
+                description: "B3/S12345 - Создает лабиринтообразные структуры"
+            },
+            coral: {
+                name: "Коралл",
+                survival: [4, 5, 6, 7, 8],
+                birth: [3],
+                description: "B3/S45678 - Образует кораллоподобные структуры"
+            }
+        };
+        
+        let currentRules = ruleSets.classic;
+
+        const drawingTools = {
+            brush: {
+                name: "Кисть",
+                cursor: "crosshair"
+            },
+            eraser: {
+                name: "Ластик", 
+                cursor: "not-allowed"
+            },
+            fill: {
+                name: "Заливка",
+                cursor: "cell"
+            },
+            line: {
+                name: "Линия",
+                cursor: "crosshair"
+            }
+        };
+        
+        let currentTool = 'brush';
+        let brushSize = 1;
+        let selectedDrawColor = null;
+
+        const colorModes = {
+            inheritance: {
+                name: "Наследование",
+                description: "Классическое смешивание цветов соседей"
+            },
+            rainbow: {
+                name: "Радуга", 
+                description: "Цвет зависит от позиции на поле"
+            },
+            thermal: {
+                name: "Тепловая карта",
+                description: "Цвет показывает активность региона"
+            },
+            age: {
+                name: "По возрасту",
+                description: "Цвет меняется с возрастом клетки"
+            },
+            random: {
+                name: "Случайный",
+                description: "Случайные цвета при рождении"
+            }
+        };
+        
+        let currentColorMode = 'inheritance';
+        let mutationRate = 0.1;
+        
+        // ============================================
+        // 2. CANVAS И ПЕРЕМЕННЫЕ ИГРЫ
+        // ============================================
+        
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+        
+        let cellSize = 8;
+        let cols, rows;
+        let grid = [];
+        let running = false;  // ВАЖНО: объявляется ДО функции resizeCanvas
+        let generation = 0;
+        let intervalId = null;
+        let speed = 10;
+        
+        // Статистика
+        let statistics = {
+            populationHistory: [],
+            birthRate: 0,
+            deathRate: 0,
+            diversity: 0,
+            stability: 0
+        };
+
+        // Система сохранений
+        let savedStates = JSON.parse(localStorage.getItem('gameOfLifeSaves')) || [];
+        
+        // Рисование
+        let isDrawing = false;
+        let lastPos = null;
+        let lineStart = null;
+        
+        // ============================================
+        // 3. ФУНКЦИЯ АДАПТИВНОГО РАЗМЕРА (ПОСЛЕ ПЕРЕМЕННЫХ!)
+        // ============================================
+        
+        function resizeCanvas() {
+            const container = canvas.parentElement;
+            const containerWidth = container.clientWidth;
+            const isMobile = window.innerWidth < 600;
+            
+            // Для мобильных - квадрат, для десктопа - 4:3
+            const aspectRatio = isMobile ? 1 : 4/3;
+            const canvasWidth = Math.min(containerWidth, isMobile ? 600 : 800);
+            const canvasHeight = canvasWidth / aspectRatio;
+            
+            canvas.width = canvasWidth;
+            canvas.height = canvasHeight;
+            
+            // Пересчитываем размеры сетки
+            const wasRunning = running; // Теперь running уже объявлена!
+            running = false;
+            clearInterval(intervalId);
+            
+            initGrid();
+            drawGrid();
+            
+            if (wasRunning) {
+                running = true;
+                intervalId = setInterval(gameLoop, 1000 / speed);
+            }
+        }
+        
+        // ============================================
+        // 4. ВСЕ ОСТАЛЬНЫЕ ФУНКЦИИ ИЗ ВАШЕГО КОДА
+        // ============================================
+        
+        // Инициализация сетки
+        function initGrid() {
+            cols = Math.floor(canvas.width / cellSize);
+            rows = Math.floor(canvas.height / cellSize);
+            grid = [];
+            
+            for (let i = 0; i < rows; i++) {
+                grid[i] = [];
+                for (let j = 0; j < cols; j++) {
+                    grid[i][j] = {
+                        alive: false,
+                        hue: 0,
+                        saturation: 100,
+                        lightness: 50,
+                        age: 0,
+                        energy: 0,
+                        lastActive: 0
+                    };
+                }
+            }
+            generation = 0;
+            updateStats();
+        }
+
+        // Отрисовка сетки
+        function drawGrid() {
+            ctx.fillStyle = '#000';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            
+            for (let i = 0; i < rows; i++) {
+                for (let j = 0; j < cols; j++) {
+                    const cell = grid[i][j];
+                    
+                    if (cell.alive) {
+                        // Отрисовка живых ячеек - сплошная заливка
+                        const color = getCellColor(cell, i, j);
+                        ctx.fillStyle = color;
+                        ctx.fillRect(j * cellSize, i * cellSize, cellSize - 1, cellSize - 1);
+                        
+                        // Эффект свечения для старых клеток
+                        if (cell.age > 10) {
+                            ctx.fillStyle = color.replace(')', ', 0.3)').replace('hsl', 'hsla');
+                            ctx.fillRect(j * cellSize, i * cellSize, cellSize - 1, cellSize - 1);
+                        }
+                    } else if (settings.showTrails && cell.lastActive > 0) {
+                        // Отрисовка шлейфа - только контур без заливки
+                        const color = getCellColor(cell, i, j);
+                        const alpha = cell.lastActive / 5; // 0.2 - 1.0
+                        const lineWidth = Math.max(1, cell.lastActive / 2.5); // 0.4 - 2
+                        
+                        ctx.strokeStyle = color.replace(')', `, ${alpha})`).replace('hsl', 'hsla');
+                        ctx.lineWidth = lineWidth;
+                        ctx.strokeRect(j * cellSize + 0.5, i * cellSize + 0.5, cellSize - 2, cellSize - 2);
+                        
+                        // Уменьшаем lastActive только при отрисовке
+                        cell.lastActive--;
+                    }
+                }
+            }
+            
+            // Отрисовка сетки если включена
+            if (settings.showGrid) {
+                drawGridLines();
+            }
+        }
+        
+        function drawGridLines() {
+            ctx.strokeStyle = 'rgba(255, 255, 255, 0.1)';
+            ctx.lineWidth = 0.5;
+            
+            for (let i = 0; i <= rows; i++) {
+                ctx.beginPath();
+                ctx.moveTo(0, i * cellSize);
+                ctx.lineTo(canvas.width, i * cellSize);
+                ctx.stroke();
+            }
+            
+            for (let j = 0; j <= cols; j++) {
+                ctx.beginPath();
+                ctx.moveTo(j * cellSize, 0);
+                ctx.lineTo(j * cellSize, canvas.height);
+                ctx.stroke();
+            }
+        }
+        
+        function getCellColor(cell, x, y) {
+            switch (currentColorMode) {
+                case 'rainbow':
+                    const hue = ((x / rows + y / cols) * 180 + generation * 2) % 360;
+                    return `hsl(${hue}, ${cell.saturation}%, ${cell.lightness}%)`;
+                    
+                case 'thermal':
+                    const thermalHue = 240 - (cell.energy * 2.4);
+                    return `hsl(${thermalHue}, 100%, 50%)`;
+                    
+                case 'age':
+                    const ageHue = (cell.age * 10) % 360;
+                    return `hsl(${ageHue}, 100%, ${50 + Math.min(cell.age, 10)}%)`;
+                    
+                case 'random':
+                    return `hsl(${cell.hue}, ${cell.saturation}%, ${cell.lightness}%)`;
+                    
+                case 'inheritance':
+                default:
+                    const lightness = Math.min(50 + cell.age * 2, 70);
+                    return `hsl(${cell.hue}, ${cell.saturation}%, ${lightness}%)`;
+            }
+        }
+
+        function getTrailColor(color, lastActive) {
+            const match = color.match(/hsl\((\d+\.?\d*),\s*(\d+\.?\d*)%,\s*(\d+\.?\d*)%\)/);
+            if (match) {
+                const hue = match[1];
+                const saturation = match[2];
+                // Чем меньше lastActive, тем темнее и прозрачнее
+                const lightness = 1 + (lastActive * 2); // 5-15%
+                const alpha = lastActive * 0.02; // 0.08-0.4
+                return `hsla(${hue}, ${saturation}%, ${lightness}%, ${alpha})`;
+            }
+            return 'hsla(0, 0%, 5%, 0.1)';
+        }
+
+        // Подсчёт соседей и их средний цвет
+        function countNeighbors(x, y) {
+            let count = 0;
+            let hues = [];
+            
+            for (let i = -1; i <= 1; i++) {
+                for (let j = -1; j <= 1; j++) {
+                    if (i === 0 && j === 0) continue;
+                    
+                    const newX = (x + i + rows) % rows;
+                    const newY = (y + j + cols) % cols;
+                    
+                    if (grid[newX][newY].alive) {
+                        count++;
+                        hues.push(grid[newX][newY].hue);
+                    }
+                }
+            }
+            
+            // Вычисляем средний оттенок
+            if (hues.length > 0) {
+                const avgHue = averageHue(hues);
+                return { count, avgHue };
+            }
+            
+            return { count, avgHue: 0 };
+        }
+
+        // Средний оттенок с учётом цикличности
+        function averageHue(hues) {
+            let x = 0, y = 0;
+            
+            for (let hue of hues) {
+                const rad = (hue * Math.PI) / 180;
+                x += Math.cos(rad);
+                y += Math.sin(rad);
+            }
+            
+            x /= hues.length;
+            y /= hues.length;
+            
+            let avgHue = (Math.atan2(y, x) * 180) / Math.PI;
+            if (avgHue < 0) avgHue += 360;
+            
+            return avgHue;
+        }
+
+        // Применение цветовой эволюции
+        function applyColorEvolution(cell, avgHue, neighborCount) {
+            if (neighborCount > 0) {
+                const hueDiff = avgHue - cell.hue;
+                let shortestDiff = hueDiff;
+                
+                if (Math.abs(hueDiff) > 180) {
+                    shortestDiff = hueDiff > 0 ? hueDiff - 360 : hueDiff + 360;
+                }
+                
+                cell.hue = (cell.hue + shortestDiff * mutationRate + 360) % 360;
+                cell.energy = Math.min(cell.energy + neighborCount, 100);
+            } else {
+                cell.energy = Math.max(cell.energy - 1, 0);
+            }
+        }
+
+        // Обновление сетки (следующее поколение)
+        function updateGrid() {
+            const newGrid = JSON.parse(JSON.stringify(grid));
+            
+            for (let i = 0; i < rows; i++) {
+                for (let j = 0; j < cols; j++) {
+                    const cell = grid[i][j];
+                    const { count, avgHue } = countNeighbors(i, j);
+                    
+                    if (cell.alive) {
+                        // Применяем правила выживания
+                        if (!currentRules.survival.includes(count)) {
+                            newGrid[i][j].alive = false;
+                            newGrid[i][j].age = 0;
+                            newGrid[i][j].lastActive = 5;
+                        } else {
+                            // Ячейка выживает
+                            newGrid[i][j].age++;
+                            applyColorEvolution(newGrid[i][j], avgHue, count);
+                        }
+                    } else {
+                        // Применяем правила рождения
+                        if (currentRules.birth.includes(count)) {
+                            newGrid[i][j].alive = true;
+                            
+                            // Цвет зависит от текущего режима
+                            switch (currentColorMode) {
+                                case 'random':
+                                    newGrid[i][j].hue = Math.random() * 360;
+                                    break;
+                                case 'rainbow':
+                                    newGrid[i][j].hue = ((i / rows + j / cols) * 180) % 360;
+                                    break;
+                                case 'thermal':
+                                    newGrid[i][j].hue = 240; // Начинаем с синего
+                                    break;
+                                case 'age':
+                                    newGrid[i][j].hue = 0; // Начинаем с красного
+                                    break;
+                                case 'inheritance':
+                                default:
+                                    newGrid[i][j].hue = avgHue; // Наследуем цвет от соседей
+                                    break;
+                            }
+                            
+                            newGrid[i][j].saturation = 100;
+                            newGrid[i][j].lightness = 50;
+                            newGrid[i][j].age = 0;
+                        }
+                    }
+                }
+            }
+            
+            grid = newGrid;
+            generation++;
+            updateStats();
+            updateAdvancedStats();
+        }
+
+        // Обновление статистики
+        function updateStats() {
+            let aliveCount = 0;
+            for (let i = 0; i < rows; i++) {
+                for (let j = 0; j < cols; j++) {
+                    if (grid[i][j].alive) aliveCount++;
+                }
+            }
+            
+            document.getElementById('generation').textContent = generation;
+            document.getElementById('alive').textContent = aliveCount;
+            document.getElementById('population').textContent = 
+                ((aliveCount / (rows * cols)) * 100).toFixed(2) + '%';
+        }
+        
+        // Обновление расширенной статистики
+        function updateAdvancedStats() {
+            let aliveCount = 0;
+            const hues = new Set();
+            
+            for (let i = 0; i < rows; i++) {
+                for (let j = 0; j < cols; j++) {
+                    if (grid[i][j].alive) {
+                        aliveCount++;
+                        hues.add(Math.floor(grid[i][j].hue / 10) * 10);
+                    }
+                }
+            }
+            
+            // Сохраняем историю популяции
+            statistics.populationHistory.push(aliveCount);
+            if (statistics.populationHistory.length > 100) {
+                statistics.populationHistory.shift();
+            }
+            
+            // Вычисляем разнообразие
+            statistics.diversity = (hues.size / 36) * 100;
+            document.getElementById('diversityValue').textContent = statistics.diversity.toFixed(1) + '%';
+            
+            // Вычисляем стабильность
+            if (statistics.populationHistory.length >= 2) {
+                const lastPop = statistics.populationHistory[statistics.populationHistory.length - 1];
+                const prevPop = statistics.populationHistory[statistics.populationHistory.length - 2];
+                statistics.stability = 100 - Math.abs(lastPop - prevPop) / (rows * cols) * 100;
+                document.getElementById('stabilityValue').textContent = statistics.stability.toFixed(1) + '%';
+                
+                // Определяем тренд
+                if (lastPop > prevPop) {
+                    document.getElementById('trendValue').textContent = '📈';
+                } else if (lastPop < prevPop) {
+                    document.getElementById('trendValue').textContent = '📉';
+                } else {
+                    document.getElementById('trendValue').textContent = '➡️';
+                }
+            }
+        }
+
+        // Игровой цикл
+        function gameLoop() {
+            updateGrid();
+            drawGrid();
+        }
+
+        // Обновление индикатора состояния
+        function updateStateIndicator() {
+            const indicator = document.getElementById('stateIndicator');
+            if (running) {
+                indicator.textContent = '▶ Выполняется';
+                indicator.className = 'state-indicator running';
+            } else {
+                indicator.textContent = '⏸ Пауза';
+                indicator.className = 'state-indicator paused';
+            }
+        }
+        
+        // Установка цветового режима
+        function setColorMode(mode, buttonElement) {
+            currentColorMode = mode;
+            document.querySelectorAll('.color-btn').forEach(btn => btn.classList.remove('active'));
+            if (buttonElement) {
+                buttonElement.classList.add('active');
+            }
+            
+            // Обновляем описание режима
+            const descElement = document.getElementById('currentColorDescription');
+            if (descElement && colorModes[mode]) {
+                descElement.textContent = colorModes[mode].description;
+            }
+            
+            drawGrid();
+        }
+
+        // Установка набора правил
+        function setRuleSet(ruleSetName, buttonElement) {
+            currentRules = ruleSets[ruleSetName];
+            document.querySelectorAll('.rule-btn').forEach(btn => btn.classList.remove('active'));
+            if (buttonElement) {
+                buttonElement.classList.add('active');
+            }
+            
+            // Обновляем описание правил
+            const descElement = document.getElementById('currentRuleDescription');
+            if (descElement) {
+                descElement.textContent = currentRules.description;
+            }
+            
+            // Обновляем легенду с правилами
+            updateRulesLegend();
+        }
+
+        // Обновление описания правил в легенде
+        function updateRulesLegend() {
+            const rulesDesc = document.getElementById('rulesDescription');
+            if (!rulesDesc) return;
+            
+            const birthStr = currentRules.birth.join(', ');
+            const survivalStr = currentRules.survival.join(', ');
+            
+            let birthDesc = `Мёртвая ячейка с ${birthStr} соседя${currentRules.birth.length > 1 ? 'ми' : ''} оживает`;
+            let survivalDesc = `Живая ячейка с ${survivalStr} соседя${currentRules.survival.length > 1 ? 'ми' : ''} выживает`;
+            
+            // Определяем условия смерти
+            const allNeighbors = [0, 1, 2, 3, 4, 5, 6, 7, 8];
+            const deathCounts = allNeighbors.filter(n => !currentRules.survival.includes(n) && n !== 0);
+            const deathStr = deathCounts.length > 0 ? deathCounts.join(', ') : 'никогда';
+            
+            rulesDesc.innerHTML = `
+                <li><strong>Рождение (B${currentRules.birth.join('')}):</strong> ${birthDesc}, получая смешанный цвет родителей</li>
+                <li><strong>Выживание (S${currentRules.survival.join('')}):</strong> ${survivalDesc}</li>
+                <li><strong>Смерть:</strong> Ячейка умирает при ${deathStr} соседях</li>
+                <li><strong>Цветовая мутация:</strong> Цвет медленно дрейфует в зависимости от соседей</li>
+                <li><strong>Возраст:</strong> Старые ячейки становятся ярче</li>
+            `;
+        }
+
+        // Установка инструмента рисования
+        function setTool(tool, buttonElement) {
+            currentTool = tool;
+            canvas.style.cursor = drawingTools[tool].cursor;
+            document.querySelectorAll('.tool-btn').forEach(btn => btn.classList.remove('active'));
+            if (buttonElement) {
+                buttonElement.classList.add('active');
+            }
+        }
+
+        // Установка цвета рисования
+        function setDrawColor(color, buttonElement) {
+            if (color === null) {
+                selectedDrawColor = null;
+                document.querySelectorAll('.color-pick-btn').forEach(btn => btn.classList.remove('active'));
+                if (buttonElement) {
+                    buttonElement.classList.add('active');
+                }
+            } else {
+                selectedDrawColor = color;
+                document.querySelectorAll('.color-pick-btn').forEach(btn => btn.classList.remove('active'));
+            }
+        }
+
+        // Функции рисования
+        //let isDrawing = false;
+        //let lastPos = null;
+
+        function getCellPos(e) {
+            const rect = canvas.getBoundingClientRect();
+            return {
+                x: Math.floor((e.clientX - rect.left) / cellSize),
+                y: Math.floor((e.clientY - rect.top) / cellSize)
+            };
+        }
+        
+        function handleDrawing(e) {
+            const pos = getCellPos(e);
+            
+            switch (currentTool) {
+                case 'brush':
+                    drawBrush(pos.x, pos.y, true);
+                    break;
+                case 'eraser':
+                    drawBrush(pos.x, pos.y, false);
+                    break;
+                case 'line':
+                    if (lastPos && (pos.x !== lastPos.x || pos.y !== lastPos.y)) {
+                        drawLine(lastPos.x, lastPos.y, pos.x, pos.y, true);
+                        lastPos = pos;
+                    }
+                    break;
+                case 'fill':
+                    if (isDrawing) {
+                        floodFill(pos.x, pos.y, true);
+                        isDrawing = false;
+                    }
+                    break;
+            }
+            
+            drawGrid();
+            updateStats();
+        }
+
+        // Конвертация hex в RGB
+        function hexToRgb(hex) {
+            const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
+            return result ? {
+                r: parseInt(result[1], 16),
+                g: parseInt(result[2], 16),
+                b: parseInt(result[3], 16)
+            } : {r: 255, g: 0, b: 0};
+        }
+
+        // Конвертация RGB в HSL
+        function rgbToHsl(r, g, b) {
+            r /= 255;
+            g /= 255;
+            b /= 255;
+            
+            const max = Math.max(r, g, b);
+            const min = Math.min(r, g, b);
+            let h, s, l = (max + min) / 2;
+            
+            if (max === min) {
+                h = s = 0;
+            } else {
+                const d = max - min;
+                s = l > 0.5 ? d / (2 - max - min) : d / (max + min);
+                
+                switch (max) {
+                    case r: h = ((g - b) / d + (g < b ? 6 : 0)) / 6; break;
+                    case g: h = ((b - r) / d + 2) / 6; break;
+                    case b: h = ((r - g) / d + 4) / 6; break;
+                }
+            }
+            
+            return {
+                h: h * 360,
+                s: s * 100,
+                l: l * 100
+            };
+        }
+        
+        function drawBrush(x, y, alive) {
+            for (let dy = -brushSize + 1; dy < brushSize; dy++) {
+                for (let dx = -brushSize + 1; dx < brushSize; dx++) {
+                    const nx = x + dx;
+                    const ny = y + dy;
+                    
+                    if (nx >= 0 && nx < cols && ny >= 0 && ny < rows) {
+                        grid[ny][nx].alive = alive;
+                        if (alive) {
+                            // Используем выбранный цвет или случайный
+                            if (selectedDrawColor) {
+                                // Конвертируем hex в HSL
+                                const rgb = hexToRgb(selectedDrawColor);
+                                const hsl = rgbToHsl(rgb.r, rgb.g, rgb.b);
+                                grid[ny][nx].hue = hsl.h;
+                                grid[ny][nx].saturation = hsl.s;
+                                grid[ny][nx].lightness = hsl.l;
+                            } else {
+                                grid[ny][nx].hue = Math.random() * 360;
+                                grid[ny][nx].saturation = 100;
+                                grid[ny][nx].lightness = 50;
+                            }
+                            grid[ny][nx].age = 0;
+                        }
+                    }
+                }
+            }
+            drawGrid();
+            updateStats();
+        }
+        
+        function drawLine(x1, y1, x2, y2, state) {
+            const dx = Math.abs(x2 - x1);
+            const dy = Math.abs(y2 - y1);
+            const sx = (x1 < x2) ? 1 : -1;
+            const sy = (y1 < y2) ? 1 : -1;
+            let err = dx - dy;
+            
+            while(true) {
+                if (x1 >= 0 && x1 < cols && y1 >= 0 && y1 < rows) {
+                    grid[y1][x1].alive = state;
+                    if (state) {
+                        switch (currentColorMode) {
+                            case 'random':
+                                grid[y1][x1].hue = Math.random() * 360;
+                                break;
+                            case 'rainbow':
+                                grid[y1][x1].hue = ((y1 / rows + x1 / cols) * 180) % 360;
+                                break;
+                            case 'thermal':
+                                grid[y1][x1].hue = 240;
+                                break;
+                            case 'age':
+                                grid[y1][x1].hue = 0;
+                                break;
+                            case 'inheritance':
+                            default:
+                                grid[y1][x1].hue = Math.random() * 360;
+                                break;
+                        }
+                        grid[y1][x1].age = 0;
+                    }
+                }
+                
+                if (x1 === x2 && y1 === y2) break;
+                const e2 = 2 * err;
+                if (e2 > -dy) { err -= dy; x1 += sx; }
+                if (e2 < dx) { err += dx; y1 += sy; }
+            }
+        }
+        
+        function floodFill(x, y, state) {
+            if (x < 0 || x >= cols || y < 0 || y >= rows) return;
+            
+            const targetState = grid[y][x].alive;
+            if (targetState === state) return;
+            
+            const queue = [[x, y]];
+            const filled = new Set();
+            
+            while (queue.length > 0) {
+                const [cx, cy] = queue.shift();
+                const key = `${cx},${cy}`;
+                
+                if (filled.has(key)) continue;
+                if (cx < 0 || cx >= cols || cy < 0 || cy >= rows) continue;
+                if (grid[cy][cx].alive !== targetState) continue;
+                
+                grid[cy][cx].alive = state;
+                if (state) {
+                    switch (currentColorMode) {
+                        case 'random':
+                            grid[cy][cx].hue = Math.random() * 360;
+                            break;
+                        case 'rainbow':
+                            grid[cy][cx].hue = ((cy / rows + cx / cols) * 180) % 360;
+                            break;
+                        case 'thermal':
+                            grid[cy][cx].hue = 240;
+                            break;
+                        case 'age':
+                            grid[cy][cx].hue = 0;
+                            break;
+                        case 'inheritance':
+                        default:
+                            grid[cy][cx].hue = Math.random() * 360;
+                            break;
+                    }
+                    grid[cy][cx].age = 0;
+                }
+                filled.add(key);
+                
+                queue.push([cx + 1, cy], [cx - 1, cy], [cx, cy + 1], [cx, cy - 1]);
+            }
+        }
+
+        // Система сохранений
+        function saveCurrentState() {
+            const state = {
+                name: `Состояние ${new Date().toLocaleTimeString()}`,
+                timestamp: new Date().toISOString(),
+                grid: JSON.parse(JSON.stringify(grid)),
+                generation: generation,
+                settings: {
+                    cellSize: cellSize,
+                    colorMode: currentColorMode,
+                    rules: currentRules
+                }
+            };
+            
+            savedStates.unshift(state);
+            if (savedStates.length > 20) savedStates.pop();
+            
+            localStorage.setItem('gameOfLifeSaves', JSON.stringify(savedStates));
+            updateSaveList();
+        }
+        
+        function loadState(index) {
+            const state = savedStates[index];
+            if (!state) return;
+            
+            running = false;
+            clearInterval(intervalId);
+            
+            grid = JSON.parse(JSON.stringify(state.grid));
+            generation = state.generation;
+            
+            if (state.settings) {
+                cellSize = state.settings.cellSize;
+                currentColorMode = state.settings.colorMode || 'inheritance';
+                if (state.settings.rules) {
+                    currentRules = state.settings.rules;
+                }
+            }
+            
+            drawGrid();
+            updateStats();
+            updateStateIndicator();
+        }
+        
+        function deleteSave(index) {
+            savedStates.splice(index, 1);
+            localStorage.setItem('gameOfLifeSaves', JSON.stringify(savedStates));
+            updateSaveList();
+        }
+        
+        function clearSaves() {
+            if (confirm('Удалить все сохранённые состояния?')) {
+                savedStates = [];
+                localStorage.setItem('gameOfLifeSaves', JSON.stringify(savedStates));
+                updateSaveList();
+            }
+        }
+        
+        function updateSaveList() {
+            const saveList = document.getElementById('saveList');
+            if (!saveList) return;
+            
+            if (savedStates.length === 0) {
+                saveList.innerHTML = '<p style="text-align:center; color:#666; padding:10px;">Нет сохранённых состояний</p>';
+                return;
+            }
+            
+            saveList.innerHTML = savedStates.map((state, index) => `
+                <div class="save-item">
+                    <span class="save-name">${state.name}</span>
+                    <span class="save-time">${new Date(state.timestamp).toLocaleString()}</span>
+                    <button onclick="loadState(${index})">🔄 Загрузить</button>
+                    <button onclick="deleteSave(${index})" class="danger">🗑️</button>
+                </div>
+            `).join('');
+        }
+
+        // Управление
+        document.getElementById('startBtn').addEventListener('click', () => {
+            if (!running) {
+                running = true;
+                intervalId = setInterval(gameLoop, 1000 / speed);
+                updateStateIndicator();
+            }
+        });
+
+        document.getElementById('stopBtn').addEventListener('click', () => {
+            running = false;
+            clearInterval(intervalId);
+            updateStateIndicator();
+        });
+
+        document.getElementById('stepBtn').addEventListener('click', () => {
+            if (!running) {
+                updateGrid();
+                drawGrid();
+            }
+        });
+
+        document.getElementById('clearBtn').addEventListener('click', () => {
+            running = false;
+            clearInterval(intervalId);
+            initGrid();
+            drawGrid();
+            updateStateIndicator();
+        });
+
+        document.getElementById('randomBtn').addEventListener('click', () => {
+            initGrid();
+            for (let i = 0; i < rows; i++) {
+                for (let j = 0; j < cols; j++) {
+                    if (Math.random() < 0.3) {
+                        grid[i][j].alive = true;
+                        grid[i][j].hue = Math.random() * 360;
+                    }
+                }
+            }
+            drawGrid();
+            updateStats();
+        });
+
+        // Слайдеры
+        document.getElementById('speedSlider').addEventListener('input', (e) => {
+            speed = parseInt(e.target.value);
+            document.getElementById('speedValue').textContent = speed;
+            
+            if (running) {
+                clearInterval(intervalId);
+                intervalId = setInterval(gameLoop, 1000 / speed);
+            }
+        });
+
+        document.getElementById('cellSizeSlider').addEventListener('input', (e) => {
+            cellSize = parseInt(e.target.value);
+            document.getElementById('cellSizeValue').textContent = cellSize;
+            
+            const wasRunning = running;
+            running = false;
+            clearInterval(intervalId);
+            
+            initGrid();
+            drawGrid();
+            
+            if (wasRunning) {
+                running = true;
+                intervalId = setInterval(gameLoop, 1000 / speed);
+            }
+        });
+
+        document.getElementById('mutationRateSlider').addEventListener('input', (e) => {
+            mutationRate = parseInt(e.target.value) / 100;
+            document.getElementById('mutationRateValue').textContent = e.target.value + '%';
+        });
+
+        document.getElementById('brushSizeSlider').addEventListener('input', (e) => {
+            brushSize = parseInt(e.target.value);
+            document.getElementById('brushSizeValue').textContent = brushSize;
+        });
+
+        // Рисование мышью
+        canvas.addEventListener('mousedown', (e) => {
+            isDrawing = true;
+            lastPos = getCellPos(e);
+            handleDrawing(e);
+        });
+
+        canvas.addEventListener('mousemove', (e) => {
+            if (isDrawing) handleDrawing(e);
+        });
+
+        canvas.addEventListener('mouseup', () => {
+            isDrawing = false;
+            lastPos = null;
+        });
+
+        canvas.addEventListener('mouseleave', () => {
+            isDrawing = false;
+            lastPos = null;
+        });
+
+        // Готовые паттерны
+        function placePattern(patternName) {
+            initGrid();
+            const centerX = Math.floor(cols / 2);
+            const centerY = Math.floor(rows / 2);
+            
+            const patterns = {
+                glider: [
+                    [0, 1, 0],
+                    [0, 0, 1],
+                    [1, 1, 1]
+                ],
+                blinker: [
+                    [1, 1, 1]
+                ],
+                toad: [
+                    [0, 1, 1, 1],
+                    [1, 1, 1, 0]
+                ],
+                beacon: [
+                    [1, 1, 0, 0],
+                    [1, 1, 0, 0],
+                    [0, 0, 1, 1],
+                    [0, 0, 1, 1]
+                ],
+                pulsar: [
+                    [0,0,1,1,1,0,0,0,1,1,1,0,0],
+                    [0,0,0,0,0,0,0,0,0,0,0,0,0],
+                    [1,0,0,0,0,1,0,1,0,0,0,0,1],
+                    [1,0,0,0,0,1,0,1,0,0,0,0,1],
+                    [1,0,0,0,0,1,0,1,0,0,0,0,1],
+                    [0,0,1,1,1,0,0,0,1,1,1,0,0],
+                    [0,0,0,0,0,0,0,0,0,0,0,0,0],
+                    [0,0,1,1,1,0,0,0,1,1,1,0,0],
+                    [1,0,0,0,0,1,0,1,0,0,0,0,1],
+                    [1,0,0,0,0,1,0,1,0,0,0,0,1],
+                    [1,0,0,0,0,1,0,1,0,0,0,0,1],
+                    [0,0,0,0,0,0,0,0,0,0,0,0,0],
+                    [0,0,1,1,1,0,0,0,1,1,1,0,0]
+                ],
+                gliderGun: [
+                    [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0,0,0,0,0],
+                    [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,1,0,0,0,0,0,0,0,0,0,0,0],
+                    [0,0,0,0,0,0,0,0,0,0,0,0,1,1,0,0,0,0,0,0,1,1,0,0,0,0,0,0,0,0,0,0,0,0,1,1],
+                    [0,0,0,0,0,0,0,0,0,0,0,1,0,0,0,1,0,0,0,0,1,1,0,0,0,0,0,0,0,0,0,0,0,0,1,1],
+                    [1,1,0,0,0,0,0,0,0,0,1,0,0,0,0,0,1,0,0,0,1,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0],
+                    [1,1,0,0,0,0,0,0,0,0,1,0,0,0,1,0,1,1,0,0,0,0,1,0,1,0,0,0,0,0,0,0,0,0,0,0],
+                    [0,0,0,0,0,0,0,0,0,0,1,0,0,0,0,0,1,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0,0,0,0,0],
+                    [0,0,0,0,0,0,0,0,0,0,0,1,0,0,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],
+                    [0,0,0,0,0,0,0,0,0,0,0,0,1,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]
+                ]
+            };
+            
+            if (patternName === 'rainbow') {
+                for (let i = 0; i < rows; i++) {
+                    for (let j = 0; j < cols; j++) {
+                        const dx = j - centerX;
+                        const dy = i - centerY;
+                        const distance = Math.sqrt(dx * dx + dy * dy);
+                        
+                        if (distance > 10 && distance < 20) {
+                            grid[i][j].alive = true;
+                            grid[i][j].hue = (Math.atan2(dy, dx) * 180 / Math.PI + 360) % 360;
+                        }
+                    }
+                }
+            } else if (patternName === 'explosion') {
+                for (let i = 0; i < rows; i++) {
+                    for (let j = 0; j < cols; j++) {
+                        const dx = j - centerX;
+                        const dy = i - centerY;
+                        const distance = Math.sqrt(dx * dx + dy * dy);
+                        
+                        if (distance < 25 && Math.random() < 0.4) {
+                            grid[i][j].alive = true;
+                            grid[i][j].hue = (distance * 15) % 360;
+                        }
+                    }
+                }
+            } else {
+                const pattern = patterns[patternName];
+                if (pattern) {
+                    const offsetY = Math.floor(pattern.length / 2);
+                    const offsetX = Math.floor(pattern[0].length / 2);
+                    
+                    for (let i = 0; i < pattern.length; i++) {
+                        for (let j = 0; j < pattern[i].length; j++) {
+                            if (pattern[i][j] === 1) {
+                                const y = centerY - offsetY + i;
+                                const x = centerX - offsetX + j;
+                                
+                                if (y >= 0 && y < rows && x >= 0 && x < cols) {
+                                    grid[y][x].alive = true;
+                                    grid[y][x].hue = (i * 30 + j * 30) % 360;
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+            
+            drawGrid();
+            updateStats();
+        }
+
+        function toggleTrails() {
+            settings.showTrails = !settings.showTrails;
+            const btn = document.getElementById('toggleTrailsBtn');
+            btn.textContent = settings.showTrails ? ' Шлейф: ВКЛ' : ' Шлейф: ВЫКЛ';
+            drawGrid();
+        }
+
+        // ============================================
+        // 5. ИНИЦИАЛИЗАЦИЯ ПРИ ЗАГРУЗКЕ (В САМОМ КОНЦЕ!)
+        // ============================================
+        
+        window.addEventListener('load', () => {
+            resizeCanvas();  // Вызываем ПОСЛЕ объявления всех переменных
+            updateStateIndicator();
+            updateSaveList();
+            updateRulesLegend();
+        });
+        
+        // Обработчик изменения размера окна
+        window.addEventListener('resize', () => {
+            clearTimeout(window.resizeTimeout);
+            window.resizeTimeout = setTimeout(resizeCanvas, 200);
+        });
+    </script>
+</body>
+</html>
