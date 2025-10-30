@@ -1,0 +1,3404 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Профессиональный ретро-осциллограф DSO-4000</title>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Roboto+Mono:wght@400;700;900&display=swap');
+        
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Roboto Mono', 'Courier New', monospace;
+            background: 
+                repeating-linear-gradient(
+                    45deg,
+                    #000 0px,
+                    #000 2px,
+                    #0a0a0a 2px,
+                    #0a0a0a 4px
+                ),
+                linear-gradient(135deg, #1a0000 0%, #000000 50%, #001a00 100%);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            padding: 20px;
+            overflow-x: hidden;
+            position: relative;
+        }
+
+        body::before {
+            content: '◢◣◥◤▲▼◀▶●○◆◇';
+            position: fixed;
+            font-size: 400px;
+            color: rgba(255, 0, 0, 0.02);
+            top: -100px;
+            right: -100px;
+            transform: rotate(-15deg);
+            pointer-events: none;
+            font-weight: 900;
+            z-index: 0;
+        }
+
+        body::after {
+            content: '';
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: 
+                repeating-linear-gradient(
+                    0deg,
+                    transparent,
+                    transparent 2px,
+                    rgba(255,0,0,0.02) 2px,
+                    rgba(255,0,0,0.02) 4px
+                );
+            pointer-events: none;
+            animation: noise 3s infinite;
+            z-index: 0;
+        }
+
+        @keyframes noise {
+            0%, 100% { opacity: 0.05; }
+            50% { opacity: 0.08; }
+        }
+
+        .oscilloscope-body {
+            background: 
+                linear-gradient(45deg, transparent 48%, #ff0000 48%, #ff0000 52%, transparent 52%),
+                linear-gradient(-45deg, transparent 48%, #ffff00 48%, #ffff00 52%, transparent 52%),
+                #000;
+            background-size: 100% 100%, 100% 100%, 100% 100%;
+            background-position: 0 0, 0 0, 0 0;
+            padding: 40px;
+            box-shadow: 
+                -15px -15px 0 rgba(255, 0, 0, 0.3),
+                15px 15px 0 rgba(255, 255, 0, 0.3),
+                0 0 80px rgba(255, 0, 0, 0.4);
+            max-width: 1700px;
+            width: 100%;
+            border: 8px solid #fff;
+            position: relative;
+            transform: rotate(-1deg);
+            clip-path: polygon(
+                0% 0%, 98% 0%, 100% 2%, 100% 100%, 
+                2% 100%, 0% 98%
+            );
+            z-index: 1;
+        }
+
+        .oscilloscope-body::before {
+            content: 'ЗАУМЬ';
+            position: absolute;
+            top: -30px;
+            left: -30px;
+            font-size: 120px;
+            font-weight: 900;
+            color: #ff0000;
+            opacity: 0.1;
+            transform: rotate(-25deg);
+            letter-spacing: -10px;
+        }
+
+        .oscilloscope-body::after {
+            content: '◢';
+            position: absolute;
+            bottom: -20px;
+            right: -20px;
+            font-size: 200px;
+            color: #ffff00;
+            opacity: 0.3;
+        }
+
+        .brand-plate {
+            background: 
+                linear-gradient(90deg, #ff0000 0%, #000 5%, #000 95%, #ffff00 100%);
+            padding: 20px 40px;
+            margin-bottom: 30px;
+            border: 4px dashed #fff;
+            box-shadow: 
+                inset 0 0 20px rgba(255,0,0,0.3),
+                5px 5px 0 rgba(255, 255, 0, 0.5);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            transform: skewX(-5deg);
+            position: relative;
+            overflow: hidden;
+        }
+
+        .brand-plate::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: repeating-linear-gradient(
+                0deg,
+                transparent,
+                transparent 2px,
+                rgba(255,255,255,0.03) 2px,
+                rgba(255,255,255,0.03) 4px
+            );
+        }
+
+        .brand-info {
+            text-align: left;
+            transform: skewX(5deg);
+            position: relative;
+            z-index: 1;
+        }
+
+        .brand-name {
+            color: #fff;
+            font-size: 42px;
+            font-weight: 900;
+            letter-spacing: -2px;
+            text-transform: uppercase;
+            text-shadow: 
+                3px 3px 0 #ff0000,
+                -2px -2px 0 #ffff00,
+                0 0 20px rgba(255,0,0,0.5);
+            transform: rotate(-3deg) scaleY(1.3);
+            display: inline-block;
+            animation: glitchText 5s infinite;
+        }
+
+        @keyframes glitchText {
+            0%, 100% { transform: rotate(-3deg) scaleY(1.3); }
+            33% { transform: rotate(-2deg) scaleY(1.25) translateX(2px); }
+            66% { transform: rotate(-4deg) scaleY(1.35) translateX(-2px); }
+        }
+
+        .model-number {
+            color: #ff0000;
+            font-size: 16px;
+            letter-spacing: 8px;
+            margin-top: 5px;
+            font-weight: 700;
+            text-shadow: 2px 2px 0 #000;
+            transform: rotate(2deg);
+        }
+
+        .status-indicators {
+            display: flex;
+            gap: 25px;
+            transform: skewX(5deg);
+            position: relative;
+            z-index: 1;
+            flex-wrap: wrap;
+        }
+
+        .status-item {
+            text-align: center;
+            background: #ff0000;
+            padding: 8px 15px;
+            transform: rotate(-5deg);
+            border: 2px solid #000;
+            box-shadow: 3px 3px 0 #000;
+        }
+
+        .status-item:nth-child(2) {
+            background: #ffff00;
+            transform: rotate(5deg);
+        }
+
+        .status-item:nth-child(3) {
+            background: #fff;
+            transform: rotate(-3deg);
+        }
+
+        .status-item:nth-child(4) {
+            background: #00ff00;
+            transform: rotate(4deg);
+        }
+
+        .status-label {
+            color: #000;
+            font-size: 9px;
+            text-transform: uppercase;
+            font-weight: 900;
+            margin-bottom: 5px;
+        }
+
+        .status-value {
+            color: #000;
+            font-size: 14px;
+            font-weight: 900;
+            text-shadow: none;
+        }
+
+        .main-layout {
+            display: grid;
+            grid-template-columns: 1fr 420px;
+            gap: 30px;
+            position: relative;
+        }
+
+        .main-layout::before {
+            content: '◢';
+            position: absolute;
+            font-size: 500px;
+            color: rgba(255, 0, 0, 0.05);
+            top: -100px;
+            left: -100px;
+            transform: rotate(45deg);
+            pointer-events: none;
+        }
+
+        .screen-area {
+            background: 
+                repeating-linear-gradient(
+                    0deg,
+                    #000,
+                    #000 1px,
+                    #0a0000 1px,
+                    #0a0000 2px
+                );
+            padding: 25px;
+            box-shadow: 
+                inset 8px 8px 0 rgba(255,0,0,0.3),
+                inset -8px -8px 0 rgba(255,255,0,0.3),
+                0 0 40px rgba(255,0,0,0.4);
+            border: 6px solid #fff;
+            transform: rotate(1deg);
+            clip-path: polygon(
+                2% 0%, 100% 0%, 100% 98%, 
+                98% 100%, 0% 100%, 0% 2%
+            );
+            position: relative;
+        }
+
+        .screen-area::after {
+            content: '●';
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            font-size: 30px;
+            color: #ff0000;
+            animation: blink 2s infinite;
+        }
+
+        @keyframes blink {
+            0%, 49%, 100% { opacity: 1; }
+            50%, 99% { opacity: 0; }
+        }
+
+        .screen-bezel {
+            background: #000;
+            padding: 20px;
+            border: 4px dashed #ff0000;
+            box-shadow: 
+                inset 0 0 40px rgba(255,0,0,0.2),
+                0 0 20px rgba(255,255,0,0.3);
+            position: relative;
+            transform: rotate(-0.5deg);
+        }
+
+        .screen-bezel::after {
+            content: '◥◤◢◣';
+            position: absolute;
+            top: 5px;
+            left: 5px;
+            right: 5px;
+            bottom: 5px;
+            display: flex;
+            justify-content: space-between;
+            font-size: 20px;
+            color: rgba(255, 255, 0, 0.1);
+            pointer-events: none;
+        }
+
+        #canvasContainer {
+            position: relative;
+        }
+
+        canvas {
+            display: block;
+            width: 100%;
+            background: 
+                radial-gradient(circle at 30% 30%, rgba(255,0,0,0.1) 0%, transparent 50%),
+                radial-gradient(circle at 70% 70%, rgba(255,255,0,0.1) 0%, transparent 50%),
+                radial-gradient(ellipse at center, #001a00 0%, #000a00 100%);
+            box-shadow: 
+                0 0 60px rgba(0, 255, 0, 0.3),
+                inset 0 0 100px rgba(0, 0, 0, 0.7),
+                inset 10px 10px 40px rgba(255, 0, 0, 0.1);
+            filter: contrast(1.2) brightness(1.1);
+        }
+
+        .cursor-line {
+            position: absolute;
+            pointer-events: none;
+            z-index: 10;
+        }
+
+        .cursor-v {
+            width: 3px;
+            height: 100%;
+            background: linear-gradient(180deg, #ff0000, #ffff00);
+            box-shadow: 0 0 10px rgba(255, 255, 0, 0.8);
+        }
+
+        .cursor-h {
+            width: 100%;
+            height: 3px;
+            background: linear-gradient(90deg, #ffff00, #ff0000);
+            box-shadow: 0 0 10px rgba(255, 0, 0, 0.8);
+        }
+
+        .cursor-label {
+            position: absolute;
+            background: #ff0000;
+            color: #000;
+            padding: 4px 10px;
+            font-size: 11px;
+            border: 2px solid #000;
+            font-weight: 900;
+            pointer-events: none;
+            transform: rotate(-3deg);
+            box-shadow: 3px 3px 0 rgba(0,0,0,0.5);
+        }
+
+        .screen-controls {
+            display: grid;
+            grid-template-columns: repeat(5, 1fr);
+            gap: 12px;
+            margin-top: 20px;
+        }
+
+        .screen-btn {
+            background: 
+                linear-gradient(45deg, #fff 25%, transparent 25%, transparent 75%, #fff 75%),
+                linear-gradient(45deg, #fff 25%, #000 25%, #000 75%, #fff 75%),
+                #000;
+            background-size: 4px 4px;
+            background-position: 0 0, 2px 2px;
+            color: #ff0000;
+            border: 3px solid #fff;
+            padding: 12px 8px;
+            cursor: pointer;
+            font-size: 9px;
+            font-weight: 900;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            transition: all 0.2s;
+            box-shadow: 
+                4px 4px 0 rgba(255, 0, 0, 0.5),
+                inset 0 0 10px rgba(255,255,255,0.1);
+            transform: skewX(-5deg);
+            position: relative;
+        }
+
+        .screen-btn::before {
+            content: '◢';
+            position: absolute;
+            top: 2px;
+            right: 2px;
+            font-size: 8px;
+            color: #ff0000;
+        }
+
+        .screen-btn:hover {
+            background: #ff0000;
+            color: #000;
+            transform: skewX(-5deg) translateY(-2px) rotate(-2deg);
+            box-shadow: 
+                6px 6px 0 rgba(255, 255, 0, 0.5),
+                inset 0 0 20px rgba(255,255,255,0.3);
+        }
+
+        .screen-btn.active {
+            background: 
+                linear-gradient(45deg, #ff0000 0%, #ffff00 100%);
+            color: #000;
+            border-color: #000;
+            box-shadow: 
+                0 0 20px rgba(255,0,0,0.8),
+                inset 0 0 20px rgba(255,255,0,0.5);
+            animation: pulse 1s infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% { transform: skewX(-5deg) scale(1); }
+            50% { transform: skewX(-5deg) scale(1.05); }
+        }
+
+        .measurements-panel {
+            background: 
+                repeating-linear-gradient(
+                    90deg,
+                    #000,
+                    #000 2px,
+                    #0a0000 2px,
+                    #0a0000 4px
+                );
+            padding: 20px;
+            margin-top: 20px;
+            border: 4px dashed #ffff00;
+            box-shadow: 
+                inset 5px 5px 0 rgba(255,0,0,0.2),
+                5px 5px 0 rgba(255,255,0,0.3);
+            transform: rotate(-0.5deg);
+            clip-path: polygon(
+                0% 5%, 5% 0%, 100% 0%, 100% 95%, 
+                95% 100%, 0% 100%
+            );
+        }
+
+        .measurements-title {
+            color: #ff0000;
+            font-size: 14px;
+            font-weight: 900;
+            letter-spacing: 4px;
+            margin-bottom: 15px;
+            text-transform: uppercase;
+            text-shadow: 
+                2px 2px 0 #ffff00,
+                -1px -1px 0 #000;
+            transform: rotate(2deg);
+            display: inline-block;
+        }
+
+        .measurements-title::before {
+            content: '◢◣ ';
+            color: #ffff00;
+        }
+
+        .measurements-title::after {
+            content: ' ◥◤';
+            color: #ffff00;
+        }
+
+        .measure-row {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 12px;
+            margin-bottom: 12px;
+        }
+
+        .measure-box {
+            background: 
+                linear-gradient(135deg, #1a0000 0%, #000 100%);
+            padding: 10px;
+            border: 2px solid #ff0000;
+            transform: rotate(-1deg);
+            box-shadow: 3px 3px 0 rgba(255, 255, 0, 0.3);
+            position: relative;
+        }
+
+        .measure-box:nth-child(even) {
+            transform: rotate(1deg);
+            border-color: #ffff00;
+            box-shadow: 3px 3px 0 rgba(255, 0, 0, 0.3);
+        }
+
+        .measure-box::before {
+            content: '●';
+            position: absolute;
+            top: 5px;
+            right: 5px;
+            font-size: 8px;
+            color: #ff0000;
+        }
+
+        .measure-label {
+            color: #fff;
+            font-size: 8px;
+            font-weight: 700;
+            text-transform: uppercase;
+            margin-bottom: 6px;
+            letter-spacing: 1px;
+        }
+
+        .measure-value {
+            color: #00ff00;
+            font-size: 13px;
+            font-weight: 900;
+            text-shadow: 
+                0 0 10px rgba(0,255,0,0.8),
+                2px 2px 0 #000;
+            font-family: 'Courier New', monospace;
+        }
+
+        .measure-value.ch2 {
+            color: #ffaa00;
+            text-shadow: 
+                0 0 10px rgba(255,170,0,0.8),
+                2px 2px 0 #000;
+        }
+
+        .measure-value.cursor {
+            color: #ffff00;
+            text-shadow: 
+                0 0 10px rgba(255,255,0,0.8),
+                2px 2px 0 #000;
+        }
+
+        .control-section {
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+            max-height: 85vh;
+            overflow-y: auto;
+            padding-right: 10px;
+        }
+
+        .control-section::-webkit-scrollbar {
+            width: 8px;
+        }
+
+        .control-section::-webkit-scrollbar-track {
+            background: #1a0a0a;
+            border: 2px solid #ff0000;
+        }
+
+        .control-section::-webkit-scrollbar-thumb {
+            background: 
+                linear-gradient(180deg, #ff0000, #ffff00);
+            border: 2px solid #000;
+        }
+
+        .control-group {
+            background: 
+                repeating-linear-gradient(
+                    45deg,
+                    #000,
+                    #000 3px,
+                    #0a0000 3px,
+                    #0a0000 6px
+                );
+            padding: 20px;
+            border: 4px solid #fff;
+            box-shadow: 
+                -6px -6px 0 rgba(255, 0, 0, 0.3),
+                6px 6px 0 rgba(255, 255, 0, 0.3),
+                inset 0 0 20px rgba(255,0,0,0.1);
+            transform: rotate(-1deg);
+            clip-path: polygon(
+                5% 0%, 100% 0%, 100% 100%, 
+                0% 100%, 0% 5%
+            );
+            position: relative;
+        }
+
+        .control-group:nth-child(even) {
+            transform: rotate(1deg);
+            border-color: #ff0000;
+        }
+
+        .control-group::before {
+            content: '◢';
+            position: absolute;
+            top: 5px;
+            left: 5px;
+            font-size: 25px;
+            color: rgba(255, 255, 0, 0.2);
+        }
+
+        .group-title {
+            color: #fff;
+            font-size: 14px;
+            font-weight: 900;
+            letter-spacing: 3px;
+            margin-bottom: 15px;
+            text-transform: uppercase;
+            background: 
+                linear-gradient(90deg, #ff0000 0%, #ffff00 50%, #ff0000 100%);
+            padding: 8px 15px;
+            display: inline-block;
+            transform: skewX(-10deg);
+            border: 2px solid #000;
+            box-shadow: 4px 4px 0 rgba(0,0,0,0.5);
+            position: relative;
+            margin-left: -10px;
+            color: #000;
+            text-shadow: 1px 1px 0 #fff;
+        }
+
+        .group-title::after {
+            content: '◥';
+            position: absolute;
+            right: -15px;
+            top: 0;
+            font-size: 35px;
+            color: #ff0000;
+        }
+
+        .mode-buttons {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 12px;
+        }
+
+        .mode-btn {
+            background: 
+                linear-gradient(45deg, #000 25%, #1a0000 25%, #1a0000 50%, #000 50%, #000 75%, #1a0000 75%);
+            background-size: 8px 8px;
+            color: #ff0000;
+            border: 3px solid #ff0000;
+            padding: 14px;
+            cursor: pointer;
+            font-size: 10px;
+            font-weight: 900;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            transition: all 0.2s;
+            box-shadow: 
+                4px 4px 0 rgba(255, 255, 0, 0.3),
+                inset 0 0 10px rgba(255,0,0,0.1);
+            transform: rotate(-2deg);
+            text-align: center;
+        }
+
+        .mode-btn:hover {
+            background: 
+                linear-gradient(135deg, #ff0000 0%, #ffff00 100%);
+            color: #000;
+            border-color: #000;
+            transform: rotate(0deg) scale(1.05);
+            box-shadow: 
+                0 0 20px rgba(255,0,0,0.8),
+                6px 6px 0 rgba(255,255,0,0.5);
+        }
+
+        .mode-btn.active {
+            background: 
+                linear-gradient(135deg, #ff0000 0%, #ffff00 100%);
+            color: #000;
+            border-color: #000;
+            box-shadow: 
+                0 0 25px rgba(255,0,0,1),
+                6px 6px 0 rgba(255,255,0,0.7);
+        }
+
+        .channel-tabs {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 5px;
+            margin-bottom: 15px;
+        }
+
+        .channel-tab {
+            background: #000;
+            color: #666;
+            border: 3px solid #333;
+            padding: 10px 5px;
+            border-radius: 0;
+            cursor: pointer;
+            font-size: 9px;
+            font-weight: 900;
+            text-align: center;
+            transition: all 0.2s;
+            transform: skewX(-5deg);
+        }
+
+        .channel-tab.active {
+            background: 
+                linear-gradient(135deg, #ff0000, #ffff00);
+            color: #000;
+            border: 3px solid #000;
+            box-shadow: 0 0 15px rgba(255,0,0,0.8);
+        }
+
+        .tab-panel {
+            display: none;
+        }
+
+        .tab-panel.active {
+            display: block;
+        }
+
+        .channel-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 15px;
+            background: rgba(255, 0, 0, 0.1);
+            padding: 10px;
+            border: 2px dashed #ff0000;
+            transform: rotate(-1deg);
+        }
+
+        .channel-name {
+            color: #00ff00;
+            font-size: 16px;
+            font-weight: 900;
+            text-transform: uppercase;
+            text-shadow: 
+                2px 2px 0 #000,
+                0 0 10px rgba(0,255,0,0.5);
+        }
+
+        .channel-name.ch2 {
+            color: #ffaa00;
+            text-shadow: 
+                2px 2px 0 #000,
+                0 0 10px rgba(255,170,0,0.5);
+        }
+
+        .power-switch {
+            width: 60px;
+            height: 30px;
+            background: #000;
+            border-radius: 0;
+            position: relative;
+            cursor: pointer;
+            border: 3px solid #666;
+            box-shadow: inset 0 0 10px rgba(0,0,0,0.8);
+        }
+
+        .power-switch.on {
+            background: 
+                linear-gradient(90deg, #ff0000, #00ff00);
+            border-color: #000;
+            box-shadow: 
+                inset 0 0 10px rgba(0,0,0,0.5),
+                0 0 20px rgba(0,255,0,0.5);
+        }
+
+        .power-switch-knob {
+            position: absolute;
+            width: 24px;
+            height: 24px;
+            background: 
+                linear-gradient(135deg, #fff, #666);
+            border-radius: 0;
+            top: 0;
+            left: 0;
+            transition: all 0.3s;
+            box-shadow: 3px 3px 0 rgba(0,0,0,0.6);
+            border: 2px solid #000;
+        }
+
+        .power-switch.on .power-switch-knob {
+            left: 30px;
+            background: 
+                linear-gradient(135deg, #ffff00, #00ff00);
+            box-shadow: 
+                0 0 15px rgba(0,255,0,0.6),
+                3px 3px 0 rgba(0,0,0,0.4);
+        }
+
+        .knob-control {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+
+        .knob-label {
+            color: #fff;
+            font-size: 10px;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            margin-bottom: 10px;
+            font-weight: 900;
+            background: #ff0000;
+            padding: 4px 12px;
+            border: 2px solid #000;
+            transform: rotate(-2deg);
+            box-shadow: 2px 2px 0 #000;
+        }
+
+        .knob {
+            width: 80px;
+            height: 80px;
+            position: relative;
+            cursor: pointer;
+            user-select: none;
+        }
+
+        .knob::before {
+            content: '';
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            width: 70px;
+            height: 70px;
+            transform: translate(-50%, -50%);
+            border-radius: 50%;
+            background: #000;
+            box-shadow: inset 0 0 20px rgba(0,0,0,0.8);
+        }
+
+        .knob-indicator {
+            position: absolute;
+            top: 10%;
+            left: 50%;
+            width: 6px;
+            height: 40%;
+            background: 
+                linear-gradient(180deg, #ffff00 0%, #ff0000 100%);
+            transform-origin: bottom center;
+            transform: translateX(-50%);
+            box-shadow: 0 0 15px rgba(255, 255, 0, 0.8);
+            border: 1px solid #000;
+            z-index: 10;
+        }
+
+        .knob::after {
+            content: '';
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            border-radius: 50%;
+            background: 
+                radial-gradient(circle at 30% 30%, #333, #000),
+                repeating-conic-gradient(
+                    from 0deg,
+                    #ff0000 0deg 5deg,
+                    #000 5deg 10deg
+                );
+            border: 4px solid #ff0000;
+            box-shadow: 
+                0 0 20px rgba(255, 0, 0, 0.5),
+                inset -5px -5px 10px rgba(0,0,0,0.8),
+                inset 5px 5px 10px rgba(255,255,255,0.1);
+        }
+
+        .knob-value {
+            color: #00ff00;
+            font-size: 14px;
+            font-weight: 900;
+            margin-top: 12px;
+            background: #000;
+            padding: 6px 14px;
+            border: 3px solid #00ff00;
+            box-shadow: 
+                inset 0 0 10px rgba(0,0,0,0.8),
+                0 0 15px rgba(0,255,0,0.5),
+                3px 3px 0 rgba(255,255,0,0.3);
+            text-shadow: 
+                0 0 10px rgba(0,255,0,0.8),
+                2px 2px 0 #000;
+            transform: rotate(2deg);
+        }
+
+        .selector {
+            width: 100%;
+            background: 
+                repeating-linear-gradient(
+                    45deg,
+                    #000,
+                    #000 2px,
+                    #1a0000 2px,
+                    #1a0000 4px
+                );
+            color: #ff0000;
+            border: 3px solid #ff0000;
+            padding: 12px;
+            border-radius: 0;
+            font-family: 'Roboto Mono', 'Courier New', monospace;
+            font-size: 11px;
+            font-weight: 900;
+            cursor: pointer;
+            box-shadow: 
+                inset 0 0 10px rgba(0,0,0,0.5),
+                3px 3px 0 rgba(255,255,0,0.5);
+            margin-bottom: 15px;
+            text-transform: uppercase;
+            transform: skewX(-3deg);
+        }
+
+        .selector option {
+            background: #000;
+            color: #ff0000;
+        }
+
+        .preset-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 10px;
+        }
+
+        .preset-btn {
+            background: 
+                linear-gradient(45deg, #000 25%, #1a0000 25%, #1a0000 50%, #000 50%, #000 75%, #1a0000 75%);
+            background-size: 6px 6px;
+            color: #ffff00;
+            border: 3px solid #ffff00;
+            padding: 12px;
+            cursor: pointer;
+            font-size: 10px;
+            font-weight: 900;
+            text-align: center;
+            transition: all 0.2s;
+            box-shadow: 
+                4px 4px 0 rgba(255, 0, 0, 0.3),
+                inset 0 0 10px rgba(255,255,0,0.1);
+            transform: rotate(-1deg);
+            position: relative;
+        }
+
+        .preset-btn:nth-child(even) {
+            transform: rotate(1deg);
+            border-color: #ff0000;
+            color: #ff0000;
+        }
+
+        .preset-btn::before {
+            content: '◆';
+            position: absolute;
+            top: 3px;
+            left: 3px;
+            font-size: 12px;
+        }
+
+        .preset-btn:hover {
+            background: 
+                linear-gradient(135deg, #ff0000 0%, #ffff00 100%);
+            color: #000;
+            border-color: #000;
+            transform: rotate(0deg) scale(1.05);
+            box-shadow: 
+                0 0 20px rgba(255,255,0,0.8),
+                6px 6px 0 rgba(255,0,0,0.5);
+        }
+
+        .export-btn {
+            width: 100%;
+            background: #000;
+            color: #fff;
+            border: 4px solid #fff;
+            padding: 14px;
+            cursor: pointer;
+            font-size: 11px;
+            font-weight: 900;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            margin-top: 12px;
+            transition: all 0.2s;
+            box-shadow: 
+                5px 5px 0 rgba(255, 0, 0, 0.5),
+                inset 0 0 10px rgba(255,255,255,0.1);
+            transform: skewX(-8deg);
+            position: relative;
+            overflow: hidden;
+        }
+
+        .export-btn::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(255,255,0,0.3), transparent);
+            transition: left 0.5s;
+        }
+
+        .export-btn:hover::before {
+            left: 100%;
+        }
+
+        .export-btn:hover {
+            background: 
+                linear-gradient(135deg, #ff0000 0%, #000 50%, #ffff00 100%);
+            border-color: #ffff00;
+            transform: skewX(-8deg) translateY(-2px) rotate(-1deg);
+            box-shadow: 
+                7px 7px 0 rgba(255, 255, 0, 0.5),
+                0 0 30px rgba(255,0,0,0.5);
+        }
+
+        .knobs-row {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 20px;
+        }
+
+        .led-indicator {
+            display: inline-block;
+            width: 10px;
+            height: 10px;
+            background: #00ff00;
+            border-radius: 50%;
+            box-shadow: 
+                0 0 15px rgba(0,255,0,1),
+                inset 0 0 5px rgba(255,255,255,0.3);
+            animation: pulse-led 2s infinite;
+            margin-right: 8px;
+            border: 2px solid #000;
+        }
+
+        @keyframes pulse-led {
+            0%, 100% { 
+                opacity: 1;
+                box-shadow: 0 0 15px rgba(0,255,0,1), inset 0 0 5px rgba(255,255,255,0.3);
+            }
+            50% { 
+                opacity: 0.6;
+                box-shadow: 0 0 5px rgba(0,255,0,0.5), inset 0 0 3px rgba(255,255,255,0.2);
+            }
+        }
+
+        .slider-control {
+            margin-bottom: 20px;
+            background: rgba(255, 0, 0, 0.05);
+            padding: 15px;
+            border: 2px dashed rgba(255, 0, 0, 0.3);
+            transform: rotate(0.5deg);
+        }
+
+        .slider-control:nth-child(even) {
+            transform: rotate(-0.5deg);
+            border-color: rgba(255, 255, 0, 0.3);
+            background: rgba(255, 255, 0, 0.05);
+        }
+
+        .slider-row {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .slider {
+            flex: 1;
+            height: 8px;
+            background: 
+                linear-gradient(90deg, #ff0000 0%, #ffff00 50%, #00ff00 100%);
+            border: 2px solid #000;
+            outline: none;
+            -webkit-appearance: none;
+            box-shadow: inset 0 0 10px rgba(0,0,0,0.8);
+        }
+
+        .slider::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            width: 25px;
+            height: 25px;
+            background: 
+                linear-gradient(135deg, #fff 0%, #ff0000 100%);
+            border: 3px solid #000;
+            cursor: pointer;
+            box-shadow: 
+                0 0 10px rgba(255,0,0,0.8),
+                3px 3px 0 rgba(0,0,0,0.5);
+            transform: rotate(45deg);
+        }
+
+        .slider::-moz-range-thumb {
+            width: 25px;
+            height: 25px;
+            background: 
+                linear-gradient(135deg, #fff 0%, #ff0000 100%);
+            border: 3px solid #000;
+            cursor: pointer;
+            box-shadow: 
+                0 0 10px rgba(255,0,0,0.8),
+                3px 3px 0 rgba(0,0,0,0.5);
+            transform: rotate(45deg);
+        }
+
+        .slider-value {
+            color: #00ff00;
+            font-size: 12px;
+            font-weight: 900;
+            background: #000;
+            padding: 6px 12px;
+            border: 3px solid #00ff00;
+            min-width: 70px;
+            text-align: center;
+            box-shadow: 
+                inset 0 0 10px rgba(0,0,0,0.8),
+                0 0 10px rgba(0,255,0,0.5);
+            transform: rotate(-2deg);
+        }
+
+        .checkbox-control {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            margin-bottom: 12px;
+            background: rgba(0, 0, 0, 0.3);
+            padding: 10px;
+            border: 2px solid #333;
+        }
+
+        .checkbox {
+            width: 22px;
+            height: 22px;
+            background: #000;
+            border: 3px solid #ff0000;
+            cursor: pointer;
+            position: relative;
+            box-shadow: inset 0 0 10px rgba(0,0,0,0.8);
+            transform: rotate(45deg);
+        }
+
+        .checkbox.checked::after {
+            content: '✓';
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%) rotate(-45deg);
+            color: #ffff00;
+            font-size: 18px;
+            font-weight: 900;
+            text-shadow: 0 0 10px rgba(255,255,0,1);
+        }
+
+        .checkbox-label {
+            color: #fff;
+            font-size: 10px;
+            text-transform: uppercase;
+            cursor: pointer;
+            font-weight: 700;
+            letter-spacing: 1px;
+        }
+
+        @media (max-width: 1400px) {
+            .main-layout {
+                grid-template-columns: 1fr;
+            }
+            
+            .control-section {
+                display: grid;
+                grid-template-columns: repeat(2, 1fr);
+                max-height: none;
+            }
+            
+            .oscilloscope-body {
+                transform: rotate(0deg);
+            }
+        }
+
+        @media (max-width: 768px) {
+            .control-section {
+                grid-template-columns: 1fr;
+            }
+
+            .measure-row {
+                grid-template-columns: repeat(2, 1fr);
+            }
+            
+            .screen-controls {
+                grid-template-columns: repeat(3, 1fr);
+            }
+            
+            .knobs-row {
+                grid-template-columns: 1fr;
+            }
+            
+            .brand-plate {
+                flex-direction: column;
+                gap: 15px;
+            }
+        }
+    </style>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/tone/14.8.49/Tone.js"></script>
+</head>
+<body>
+    <div class="oscilloscope-body">
+        <div class="brand-plate">
+            <div class="brand-info">
+                <div class="brand-name">◆ TEKTRONIX ◆</div>
+                <div class="model-number">Model DSO-4000 Series</div>
+            </div>
+            <div class="status-indicators">
+                <div class="status-item">
+                    <div class="status-label">SAMPLE RATE</div>
+                    <div class="status-value">1.0 MS/s</div>
+                </div>
+                <div class="status-item">
+                    <div class="status-label">STATUS</div>
+                    <div class="status-value"><span class="led-indicator"></span>RUN</div>
+                </div>
+
+                <div class="status-item">
+                    <div class="status-label">MONITOR</div>
+                    <div class="status-value" id="monitorStatus" style="color: #666;">OFF</div>
+                </div>
+
+            </div>
+
+            <div class="status-item" style="cursor: pointer;" id="audioToggle">
+                <div class="status-label">AUDIO</div>
+                <div class="status-value" id="audioStatus">ON</div>
+            </div>
+
+        </div>
+
+        <div class="main-layout">
+            <div class="screen-area">
+                <div class="screen-bezel">
+                    <div id="canvasContainer" style="position: relative;">
+                        <canvas id="oscilloscope" width="1000" height="600"></canvas>
+                        <div id="cursors"></div>
+                    </div>
+                </div>
+
+                <div class="screen-controls">
+                    <button class="screen-btn" id="btnAutoset">AUTOSET</button>
+                    <button class="screen-btn" id="btnRun">RUN/STOP</button>
+                    <button class="screen-btn" id="btnSingle">SINGLE</button>
+                    <button class="screen-btn" id="btnCursors">CURSORS</button>
+                    <button class="screen-btn" id="btnPersistence">PERSIST</button>
+                    <button class="screen-btn" id="btnZoom">ZOOM</button>
+                    <button class="screen-btn" id="btnHold">HOLD</button>
+                    <button class="screen-btn" id="btnSnapshot">SNAPSHOT</button>
+                    <button class="screen-btn" id="btnOverlay">OVERLAY</button>
+                    <button class="screen-btn" id="btnMonitor">MONITOR</button>
+                </div>
+
+                <div class="measurements-panel">
+                    <div class="measurements-title">
+                        <span class="led-indicator"></span>
+                        AUTOMATIC MEASUREMENTS
+                    </div>
+                    <div class="measure-row">
+                        <div class="measure-box">
+                            <div class="measure-label">CH1 FREQ</div>
+                            <div class="measure-value" id="ch1Freq">0.00 Hz</div>
+                        </div>
+                        <div class="measure-box">
+                            <div class="measure-label">CH1 PERIOD</div>
+                            <div class="measure-value" id="ch1Period">0.00 ms</div>
+                        </div>
+                        <div class="measure-box">
+                            <div class="measure-label">CH1 Vpp</div>
+                            <div class="measure-value" id="ch1Vpp">0.00 V</div>
+                        </div>
+                        <div class="measure-box">
+                            <div class="measure-label">CH1 RMS</div>
+                            <div class="measure-value" id="ch1Rms">0.00 V</div>
+                        </div>
+                    </div>
+                    <div class="measure-row">
+                        <div class="measure-box">
+                            <div class="measure-label">CH2 FREQ</div>
+                            <div class="measure-value ch2" id="ch2Freq">0.00 Hz</div>
+                        </div>
+                        <div class="measure-box">
+                            <div class="measure-label">CH2 PERIOD</div>
+                            <div class="measure-value ch2" id="ch2Period">0.00 ms</div>
+                        </div>
+                        <div class="measure-box">
+                            <div class="measure-label">CH2 Vpp</div>
+                            <div class="measure-value ch2" id="ch2Vpp">0.00 V</div>
+                        </div>
+                        <div class="measure-box">
+                            <div class="measure-label">CH2 RMS</div>
+                            <div class="measure-value ch2" id="ch2Rms">0.00 V</div>
+                        </div>
+                    </div>
+                    <div class="measure-row" id="cursorMeasurements" style="display: none;">
+                        <div class="measure-box">
+                            <div class="measure-label">ΔT</div>
+                            <div class="measure-value cursor" id="deltaT">0.00 ms</div>
+                        </div>
+                        <div class="measure-box">
+                            <div class="measure-label">1/ΔT</div>
+                            <div class="measure-value cursor" id="frequency">0.00 Hz</div>
+                        </div>
+                        <div class="measure-box">
+                            <div class="measure-label">ΔV</div>
+                            <div class="measure-value cursor" id="deltaV">0.00 V</div>
+                        </div>
+                        <div class="measure-box">
+                            <div class="measure-label">RATIO</div>
+                            <div class="measure-value cursor" id="ratio">0.00</div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="measurements-panel" style="margin-top: 10px;">
+                    <div class="measurements-title">РАСШИРЕННЫЕ ИЗМЕРЕНИЯ</div>
+                    <div class="measure-row">
+                        <div class="measure-box">
+                            <div class="measure-label">CH1 DUTY</div>
+                            <div class="measure-value" id="ch1Duty">50.0 %</div>
+                        </div>
+                        <div class="measure-box">
+                            <div class="measure-label">CH1 RISE</div>
+                            <div class="measure-value" id="ch1Rise">0.00 μs</div>
+                        </div>
+                        <div class="measure-box">
+                            <div class="measure-label">CH1 MIN</div>
+                            <div class="measure-value" id="ch1Min">0.00 V</div>
+                        </div>
+                        <div class="measure-box">
+                            <div class="measure-label">CH1 MAX</div>
+                            <div class="measure-value" id="ch1Max">0.00 V</div>
+                        </div>
+                    </div>
+                    <div class="measure-row">
+                        <div class="measure-box">
+                            <div class="measure-label">PHASE DIFF</div>
+                            <div class="measure-value cursor" id="phaseDiff">0.0°</div>
+                        </div>
+                        <div class="measure-box">
+                            <div class="measure-label">SNAPSHOTS</div>
+                            <div class="measure-value cursor" id="snapshotCount">0</div>
+                        </div>
+                        <div class="measure-box">
+                            <div class="measure-label">ZOOM</div>
+                            <div class="measure-value cursor" id="currentZoom">1.0x</div>
+                        </div>
+                        <div class="measure-box">
+                            <div class="measure-label">TRIGGER</div>
+                            <div class="measure-value" id="triggerStatus">AUTO</div>
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+
+            <div class="control-section">
+                <div class="control-group">
+                    <div class="group-title">DISPLAY MODE</div>
+                    <div class="mode-buttons">
+                        <button class="mode-btn active" id="modeYT">Y-T</button>
+                        <button class="mode-btn" id="modeXY">X-Y</button>
+                        <button class="mode-btn" id="modeFFT">FFT</button>
+                        <button class="mode-btn" id="modeDual">DUAL</button>
+                    </div>
+                </div>
+
+                <div class="control-group">
+                    <div class="channel-tabs">
+                        <button class="channel-tab active" data-tab="ch1">CH 1</button>
+                        <button class="channel-tab" data-tab="ch2">CH 2</button>
+                        <button class="channel-tab" data-tab="trigger">TRIG</button>
+                        <button class="channel-tab" data-tab="math">MATH</button>
+                    </div>
+
+                    <div class="tab-panel active" id="ch1">
+                        <div class="channel-header">
+                            <div class="channel-name">CHANNEL 1</div>
+                            <div class="power-switch on" id="ch1Toggle">
+                                <div class="power-switch-knob"></div>
+                            </div>
+                        </div>
+                        
+                        <select class="selector" id="ch1Waveform">
+                            <option value="sine">SINE WAVE</option>
+                            <option value="square">SQUARE WAVE</option>
+                            <option value="triangle">TRIANGLE</option>
+                            <option value="sawtooth">SAWTOOTH</option>
+                            <option value="pulse">PULSE</option>
+                            <option value="noise">NOISE</option>
+                        </select>
+
+                        <div class="knobs-row">
+                            <div class="knob-control">
+                                <div class="knob-label">FREQUENCY</div>
+                                <div class="knob" id="ch1FreqKnob">
+                                    <div class="knob-indicator" id="ch1FreqIndicator"></div>
+                                </div>
+                                <div class="knob-value" id="ch1FreqDisplay">1.0 Hz</div>
+                            </div>
+
+                            <div class="knob-control">
+                                <div class="knob-label">AMPLITUDE</div>
+                                <div class="knob" id="ch1AmpKnob">
+                                    <div class="knob-indicator" id="ch1AmpIndicator"></div>
+                                </div>
+                                <div class="knob-value" id="ch1AmpDisplay">2.0 V</div>
+                            </div>
+                        </div>
+
+                        <div class="knobs-row">
+                            <div class="knob-control">
+                                <div class="knob-label">OFFSET</div>
+                                <div class="knob" id="ch1OffsetKnob">
+                                    <div class="knob-indicator" id="ch1OffsetIndicator"></div>
+                                </div>
+                                <div class="knob-value" id="ch1OffsetDisplay">0.0 V</div>
+                            </div>
+
+                            <div class="knob-control">
+                                <div class="knob-label">COUPLING</div>
+                                <select class="selector" id="ch1Coupling">
+                                    <option value="dc">DC</option>
+                                    <option value="ac">AC</option>
+                                    <option value="gnd">GND</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        <div class="checkbox-control">
+                            <div class="checkbox" id="ch1Invert"></div>
+                            <label class="checkbox-label" for="ch1Invert">INVERT</label>
+                        </div>
+
+                        <div class="slider-control">
+                            <div class="knob-label">BANDWIDTH LIMIT</div>
+                            <select class="selector" id="ch1Bandwidth">
+                                <option value="full">FULL</option>
+                                <option value="20mhz">20 MHz</option>
+                                <option value="250mhz">250 MHz</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <div class="tab-panel" id="ch2">
+                        <div class="channel-header">
+                            <div class="channel-name ch2">CHANNEL 2</div>
+                            <div class="power-switch on" id="ch2Toggle">
+                                <div class="power-switch-knob"></div>
+                            </div>
+                        </div>
+                        
+                        <select class="selector" id="ch2Waveform">
+                            <option value="sine" selected>SINE WAVE</option>
+                            <option value="square">SQUARE WAVE</option>
+                            <option value="triangle">TRIANGLE</option>
+                            <option value="sawtooth">SAWTOOTH</option>
+                            <option value="pulse">PULSE</option>
+                            <option value="noise">NOISE</option>
+                        </select>
+
+                        <div class="knobs-row">
+                            <div class="knob-control">
+                                <div class="knob-label">FREQUENCY</div>
+                                <div class="knob" id="ch2FreqKnob">
+                                    <div class="knob-indicator" id="ch2FreqIndicator"></div>
+                                </div>
+                                <div class="knob-value" id="ch2FreqDisplay">2.0 Hz</div>
+                            </div>
+
+                            <div class="knob-control">
+                                <div class="knob-label">AMPLITUDE</div>
+                                <div class="knob" id="ch2AmpKnob">
+                                    <div class="knob-indicator" id="ch2AmpIndicator"></div>
+                                </div>
+                                <div class="knob-value" id="ch2AmpDisplay">2.0 V</div>
+                            </div>
+                        </div>
+
+                        <div class="knobs-row">
+                            <div class="knob-control">
+                                <div class="knob-label">PHASE</div>
+                                <div class="knob" id="ch2PhaseKnob">
+                                    <div class="knob-indicator" id="ch2PhaseIndicator"></div>
+                                </div>
+                                <div class="knob-value" id="ch2PhaseDisplay">90°</div>
+                            </div>
+
+                            <div class="knob-control">
+                                <div class="knob-label">OFFSET</div>
+                                <div class="knob" id="ch2OffsetKnob">
+                                    <div class="knob-indicator" id="ch2OffsetIndicator"></div>
+                                </div>
+                                <div class="knob-value" id="ch2OffsetDisplay">0.0 V</div>
+                            </div>
+                        </div>
+
+                        <div class="checkbox-control">
+                            <div class="checkbox" id="ch2Invert"></div>
+                            <label class="checkbox-label" for="ch2Invert">INVERT</label>
+                        </div>
+                    </div>
+
+                    <div class="tab-panel" id="trigger">
+                        <div class="group-title" style="margin-bottom: 15px;">TRIGGER</div>
+                        
+                        <div class="knob-label">SOURCE</div>
+                        <select class="selector" id="triggerSource">
+                            <option value="ch1">CHANNEL 1</option>
+                            <option value="ch2">CHANNEL 2</option>
+                            <option value="ext">EXTERNAL</option>
+                        </select>
+
+                        <div class="knob-label">MODE</div>
+                        <select class="selector" id="triggerMode">
+                            <option value="auto">AUTO</option>
+                            <option value="normal">NORMAL</option>
+                            <option value="single">SINGLE</option>
+                        </select>
+
+                        <div class="knob-label">TYPE</div>
+                        <select class="selector" id="triggerType">
+                            <option value="edge">EDGE</option>
+                            <option value="pulse">PULSE WIDTH</option>
+                            <option value="video">VIDEO</option>
+                        </select>
+
+                        <div class="knob-label">SLOPE</div>
+                        <select class="selector" id="triggerSlope">
+                            <option value="rising">RISING ↑</option>
+                            <option value="falling">FALLING ↓</option>
+                            <option value="both">BOTH ↕</option>
+                        </select>
+
+                        <div class="knob-control">
+                            <div class="knob-label">LEVEL</div>
+                            <div class="knob" id="triggerLevelKnob">
+                                <div class="knob-indicator" id="triggerLevelIndicator"></div>
+                            </div>
+                            <div class="knob-value" id="triggerLevelDisplay">0.0 V</div>
+                        </div>
+
+                        <div class="slider-control">
+                            <div class="knob-label">HOLDOFF (ms)</div>
+                            <div class="slider-row">
+                                <input type="range" class="slider" id="triggerHoldoff" min="0" max="100" step="1" value="0">
+                                <div class="slider-value" id="triggerHoldoffDisplay">0 ms</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="tab-panel" id="math">
+                        <div class="group-title" style="margin-bottom: 15px;">MATH OPERATIONS</div>
+                        
+                        <div class="knob-label">OPERATION</div>
+                        <select class="selector" id="mathOperation">
+                            <option value="none">NONE</option>
+                            <option value="add">CH1 + CH2</option>
+                            <option value="subtract">CH1 - CH2</option>
+                            <option value="multiply">CH1 × CH2</option>
+                            <option value="divide">CH1 ÷ CH2</option>
+                            <option value="integrate">INTEGRATE CH1</option>
+                            <option value="differentiate">DIFFERENTIATE CH1</option>
+                            <option value="fft">FFT CH1</option>
+                            <option value="average">AVERAGE CH1</option>
+                        </select>
+
+                        <div class="knob-label">FFT WINDOW</div>
+                        <select class="selector" id="fftWindow">
+                            <option value="rectangular">RECTANGULAR</option>
+                            <option value="hanning" selected>HANNING</option>
+                            <option value="hamming">HAMMING</option>
+                            <option value="blackman">BLACKMAN</option>
+                        </select>
+
+                        <div class="knob-control">
+                            <div class="knob-label">SCALE</div>
+                            <div class="knob" id="mathScaleKnob">
+                                <div class="knob-indicator" id="mathScaleIndicator"></div>
+                            </div>
+                            <div class="knob-value" id="mathScaleDisplay">1.0x</div>
+                        </div>
+
+                        <div class="checkbox-control">
+                            <div class="checkbox checked" id="mathEnable"></div>
+                            <label class="checkbox-label" for="mathEnable">ENABLE MATH</label>
+                        </div>
+
+                        <div class="slider-control">
+                            <div class="knob-label">AVERAGING (SAMPLES)</div>
+                            <div class="slider-row">
+                                <input type="range" class="slider" id="mathAveraging" min="2" max="64" step="2" value="16">
+                                <div class="slider-value" id="mathAveragingDisplay">16</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="control-group">
+                    <div class="group-title">TIME BASE</div>
+                    <div class="knobs-row">
+                        <div class="knob-control">
+                            <div class="knob-label">TIME/DIV</div>
+                            <div class="knob" id="timeScaleKnob">
+                                <div class="knob-indicator" id="timeScaleIndicator"></div>
+                            </div>
+                            <div class="knob-value" id="timeScaleDisplay">100 ms</div>
+                        </div>
+
+                        <div class="knob-control">
+                            <div class="knob-label">POSITION</div>
+                            <div class="knob" id="timePositionKnob">
+                                <div class="knob-indicator" id="timePositionIndicator"></div>
+                            </div>
+                            <div class="knob-value" id="timePositionDisplay">0</div>
+                        </div>
+                    </div>
+
+                    <div class="slider-control">
+                        <div class="knob-label">ZOOM FACTOR</div>
+                        <div class="slider-row">
+                            <input type="range" class="slider" id="zoomFactor" min="1" max="10" step="0.5" value="1">
+                            <div class="slider-value" id="zoomFactorDisplay">1.0x</div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="control-group">
+                    <div class="group-title">ACQUISITION</div>
+                    
+                    <div class="knob-label">MODE</div>
+                    <select class="selector" id="acqMode">
+                        <option value="sample">SAMPLE</option>
+                        <option value="peak">PEAK DETECT</option>
+                        <option value="average">AVERAGE</option>
+                        <option value="highres">HIGH RES</option>
+                    </select>
+
+                    <div class="slider-control">
+                        <div class="knob-label">PERSISTENCE (sec)</div>
+                        <div class="slider-row">
+                            <input type="range" class="slider" id="persistence" min="0" max="10" step="0.5" value="0">
+                            <div class="slider-value" id="persistenceDisplay">OFF</div>
+                        </div>
+                    </div>
+
+                    <div class="slider-control">
+                        <div class="knob-label">INTENSITY</div>
+                        <div class="slider-row">
+                            <input type="range" class="slider" id="intensity" min="0.3" max="1" step="0.1" value="1">
+                            <div class="slider-value" id="intensityDisplay">100%</div>
+                        </div>
+                    </div>
+
+                    <div class="slider-control">
+                        <div class="knob-label">MONITOR VOLUME</div>
+                        <div class="slider-row">
+                            <input type="range" class="slider" id="monitorVol" min="-40" max="-5" step="1" value="-20">
+                            <div class="slider-value" id="monitorVolDisplay">50%</div>
+                        </div>
+                    </div>
+
+                </div>
+
+                <div class="control-group">
+                    <div class="group-title">PRESETS & UTILITIES</div>
+                    <div class="preset-grid">
+                        <div class="preset-btn" data-preset="lissajous">LISSAJOUS</div>
+                        <div class="preset-btn" data-preset="sine">SINE</div>
+                        <div class="preset-btn" data-preset="square">SQUARE</div>
+                        <div class="preset-btn" data-preset="modulation">AM MOD</div>
+                    </div>
+                    <button class="export-btn" id="exportBtn">EXPORT DATA</button>
+                    <button class="export-btn" id="saveConfig" style="margin-top: 5px;">SAVE CONFIG</button>
+                    <button class="export-btn" id="loadConfig" style="margin-top: 5px;">LOAD CONFIG</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="measurements-panel" id="audioLevels" style="margin-top: 10px; display: none;">
+        <div class="measurements-title">AUDIO MONITORING LEVELS</div>
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 10px;">
+            <div>
+                <div style="color: #00ff00; font-size: 10px; margin-bottom: 5px;">CH1 LEVEL</div>
+                <div style="background: #000; height: 20px; border-radius: 3px; overflow: hidden; border: 1px solid #003300;">
+                    <div id="ch1AudioLevel" style="height: 100%; width: 0%; background: linear-gradient(90deg, #00ff00, #00aa00); transition: width 0.1s;"></div>
+                </div>
+            </div>
+            <div>
+                <div style="color: #ffaa00; font-size: 10px; margin-bottom: 5px;">CH2 LEVEL</div>
+                <div style="background: #000; height: 20px; border-radius: 3px; overflow: hidden; border: 1px solid #333;">
+                    <div id="ch2AudioLevel" style="height: 100%; width: 0%; background: linear-gradient(90deg, #ffaa00, #cc8800); transition: width 0.1s;"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const canvas = document.getElementById('oscilloscope');
+        const ctx = canvas.getContext('2d');
+        
+        // Аудио система
+        let audioInitialized = false;
+        let audioSystem = {
+            synth1: null,
+            synth2: null,
+            clickNoise: null,
+            knobNoise: null,
+            beep: null,
+            enabled: true,
+            volume: -12,
+            monitoring: false,
+            monitorSynth1: null,
+            monitorSynth2: null,
+            monitorVolume: -20,
+            panner1: null,
+            panner2: null,
+            masterVolume: null
+        };
+
+        function initAudio() {
+            if (audioInitialized) return;
+            
+            audioSystem.masterVolume = new Tone.Volume(0).toDestination();
+            
+            audioSystem.synth1 = new Tone.Synth({
+                oscillator: { type: 'sine' },
+                envelope: { attack: 0.005, decay: 0.1, sustain: 0.3, release: 0.1 }
+            }).connect(audioSystem.masterVolume);
+            audioSystem.synth1.volume.value = audioSystem.volume;
+            
+            audioSystem.synth2 = new Tone.Synth({
+                oscillator: { type: 'sine' },
+                envelope: { attack: 0.005, decay: 0.1, sustain: 0.3, release: 0.1 }
+            }).connect(audioSystem.masterVolume);
+            audioSystem.synth2.volume.value = audioSystem.volume;
+            
+            audioSystem.clickNoise = new Tone.NoiseSynth({
+                noise: { type: 'white' },
+                envelope: { attack: 0.001, decay: 0.05, sustain: 0 }
+            }).connect(audioSystem.masterVolume);
+            audioSystem.clickNoise.volume.value = -20;
+            
+            audioSystem.knobNoise = new Tone.NoiseSynth({
+                noise: { type: 'pink' },
+                envelope: { attack: 0.001, decay: 0.02, sustain: 0 }
+            }).connect(audioSystem.masterVolume);
+            audioSystem.knobNoise.volume.value = -25;
+            
+            audioSystem.beep = new Tone.Synth({
+                oscillator: { type: 'square' },
+                envelope: { attack: 0.001, decay: 0.1, sustain: 0, release: 0.1 }
+            }).connect(audioSystem.masterVolume);
+            audioSystem.beep.volume.value = -15;
+            
+            audioSystem.panner1 = new Tone.Panner(-0.7).connect(audioSystem.masterVolume);
+            audioSystem.panner2 = new Tone.Panner(0.7).connect(audioSystem.masterVolume);
+            
+            audioSystem.monitorSynth1 = new Tone.Synth({
+                oscillator: { type: 'sine' },
+                envelope: { attack: 0.01, decay: 0, sustain: 1, release: 0.05 }
+            }).connect(audioSystem.panner1);
+            audioSystem.monitorSynth1.volume.value = audioSystem.monitorVolume;
+            
+            audioSystem.monitorSynth2 = new Tone.Synth({
+                oscillator: { type: 'sine' },
+                envelope: { attack: 0.01, decay: 0, sustain: 1, release: 0.05 }
+            }).connect(audioSystem.panner2);
+            audioSystem.monitorSynth2.volume.value = audioSystem.monitorVolume;
+            
+            audioInitialized = true;
+        }
+
+        function startMonitoring() {
+            if (!audioInitialized || !audioSystem.monitoring) return;
+            
+            if (scope.ch1.enabled && scope.ch1.frequency > 0) {
+                try {
+                    audioSystem.monitorSynth1.triggerRelease();
+                    const freq = Math.max(20, Math.min(2000, scope.ch1.frequency));
+                    audioSystem.monitorSynth1.triggerAttack(freq);
+                } catch (e) {}
+            }
+            
+            if (scope.ch2.enabled && scope.ch2.frequency > 0) {
+                try {
+                    audioSystem.monitorSynth2.triggerRelease();
+                    const freq = Math.max(20, Math.min(2000, scope.ch2.frequency));
+                    audioSystem.monitorSynth2.triggerAttack(freq);
+                } catch (e) {}
+            }
+        }
+
+        function stopMonitoring() {
+            if (!audioInitialized) return;
+            try {
+                audioSystem.monitorSynth1.triggerRelease();
+                audioSystem.monitorSynth2.triggerRelease();
+            } catch (e) {}
+        }
+
+        function updateMonitoringParams() {
+            if (!audioInitialized || !audioSystem.monitoring) return;
+            
+            if (scope.ch1.enabled) {
+                const freq = Math.max(20, Math.min(2000, scope.ch1.frequency));
+                audioSystem.monitorSynth1.frequency.rampTo(freq, 0.1);
+                
+                const vol = audioSystem.monitorVolume + (scope.ch1.amplitude / 5) * 6;
+                audioSystem.monitorSynth1.volume.rampTo(vol, 0.1);
+                
+                const waveformMap = {
+                    'sine': 'sine',
+                    'square': 'square',
+                    'triangle': 'triangle',
+                    'sawtooth': 'sawtooth',
+                    'pulse': 'pulse',
+                    'noise': 'sine'
+                };
+                audioSystem.monitorSynth1.oscillator.type = waveformMap[scope.ch1.waveform] || 'sine';
+            } else {
+                audioSystem.monitorSynth1.triggerRelease();
+            }
+            
+            if (scope.ch2.enabled) {
+                const freq = Math.max(20, Math.min(2000, scope.ch2.frequency));
+                audioSystem.monitorSynth2.frequency.rampTo(freq, 0.1);
+                
+                const vol = audioSystem.monitorVolume + (scope.ch2.amplitude / 5) * 6;
+                audioSystem.monitorSynth2.volume.rampTo(vol, 0.1);
+                
+                const waveformMap = {
+                    'sine': 'sine',
+                    'square': 'square',
+                    'triangle': 'triangle',
+                    'sawtooth': 'sawtooth',
+                    'pulse': 'pulse',
+                    'noise': 'sine'
+                };
+                audioSystem.monitorSynth2.oscillator.type = waveformMap[scope.ch2.waveform] || 'sine';
+            } else {
+                audioSystem.monitorSynth2.triggerRelease();
+            }
+
+            const ch1Level = document.getElementById('ch1AudioLevel');
+            const ch2Level = document.getElementById('ch2AudioLevel');
+            if (ch1Level && scope.ch1.enabled) {
+                const level = (scope.ch1.amplitude / 5) * 100;
+                ch1Level.style.width = level + '%';
+            } else if (ch1Level) {
+                ch1Level.style.width = '0%';
+            }
+            if (ch2Level && scope.ch2.enabled) {
+                const level = (scope.ch2.amplitude / 5) * 100;
+                ch2Level.style.width = level + '%';
+            } else if (ch2Level) {
+                ch2Level.style.width = '0%';
+            }
+        }
+
+        function toggleMonitoring() {
+            if (!audioInitialized) {
+                alert('Кликните на экран для инициализации аудио');
+                return;
+            }
+            
+            audioSystem.monitoring = !audioSystem.monitoring;
+            
+            if (audioSystem.monitoring) {
+                startMonitoring();
+                playBeep(800, '16n');
+                document.getElementById('audioLevels').style.display = 'block';
+            } else {
+                stopMonitoring();
+                playBeep(400, '16n');
+                document.getElementById('audioLevels').style.display = 'none';
+            }
+            
+            const btn = document.getElementById('btnMonitor');
+            if (btn) {
+                btn.classList.toggle('active', audioSystem.monitoring);
+                btn.textContent = audioSystem.monitoring ? 'MONITORING' : 'MONITOR';
+            }
+            
+            const status = document.getElementById('monitorStatus');
+            if (status) {
+                status.textContent = audioSystem.monitoring ? 'ON' : 'OFF';
+                status.style.color = audioSystem.monitoring ? '#00ff00' : '#666';
+            }
+        }
+
+        function playClick() {
+            if (!audioSystem.enabled || !audioInitialized) return;
+            audioSystem.clickNoise.triggerAttackRelease('8n');
+        }
+
+        function playKnobTick() {
+            if (!audioSystem.enabled || !audioInitialized) return;
+            audioSystem.knobNoise.triggerAttackRelease('32n');
+        }
+
+        function playBeep(frequency = 800, duration = '16n') {
+            if (!audioSystem.enabled || !audioInitialized) return;
+            audioSystem.beep.triggerAttackRelease(frequency, duration);
+        }
+
+        function updateChannelAudio() {
+            if (!audioSystem.enabled || !audioInitialized) return;
+            
+            if (scope.ch1.enabled && scope.running) {
+                const freq = scope.ch1.frequency;
+                if (freq > 0 && freq < 20000) {
+                    audioSystem.synth1.triggerAttackRelease(freq, '8n');
+                }
+            }
+            
+            if (scope.ch2.enabled && scope.running) {
+                const freq = scope.ch2.frequency;
+                if (freq > 0 && freq < 20000) {
+                    setTimeout(() => {
+                        audioSystem.synth2.triggerAttackRelease(freq, '8n');
+                    }, 50);
+                }
+            }
+        }
+
+        document.addEventListener('click', () => {
+            if (!audioInitialized) {
+                Tone.start().then(() => {
+                    initAudio();
+                });
+            }
+        }, { once: true });
+
+        let scope = {
+            mode: 'yt',
+            timeScale: 0.1,
+            timePosition: 0,
+            running: true,
+            frozen: false,
+            ch1: {
+                enabled: true,
+                waveform: 'sine',
+                frequency: 1,
+                amplitude: 2,
+                phase: 0,
+                offset: 0,
+                coupling: 'dc',
+                color: '#00ff00',
+                invert: false,
+                bandwidth: 'full'
+            },
+            ch2: {
+                enabled: true,
+                waveform: 'sine',
+                frequency: 2,
+                amplitude: 2,
+                phase: Math.PI / 2,
+                offset: 0,
+                coupling: 'dc',
+                color: '#ffaa00',
+                invert: false
+            },
+            trigger: {
+                source: 'ch1',
+                mode: 'auto',
+                type: 'edge',
+                slope: 'rising',
+                level: 0,
+                holdoff: 0,
+                armed: true,
+                triggered: false,
+                triggerPoint: 0,
+                lastTriggerTime: 0
+            },
+            math: {
+                operation: 'none',
+                scale: 1,
+                enabled: true,
+                averaging: 16,
+                averageBuffer: [],
+                fftWindow: 'hanning'
+            },
+            acquisition: {
+                mode: 'sample',
+                persistence: 0,
+                intensity: 1,
+                persistenceBuffer: []
+            },
+            cursors: {
+                enabled: false,
+                v1: 250,
+                v2: 750,
+                h1: 150,
+                h2: 450,
+                dragging: null
+            },
+            zoom: {
+                factor: 1,
+                enabled: false,
+                offsetX: 0,
+                offsetY: 0,
+                panStartX: 0,
+                panStartY: 0,
+                panning: false
+            },
+            time: 0,
+            sampleData: {
+                ch1: [],
+                ch2: [],
+                time: []
+            },
+            history: {
+                enabled: false,
+                snapshots: [],
+                maxSnapshots: 5,
+                overlay: false
+            },
+            measurements: {
+                ch1: {
+                    freq: 0, period: 0, vpp: 0, vrms: 0,
+                    duty: 0, riseTime: 0, fallTime: 0,
+                    min: 0, max: 0, overshoot: 0, undershoot: 0
+                },
+                ch2: {
+                    freq: 0, period: 0, vpp: 0, vrms: 0,
+                    duty: 0, riseTime: 0, fallTime: 0,
+                    min: 0, max: 0, overshoot: 0, undershoot: 0
+                },
+                phase: 0,
+                correlation: 0
+            },
+            protocol: {
+                enabled: false,
+                type: 'uart',
+                baudRate: 9600,
+                decodedData: []
+            }
+        };
+
+        function sine(t) { return Math.sin(t); }
+        function square(t) { return Math.sin(t) >= 0 ? 1 : -1; }
+        function triangle(t) { return (2 / Math.PI) * Math.asin(Math.sin(t)); }
+        function sawtooth(t) { return 2 * ((t / (2 * Math.PI)) - Math.floor((t / (2 * Math.PI)) + 0.5)); }
+        function pulse(t) { return (t % (2 * Math.PI)) < Math.PI / 4 ? 1 : -1; }
+        function noise() { return Math.random() * 2 - 1; }
+
+        function getWaveValue(t, waveform) {
+            switch(waveform) {
+                case 'sine': return sine(t);
+                case 'square': return square(t);
+                case 'triangle': return triangle(t);
+                case 'sawtooth': return sawtooth(t);
+                case 'pulse': return pulse(t);
+                case 'noise': return noise();
+                default: return sine(t);
+            }
+        }
+
+        function generateSignal(channel, t) {
+            let value = getWaveValue(2 * Math.PI * channel.frequency * t + channel.phase, channel.waveform);
+            value *= channel.amplitude;
+            if (channel.invert) value = -value;
+            value += channel.offset;
+            if (channel.coupling === 'ac') value -= channel.offset;
+            else if (channel.coupling === 'gnd') value = 0;
+            return value;
+        }
+
+        function findTriggerPoint(samples, threshold, slope) {
+            for (let i = 1; i < samples.length; i++) {
+                const prev = samples[i - 1];
+                const curr = samples[i];
+                
+                if (slope === 'rising' && prev < threshold && curr >= threshold) {
+                    return i;
+                } else if (slope === 'falling' && prev > threshold && curr <= threshold) {
+                    return i;
+                } else if (slope === 'both' && 
+                           ((prev < threshold && curr >= threshold) || 
+                            (prev > threshold && curr <= threshold))) {
+                    return i;
+                }
+            }
+            return -1;
+        }
+
+        function checkTrigger() {
+            if (scope.trigger.mode === 'auto') {
+                return true;
+            }
+            
+            const now = scope.time;
+            if (now - scope.trigger.lastTriggerTime < scope.trigger.holdoff / 1000) {
+                return false;
+            }
+            
+            const sourceChannel = scope.trigger.source === 'ch1' ? scope.ch1 : scope.ch2;
+            if (!sourceChannel.enabled) return false;
+            
+            const samples = [];
+            for (let i = 0; i < 50; i++) {
+                const t = now + i * 0.001;
+                samples.push(generateSignal(sourceChannel, t));
+            }
+            
+            const triggerIdx = findTriggerPoint(samples, scope.trigger.level, scope.trigger.slope);
+            
+            if (triggerIdx >= 0) {
+                scope.trigger.triggered = true;
+                scope.trigger.triggerPoint = triggerIdx;
+                scope.trigger.lastTriggerTime = now;
+                return true;
+            }
+            
+            return false;
+        }
+
+        function drawGrid() {
+            ctx.strokeStyle = 'rgba(0, 100, 0, 0.2)';
+            ctx.lineWidth = 1;
+            const divisions = 10;
+            
+            for (let i = 0; i <= divisions; i++) {
+                const x = (canvas.width / divisions) * i;
+                ctx.beginPath();
+                ctx.moveTo(x, 0);
+                ctx.lineTo(x, canvas.height);
+                ctx.stroke();
+            }
+            
+            for (let i = 0; i <= divisions; i++) {
+                const y = (canvas.height / divisions) * i;
+                ctx.beginPath();
+                ctx.moveTo(0, y);
+                ctx.lineTo(canvas.width, y);
+                ctx.stroke();
+            }
+            
+            ctx.strokeStyle = 'rgba(0, 150, 0, 0.35)';
+            ctx.lineWidth = 2;
+            ctx.beginPath();
+            ctx.moveTo(canvas.width / 2, 0);
+            ctx.lineTo(canvas.width / 2, canvas.height);
+            ctx.stroke();
+            ctx.beginPath();
+            ctx.moveTo(0, canvas.height / 2);
+            ctx.lineTo(canvas.width, canvas.height / 2);
+            ctx.stroke();
+            
+            ctx.fillStyle = 'rgba(0, 255, 0, 0.6)';
+            ctx.font = '10px "Courier New"';
+            for (let i = 0; i <= divisions; i++) {
+                const x = (canvas.width / divisions) * i;
+                const timeValue = (i - divisions/2) * scope.timeScale * 2;
+                let label;
+                if (Math.abs(timeValue) >= 1) {
+                    label = timeValue.toFixed(1) + 's';
+                } else if (Math.abs(timeValue) >= 0.001) {
+                    label = (timeValue * 1000).toFixed(0) + 'ms';
+                } else {
+                    label = (timeValue * 1000000).toFixed(0) + 'μs';
+                }
+                ctx.fillText(label, x + 2, canvas.height - 5);
+            }
+            
+            for (let i = 0; i <= divisions; i++) {
+                const y = (canvas.height / divisions) * i;
+                const voltValue = (divisions/2 - i) * 1;
+                ctx.fillText(voltValue.toFixed(1) + 'V', 5, y + 12);
+            }
+        }
+
+        function drawPersistence() {
+            if (scope.acquisition.persistence > 0 && scope.acquisition.persistenceBuffer.length > 0) {
+                const maxFrames = Math.min(
+                    Math.floor(scope.acquisition.persistence * 30),
+                    100
+                );
+                
+                if (scope.acquisition.persistenceBuffer.length > maxFrames) {
+                    const toRemove = scope.acquisition.persistenceBuffer.length - maxFrames;
+                    scope.acquisition.persistenceBuffer.splice(0, toRemove);
+                }
+                
+                scope.acquisition.persistenceBuffer.forEach((frame, index) => {
+                    const alpha = (index / scope.acquisition.persistenceBuffer.length) * 0.3;
+                    ctx.globalAlpha = alpha;
+                    ctx.putImageData(frame, 0, 0);
+                });
+                ctx.globalAlpha = 1;
+            }
+        }
+
+        function captureSnapshot() {
+            if (!scope.history.enabled) return;
+            
+            const snapshot = {
+                timestamp: Date.now(),
+                imageData: ctx.getImageData(0, 0, canvas.width, canvas.height),
+                config: JSON.parse(JSON.stringify({
+                    ch1: scope.ch1,
+                    ch2: scope.ch2,
+                    measurements: scope.measurements
+                }))
+            };
+            
+            scope.history.snapshots.push(snapshot);
+            
+            if (scope.history.snapshots.length > scope.history.maxSnapshots) {
+                scope.history.snapshots.shift();
+            }
+        }
+
+        function drawHistoryOverlay() {
+            if (!scope.history.overlay || scope.history.snapshots.length === 0) return;
+            
+            const lastSnapshot = scope.history.snapshots[scope.history.snapshots.length - 1];
+            ctx.globalAlpha = 0.3;
+            ctx.putImageData(lastSnapshot.imageData, 0, 0);
+            ctx.globalAlpha = 1;
+        }
+
+        function drawYTMode() {
+            const points = 1000;
+            
+            scope.sampleData.ch1 = [];
+            scope.sampleData.ch2 = [];
+            
+            if (scope.ch1.enabled) {
+                ctx.strokeStyle = scope.ch1.color;
+                ctx.lineWidth = 2.5;
+                ctx.globalAlpha = scope.acquisition.intensity;
+                ctx.shadowBlur = 8;
+                ctx.shadowColor = scope.ch1.color;
+                ctx.beginPath();
+                for (let i = 0; i < points; i++) {
+                    const t = scope.time + (i / points) * 10 * scope.timeScale / scope.zoom.factor;
+                    const value = generateSignal(scope.ch1, t);
+                    const x = (i / points) * canvas.width;
+                    const y = canvas.height / 2 - (value / 5) * (canvas.height / 2) * 0.8;
+                    if (i === 0) ctx.moveTo(x, y);
+                    else ctx.lineTo(x, y);
+                    if (i % 5 === 0) {
+                        const idx = Math.floor(i / 5);
+                        scope.sampleData.ch1[idx] = value;
+                    }
+                }
+                ctx.stroke();
+                ctx.shadowBlur = 0;
+                ctx.globalAlpha = 1;
+            }
+
+            if (scope.ch2.enabled) {
+                ctx.strokeStyle = scope.ch2.color;
+                ctx.lineWidth = 2.5;
+                ctx.globalAlpha = scope.acquisition.intensity;
+                ctx.shadowBlur = 8;
+                ctx.shadowColor = scope.ch2.color;
+                ctx.beginPath();
+                for (let i = 0; i < points; i++) {
+                    const t = scope.time + (i / points) * 10 * scope.timeScale / scope.zoom.factor;
+                    const value = generateSignal(scope.ch2, t);
+                    const x = (i / points) * canvas.width;
+                    const y = canvas.height / 2 - (value / 5) * (canvas.height / 2) * 0.8;
+                    if (i === 0) ctx.moveTo(x, y);
+                    else ctx.lineTo(x, y);
+                    if (i % 5 === 0) {
+                        const idx = Math.floor(i / 5);
+                        scope.sampleData.ch2[idx] = value;
+                    }
+                }
+                ctx.stroke();
+                ctx.shadowBlur = 0;
+                ctx.globalAlpha = 1;
+            }
+
+            if (scope.math.enabled && scope.math.operation !== 'none' && scope.ch1.enabled) {
+                ctx.strokeStyle = '#ff00ff';
+                ctx.lineWidth = 2.5;
+                ctx.globalAlpha = scope.acquisition.intensity;
+                ctx.shadowBlur = 8;
+                ctx.shadowColor = '#ff00ff';
+                ctx.beginPath();
+                for (let i = 0; i < points; i++) {
+                    const t = scope.time + (i / points) * 10 * scope.timeScale / scope.zoom.factor;
+                    const v1 = generateSignal(scope.ch1, t);
+                    const v2 = scope.ch2.enabled ? generateSignal(scope.ch2, t) : 0;
+                    let value = 0;
+                    
+                    switch(scope.math.operation) {
+                        case 'add': value = v1 + v2; break;
+                        case 'subtract': value = v1 - v2; break;
+                        case 'multiply': value = v1 * v2; break;
+                        case 'divide': value = v2 !== 0 ? v1 / v2 : 0; break;
+                        case 'integrate': value = v1 * 0.5; break;
+                        case 'differentiate': value = v1 * 2; break;
+                        case 'average': value = v1; break;
+                    }
+                    
+                    value *= scope.math.scale;
+                    const x = (i / points) * canvas.width;
+                    const y = canvas.height / 2 - (value / 5) * (canvas.height / 2) * 0.8;
+                    if (i === 0) ctx.moveTo(x, y);
+                    else ctx.lineTo(x, y);
+                }
+                ctx.stroke();
+                ctx.shadowBlur = 0;
+                ctx.globalAlpha = 1;
+            }
+        }
+
+        function drawXYMode() {
+            if (!scope.ch1.enabled || !scope.ch2.enabled) return;
+            ctx.strokeStyle = 'rgba(0, 255, 0, 0.9)';
+            ctx.lineWidth = 2.5;
+            ctx.globalAlpha = scope.acquisition.intensity;
+            ctx.shadowBlur = 12;
+            ctx.shadowColor = 'rgba(0, 255, 0, 0.7)';
+            ctx.beginPath();
+            const points = 2000;
+            for (let i = 0; i <= points; i++) {
+                const t = (i / points) * 4 * Math.PI + scope.time;
+                const x = generateSignal(scope.ch1, t);
+                const y = generateSignal(scope.ch2, t);
+                const screenX = canvas.width / 2 + (x / 5) * (canvas.width / 2) * 0.8;
+                const screenY = canvas.height / 2 - (y / 5) * (canvas.height / 2) * 0.8;
+                if (i === 0) ctx.moveTo(screenX, screenY);
+                else ctx.lineTo(screenX, screenY);
+            }
+            ctx.stroke();
+            ctx.shadowBlur = 0;
+            ctx.globalAlpha = 1;
+        }
+
+        function applyWindow(data, windowType) {
+            const N = data.length;
+            const windowed = [];
+            
+            for (let i = 0; i < N; i++) {
+                let w = 1;
+                switch(windowType) {
+                    case 'hanning':
+                        w = 0.5 - 0.5 * Math.cos(2 * Math.PI * i / (N - 1));
+                        break;
+                    case 'hamming':
+                        w = 0.54 - 0.46 * Math.cos(2 * Math.PI * i / (N - 1));
+                        break;
+                    case 'blackman':
+                        w = 0.42 - 0.5 * Math.cos(2 * Math.PI * i / (N - 1)) + 
+                            0.08 * Math.cos(4 * Math.PI * i / (N - 1));
+                        break;
+                    default:
+                        w = 1;
+                }
+                windowed.push(data[i] * w);
+            }
+            return windowed;
+        }
+
+        function drawFFTMode() {
+            if (!scope.ch1.enabled) return;
+            
+            const windowedData = applyWindow(scope.sampleData.ch1.slice(0, 512), scope.math.fftWindow);
+            
+            ctx.strokeStyle = scope.ch1.color;
+            ctx.fillStyle = scope.ch1.color + '30';
+            ctx.lineWidth = 2;
+            ctx.globalAlpha = scope.acquisition.intensity;
+            ctx.shadowBlur = 8;
+            ctx.shadowColor = scope.ch1.color;
+            
+            const bins = 256;
+            const maxFreq = 50;
+            
+            const spectrum = [];
+            for (let k = 0; k < bins; k++) {
+                let real = 0, imag = 0;
+                for (let n = 0; n < Math.min(windowedData.length, 512); n++) {
+                    const angle = -2 * Math.PI * k * n / 512;
+                    real += windowedData[n] * Math.cos(angle);
+                    imag += windowedData[n] * Math.sin(angle);
+                }
+                const magnitude = Math.sqrt(real * real + imag * imag);
+                const dB = 20 * Math.log10(magnitude + 1e-10);
+                spectrum.push(dB);
+            }
+            
+            const maxMag = Math.max(...spectrum);
+            
+            ctx.beginPath();
+            ctx.moveTo(0, canvas.height);
+            
+            for (let i = 0; i < bins; i++) {
+                const x = (i / bins) * canvas.width;
+                const normalized = (spectrum[i] - maxMag + 60) / 60;
+                const y = canvas.height - (Math.max(0, normalized) * canvas.height);
+                ctx.lineTo(x, y);
+            }
+            
+            ctx.lineTo(canvas.width, canvas.height);
+            ctx.closePath();
+            ctx.fill();
+            ctx.stroke();
+            
+            ctx.fillStyle = '#ffff00';
+            ctx.font = '12px "Courier New"';
+            let peaks = [];
+            for (let i = 1; i < spectrum.length - 1; i++) {
+                if (spectrum[i] > spectrum[i-1] && spectrum[i] > spectrum[i+1] && spectrum[i] > maxMag - 30) {
+                    const freq = (i / bins) * maxFreq;
+                    peaks.push({freq, mag: spectrum[i], idx: i});
+                }
+            }
+            
+            peaks.sort((a, b) => b.mag - a.mag).slice(0, 5).forEach(peak => {
+                const x = (peak.idx / bins) * canvas.width;
+                const normalized = (peak.mag - maxMag + 60) / 60;
+                const y = canvas.height - (Math.max(0, normalized) * canvas.height);
+                ctx.fillText(peak.freq.toFixed(2) + ' Hz', x + 5, y - 5);
+            });
+            
+            ctx.shadowBlur = 0;
+            ctx.globalAlpha = 1;
+        }
+
+        function drawDualMode() {
+            const halfHeight = canvas.height / 2;
+            if (scope.ch1.enabled) {
+                ctx.save();
+                ctx.beginPath();
+                ctx.rect(0, 0, canvas.width, halfHeight);
+                ctx.clip();
+                ctx.strokeStyle = scope.ch1.color;
+                ctx.lineWidth = 2.5;
+                ctx.globalAlpha = scope.acquisition.intensity;
+                ctx.shadowBlur = 8;
+                ctx.shadowColor = scope.ch1.color;
+                ctx.beginPath();
+                for (let i = 0; i < 1000; i++) {
+                    const t = scope.time + (i / 1000) * 10 * scope.timeScale / scope.zoom.factor;
+                    const value = generateSignal(scope.ch1, t);
+                    const x = (i / 1000) * canvas.width;
+                    const y = halfHeight / 2 - (value / 5) * (halfHeight / 2) * 0.8;
+                    if (i === 0) ctx.moveTo(x, y);
+                    else ctx.lineTo(x, y);
+                }
+                ctx.stroke();
+                ctx.shadowBlur = 0;
+                ctx.globalAlpha = 1;
+                ctx.restore();
+            }
+            if (scope.ch2.enabled) {
+                ctx.save();
+                ctx.beginPath();
+                ctx.rect(0, halfHeight, canvas.width, halfHeight);
+                ctx.clip();
+                ctx.strokeStyle = scope.ch2.color;
+                ctx.lineWidth = 2.5;
+                ctx.globalAlpha = scope.acquisition.intensity;
+                ctx.shadowBlur = 8;
+                ctx.shadowColor = scope.ch2.color;
+                ctx.beginPath();
+                for (let i = 0; i < 1000; i++) {
+                    const t = scope.time + (i / 1000) * 10 * scope.timeScale / scope.zoom.factor;
+                    const value = generateSignal(scope.ch2, t);
+                    const x = (i / 1000) * canvas.width;
+                    const y = halfHeight + halfHeight / 2 - (value / 5) * (halfHeight / 2) * 0.8;
+                    if (i === 0) ctx.moveTo(x, y);
+                    else ctx.lineTo(x, y);
+                }
+                ctx.stroke();
+                ctx.shadowBlur = 0;
+                ctx.globalAlpha = 1;
+                ctx.restore();
+            }
+            ctx.strokeStyle = 'rgba(0, 150, 0, 0.4)';
+            ctx.lineWidth = 2;
+            ctx.beginPath();
+            ctx.moveTo(0, halfHeight);
+            ctx.lineTo(canvas.width, halfHeight);
+            ctx.stroke();
+        }
+
+        function updateMeasurements() {
+            if (scope.ch1.enabled && scope.sampleData.ch1.length > 0) {
+                const ch1Data = scope.sampleData.ch1.filter(v => v !== undefined);
+                
+                scope.measurements.ch1.freq = scope.ch1.frequency;
+                scope.measurements.ch1.period = 1000 / scope.ch1.frequency;
+                scope.measurements.ch1.vpp = (Math.max(...ch1Data) - Math.min(...ch1Data));
+                
+                const sumSquares = ch1Data.reduce((sum, v) => sum + v * v, 0);
+                scope.measurements.ch1.vrms = Math.sqrt(sumSquares / ch1Data.length);
+                
+                scope.measurements.ch1.min = Math.min(...ch1Data);
+                scope.measurements.ch1.max = Math.max(...ch1Data);
+                
+                if (scope.ch1.waveform === 'square' || scope.ch1.waveform === 'pulse') {
+                    const high = ch1Data.filter(v => v > 0).length;
+                    scope.measurements.ch1.duty = (high / ch1Data.length) * 100;
+                } else {
+                    scope.measurements.ch1.duty = 50;
+                }
+                
+                const vpp = scope.measurements.ch1.vpp;
+                const v10 = scope.measurements.ch1.min + vpp * 0.1;
+                const v90 = scope.measurements.ch1.min + vpp * 0.9;
+                
+                let riseStart = -1, riseEnd = -1;
+                for (let i = 1; i < ch1Data.length; i++) {
+                    if (riseStart === -1 && ch1Data[i-1] < v10 && ch1Data[i] >= v10) {
+                        riseStart = i;
+                    }
+                    if (riseStart !== -1 && riseEnd === -1 && ch1Data[i] >= v90) {
+                        riseEnd = i;
+                        break;
+                    }
+                }
+                if (riseStart !== -1 && riseEnd !== -1) {
+                    scope.measurements.ch1.riseTime = (riseEnd - riseStart) * scope.timeScale * 10 / ch1Data.length * 1000;
+                }
+            }
+            
+            if (scope.ch2.enabled && scope.sampleData.ch2.length > 0) {
+                const ch2Data = scope.sampleData.ch2.filter(v => v !== undefined);
+                
+                scope.measurements.ch2.freq = scope.ch2.frequency;
+                scope.measurements.ch2.period = 1000 / scope.ch2.frequency;
+                scope.measurements.ch2.vpp = (Math.max(...ch2Data) - Math.min(...ch2Data));
+                
+                const sumSquares = ch2Data.reduce((sum, v) => sum + v * v, 0);
+                scope.measurements.ch2.vrms = Math.sqrt(sumSquares / ch2Data.length);
+                
+                scope.measurements.ch2.min = Math.min(...ch2Data);
+                scope.measurements.ch2.max = Math.max(...ch2Data);
+            }
+            
+            if (scope.ch1.enabled && scope.ch2.enabled) {
+                scope.measurements.phase = ((scope.ch2.phase - scope.ch1.phase) * 180 / Math.PI) % 360;
+            }
+            
+            document.getElementById('ch1Freq').textContent = scope.measurements.ch1.freq.toFixed(2) + ' Hz';
+            document.getElementById('ch1Period').textContent = scope.measurements.ch1.period.toFixed(2) + ' ms';
+            document.getElementById('ch1Vpp').textContent = scope.measurements.ch1.vpp.toFixed(2) + ' V';
+            document.getElementById('ch1Rms').textContent = scope.measurements.ch1.vrms.toFixed(2) + ' V';
+            
+            document.getElementById('ch2Freq').textContent = scope.measurements.ch2.freq.toFixed(2) + ' Hz';
+            document.getElementById('ch2Period').textContent = scope.measurements.ch2.period.toFixed(2) + ' ms';
+            document.getElementById('ch2Vpp').textContent = scope.measurements.ch2.vpp.toFixed(2) + ' V';
+            document.getElementById('ch2Rms').textContent = scope.measurements.ch2.vrms.toFixed(2) + ' V';
+
+            if (scope.cursors.enabled) {
+                const deltaT = Math.abs(scope.cursors.v2 - scope.cursors.v1) / canvas.width * 10 * scope.timeScale;
+                const deltaV = Math.abs(scope.cursors.h2 - scope.cursors.h1) / canvas.height * 10;
+                document.getElementById('deltaT').textContent = (deltaT * 1000).toFixed(2) + ' ms';
+                document.getElementById('frequency').textContent = (1 / deltaT).toFixed(2) + ' Hz';
+                document.getElementById('deltaV').textContent = deltaV.toFixed(2) + ' V';
+                document.getElementById('ratio').textContent = (deltaV / deltaT).toFixed(2);
+            }
+
+            document.getElementById('ch1Duty').textContent = scope.measurements.ch1.duty.toFixed(1) + ' %';
+            document.getElementById('ch1Rise').textContent = scope.measurements.ch1.riseTime.toFixed(2) + ' μs';
+            document.getElementById('ch1Min').textContent = scope.measurements.ch1.min.toFixed(2) + ' V';
+            document.getElementById('ch1Max').textContent = scope.measurements.ch1.max.toFixed(2) + ' V';
+            document.getElementById('phaseDiff').textContent = scope.measurements.phase.toFixed(1) + '°';
+            document.getElementById('snapshotCount').textContent = scope.history.snapshots.length.toString();
+            document.getElementById('currentZoom').textContent = scope.zoom.factor.toFixed(1) + 'x';
+            document.getElementById('triggerStatus').textContent = scope.trigger.mode.toUpperCase();
+        }
+
+        document.getElementById('audioToggle').addEventListener('click', function() {
+            audioSystem.enabled = !audioSystem.enabled;
+            document.getElementById('audioStatus').textContent = audioSystem.enabled ? 'ON' : 'OFF';
+            if (audioSystem.enabled) {
+                playBeep(800, '16n');
+            }
+        });
+
+        document.getElementById('monitorVol').addEventListener('input', e => {
+            if (Math.random() < 0.3) playKnobTick();
+            audioSystem.monitorVolume = parseInt(e.target.value);
+            const percent = Math.round(((parseInt(e.target.value) + 40) / 35) * 100);
+            document.getElementById('monitorVolDisplay').textContent = percent + '%';
+            
+            if (audioInitialized) {
+                audioSystem.monitorSynth1.volume.value = audioSystem.monitorVolume;
+                audioSystem.monitorSynth2.volume.value = audioSystem.monitorVolume;
+            }
+        });
+
+        // Knob control system
+        class Knob {
+            constructor(knobEl, indicatorEl, displayEl, min, max, step, initialValue, unit, formatter) {
+                this.knob = knobEl;
+                this.indicator = indicatorEl;
+                this.display = displayEl;
+                this.min = min;
+                this.max = max;
+                this.step = step;
+                this.value = initialValue;
+                this.unit = unit;
+                this.formatter = formatter;
+                this.isDragging = false;
+                this.startY = 0;
+                this.startValue = 0;
+                
+                // Сохраняем ссылки на bound функции для удаления
+                this.boundOnStart = this.onStart.bind(this);
+                this.boundOnMove = this.onMove.bind(this);
+                this.boundOnEnd = this.onEnd.bind(this);
+                
+                this.knob.addEventListener('mousedown', this.boundOnStart);
+                document.addEventListener('mousemove', this.boundOnMove);
+                document.addEventListener('mouseup', this.boundOnEnd);
+                this.knob.addEventListener('touchstart', this.boundOnStart, { passive: false });
+                document.addEventListener('touchmove', this.boundOnMove, { passive: false });
+                document.addEventListener('touchend', this.boundOnEnd);
+                document.addEventListener('touchcancel', this.boundOnEnd);
+                
+                this.updateDisplay();
+            }
+            
+            // НОВЫЙ МЕТОД: Очистка обработчиков
+            destroy() {
+                this.knob.removeEventListener('mousedown', this.boundOnStart);
+                document.removeEventListener('mousemove', this.boundOnMove);
+                document.removeEventListener('mouseup', this.boundOnEnd);
+                this.knob.removeEventListener('touchstart', this.boundOnStart);
+                document.removeEventListener('touchmove', this.boundOnMove);
+                document.removeEventListener('touchend', this.boundOnEnd);
+                document.removeEventListener('touchcancel', this.boundOnEnd);
+            }
+            
+            onStart(e) {
+                e.preventDefault();
+                this.isDragging = true;
+                const clientY = e.touches ? e.touches[0].clientY : e.clientY;
+                this.startY = clientY;
+                this.startValue = this.value;
+                this.knob.style.cursor = 'grabbing';
+            }
+            
+            onMove(e) {
+                if (!this.isDragging) return;
+                e.preventDefault();
+                const clientY = e.touches ? e.touches[0].clientY : e.clientY;
+                const delta = this.startY - clientY;
+                const range = this.max - this.min;
+                const newValue = this.startValue + (delta / 100) * range;
+                this.setValue(Math.max(this.min, Math.min(this.max, newValue)));
+            }
+            
+            onEnd(e) {
+                if (!this.isDragging) return;
+                e.preventDefault();
+                this.isDragging = false;
+                this.knob.style.cursor = 'pointer';
+            }
+            
+            setValue(value) {
+                const oldValue = this.value;
+                this.value = Math.round(value / this.step) * this.step;
+                if (Math.abs(this.value - oldValue) > this.step / 2) {
+                    playKnobTick();
+                }
+                this.updateDisplay();
+            }
+            
+            updateDisplay() {
+                const percent = (this.value - this.min) / (this.max - this.min);
+                const rotation = -135 + (percent * 270);
+                this.indicator.style.transform = `translateX(-50%) rotate(${rotation}deg)`;
+                this.indicator.style.transformOrigin = 'bottom center';
+                let displayValue = this.formatter ? this.formatter(this.value) : this.value.toFixed(1);
+                this.display.textContent = displayValue + (this.unit || '');
+            }
+        }
+
+        // Initialize knobs
+        const ch1FreqKnob = new Knob(
+            document.getElementById('ch1FreqKnob'),
+            document.getElementById('ch1FreqIndicator'),
+            document.getElementById('ch1FreqDisplay'),
+            0.05, 2, 0.01, 1, ' Hz'
+        );
+        Object.defineProperty(ch1FreqKnob, 'value', {
+            get() { return this._value; },
+            set(v) { this._value = v; this.updateDisplay(); scope.ch1.frequency = v; updateMonitoringParams(); }
+        });
+        ch1FreqKnob._value = 1;
+
+        const ch1AmpKnob = new Knob(
+            document.getElementById('ch1AmpKnob'),
+            document.getElementById('ch1AmpIndicator'),
+            document.getElementById('ch1AmpDisplay'),
+            0, 5, 0.1, 2, ' V'
+        );
+        Object.defineProperty(ch1AmpKnob, 'value', {
+            get() { return this._value; },
+            set(v) { this._value = v; this.updateDisplay(); scope.ch1.amplitude = v; updateMonitoringParams(); }
+        });
+        ch1AmpKnob._value = 2;
+
+        const ch1OffsetKnob = new Knob(
+            document.getElementById('ch1OffsetKnob'),
+            document.getElementById('ch1OffsetIndicator'),
+            document.getElementById('ch1OffsetDisplay'),
+            -5, 5, 0.1, 0, ' V'
+        );
+        Object.defineProperty(ch1OffsetKnob, 'value', {
+            get() { return this._value; },
+            set(v) { this._value = v; this.updateDisplay(); scope.ch1.offset = v; }
+        });
+        ch1OffsetKnob._value = 0;
+
+        const ch2FreqKnob = new Knob(
+            document.getElementById('ch2FreqKnob'),
+            document.getElementById('ch2FreqIndicator'),
+            document.getElementById('ch2FreqDisplay'),
+            0.05, 2, 0.01, 2, ' Hz'
+        );
+        Object.defineProperty(ch2FreqKnob, 'value', {
+            get() { return this._value; },
+            set(v) { this._value = v; this.updateDisplay(); scope.ch2.frequency = v; updateMonitoringParams(); }
+        });
+        ch2FreqKnob._value = 2;
+
+        const ch2AmpKnob = new Knob(
+            document.getElementById('ch2AmpKnob'),
+            document.getElementById('ch2AmpIndicator'),
+            document.getElementById('ch2AmpDisplay'),
+            0, 5, 0.1, 2, ' V'
+        );
+        Object.defineProperty(ch2AmpKnob, 'value', {
+            get() { return this._value; },
+            set(v) { this._value = v; this.updateDisplay(); scope.ch2.amplitude = v; updateMonitoringParams(); }
+        });
+        ch2AmpKnob._value = 2;
+
+        const ch2PhaseKnob = new Knob(
+            document.getElementById('ch2PhaseKnob'),
+            document.getElementById('ch2PhaseIndicator'),
+            document.getElementById('ch2PhaseDisplay'),
+            0, 360, 1, 90, '°'
+        );
+        Object.defineProperty(ch2PhaseKnob, 'value', {
+            get() { return this._value; },
+            set(v) { this._value = v; this.updateDisplay(); scope.ch2.phase = v * Math.PI / 180; }
+        });
+        ch2PhaseKnob._value = 90;
+
+        const ch2OffsetKnob = new Knob(
+            document.getElementById('ch2OffsetKnob'),
+            document.getElementById('ch2OffsetIndicator'),
+            document.getElementById('ch2OffsetDisplay'),
+            -5, 5, 0.1, 0, ' V'
+        );
+        Object.defineProperty(ch2OffsetKnob, 'value', {
+            get() { return this._value; },
+            set(v) { this._value = v; this.updateDisplay(); scope.ch2.offset = v; }
+        });
+        ch2OffsetKnob._value = 0;
+
+        const timeScaleKnob = new Knob(
+            document.getElementById('timeScaleKnob'),
+            document.getElementById('timeScaleIndicator'),
+            document.getElementById('timeScaleDisplay'),
+            0.001, 1, 0.001, 0.1, '', (v) => {
+                if (v >= 1) return v.toFixed(0) + ' s';
+                if (v >= 0.001) return (v * 1000).toFixed(0) + ' ms';
+                return (v * 1000000).toFixed(0) + ' μs';
+            }
+        );
+        Object.defineProperty(timeScaleKnob, 'value', {
+            get() { return this._value; },
+            set(v) { this._value = v; this.updateDisplay(); scope.timeScale = v; }
+        });
+        timeScaleKnob._value = 0.1;
+
+        const timePositionKnob = new Knob(
+            document.getElementById('timePositionKnob'),
+            document.getElementById('timePositionIndicator'),
+            document.getElementById('timePositionDisplay'),
+            -50, 50, 1, 0, ''
+        );
+        Object.defineProperty(timePositionKnob, 'value', {
+            get() { return this._value; },
+            set(v) { this._value = v; this.updateDisplay(); scope.timePosition = v; }
+        });
+        timePositionKnob._value = 0;
+
+        const triggerLevelKnob = new Knob(
+            document.getElementById('triggerLevelKnob'),
+            document.getElementById('triggerLevelIndicator'),
+            document.getElementById('triggerLevelDisplay'),
+            -5, 5, 0.1, 0, ' V'
+        );
+        Object.defineProperty(triggerLevelKnob, 'value', {
+            get() { return this._value; },
+            set(v) { this._value = v; this.updateDisplay(); scope.trigger.level = v; }
+        });
+        triggerLevelKnob._value = 0;
+
+        const mathScaleKnob = new Knob(
+            document.getElementById('mathScaleKnob'),
+            document.getElementById('mathScaleIndicator'),
+            document.getElementById('mathScaleDisplay'),
+            0.1, 5, 0.1, 1, 'x'
+        );
+        Object.defineProperty(mathScaleKnob, 'value', {
+            get() { return this._value; },
+            set(v) { this._value = v; this.updateDisplay(); scope.math.scale = v; }
+        });
+        mathScaleKnob._value = 1;
+
+        // Tabs
+        document.querySelectorAll('.channel-tab').forEach(tab => {
+            tab.addEventListener('click', () => {
+                playClick();
+                document.querySelectorAll('.channel-tab').forEach(t => t.classList.remove('active'));
+                document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+                tab.classList.add('active');
+                document.getElementById(tab.dataset.tab).classList.add('active');
+            });
+        });
+
+        // Mode buttons
+        document.getElementById('modeYT').addEventListener('click', function() {
+            playClick();
+            scope.mode = 'yt';
+            document.querySelectorAll('.mode-btn').forEach(b => b.classList.remove('active'));
+            this.classList.add('active');
+        });
+        document.getElementById('modeXY').addEventListener('click', function() {
+            playClick();
+            scope.mode = 'xy';
+            document.querySelectorAll('.mode-btn').forEach(b => b.classList.remove('active'));
+            this.classList.add('active');
+        });
+        document.getElementById('modeFFT').addEventListener('click', function() {
+            playClick();
+            scope.mode = 'fft';
+            document.querySelectorAll('.mode-btn').forEach(b => b.classList.remove('active'));
+            this.classList.add('active');
+        });
+        document.getElementById('modeDual').addEventListener('click', function() {
+            playClick();
+            scope.mode = 'dual';
+            document.querySelectorAll('.mode-btn').forEach(b => b.classList.remove('active'));
+            this.classList.add('active');
+        });
+
+        // Screen controls
+        document.getElementById('btnAutoset').addEventListener('click', () => {
+            playBeep(1200, '16n');
+            ch1AmpKnob.setValue(2);
+            ch2AmpKnob.setValue(2);
+            timeScaleKnob.setValue(0.1);
+            ch1OffsetKnob.setValue(0);
+            ch2OffsetKnob.setValue(0);
+        });
+
+        document.getElementById('btnRun').addEventListener('click', function() {
+            playClick();
+            scope.running = !scope.running;
+            this.classList.toggle('active');
+            this.textContent = scope.running ? 'RUN' : 'STOP';
+            if (scope.running) {
+                playBeep(600, '8n');
+                if (audioSystem.monitoring) {
+                    startMonitoring();
+                }
+            } else {
+                playBeep(400, '8n');
+                stopMonitoring();
+            }
+        });
+
+        document.getElementById('btnSingle').addEventListener('click', function() {
+            playClick();
+            playBeep(500, '16n');
+            scope.running = false;
+            document.getElementById('btnRun').classList.remove('active');
+        });
+
+        document.getElementById('btnCursors').addEventListener('click', function() {
+            playClick();
+            scope.cursors.enabled = !scope.cursors.enabled;
+            this.classList.toggle('active');
+            updateCursors();
+            document.getElementById('cursorMeasurements').style.display = scope.cursors.enabled ? 'grid' : 'none';
+            if (scope.cursors.enabled) playBeep(700, '16n');
+        });
+
+        document.getElementById('btnPersistence').addEventListener('click', function() {
+            playClick();
+            this.classList.toggle('active');
+            if (this.classList.contains('active')) {
+                scope.acquisition.persistence = 2;
+                document.getElementById('persistence').value = 2;
+                document.getElementById('persistenceDisplay').textContent = '2.0 s';
+                playBeep(650, '16n');
+            } else {
+                scope.acquisition.persistence = 0;
+                scope.acquisition.persistenceBuffer = [];
+                document.getElementById('persistence').value = 0;
+                document.getElementById('persistenceDisplay').textContent = 'OFF';
+            }
+        });
+
+        document.getElementById('btnZoom').addEventListener('click', function() {
+            playClick();
+            scope.zoom.enabled = !scope.zoom.enabled;
+            this.classList.toggle('active');
+            scope.zoom.factor = scope.zoom.enabled ? 2 : 1;
+            if (scope.zoom.enabled) playBeep(800, '16n');
+        });
+
+        document.getElementById('btnHold').addEventListener('click', function() {
+            playClick();
+            scope.frozen = !scope.frozen;
+            this.classList.toggle('active');
+            this.textContent = scope.frozen ? 'RESUME' : 'HOLD';
+            playBeep(scope.frozen ? 450 : 550, '16n');
+        });
+
+        document.getElementById('btnSnapshot').addEventListener('click', function() {
+            playBeep(1000, '32n');
+            scope.history.enabled = true;
+            captureSnapshot();
+            this.classList.add('active');
+            setTimeout(() => {
+                this.classList.remove('active');
+                playBeep(1200, '32n');
+            }, 100);
+        });
+
+        document.getElementById('btnOverlay').addEventListener('click', function() {
+            playClick();
+            if (scope.history.snapshots.length === 0) {
+                playBeep(300, '8n');
+                alert('Сделайте сначала Snapshot!');
+                return;
+            }
+            scope.history.overlay = !scope.history.overlay;
+            this.classList.toggle('active');
+            if (scope.history.overlay) playBeep(750, '16n');
+        });
+
+        document.getElementById('btnMonitor').addEventListener('click', function() {
+            toggleMonitoring();
+        });
+
+        // Cursors
+        function updateCursors() {
+            const container = document.getElementById('cursors');
+            container.innerHTML = '';
+            
+            if (!scope.cursors.enabled) return;
+
+            const v1 = document.createElement('div');
+            v1.className = 'cursor-line cursor-v';
+            v1.style.left = scope.cursors.v1 + 'px';
+            v1.innerHTML = `<div class="cursor-label" style="top: 5px; left: 5px;">T1</div>`;
+            container.appendChild(v1);
+
+            const v2 = document.createElement('div');
+            v2.className = 'cursor-line cursor-v';
+            v2.style.left = scope.cursors.v2 + 'px';
+            v2.innerHTML = `<div class="cursor-label" style="top: 5px; left: 5px;">T2</div>`;
+            container.appendChild(v2);
+
+            const h1 = document.createElement('div');
+            h1.className = 'cursor-line cursor-h';
+            h1.style.top = scope.cursors.h1 + 'px';
+            h1.innerHTML = `<div class="cursor-label" style="left: 5px; top: -20px;">V1</div>`;
+            container.appendChild(h1);
+
+            const h2 = document.createElement('div');
+            h2.className = 'cursor-line cursor-h';
+            h2.style.top = scope.cursors.h2 + 'px';
+            h2.innerHTML = `<div class="cursor-label" style="left: 5px; top: -20px;">V2</div>`;
+            container.appendChild(h2);
+        }
+
+        // Интерактивное управление курсорами
+        let cursorDragging = null;
+
+        canvas.addEventListener('mousedown', (e) => {
+            if (!scope.cursors.enabled) {
+                if (e.shiftKey) {
+                    scope.zoom.panning = true;
+                    scope.zoom.panStartX = e.offsetX;
+                    scope.zoom.panStartY = e.offsetY;
+                }
+                return;
+            }
+            
+            const rect = canvas.getBoundingClientRect();
+            const x = e.clientX - rect.left;
+            const y = e.clientY - rect.top;
+            
+            const threshold = 10;
+            
+            if (Math.abs(x - scope.cursors.v1 * canvas.width / 1000) < threshold) {
+                cursorDragging = 'v1';
+            } else if (Math.abs(x - scope.cursors.v2 * canvas.width / 1000) < threshold) {
+                cursorDragging = 'v2';
+            } else if (Math.abs(y - scope.cursors.h1 * canvas.height / 600) < threshold) {
+                cursorDragging = 'h1';
+            } else if (Math.abs(y - scope.cursors.h2 * canvas.height / 600) < threshold) {
+                cursorDragging = 'h2';
+            }
+        });
+
+        canvas.addEventListener('mousemove', (e) => {
+            if (scope.zoom.panning) {
+                const dx = e.offsetX - scope.zoom.panStartX;
+                const dy = e.offsetY - scope.zoom.panStartY;
+                scope.zoom.offsetX += dx;
+                scope.zoom.offsetY += dy;
+                scope.zoom.panStartX = e.offsetX;
+                scope.zoom.panStartY = e.offsetY;
+                return;
+            }
+            
+            if (!cursorDragging) return;
+            
+            const rect = canvas.getBoundingClientRect();
+            const x = (e.clientX - rect.left) * 1000 / canvas.width;
+            const y = (e.clientY - rect.top) * 600 / canvas.height;
+            
+            if (cursorDragging === 'v1') {
+                scope.cursors.v1 = Math.max(0, Math.min(1000, x));
+            } else if (cursorDragging === 'v2') {
+                scope.cursors.v2 = Math.max(0, Math.min(1000, x));
+            } else if (cursorDragging === 'h1') {
+                scope.cursors.h1 = Math.max(0, Math.min(600, y));
+            } else if (cursorDragging === 'h2') {
+                scope.cursors.h2 = Math.max(0, Math.min(600, y));
+            }
+            
+            updateCursors();
+            updateMeasurements();
+        });
+
+        canvas.addEventListener('mouseup', () => {
+            cursorDragging = null;
+            scope.zoom.panning = false;
+        });
+
+        canvas.addEventListener('wheel', (e) => {
+            e.preventDefault();
+            const delta = e.deltaY > 0 ? 0.9 : 1.1;
+            scope.zoom.factor = Math.max(0.5, Math.min(10, scope.zoom.factor * delta));
+            document.getElementById('zoomFactor').value = scope.zoom.factor;
+            document.getElementById('zoomFactorDisplay').textContent = scope.zoom.factor.toFixed(1) + 'x';
+        });
+
+        // Channel controls
+        document.getElementById('ch1Waveform').addEventListener('change', e => {
+            playClick();
+            scope.ch1.waveform = e.target.value;
+            updateMonitoringParams();
+        });
+        document.getElementById('ch1Coupling').addEventListener('change', e => {
+            playClick();
+            scope.ch1.coupling = e.target.value;
+        });
+        document.getElementById('ch1Bandwidth').addEventListener('change', e => {
+            playClick();
+            scope.ch1.bandwidth = e.target.value;
+        });
+        document.getElementById('ch1Invert').addEventListener('click', function() {
+            playClick();
+            scope.ch1.invert = !scope.ch1.invert;
+            this.classList.toggle('checked');
+        });
+        document.getElementById('ch1Toggle').addEventListener('click', function() {
+            playClick();
+            scope.ch1.enabled = !scope.ch1.enabled;
+            this.classList.toggle('on');
+            playBeep(scope.ch1.enabled ? 900 : 400, '16n');
+            updateMonitoringParams();
+        });
+
+        document.getElementById('ch2Waveform').addEventListener('change', e => {
+            playClick();
+            scope.ch2.waveform = e.target.value;
+            updateMonitoringParams();
+        });
+        document.getElementById('ch2Invert').addEventListener('click', function() {
+            playClick();
+            scope.ch2.invert = !scope.ch2.invert;
+            this.classList.toggle('checked');
+        });
+        document.getElementById('ch2Toggle').addEventListener('click', function() {
+            playClick();
+            scope.ch2.enabled = !scope.ch2.enabled;
+            this.classList.toggle('on');
+            playBeep(scope.ch2.enabled ? 1000 : 400, '16n');
+            updateMonitoringParams();
+        });
+
+        // Trigger controls
+        document.getElementById('triggerSource').addEventListener('change', e => {
+            playClick();
+            scope.trigger.source = e.target.value;
+        });
+        document.getElementById('triggerMode').addEventListener('change', e => {
+            playClick();
+            scope.trigger.mode = e.target.value;
+            playBeep(600, '16n');
+        });
+        document.getElementById('triggerType').addEventListener('change', e => {
+            playClick();
+            scope.trigger.type = e.target.value;
+        });
+        document.getElementById('triggerSlope').addEventListener('change', e => {
+            playClick();
+            scope.trigger.slope = e.target.value;
+        });
+        document.getElementById('triggerHoldoff').addEventListener('input', e => {
+            if (Math.random() < 0.3) playKnobTick();
+            scope.trigger.holdoff = parseInt(e.target.value);
+            document.getElementById('triggerHoldoffDisplay').textContent = e.target.value + ' ms';
+        });
+
+        // Math controls
+        document.getElementById('mathOperation').addEventListener('change', e => {
+            playClick();
+            scope.math.operation = e.target.value;
+            if (e.target.value !== 'none') playBeep(850, '16n');
+        });
+        document.getElementById('mathEnable').addEventListener('click', function() {
+            playClick();
+            scope.math.enabled = !scope.math.enabled;
+            this.classList.toggle('checked');
+            playBeep(scope.math.enabled ? 700 : 500, '16n');
+        });
+        document.getElementById('mathAveraging').addEventListener('input', e => {
+            if (Math.random() < 0.3) playKnobTick();
+            scope.math.averaging = parseInt(e.target.value);
+            document.getElementById('mathAveragingDisplay').textContent = e.target.value;
+        });
+
+        document.getElementById('fftWindow').addEventListener('change', e => {
+            playClick();
+            scope.math.fftWindow = e.target.value;
+        });
+
+        // Acquisition controls
+        document.getElementById('acqMode').addEventListener('change', e => {
+            playClick();
+            scope.acquisition.mode = e.target.value;
+        });
+        document.getElementById('persistence').addEventListener('input', e => {
+            if (Math.random() < 0.3) playKnobTick();
+            scope.acquisition.persistence = parseFloat(e.target.value);
+            document.getElementById('persistenceDisplay').textContent = e.target.value === '0' ? 'OFF' : e.target.value + ' s';
+            if (e.target.value === '0') {
+                scope.acquisition.persistenceBuffer.length = 0;
+                scope.acquisition.persistenceBuffer = [];
+                document.getElementById('btnPersistence').classList.remove('active');
+            } else {
+                document.getElementById('btnPersistence').classList.add('active');
+            }
+        });
+        document.getElementById('intensity').addEventListener('input', e => {
+            if (Math.random() < 0.3) playKnobTick();
+            scope.acquisition.intensity = parseFloat(e.target.value);
+            document.getElementById('intensityDisplay').textContent = Math.round(e.target.value * 100) + '%';
+        });
+
+        // Zoom
+        document.getElementById('zoomFactor').addEventListener('input', e => {
+            if (Math.random() < 0.3) playKnobTick();
+            scope.zoom.factor = parseFloat(e.target.value);
+            document.getElementById('zoomFactorDisplay').textContent = e.target.value + 'x';
+        });
+
+        // Presets
+        document.querySelectorAll('.preset-btn').forEach(btn => {
+            btn.addEventListener('click', function() {
+                playClick();
+                playBeep(950, '16n');
+                const preset = this.dataset.preset;
+                switch(preset) {
+                    case 'lissajous':
+                        scope.mode = 'xy';
+                        ch1FreqKnob.setValue(1);
+                        ch2FreqKnob.setValue(2);
+                        ch2PhaseKnob.setValue(90);
+                        ch1AmpKnob.setValue(2);
+                        ch2AmpKnob.setValue(2);
+                        document.getElementById('modeXY').click();
+                        break;
+                    case 'sine':
+                        scope.mode = 'yt';
+                        scope.ch1.waveform = 'sine';
+                        scope.ch2.waveform = 'sine';
+                        ch1FreqKnob.setValue(1);
+                        ch2FreqKnob.setValue(1.5);
+                        document.getElementById('ch1Waveform').value = 'sine';
+                        document.getElementById('ch2Waveform').value = 'sine';
+                        document.getElementById('modeYT').click();
+                        break;
+                    case 'square':
+                        scope.mode = 'yt';
+                        scope.ch1.waveform = 'square';
+                        scope.ch2.waveform = 'square';
+                        ch1FreqKnob.setValue(0.5);
+                        ch2FreqKnob.setValue(1);
+                        document.getElementById('ch1Waveform').value = 'square';
+                        document.getElementById('ch2Waveform').value = 'square';
+                        document.getElementById('modeYT').click();
+                        break;
+                    case 'modulation':
+                        scope.mode = 'yt';
+                        ch1FreqKnob.setValue(2);
+                        ch2FreqKnob.setValue(0.2);
+                        scope.math.operation = 'multiply';
+                        document.getElementById('mathOperation').value = 'multiply';
+                        document.getElementById('modeYT').click();
+                        break;
+                }
+            });
+        });
+
+        // Export & Save/Load
+        document.getElementById('exportBtn').addEventListener('click', () => {
+            playClick();
+            playBeep(1100, '16n');
+            const data = {
+                timestamp: new Date().toISOString(),
+                config: scope,
+                ch1Data: scope.sampleData.ch1,
+                ch2Data: scope.sampleData.ch2
+            };
+            const blob = new Blob([JSON.stringify(data, null, 2)], {type: 'application/json'});
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = 'oscilloscope_data_' + Date.now() + '.json';
+            a.click();
+            URL.revokeObjectURL(url);
+            setTimeout(() => playBeep(1300, '32n'), 200);
+        });
+
+        document.getElementById('saveConfig').addEventListener('click', () => {
+            playClick();
+            playBeep(1000, '16n');
+            const config = {
+                timestamp: new Date().toISOString(),
+                scope: scope
+            };
+            const blob = new Blob([JSON.stringify(config, null, 2)], {type: 'application/json'});
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = 'oscilloscope_config_' + Date.now() + '.json';
+            a.click();
+            URL.revokeObjectURL(url);
+            setTimeout(() => playBeep(1200, '32n'), 200);
+        });
+
+        document.getElementById('loadConfig').addEventListener('click', () => {
+            playClick();
+            const input = document.createElement('input');
+            input.type = 'file';
+            input.accept = '.json';
+            input.onchange = e => {
+                const file = e.target.files[0];
+                const reader = new FileReader();
+                reader.onload = event => {
+                    try {
+                        const config = JSON.parse(event.target.result);
+                        if (config.scope) {
+                            Object.assign(scope, config.scope);
+                            ch1FreqKnob.setValue(scope.ch1.frequency);
+                            ch1AmpKnob.setValue(scope.ch1.amplitude);
+                            ch2FreqKnob.setValue(scope.ch2.frequency);
+                            ch2AmpKnob.setValue(scope.ch2.amplitude);
+                            timeScaleKnob.setValue(scope.timeScale);
+                            playBeep(1400, '16n');
+                            setTimeout(() => playBeep(1600, '16n'), 150);
+                            alert('Configuration loaded successfully!');
+                        }
+                    } catch (err) {
+                        playBeep(300, '8n');
+                        alert('Error loading configuration: ' + err.message);
+                    }
+                };
+                reader.readAsText(file);
+            };
+            input.click();
+        });
+
+        // Animation loop with ID for stopping
+        let animationId = null;
+
+        function animate() {
+            ctx.fillStyle = '#001a00';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            
+            drawPersistence();
+            drawHistoryOverlay();
+            drawGrid();
+
+            if (scope.trigger.mode !== 'auto') {
+                checkTrigger();
+            }
+
+            switch(scope.mode) {
+                case 'yt': drawYTMode(); break;
+                case 'xy': drawXYMode(); break;
+                case 'fft': drawFFTMode(); break;
+                case 'dual': drawDualMode(); break;
+            }
+
+            // ИСПРАВЛЕНИЕ 8: Безопасное добавление в persistence
+            if (scope.acquisition.persistence > 0) {
+                const maxFrames = Math.min(
+                    Math.floor(scope.acquisition.persistence * 30),
+                    100
+                );
+                
+                if (scope.acquisition.persistenceBuffer.length >= maxFrames) {
+                    scope.acquisition.persistenceBuffer.shift();
+                }
+                
+                scope.acquisition.persistenceBuffer.push(
+                    ctx.getImageData(0, 0, canvas.width, canvas.height)
+                );
+            }
+
+            if (scope.running && !scope.frozen) {
+                scope.time += 0.005;
+            }
+            
+            updateMeasurements();
+            animationId = requestAnimationFrame(animate);
+        }
+
+        // Stop animation when page is hidden
+        document.addEventListener('visibilitychange', () => {
+            if (document.hidden) {
+                if (animationId !== null) {
+                    cancelAnimationFrame(animationId);
+                    animationId = null;
+                }
+            } else {
+                if (animationId === null) {
+                    animate();
+                }
+            }
+        });
+
+        animate();
+
+        // ИСПРАВЛЕНИЕ 7: Периодическая очистка каждые 30 секунд
+        setInterval(() => {
+            if (scope.sampleData.ch1.length > 1000) {
+                scope.sampleData.ch1 = scope.sampleData.ch1.slice(-1000);
+            }
+            if (scope.sampleData.ch2.length > 1000) {
+                scope.sampleData.ch2 = scope.sampleData.ch2.slice(-1000);
+            }
+            if (scope.acquisition.persistenceBuffer.length > 100) {
+                scope.acquisition.persistenceBuffer.splice(0, 50);
+            }
+        }, 30000);
+
+        // ИСПРАВЛЕНИЕ 6: Очистка при закрытии
+        window.addEventListener('beforeunload', () => {
+            if (audioInitialized) {
+                try {
+                    audioSystem.monitorSynth1?.dispose();
+                    audioSystem.monitorSynth2?.dispose();
+                    audioSystem.synth1?.dispose();
+                    audioSystem.synth2?.dispose();
+                    audioSystem.clickNoise?.dispose();
+                    audioSystem.knobNoise?.dispose();
+                    audioSystem.beep?.dispose();
+                    audioSystem.panner1?.dispose();
+                    audioSystem.panner2?.dispose();
+                    audioSystem.masterVolume?.dispose();
+                } catch (e) {}
+            }
+            
+            if (animationId !== null) {
+                cancelAnimationFrame(animationId);
+            }
+            
+            scope.acquisition.persistenceBuffer.length = 0;
+            scope.history.snapshots.length = 0;
+            scope.sampleData.ch1.length = 0;
+            scope.sampleData.ch2.length = 0;
+        });
+    </script>
+</body>
+</html>
