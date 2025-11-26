@@ -388,6 +388,35 @@
             font-size: 0.75rem;
         }
 
+        .param-map-container {
+            width: 100%;
+            aspect-ratio: 1;
+            border: 2px solid var(--border);
+            border-radius: 8px;
+            overflow: hidden;
+            cursor: crosshair;
+            background: var(--bg-primary);
+            margin-bottom: 1rem;
+            position: relative;
+        }
+
+        #paramMapCanvas {
+            display: block;
+            width: 100%;
+            height: 100%;
+        }
+
+        .map-info {
+            padding: 0.8rem;
+            background: rgba(0, 229, 255, 0.05);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+        }
+
+        .map-info p {
+            margin: 0;
+        }
+
         .preset-grid {
             display: grid;
             grid-template-columns: 1fr 1fr;
@@ -561,6 +590,14 @@
             .info {
                 font-size: 0.7rem;
             }
+
+            .map-info {
+                padding: 0.6rem;
+            }
+
+            .map-info p {
+                font-size: 0.65rem;
+            }
         }
 
         .loading {
@@ -602,6 +639,7 @@
                         <button class="tab" onclick="switchTab(event, 'simulation')">Симуляция</button>
                         <button class="tab" onclick="switchTab(event, 'visual')">Визуализация</button>
                         <button class="tab" onclick="switchTab(event, 'init')">Инициализация</button>
+                        <button class="tab" onclick="switchTab(event, 'paramMap')">Карта</button>
                         <button class="tab" onclick="switchTab(event, 'export')">Экспорт</button>
                     </div>
 
@@ -761,6 +799,22 @@
                         </div>
                     </div>
 
+                    <!-- Карта параметров -->
+                    <div id="paramMap" class="tab-content">
+                        <div class="param-map-container">
+                            <canvas id="paramMapCanvas" width="280" height="280"></canvas>
+                        </div>
+                        <div class="map-info">
+                            <p style="font-size: 0.7rem; color: var(--text-secondary); margin-bottom: 0.5rem;">
+                                <strong style="color: var(--accent-cyan);">Параметрическое пространство</strong><br>
+                                Кликните по карте, чтобы установить параметры feed (f) и kill (k). Красная точка — текущие значения.
+                            </p>
+                            <p style="font-size: 0.65rem; color: var(--text-secondary); line-height: 1.4;">
+                                Различные области создают разные паттерны: пятна, полосы, волны, спирали, хаос.
+                            </p>
+                        </div>
+                    </div>
+
                     <!-- Экспорт -->
                     <div id="export" class="tab-content">
                         <div class="action-buttons">
@@ -787,6 +841,7 @@
                     <strong>💡 Взаимодействие:</strong>
                     Кликайте и удерживайте, чтобы рисовать на холсте и добавлять химическое вещество B. Создавайте сложные формы, проводя линии. Работает с мышью и касаниями на мобильных устройствах.<br><br>
                     <strong>⚙️ Параметры:</strong> Все изменения во вкладках Пресеты, Симуляция и Визуализация применяются мгновенно. Параметры Инициализации требуют нажатия кнопки "Применить".<br><br>
+                    <strong>🗺️ Карта:</strong> Вкладка "Карта" показывает параметрическое пространство (f, k). Кликните по карте для быстрой установки параметров.<br><br>
                     <strong>⌨️ Горячие клавиши:</strong> Пробел — пауза/воспроизведение, R — перезапуск, C — очистить холст.
                 </div>
             </div>
@@ -823,6 +878,237 @@
         
         // Текущий активный пресет
         let currentPreset = 'bacteria';
+
+        // Карта параметров
+        const paramMapCanvas = document.getElementById('paramMapCanvas');
+        const paramMapCtx = paramMapCanvas.getContext('2d');
+        
+        // Диапазоны для карты (основанные на исследованиях Gray-Scott)
+        const mapRange = {
+            fMin: 0.01,
+            fMax: 0.1,
+            kMin: 0.045,
+            kMax: 0.07
+        };
+
+        // Рисование карты параметров
+        function drawParamMap() {
+            const w = paramMapCanvas.width;
+            const h = paramMapCanvas.height;
+            
+            // Фон
+            paramMapCtx.fillStyle = '#0a0e14';
+            paramMapCtx.fillRect(0, 0, w, h);
+            
+            // Сетка
+            paramMapCtx.strokeStyle = 'rgba(0, 229, 255, 0.1)';
+            paramMapCtx.lineWidth = 1;
+            for (let i = 0; i <= 10; i++) {
+                const x = (i / 10) * w;
+                const y = (i / 10) * h;
+                paramMapCtx.beginPath();
+                paramMapCtx.moveTo(x, 0);
+                paramMapCtx.lineTo(x, h);
+                paramMapCtx.stroke();
+                paramMapCtx.beginPath();
+                paramMapCtx.moveTo(0, y);
+                paramMapCtx.lineTo(w, y);
+                paramMapCtx.stroke();
+            }
+            
+            // Области паттернов (приблизительные)
+            const regions = [
+                { name: 'Пятна', f: [0.02, 0.05], k: [0.055, 0.065], color: 'rgba(255, 0, 110, 0.2)' },
+                { name: 'Полосы', f: [0.025, 0.04], k: [0.055, 0.062], color: 'rgba(0, 229, 255, 0.2)' },
+                { name: 'Волны', f: [0.01, 0.03], k: [0.05, 0.06], color: 'rgba(255, 190, 11, 0.2)' },
+                { name: 'Хаос', f: [0.06, 0.08], k: [0.055, 0.065], color: 'rgba(150, 150, 150, 0.2)' }
+            ];
+            
+            regions.forEach(region => {
+                const x1 = ((region.f[0] - mapRange.fMin) / (mapRange.fMax - mapRange.fMin)) * w;
+                const x2 = ((region.f[1] - mapRange.fMin) / (mapRange.fMax - mapRange.fMin)) * w;
+                const y1 = h - ((region.k[0] - mapRange.kMin) / (mapRange.kMax - mapRange.kMin)) * h;
+                const y2 = h - ((region.k[1] - mapRange.kMin) / (mapRange.kMax - mapRange.kMin)) * h;
+                
+                paramMapCtx.fillStyle = region.color;
+                paramMapCtx.fillRect(x1, y2, x2 - x1, y1 - y2);
+                
+                // Подписи областей
+                paramMapCtx.fillStyle = 'rgba(255, 255, 255, 0.5)';
+                paramMapCtx.font = '10px "IBM Plex Mono"';
+                paramMapCtx.fillText(region.name, x1 + 5, y2 + 15);
+            });
+            
+            // Пресеты как точки
+            const presetLabels = {
+                bacteria: 'Бак',
+                coral: 'Кор',
+                fingerprint: 'Отп',
+                waves: 'Вол',
+                spots: 'Пят',
+                maze: 'Лаб'
+            };
+            
+            Object.entries(presets).forEach(([name, preset]) => {
+                const x = ((preset.f - mapRange.fMin) / (mapRange.fMax - mapRange.fMin)) * w;
+                const y = h - ((preset.k - mapRange.kMin) / (mapRange.kMax - mapRange.kMin)) * h;
+                
+                if (x >= 0 && x <= w && y >= 0 && y <= h) {
+                    // Точка пресета
+                    paramMapCtx.fillStyle = 'rgba(0, 229, 255, 0.7)';
+                    paramMapCtx.beginPath();
+                    paramMapCtx.arc(x, y, 5, 0, Math.PI * 2);
+                    paramMapCtx.fill();
+                    
+                    // Подпись
+                    paramMapCtx.fillStyle = 'rgba(0, 229, 255, 0.9)';
+                    paramMapCtx.font = 'bold 9px "IBM Plex Mono"';
+                    paramMapCtx.fillText(presetLabels[name] || name.slice(0, 3), x + 8, y + 3);
+                }
+            });
+            
+            // Текущая позиция (большая красная точка)
+            drawCurrentPosition();
+            
+            // Подписи осей
+            paramMapCtx.fillStyle = 'rgba(255, 255, 255, 0.7)';
+            paramMapCtx.font = '11px "IBM Plex Mono"';
+            paramMapCtx.fillText('feed (f) →', w - 70, h - 5);
+            paramMapCtx.save();
+            paramMapCtx.translate(10, h / 2);
+            paramMapCtx.rotate(-Math.PI / 2);
+            paramMapCtx.fillText('kill (k) →', -30, 0);
+            paramMapCtx.restore();
+        }
+
+        function drawCurrentPosition() {
+            const w = paramMapCanvas.width;
+            const h = paramMapCanvas.height;
+            const x = ((feedRate - mapRange.fMin) / (mapRange.fMax - mapRange.fMin)) * w;
+            const y = h - ((killRate - mapRange.kMin) / (mapRange.kMax - mapRange.kMin)) * h;
+            
+            if (x >= 0 && x <= w && y >= 0 && y <= h) {
+                // Красная точка с свечением
+                paramMapCtx.shadowColor = 'rgba(255, 0, 110, 0.8)';
+                paramMapCtx.shadowBlur = 10;
+                paramMapCtx.fillStyle = '#ff006e';
+                paramMapCtx.beginPath();
+                paramMapCtx.arc(x, y, 6, 0, Math.PI * 2);
+                paramMapCtx.fill();
+                paramMapCtx.shadowBlur = 0;
+                
+                // Белое кольцо
+                paramMapCtx.strokeStyle = '#ffffff';
+                paramMapCtx.lineWidth = 2;
+                paramMapCtx.beginPath();
+                paramMapCtx.arc(x, y, 8, 0, Math.PI * 2);
+                paramMapCtx.stroke();
+            }
+        }
+
+        // Клик по карте для установки параметров
+        paramMapCanvas.addEventListener('click', (e) => {
+            const rect = paramMapCanvas.getBoundingClientRect();
+            const x = (e.clientX - rect.left) / rect.width;
+            const y = (e.clientY - rect.top) / rect.height;
+            
+            const newF = mapRange.fMin + x * (mapRange.fMax - mapRange.fMin);
+            const newK = mapRange.kMax - y * (mapRange.kMax - mapRange.kMin);
+            
+            feedRate = Math.max(0, Math.min(0.1, newF));
+            killRate = Math.max(0, Math.min(0.08, newK));
+            
+            document.getElementById('feedRate').value = feedRate;
+            document.getElementById('killRate').value = killRate;
+            updateValueDisplays();
+            
+            // Убираем активное состояние пресетов
+            currentPreset = null;
+            document.querySelectorAll('.preset-btn').forEach(btn => {
+                btn.classList.remove('active');
+            });
+            
+            // Перезапускаем симуляцию с новыми параметрами
+            resetSimulation();
+            
+            drawParamMap();
+        });
+
+        // Показываем предварительный просмотр при наведении
+        paramMapCanvas.addEventListener('mousemove', (e) => {
+            const rect = paramMapCanvas.getBoundingClientRect();
+            const x = (e.clientX - rect.left) / rect.width;
+            const y = (e.clientY - rect.top) / rect.height;
+            
+            const previewF = mapRange.fMin + x * (mapRange.fMax - mapRange.fMin);
+            const previewK = mapRange.kMax - y * (mapRange.kMax - mapRange.kMin);
+            
+            // Перерисовываем карту с превью
+            drawParamMap();
+            
+            // Рисуем превью точку
+            const w = paramMapCanvas.width;
+            const h = paramMapCanvas.height;
+            const px = x * w;
+            const py = y * h;
+            
+            paramMapCtx.strokeStyle = 'rgba(255, 255, 255, 0.5)';
+            paramMapCtx.lineWidth = 2;
+            paramMapCtx.setLineDash([5, 5]);
+            paramMapCtx.beginPath();
+            paramMapCtx.arc(px, py, 10, 0, Math.PI * 2);
+            paramMapCtx.stroke();
+            paramMapCtx.setLineDash([]);
+            
+            // Показываем значения
+            paramMapCtx.fillStyle = 'rgba(0, 0, 0, 0.8)';
+            paramMapCtx.fillRect(px + 15, py - 10, 90, 25);
+            paramMapCtx.fillStyle = '#ffffff';
+            paramMapCtx.font = '10px "IBM Plex Mono"';
+            paramMapCtx.fillText(`f: ${previewF.toFixed(3)}`, px + 20, py + 2);
+            paramMapCtx.fillText(`k: ${previewK.toFixed(3)}`, px + 20, py + 12);
+        });
+
+        paramMapCanvas.addEventListener('mouseleave', () => {
+            drawParamMap();
+        });
+
+        // Touch поддержка для карты
+        paramMapCanvas.addEventListener('touchstart', (e) => {
+            e.preventDefault();
+            const touch = e.touches[0];
+            const rect = paramMapCanvas.getBoundingClientRect();
+            const x = (touch.clientX - rect.left) / rect.width;
+            const y = (touch.clientY - rect.top) / rect.height;
+            
+            const newF = mapRange.fMin + x * (mapRange.fMax - mapRange.fMin);
+            const newK = mapRange.kMax - y * (mapRange.kMax - mapRange.kMin);
+            
+            feedRate = Math.max(0, Math.min(0.1, newF));
+            killRate = Math.max(0, Math.min(0.08, newK));
+            
+            document.getElementById('feedRate').value = feedRate;
+            document.getElementById('killRate').value = killRate;
+            updateValueDisplays();
+            
+            // Убираем активное состояние пресетов
+            currentPreset = null;
+            document.querySelectorAll('.preset-btn').forEach(btn => {
+                btn.classList.remove('active');
+            });
+            
+            // Перезапускаем симуляцию с новыми параметрами
+            resetSimulation();
+            
+            drawParamMap();
+        });
+
+        // Обновление карты при изменении параметров
+        function updateParamMap() {
+            if (document.getElementById('paramMap').classList.contains('active')) {
+                drawParamMap();
+            }
+        }
 
         // Сетки концентраций - используем типизированные массивы для скорости
         let gridA = new Float32Array(size * size);
@@ -1055,6 +1341,11 @@
             // Активируем выбранную вкладку
             document.getElementById(tabName).classList.add('active');
             event.currentTarget.classList.add('active');
+            
+            // Перерисовываем карту параметров при переходе на эту вкладку
+            if (tabName === 'paramMap') {
+                setTimeout(() => drawParamMap(), 50);
+            }
         }
 
         // Изменение размера поля
@@ -1129,6 +1420,7 @@
             document.getElementById('dB').value = dB;
             document.getElementById('speed').value = speed;
             updateValueDisplays();
+            updateParamMap();
             
             // Проверяем, соответствуют ли значения какому-то пресету
             for (const [name, preset] of Object.entries(presets)) {
@@ -1280,6 +1572,7 @@
             document.getElementById('feedRate').value = feedRate;
             document.getElementById('killRate').value = killRate;
             updateValueDisplays();
+            updateParamMap();
             resetSimulation();
             
             // Обновляем визуальное состояние кнопок
@@ -1317,6 +1610,7 @@
             document.getElementById('feedRate').value = feedRate;
             document.getElementById('killRate').value = killRate;
             updateValueDisplays();
+            updateParamMap();
             resetSimulation();
             
             // Убираем активное состояние со всех пресетов при случайных параметрах
@@ -1343,6 +1637,7 @@
         document.getElementById('feedRate').addEventListener('input', (e) => {
             feedRate = parseFloat(e.target.value);
             updateValueDisplays();
+            updateParamMap();
             // Убираем активное состояние пресетов при ручном изменении
             if (currentPreset) {
                 const preset = presets[currentPreset];
@@ -1358,6 +1653,7 @@
         document.getElementById('killRate').addEventListener('input', (e) => {
             killRate = parseFloat(e.target.value);
             updateValueDisplays();
+            updateParamMap();
             // Убираем активное состояние пресетов при ручном изменении
             if (currentPreset) {
                 const preset = presets[currentPreset];
@@ -1538,6 +1834,7 @@
         document.querySelector('.loading').style.display = 'none';
         initGrid();
         updateValueDisplays();
+        drawParamMap();
         requestAnimationFrame(loop);
     </script>
 </body>
