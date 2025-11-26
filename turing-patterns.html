@@ -406,6 +406,16 @@
             background: rgba(255, 0, 110, 0.1);
         }
 
+        .preset-btn.active {
+            border-color: var(--accent-cyan);
+            background: rgba(0, 229, 255, 0.15);
+            box-shadow: 0 0 15px rgba(0, 229, 255, 0.3);
+        }
+
+        .preset-btn.active span {
+            color: var(--accent-cyan);
+        }
+
         .color-select {
             width: 100%;
             padding: 0.7rem;
@@ -598,22 +608,22 @@
                     <!-- Пресеты -->
                     <div id="presets" class="tab-content active">
                         <div class="preset-grid">
-                            <button class="preset-btn" onclick="loadPreset('bacteria')">
+                            <button class="preset-btn active" data-preset="bacteria" onclick="loadPreset('bacteria')">
                                 <span>Бактерии</span>
                             </button>
-                            <button class="preset-btn" onclick="loadPreset('coral')">
+                            <button class="preset-btn" data-preset="coral" onclick="loadPreset('coral')">
                                 <span>Кораллы</span>
                             </button>
-                            <button class="preset-btn" onclick="loadPreset('fingerprint')">
+                            <button class="preset-btn" data-preset="fingerprint" onclick="loadPreset('fingerprint')">
                                 <span>Отпечатки</span>
                             </button>
-                            <button class="preset-btn" onclick="loadPreset('waves')">
+                            <button class="preset-btn" data-preset="waves" onclick="loadPreset('waves')">
                                 <span>Волны</span>
                             </button>
-                            <button class="preset-btn" onclick="loadPreset('spots')">
+                            <button class="preset-btn" data-preset="spots" onclick="loadPreset('spots')">
                                 <span>Пятна</span>
                             </button>
-                            <button class="preset-btn" onclick="loadPreset('maze')">
+                            <button class="preset-btn" data-preset="maze" onclick="loadPreset('maze')">
                                 <span>Лабиринт</span>
                             </button>
                         </div>
@@ -810,6 +820,9 @@
         let seedCount = 10;
         let seedSize = 5;
         let noiseLevel = 1;
+        
+        // Текущий активный пресет
+        let currentPreset = 'bacteria';
 
         // Сетки концентраций - используем типизированные массивы для скорости
         let gridA = new Float32Array(size * size);
@@ -1116,6 +1129,22 @@
             document.getElementById('dB').value = dB;
             document.getElementById('speed').value = speed;
             updateValueDisplays();
+            
+            // Проверяем, соответствуют ли значения какому-то пресету
+            for (const [name, preset] of Object.entries(presets)) {
+                if (Math.abs(feedRate - preset.f) < 0.0001 && Math.abs(killRate - preset.k) < 0.0001) {
+                    currentPreset = name;
+                    document.querySelectorAll('.preset-btn').forEach(btn => {
+                        btn.classList.remove('active');
+                    });
+                    const activeBtn = document.querySelector(`[data-preset="${name}"]`);
+                    if (activeBtn) {
+                        activeBtn.classList.add('active');
+                    }
+                    break;
+                }
+            }
+            
             showResetFeedback('#simulation');
         }
 
@@ -1252,6 +1281,16 @@
             document.getElementById('killRate').value = killRate;
             updateValueDisplays();
             resetSimulation();
+            
+            // Обновляем визуальное состояние кнопок
+            currentPreset = name;
+            document.querySelectorAll('.preset-btn').forEach(btn => {
+                btn.classList.remove('active');
+            });
+            const activeBtn = document.querySelector(`[data-preset="${name}"]`);
+            if (activeBtn) {
+                activeBtn.classList.add('active');
+            }
         }
 
         function toggleSimulation() {
@@ -1279,6 +1318,12 @@
             document.getElementById('killRate').value = killRate;
             updateValueDisplays();
             resetSimulation();
+            
+            // Убираем активное состояние со всех пресетов при случайных параметрах
+            currentPreset = null;
+            document.querySelectorAll('.preset-btn').forEach(btn => {
+                btn.classList.remove('active');
+            });
         }
 
         function updateValueDisplays() {
@@ -1298,11 +1343,31 @@
         document.getElementById('feedRate').addEventListener('input', (e) => {
             feedRate = parseFloat(e.target.value);
             updateValueDisplays();
+            // Убираем активное состояние пресетов при ручном изменении
+            if (currentPreset) {
+                const preset = presets[currentPreset];
+                if (Math.abs(feedRate - preset.f) > 0.0001 || Math.abs(killRate - preset.k) > 0.0001) {
+                    currentPreset = null;
+                    document.querySelectorAll('.preset-btn').forEach(btn => {
+                        btn.classList.remove('active');
+                    });
+                }
+            }
         });
 
         document.getElementById('killRate').addEventListener('input', (e) => {
             killRate = parseFloat(e.target.value);
             updateValueDisplays();
+            // Убираем активное состояние пресетов при ручном изменении
+            if (currentPreset) {
+                const preset = presets[currentPreset];
+                if (Math.abs(feedRate - preset.f) > 0.0001 || Math.abs(killRate - preset.k) > 0.0001) {
+                    currentPreset = null;
+                    document.querySelectorAll('.preset-btn').forEach(btn => {
+                        btn.classList.remove('active');
+                    });
+                }
+            }
         });
 
         document.getElementById('dA').addEventListener('input', (e) => {
