@@ -1049,6 +1049,7 @@
         let mediaRecorder = null;
         let recordedChunks = [];
         let isRecording = false;
+        let recordingAudioDestination = null;
         
         // Начальная энергия для отслеживания
         let initialEnergy = 0;
@@ -1209,6 +1210,20 @@
             // Создаём новые для каждого маятника
             for (let i = 0; i < numPendulums; i++) {
                 pendulumAudioNodes.push(createPendulumAudioNode(i));
+            }
+            
+            // Если идёт запись - подключаем новые узлы к destination
+            if (isRecording && recordingAudioDestination) {
+                console.log('Переподключаем новые audio узлы к записи...');
+                pendulumAudioNodes.forEach(node => {
+                    if (node && node.masterGain) {
+                        try {
+                            node.masterGain.connect(recordingAudioDestination);
+                        } catch (e) {
+                            console.warn('Не удалось подключить узел:', e);
+                        }
+                    }
+                });
             }
         }
         
@@ -1470,14 +1485,56 @@
             if (soundEnabled) {
                 initAudio();
                 initPendulumsAudio();
+                
+                // Если идёт запись - подключаем узлы к существующему destination
+                if (isRecording && recordingAudioDestination && pendulumAudioNodes.length > 0) {
+                    console.log('Подключаем звук к записи...');
+                    pendulumAudioNodes.forEach(node => {
+                        if (node && node.masterGain) {
+                            try {
+                                node.masterGain.connect(recordingAudioDestination);
+                                console.log('Audio узел подключён');
+                            } catch (e) {
+                                console.warn('Не удалось подключить узел:', e);
+                            }
+                        }
+                    });
+                    if (reverbGain) {
+                        try {
+                            reverbGain.connect(recordingAudioDestination);
+                            console.log('Reverb подключён');
+                        } catch (e) {
+                            console.warn('Не удалось подключить reverb:', e);
+                        }
+                    }
+                }
             } else {
                 // Останавливаем все звуки
-                pendulumAudioNodes.forEach(node => {
-                    if (node) {
-                        node.gain1.gain.setTargetAtTime(0, audioContext.currentTime, 0.1);
-                        node.gain2.gain.setTargetAtTime(0, audioContext.currentTime, 0.1);
+                if (audioContext) {
+                    pendulumAudioNodes.forEach(node => {
+                        if (node) {
+                            node.gain1.gain.setTargetAtTime(0, audioContext.currentTime, 0.1);
+                            node.gain2.gain.setTargetAtTime(0, audioContext.currentTime, 0.1);
+                            
+                            // Отключаем от destination при записи
+                            if (isRecording && recordingAudioDestination) {
+                                try {
+                                    node.masterGain.disconnect(recordingAudioDestination);
+                                    console.log('Audio узел отключён от записи');
+                                } catch (e) {}
+                            }
+                        }
+                    });
+                    
+                    if (reverbGain && isRecording && recordingAudioDestination) {
+                        try {
+                            reverbGain.disconnect(recordingAudioDestination);
+                            console.log('Reverb отключён от записи');
+                        } catch (e) {}
                     }
-                });
+                }
+                
+                console.log('Звук отключён' + (isRecording ? ' (запись продолжается с тишиной)' : ''));
             }
         }
         
@@ -2428,45 +2485,50 @@
                 // Захватываем видео поток с canvas
                 const canvasStream = canvas.captureStream(30); // 30 FPS
                 
-                let finalStream;
+                // Инициализируем audioContext если его нет
+                if (!audioContext) {
+                    initAudio();
+                }
                 
-                // Если звук включён и audioContext существует, добавляем аудио
-                if (soundEnabled && audioContext && audioContext.state === 'running') {
-                    // Создаём destination для захвата аудио
-                    const audioDestination = audioContext.createMediaStreamDestination();
-                    
-                    // Подключаем все активные аудио узлы к destination
+                // Создаём audioDestination и сохраняем его глобально
+                recordingAudioDestination = audioContext.createMediaStreamDestination();
+                
+                // Если звук включён - подключаем узлы
+                if (soundEnabled && pendulumAudioNodes.length > 0) {
                     pendulumAudioNodes.forEach(node => {
                         if (node && node.masterGain) {
-                            node.masterGain.connect(audioDestination);
+                            try {
+                                node.masterGain.connect(recordingAudioDestination);
+                            } catch (e) {
+                                console.warn('Не удалось подключить audio узел:', e);
+                            }
                         }
                     });
                     
-                    // Также подключаем reverb если он есть
                     if (reverbGain) {
-                        reverbGain.connect(audioDestination);
+                        try {
+                            reverbGain.connect(recordingAudioDestination);
+                        } catch (e) {
+                            console.warn('Не удалось подключить reverb:', e);
+                        }
                     }
                     
-                    // Комбинируем видео и аудио потоки
-                    const audioTrack = audioDestination.stream.getAudioTracks()[0];
-                    const videoTrack = canvasStream.getVideoTracks()[0];
-                    
-                    finalStream = new MediaStream([videoTrack, audioTrack]);
-                    
-                    console.log('Запись видео со звуком');
+                    console.log('Запись видео со звуком (звук включён)');
                 } else {
-                    // Только видео без звука
-                    finalStream = canvasStream;
-                    console.log('Запись видео без звука');
+                    console.log('Запись видео с пустой аудиодорожкой (звук выключен)');
                 }
+                
+                // Комбинируем видео + аудио
+                const audioTrack = recordingAudioDestination.stream.getAudioTracks()[0];
+                const videoTrack = canvasStream.getVideoTracks()[0];
+                const finalStream = new MediaStream([videoTrack, audioTrack]);
                 
                 // Настройки для MediaRecorder
                 const options = {
                     mimeType: 'video/webm;codecs=vp9,opus',
-                    videoBitsPerSecond: 2500000 // 2.5 Mbps
+                    videoBitsPerSecond: 2500000
                 };
                 
-                // Проверяем поддержку формата
                 if (!MediaRecorder.isTypeSupported(options.mimeType)) {
                     options.mimeType = 'video/webm';
                 }
@@ -2489,15 +2551,29 @@
                     link.click();
                     URL.revokeObjectURL(url);
                     
-                    // Сбрасываем состояние
+                    // Отключаем узлы от destination
+                    if (recordingAudioDestination) {
+                        pendulumAudioNodes.forEach(node => {
+                            if (node && node.masterGain) {
+                                try {
+                                    node.masterGain.disconnect(recordingAudioDestination);
+                                } catch (e) {}
+                            }
+                        });
+                        if (reverbGain) {
+                            try {
+                                reverbGain.disconnect(recordingAudioDestination);
+                            } catch (e) {}
+                        }
+                        recordingAudioDestination = null;
+                    }
+                    
                     isRecording = false;
                     mediaRecorder = null;
                     recordedChunks = [];
                     
-                    // Обновляем UI
                     updateRecordingUI();
                     
-                    // Показываем уведомление
                     const recordBtnText = document.getElementById('recordBtnText');
                     if (recordBtnText) {
                         recordBtnText.textContent = '✓ Видео сохранено';
@@ -2513,14 +2589,13 @@
                     console.error('Ошибка MediaRecorder:', event.error);
                     isRecording = false;
                     mediaRecorder = null;
+                    recordingAudioDestination = null;
                     updateRecordingUI();
                     alert('Произошла ошибка при записи видео.');
                 };
                 
-                mediaRecorder.start(100); // Сохраняем данные каждые 100ms
+                mediaRecorder.start(100);
                 isRecording = true;
-                
-                // Обновляем UI
                 updateRecordingUI();
                 
                 console.log('Запись началась');
@@ -2528,6 +2603,7 @@
             } catch (error) {
                 console.error('Ошибка при запуске записи:', error);
                 isRecording = false;
+                recordingAudioDestination = null;
                 alert('Не удалось начать запись видео. Убедитесь, что ваш браузер поддерживает эту функцию.');
             }
         }
