@@ -1180,6 +1180,7 @@
         let isDrawing = false;
         let lastDrawX = -1;
         let lastDrawY = -1;
+        window.currentFrame = 0;
         
         // Переменные для записи видео
         let mediaRecorder = null;
@@ -1264,6 +1265,7 @@
         function laplace(x, y, grid) {
             const idx = x + y * size;
             const center = grid[idx];
+            const isGridA = grid === gridA; // Вычисляем один раз
             
             let right, left, down, up, downRight, downLeft, upRight, upLeft;
             
@@ -1282,119 +1284,7 @@
                 downLeft = grid[xm1 + yp1 * size];
                 upRight = grid[xp1 + ym1 * size];
                 upLeft = grid[xm1 + ym1 * size];
-            
-            } else if (boundaryType === 'sphere') {
-                // Сферическая топология (UV-сфера, как географическая карта)
-                // X - периодическая (долгота)
-                // Y - полюса (широта)
                 
-                const xp1 = (x + 1) % size;
-                const xm1 = (x - 1 + size) % size;
-                
-                if (y === 0) {
-                    // Северный полюс - усредняем всю верхнюю строку
-                    let poleSum = 0;
-                    for (let px = 0; px < size; px++) {
-                        poleSum += grid[px];
-                    }
-                    const poleValue = poleSum / size;
-                    up = poleValue;
-                    upLeft = poleValue;
-                    upRight = poleValue;
-                    
-                    down = grid[x + (y + 1) * size];
-                    downRight = grid[xp1 + (y + 1) * size];
-                    downLeft = grid[xm1 + (y + 1) * size];
-                    right = grid[xp1 + y * size];
-                    left = grid[xm1 + y * size];
-                    
-                } else if (y === size - 1) {
-                    // Южный полюс - усредняем всю нижнюю строку
-                    let poleSum = 0;
-                    for (let px = 0; px < size; px++) {
-                        poleSum += grid[px + (size - 1) * size];
-                    }
-                    const poleValue = poleSum / size;
-                    down = poleValue;
-                    downLeft = poleValue;
-                    downRight = poleValue;
-                    
-                    up = grid[x + (y - 1) * size];
-                    upRight = grid[xp1 + (y - 1) * size];
-                    upLeft = grid[xm1 + (y - 1) * size];
-                    right = grid[xp1 + y * size];
-                    left = grid[xm1 + y * size];
-                    
-                } else {
-                    // Обычные точки - периодика по X, нормальная по Y
-                    const yp1 = y + 1;
-                    const ym1 = y - 1;
-                    
-                    right = grid[xp1 + y * size];
-                    left = grid[xm1 + y * size];
-                    down = grid[x + yp1 * size];
-                    up = grid[x + ym1 * size];
-                    downRight = grid[xp1 + yp1 * size];
-                    downLeft = grid[xm1 + yp1 * size];
-                    upRight = grid[xp1 + ym1 * size];
-                    upLeft = grid[xm1 + ym1 * size];
-                }
-                
-            } else if (boundaryType === 'projective') {
-                // Проективная плоскость (RP²) - односторонняя поверхность
-                // X - периодическая нормально
-                // Y - периодическая с "переворотом" (лево становится право)
-                
-                const xp1 = (x + 1) % size;
-                const xm1 = (x - 1 + size) % size;
-                
-                if (y === 0) {
-                    // Верх соединяется с низом, но с переворотом по X
-                    const flipX = size - 1 - x;
-                    const flipXp1 = size - 1 - xm1; // Инверсия направления
-                    const flipXm1 = size - 1 - xp1;
-                    
-                    up = grid[flipX + (size - 1) * size];
-                    upRight = grid[flipXm1 + (size - 1) * size];
-                    upLeft = grid[flipXp1 + (size - 1) * size];
-                    
-                    down = grid[x + 1 * size];
-                    downRight = grid[xp1 + 1 * size];
-                    downLeft = grid[xm1 + 1 * size];
-                    right = grid[xp1 + y * size];
-                    left = grid[xm1 + y * size];
-                    
-                } else if (y === size - 1) {
-                    // Низ соединяется с верхом, но с переворотом по X
-                    const flipX = size - 1 - x;
-                    const flipXp1 = size - 1 - xm1;
-                    const flipXm1 = size - 1 - xp1;
-                    
-                    down = grid[flipX];
-                    downRight = grid[flipXm1];
-                    downLeft = grid[flipXp1];
-                    
-                    up = grid[x + (size - 2) * size];
-                    upRight = grid[xp1 + (size - 2) * size];
-                    upLeft = grid[xm1 + (size - 2) * size];
-                    right = grid[xp1 + y * size];
-                    left = grid[xm1 + y * size];
-                    
-                } else {
-                    // Обычные точки
-                    const yp1 = y + 1;
-                    const ym1 = y - 1;
-                    
-                    right = grid[xp1 + y * size];
-                    left = grid[xm1 + y * size];
-                    down = grid[x + yp1 * size];
-                    up = grid[x + ym1 * size];
-                    downRight = grid[xp1 + yp1 * size];
-                    downLeft = grid[xm1 + yp1 * size];
-                    upRight = grid[xp1 + ym1 * size];
-                    upLeft = grid[xm1 + ym1 * size];
-                }
-            
             } else if (boundaryType === 'bounded') {
                 // Ограниченные граничные условия (Неймана - отражение)
                 const xp1 = Math.min(x + 1, size - 1);
@@ -1413,41 +1303,42 @@
                 
             } else if (boundaryType === 'dirichlet') {
                 // Граничные условия Дирихле (фиксированные значения на границах)
-                // A=1, B=0 на границах
-                const isEdge = (px, py) => px < 0 || px >= size || py < 0 || py >= size;
-                const getDirichletValue = (px, py) => {
-                    if (isEdge(px, py)) {
-                        return grid === gridA ? 1.0 : 0.0; // A=1 на границах, B=0
-                    }
-                    return grid[px + py * size];
-                };
+                // Оптимизировано: inline проверки вместо функций
+                const boundaryValue = isGridA ? 1.0 : 0.0;
                 
-                right = getDirichletValue(x + 1, y);
-                left = getDirichletValue(x - 1, y);
-                down = getDirichletValue(x, y + 1);
-                up = getDirichletValue(x, y - 1);
-                downRight = getDirichletValue(x + 1, y + 1);
-                downLeft = getDirichletValue(x - 1, y + 1);
-                upRight = getDirichletValue(x + 1, y - 1);
-                upLeft = getDirichletValue(x - 1, y - 1);
+                // Проверяем, находимся ли на границе
+                const onLeftEdge = x === 0;
+                const onRightEdge = x === size - 1;
+                const onTopEdge = y === 0;
+                const onBottomEdge = y === size - 1;
+                
+                right = onRightEdge ? boundaryValue : grid[(x + 1) + y * size];
+                left = onLeftEdge ? boundaryValue : grid[(x - 1) + y * size];
+                down = onBottomEdge ? boundaryValue : grid[x + (y + 1) * size];
+                up = onTopEdge ? boundaryValue : grid[x + (y - 1) * size];
+                
+                downRight = (onRightEdge || onBottomEdge) ? boundaryValue : grid[(x + 1) + (y + 1) * size];
+                downLeft = (onLeftEdge || onBottomEdge) ? boundaryValue : grid[(x - 1) + (y + 1) * size];
+                upRight = (onRightEdge || onTopEdge) ? boundaryValue : grid[(x + 1) + (y - 1) * size];
+                upLeft = (onLeftEdge || onTopEdge) ? boundaryValue : grid[(x - 1) + (y - 1) * size];
                 
             } else if (boundaryType === 'absorbing') {
                 // Поглощающие граничные условия (затухание к нулю на краях)
-                const getAbsorbingValue = (px, py) => {
-                    if (px < 0 || px >= size || py < 0 || py >= size) {
-                        return 0.0; // Нулевые значения за границей
-                    }
-                    return grid[px + py * size];
-                };
+                // Оптимизировано: inline проверки
+                const onLeftEdge = x === 0;
+                const onRightEdge = x === size - 1;
+                const onTopEdge = y === 0;
+                const onBottomEdge = y === size - 1;
                 
-                right = getAbsorbingValue(x + 1, y);
-                left = getAbsorbingValue(x - 1, y);
-                down = getAbsorbingValue(x, y + 1);
-                up = getAbsorbingValue(x, y - 1);
-                downRight = getAbsorbingValue(x + 1, y + 1);
-                downLeft = getAbsorbingValue(x - 1, y + 1);
-                upRight = getAbsorbingValue(x + 1, y - 1);
-                upLeft = getAbsorbingValue(x - 1, y - 1);
+                right = onRightEdge ? 0.0 : grid[(x + 1) + y * size];
+                left = onLeftEdge ? 0.0 : grid[(x - 1) + y * size];
+                down = onBottomEdge ? 0.0 : grid[x + (y + 1) * size];
+                up = onTopEdge ? 0.0 : grid[x + (y - 1) * size];
+                
+                downRight = (onRightEdge || onBottomEdge) ? 0.0 : grid[(x + 1) + (y + 1) * size];
+                downLeft = (onLeftEdge || onBottomEdge) ? 0.0 : grid[(x - 1) + (y + 1) * size];
+                upRight = (onRightEdge || onTopEdge) ? 0.0 : grid[(x + 1) + (y - 1) * size];
+                upLeft = (onLeftEdge || onTopEdge) ? 0.0 : grid[(x - 1) + (y - 1) * size];
                 
             } else if (boundaryType === 'cylinder') {
                 // Цилиндрические условия: периодические по X, отражающие по Y
@@ -1464,6 +1355,118 @@
                 downLeft = grid[xm1 + yp1 * size];
                 upRight = grid[xp1 + ym1 * size];
                 upLeft = grid[xm1 + ym1 * size];
+                
+            } else if (boundaryType === 'sphere') {
+                // Сферическая топология - ОПТИМИЗИРОВАНО
+                const xp1 = (x + 1) % size;
+                const xm1 = (x - 1 + size) % size;
+                
+                if (y === 0) {
+                    // Северный полюс - используем кэшированное среднее
+                    if (!window.sphereNorthPoleCache || window.sphereNorthPoleCacheFrame !== window.currentFrame) {
+                        // Вычисляем среднее только раз за кадр
+                        let poleSum = 0;
+                        for (let px = 0; px < size; px++) {
+                            poleSum += grid[px];
+                        }
+                        window.sphereNorthPoleCache = poleSum / size;
+                        window.sphereNorthPoleCacheFrame = window.currentFrame || 0;
+                    }
+                    const poleValue = window.sphereNorthPoleCache;
+                    
+                    up = poleValue;
+                    upLeft = poleValue;
+                    upRight = poleValue;
+                    down = grid[x + size];
+                    downRight = grid[xp1 + size];
+                    downLeft = grid[xm1 + size];
+                    right = grid[xp1];
+                    left = grid[xm1];
+                    
+                } else if (y === size - 1) {
+                    // Южный полюс - используем кэшированное среднее
+                    if (!window.sphereSouthPoleCache || window.sphereSouthPoleCacheFrame !== window.currentFrame) {
+                        let poleSum = 0;
+                        const baseIdx = (size - 1) * size;
+                        for (let px = 0; px < size; px++) {
+                            poleSum += grid[baseIdx + px];
+                        }
+                        window.sphereSouthPoleCache = poleSum / size;
+                        window.sphereSouthPoleCacheFrame = window.currentFrame || 0;
+                    }
+                    const poleValue = window.sphereSouthPoleCache;
+                    
+                    down = poleValue;
+                    downLeft = poleValue;
+                    downRight = poleValue;
+                    up = grid[x + (y - 1) * size];
+                    upRight = grid[xp1 + (y - 1) * size];
+                    upLeft = grid[xm1 + (y - 1) * size];
+                    right = grid[xp1 + y * size];
+                    left = grid[xm1 + y * size];
+                    
+                } else {
+                    // Обычные точки
+                    const yp1 = y + 1;
+                    const ym1 = y - 1;
+                    
+                    right = grid[xp1 + y * size];
+                    left = grid[xm1 + y * size];
+                    down = grid[x + yp1 * size];
+                    up = grid[x + ym1 * size];
+                    downRight = grid[xp1 + yp1 * size];
+                    downLeft = grid[xm1 + yp1 * size];
+                    upRight = grid[xp1 + ym1 * size];
+                    upLeft = grid[xm1 + ym1 * size];
+                }
+                
+            } else if (boundaryType === 'projective') {
+                // Проективная плоскость
+                const xp1 = (x + 1) % size;
+                const xm1 = (x - 1 + size) % size;
+                
+                if (y === 0) {
+                    const flipX = size - 1 - x;
+                    const flipXp1 = size - 1 - xm1;
+                    const flipXm1 = size - 1 - xp1;
+                    const bottomRowIdx = (size - 1) * size;
+                    
+                    up = grid[flipX + bottomRowIdx];
+                    upRight = grid[flipXm1 + bottomRowIdx];
+                    upLeft = grid[flipXp1 + bottomRowIdx];
+                    down = grid[x + size];
+                    downRight = grid[xp1 + size];
+                    downLeft = grid[xm1 + size];
+                    right = grid[xp1];
+                    left = grid[xm1];
+                    
+                } else if (y === size - 1) {
+                    const flipX = size - 1 - x;
+                    const flipXp1 = size - 1 - xm1;
+                    const flipXm1 = size - 1 - xp1;
+                    
+                    down = grid[flipX];
+                    downRight = grid[flipXm1];
+                    downLeft = grid[flipXp1];
+                    up = grid[x + (size - 2) * size];
+                    upRight = grid[xp1 + (size - 2) * size];
+                    upLeft = grid[xm1 + (size - 2) * size];
+                    right = grid[xp1 + y * size];
+                    left = grid[xm1 + y * size];
+                    
+                } else {
+                    const yp1 = y + 1;
+                    const ym1 = y - 1;
+                    
+                    right = grid[xp1 + y * size];
+                    left = grid[xm1 + y * size];
+                    down = grid[x + yp1 * size];
+                    up = grid[x + ym1 * size];
+                    downRight = grid[xp1 + yp1 * size];
+                    downLeft = grid[xm1 + yp1 * size];
+                    upRight = grid[xp1 + ym1 * size];
+                    upLeft = grid[xm1 + ym1 * size];
+                }
             }
             
             return (
@@ -1481,28 +1484,32 @@
 
         // Оптимизированный шаг симуляции
         function simulate() {
+            // Увеличиваем счётчик кадров для кэша полюсов сферы
+            window.currentFrame = (window.currentFrame || 0) + 1;
+            
             for (let y = 0; y < size; y++) {
                 for (let x = 0; x < size; x++) {
                     const idx = x + y * size;
                     const a = gridA[idx];
                     const b = gridB[idx];
                     const ab2 = a * b * b;
-
+        
                     nextA[idx] = a + 
                         (dA * laplace(x, y, gridA) - ab2 + feedRate * (1 - a)) * dt;
                     nextB[idx] = b + 
                         (dB * laplace(x, y, gridB) + ab2 - (killRate + feedRate) * b) * dt;
-
+        
                     // Ограничиваем значения
                     nextA[idx] = Math.max(0, Math.min(1, nextA[idx]));
                     nextB[idx] = Math.max(0, Math.min(1, nextB[idx]));
                 }
             }
-
+        
             // Swap arrays
             [gridA, nextA] = [nextA, gridA];
             [gridB, nextB] = [nextB, gridB];
         }
+        
         // Улучшенные цветовые схемы с более динамичной визуализацией
         const colorSchemes = {
             cyanMagenta: (c, b) => {
