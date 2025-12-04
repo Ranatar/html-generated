@@ -798,6 +798,16 @@
                                 <option value="512">512×512 (Медленно)</option>
                             </select>
                         </div>
+                        
+                        <div class="control-group">
+                            <label title="Тороидальное: края замкнуты (бесконечное поле). Ограниченное: края фиксированы (конечное поле)">
+                                Граничные условия
+                            </label>
+                            <select id="boundaryType" class="color-select">
+                                <option value="toroidal">Тороидальное (замкнутое)</option>
+                                <option value="bounded">Ограниченное (фиксированное)</option>
+                            </select>
+                        </div>
 
                         <div class="control-group">
                             <label>
@@ -877,6 +887,7 @@
                     <strong>💡 Взаимодействие:</strong>
                     Кликайте и удерживайте, чтобы рисовать на холсте и добавлять химическое вещество B. Создавайте сложные формы, проводя линии. Работает с мышью и касаниями на мобильных устройствах.<br><br>
                     <strong>⚙️ Параметры:</strong> Все изменения во вкладках Пресеты, Симуляция и Визуализация применяются мгновенно. Параметры Инициализации требуют нажатия кнопки "Применить".<br><br>
+                    <strong>🔄 Граничные условия:</strong> Тороидальное поле замыкает края (паттерны переходят с одной стороны на другую). Ограниченное поле имеет фиксированные края (паттерны отражаются от границ).<br><br>
                     <strong>🗺️ Карта:</strong> Вкладка "Карта" показывает параметрическое пространство (f, k). Кликните по карте для быстрой установки параметров.<br><br>
                     <strong>⌨️ Горячие клавиши:</strong> Пробел — пауза/воспроизведение, R — перезапуск, C — очистить холст, V — запись видео.
                 </div>
@@ -911,6 +922,7 @@
         let seedCount = 10;
         let seedSize = 5;
         let noiseLevel = 1;
+        let boundaryType = 'toroidal';
         
         // Текущий активный пресет
         let currentPreset = 'bacteria';
@@ -1237,23 +1249,44 @@
             }
         }
 
-        // Оптимизированная функция Лапласа с полным 9-точечным ядром
+        // Оптимизированная функция Лапласа с полным 9-точечным ядром и поддержкой разных граничных условий
         function laplace(x, y, grid) {
             const idx = x + y * size;
-            const xp1 = ((x + 1) % size);
-            const xm1 = ((x - 1 + size) % size);
-            const yp1 = ((y + 1) % size);
-            const ym1 = ((y - 1 + size) % size);
-            
             const center = grid[idx];
-            const right = grid[xp1 + y * size];
-            const left = grid[xm1 + y * size];
-            const down = grid[x + yp1 * size];
-            const up = grid[x + ym1 * size];
-            const downRight = grid[xp1 + yp1 * size];
-            const downLeft = grid[xm1 + yp1 * size];
-            const upRight = grid[xp1 + ym1 * size];
-            const upLeft = grid[xm1 + ym1 * size];
+            
+            let right, left, down, up, downRight, downLeft, upRight, upLeft;
+            
+            if (boundaryType === 'toroidal') {
+                // Тороидальные (периодические) граничные условия
+                const xp1 = ((x + 1) % size);
+                const xm1 = ((x - 1 + size) % size);
+                const yp1 = ((y + 1) % size);
+                const ym1 = ((y - 1 + size) % size);
+                
+                right = grid[xp1 + y * size];
+                left = grid[xm1 + y * size];
+                down = grid[x + yp1 * size];
+                up = grid[x + ym1 * size];
+                downRight = grid[xp1 + yp1 * size];
+                downLeft = grid[xm1 + yp1 * size];
+                upRight = grid[xp1 + ym1 * size];
+                upLeft = grid[xm1 + ym1 * size];
+            } else {
+                // Ограниченные граничные условия (Неймана - отражение)
+                const xp1 = Math.min(x + 1, size - 1);
+                const xm1 = Math.max(x - 1, 0);
+                const yp1 = Math.min(y + 1, size - 1);
+                const ym1 = Math.max(y - 1, 0);
+                
+                right = grid[xp1 + y * size];
+                left = grid[xm1 + y * size];
+                down = grid[x + yp1 * size];
+                up = grid[x + ym1 * size];
+                downRight = grid[xp1 + yp1 * size];
+                downLeft = grid[xm1 + yp1 * size];
+                upRight = grid[xp1 + ym1 * size];
+                upLeft = grid[xm1 + ym1 * size];
+            }
             
             return (
                 right * 0.2 +
@@ -1638,9 +1671,11 @@
             seedCount = 10;
             seedSize = 5;
             noiseLevel = 1;
+            boundaryType = 'toroidal';
             
             // Обновляем UI
             document.getElementById('gridSize').value = 256;
+            document.getElementById('boundaryType').value = boundaryType;
             document.getElementById('seedCount').value = seedCount;
             document.getElementById('seedSize').value = seedSize;
             document.getElementById('noise').value = noiseLevel;
@@ -2006,6 +2041,10 @@
         document.getElementById('noise').addEventListener('input', (e) => {
             noiseLevel = parseFloat(e.target.value);
             updateValueDisplays();
+        });
+        
+        document.getElementById('boundaryType').addEventListener('change', (e) => {
+            boundaryType = e.target.value;
         });
 
         // Обработчик изменения размера окна
