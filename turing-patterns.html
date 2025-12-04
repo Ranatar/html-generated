@@ -741,6 +741,16 @@
                                 <option value="projective">Проективная плоскость</option>
                             </select>
                         </div>
+                        
+                        <div class="control-group">
+                            <label title="GPU (WebGL) работает в 10-100 раз быстрее, но может не поддерживаться на старых устройствах">
+                                Режим вычислений
+                            </label>
+                            <select id="computeMode" class="color-select">
+                                <option value="cpu">CPU (совместимость)</option>
+                                <option value="gpu" selected>GPU (WebGL, быстро)</option>
+                            </select>
+                        </div>
 
                         <div class="control-group">
                             <label>
@@ -810,6 +820,7 @@
                                 <option value="256" selected>256×256 (Баланс)</option>
                                 <option value="384">384×384 (Детально)</option>
                                 <option value="512">512×512 (Медленно)</option>
+                                <option value="1024">1024×1024 (Очень медленно)</option>
                             </select>
                         </div>
 
@@ -907,14 +918,8 @@
     </div>
 
     <script>
-        const canvas = document.getElementById('canvas');
-        const ctx = canvas.getContext('2d');
+
         const brushCursor = document.getElementById('brushCursor');
-        
-        // Настройка размера canvas - уменьшен для оптимизации
-        let size = 256;
-        canvas.width = size;
-        canvas.height = size;
 
         // Параметры симуляции Gray-Scott
         let feedRate = 0.055;
@@ -937,6 +942,433 @@
         
         // Текущий активный пресет
         let currentPreset = 'bacteria';
+
+        // Состояние симуляции
+        let running = true;
+        let isDrawing = false;
+        let lastDrawX = -1;
+        let lastDrawY = -1;
+        window.currentFrame = 0;
+        
+        // WebGL переменные
+        let useGPU = true;
+        let gl = null;
+        let simulationProgram = null;
+        let renderProgram = null;
+        let textureA = null;
+        let textureB = null;
+        let textureTemp = null;
+        let framebuffers = [null, null];
+        let quadBuffer = null;
+        let isWebGLReady = false;
+    
+        // ============================================================================
+        // WEBGL ШЕЙДЕРЫ
+        // ============================================================================
+        
+        // Вершинный шейдер (рисует полноэкранный квадрат)
+        const vertexShaderSource = `
+            attribute vec2 position;
+            varying vec2 vTexCoord;
+            
+            void main() {
+                vTexCoord = position * 0.5 + 0.5;
+                gl_Position = vec4(position, 0.0, 1.0);
+            }
+        `;
+        
+        // Фрагментный шейдер для симуляции Gray-Scott
+        const simulationFragmentShaderSource = `
+            precision highp float;
+            
+            uniform sampler2D textureA;
+            uniform sampler2D textureB;
+            uniform vec2 resolution;
+            uniform float feedRate;
+            uniform float killRate;
+            uniform float dA;
+            uniform float dB;
+            uniform float dt;
+            uniform int boundaryType; // 0=toroidal, 1=bounded, 2=dirichlet, 3=absorbing, 4=cylinder, 5=sphere, 6=projective
+            uniform int computeChannel; // 0=A, 1=B
+            
+            varying vec2 vTexCoord;
+            
+            vec2 getCoord(vec2 offset) {
+                vec2 coord = vTexCoord + offset / resolution;
+                
+                if (boundaryType == 0) {
+                    // Toroidal - wrap around
+                    return fract(coord);
+                    
+                } else if (boundaryType == 1) {
+                    // Bounded - clamp
+                    return clamp(coord, 0.0, 1.0);
+                    
+                } else if (boundaryType == 2) {
+                    // Dirichlet - clamp (значения за границей будут 1.0 для A, 0.0 для B)
+                    return clamp(coord, 0.0, 1.0);
+                    
+                } else if (boundaryType == 3) {
+                    // Absorbing - clamp (значения за границей 0.0)
+                    return clamp(coord, 0.0, 1.0);
+                    
+                } else if (boundaryType == 4) {
+                    // Cylinder - wrap X, clamp Y
+                    return vec2(fract(coord.x), clamp(coord.y, 0.0, 1.0));
+                    
+                } else if (boundaryType == 5) {
+                    // Sphere - wrap X, special handling for Y poles
+                    float y = coord.y;
+                    if (y < 0.0 || y > 1.0) {
+                        // На полюсах возвращаем усреднённое значение (аппроксимация)
+                        return vec2(0.5, clamp(y, 0.0, 1.0));
+                    }
+                    return vec2(fract(coord.x), y);
+                    
+                } else if (boundaryType == 6) {
+                    // Projective plane - wrap with flip
+                    vec2 result = coord;
+                    if (coord.y < 0.0) {
+                        result.y = 1.0 + coord.y;
+                        result.x = 1.0 - coord.x;
+                    } else if (coord.y > 1.0) {
+                        result.y = coord.y - 1.0;
+                        result.x = 1.0 - coord.x;
+                    }
+                    result.x = fract(result.x);
+                    return result;
+                }
+                
+                return coord;
+            }
+            
+            float sampleValue(sampler2D tex, vec2 offset) {
+                vec2 coord = getCoord(offset);
+                
+                // Проверка границ для Dirichlet и Absorbing
+                vec2 original = vTexCoord + offset / resolution;
+                bool outOfBounds = original.x < 0.0 || original.x > 1.0 || original.y < 0.0 || original.y > 1.0;
+                
+                if (boundaryType == 2 && outOfBounds) {
+                    // Dirichlet: A=1, B=0 на границах
+                    return computeChannel == 0 ? 1.0 : 0.0;
+                }
+                
+                if (boundaryType == 3 && outOfBounds) {
+                    // Absorbing: 0 на границах
+                    return 0.0;
+                }
+                
+                return texture2D(tex, coord).r;
+            }
+            
+            float laplacian(sampler2D tex) {
+                float center = texture2D(tex, vTexCoord).r;
+                
+                // 9-точечное ядро Лапласа
+                float right = sampleValue(tex, vec2(1.0, 0.0));
+                float left = sampleValue(tex, vec2(-1.0, 0.0));
+                float down = sampleValue(tex, vec2(0.0, 1.0));
+                float up = sampleValue(tex, vec2(0.0, -1.0));
+                
+                float downRight = sampleValue(tex, vec2(1.0, 1.0));
+                float downLeft = sampleValue(tex, vec2(-1.0, 1.0));
+                float upRight = sampleValue(tex, vec2(1.0, -1.0));
+                float upLeft = sampleValue(tex, vec2(-1.0, -1.0));
+                
+                return right * 0.2 + left * 0.2 + down * 0.2 + up * 0.2 +
+                       downRight * 0.05 + downLeft * 0.05 + upRight * 0.05 + upLeft * 0.05 +
+                       center * -1.0;
+            }
+            
+            void main() {
+                float a = texture2D(textureA, vTexCoord).r;
+                float b = texture2D(textureB, vTexCoord).r;
+                
+                float laplaceA = laplacian(textureA);
+                float laplaceB = laplacian(textureB);
+                
+                float ab2 = a * b * b;
+                
+                if (computeChannel == 0) {
+                    // Вычисляем A
+                    float newA = a + (dA * laplaceA - ab2 + feedRate * (1.0 - a)) * dt;
+                    gl_FragColor = vec4(clamp(newA, 0.0, 1.0), 0.0, 0.0, 1.0);
+                } else {
+                    // Вычисляем B
+                    float newB = b + (dB * laplaceB + ab2 - (killRate + feedRate) * b) * dt;
+                    gl_FragColor = vec4(clamp(newB, 0.0, 1.0), 0.0, 0.0, 1.0);
+                }
+            }
+        `;
+        
+        // Фрагментный шейдер для финального рендеринга
+        const renderFragmentShaderSource = `
+            precision highp float;
+            
+            uniform sampler2D textureA;
+            uniform sampler2D textureB;
+            uniform int colorScheme;
+            uniform float contrast;
+            
+            varying vec2 vTexCoord;
+            
+            #define PI 3.14159265359
+            
+            vec3 applyColorScheme(float c, float b) {
+                if (colorScheme == 0) {
+                    // cyanMagenta
+                    return vec3(
+                        (0.5 + 0.5 * sin(c * PI * 2.0)) * contrast,
+                        (0.5 + 0.5 * cos(c * PI * 3.0)) * 0.784 * contrast,
+                        (0.3 + b * 0.7) * contrast
+                    );
+                } else if (colorScheme == 1) {
+                    // plasma
+                    float phase = c * 6.28;
+                    float intensity = pow(b, 0.7) * contrast;
+                    return vec3(
+                        (sin(phase) * 0.5 + 0.5) * intensity,
+                        (sin(phase + 2.09) * 0.5 + 0.5) * intensity,
+                        (sin(phase + 4.19) * 0.5 + 0.5) * intensity
+                    );
+                } else if (colorScheme == 2) {
+                    // bioluminescent
+                    float edge = pow(1.0 - abs(c - 0.5) * 2.0, 2.0);
+                    float glow = (edge + b * 0.5) * contrast;
+                    return vec3(glow * 0.118, glow, glow * 0.784);
+                } else if (colorScheme == 3) {
+                    // aurora
+                    float wave1 = sin(c * 6.28) * 0.5 + 0.5;
+                    float wave2 = sin(c * 9.42 + b * PI) * 0.5 + 0.5;
+                    float intensity = (b + 0.3) * contrast;
+                    return vec3(
+                        wave1 * 0.588 * intensity,
+                        (wave2 * 0.7 + 0.3) * intensity,
+                        (wave1 * 0.5 + 0.5) * intensity
+                    );
+                } else if (colorScheme == 4) {
+                    // nebula
+                    float dust = pow(c, 0.8) * contrast;
+                    float stars = pow(b, 4.0) * contrast;
+                    float gas = sin(c * 4.71 + b * 6.28) * 0.3 + 0.7;
+                    return vec3(
+                        (dust * 0.5 + stars) * 0.784,
+                        (dust * 0.3 + gas * b) * 0.706,
+                        (dust + stars * 0.5)
+                    );
+                } else if (colorScheme == 5) {
+                    // oilSlick
+                    float angle = (c + b * 0.5) * 18.84;
+                    float shimmer = (sin(angle) * 0.5 + 0.5) * contrast;
+                    float shine = (cos(angle * 1.3) * 0.5 + 0.5) * contrast;
+                    return vec3(
+                        shimmer * 0.8 + 0.2,
+                        shine * 0.7 + shimmer * 0.3,
+                        shimmer * shine + 0.3
+                    );
+                } else if (colorScheme == 6) {
+                    // underwater
+                    float depth = pow(c, 1.2) * contrast;
+                    float caustics = abs(sin(b * 25.13)) * contrast;
+                    return vec3(
+                        (depth * 0.2 + caustics * 0.3) * 0.706,
+                        (depth * 0.5 + caustics * 0.4) * 0.863,
+                        (depth * 0.8 + caustics * 0.2)
+                    );
+                } else if (colorScheme == 7) {
+                    // lavaLamp
+                    float heat = pow(1.0 - c, 1.5) * contrast;
+                    float bubble = pow(b, 2.0);
+                    return vec3(
+                        (0.8 + heat * 0.2),
+                        (heat * 0.6 + bubble * 0.2) * 0.784,
+                        bubble * 0.588
+                    );
+                } else if (colorScheme == 8) {
+                    // electric
+                    float spark = pow(b, 3.0) * contrast;
+                    float flow = abs(sin(c * 12.56)) * contrast;
+                    return vec3(
+                        spark + flow * 0.3,
+                        spark * 0.5 + flow,
+                        contrast
+                    );
+                } else if (colorScheme == 9) {
+                    // toxic
+                    float poison = pow(1.0 - c, 2.0) * contrast;
+                    float spore = sin(b * 15.7) * 0.5 + 0.5;
+                    return vec3(
+                        (poison * 0.3 + spore * 0.2) * 0.784,
+                        (poison + spore * 0.3),
+                        spore * poison * 0.588
+                    );
+                } else if (colorScheme == 10) {
+                    // moltenMetal
+                    float heat = pow(1.0 - c, 2.5) * contrast;
+                    float liquid = b * contrast;
+                    return vec3(
+                        heat,
+                        (heat * 0.6 + liquid * 0.2) * 0.784,
+                        (heat * 0.3 + liquid * 0.1) * 0.588
+                    );
+                } else if (colorScheme == 11) {
+                    // fire
+                    float heat = (1.0 - c) * contrast;
+                    return vec3(
+                        min(1.0, heat * 1.5),
+                        heat * 0.706,
+                        heat * heat * 0.392
+                    );
+                } else if (colorScheme == 12) {
+                    // ocean
+                    float depth = c * contrast;
+                    return vec3(
+                        depth * 0.392,
+                        depth * 0.706 + b * 0.294,
+                        0.784 + depth * 0.216
+                    );
+                } else if (colorScheme == 13) {
+                    // forest
+                    float growth = c * contrast;
+                    return vec3(
+                        (0.2 + growth * 0.3) * 0.784,
+                        (0.5 + growth * 0.5),
+                        (0.1 + b * 0.4) * 0.706
+                    );
+                } else if (colorScheme == 14) {
+                    // sunset
+                    float glow = (1.0 - c) * contrast;
+                    return vec3(
+                        (0.8 + glow * 0.2),
+                        (0.3 + glow * 0.5) * 0.784,
+                        (0.4 + b * 0.3) * 0.863
+                    );
+                } else if (colorScheme == 15) {
+                    // neon
+                    float pulse = abs(sin(c * 6.28)) * contrast;
+                    return vec3(
+                        (0.5 + pulse * 0.5),
+                        (0.8 - pulse * 0.3),
+                        (0.3 + b * 0.7)
+                    );
+                } else {
+                    // grayscale
+                    float value = c * contrast;
+                    return vec3(value);
+                }
+            }
+            
+            void main() {
+                float a = texture2D(textureA, vTexCoord).r;
+                float b = texture2D(textureB, vTexCoord).r;
+                float c = a - b;
+                
+                vec3 color = applyColorScheme(c, b);
+                gl_FragColor = vec4(color, 1.0);
+            }
+        `;
+    
+        const canvas = document.getElementById('canvas');
+        let ctx = null;
+
+        // Настройка размера canvas - уменьшен для оптимизации
+        let size = 256;
+        canvas.width = size;
+        canvas.height = size;
+
+        // Сетки концентраций - используем типизированные массивы для скорости
+        let gridA = new Float32Array(size * size);
+        let gridB = new Float32Array(size * size);
+        let nextA = new Float32Array(size * size);
+        let nextB = new Float32Array(size * size);
+        
+        // Попытка инициализации WebGL
+        function initWebGL() {
+            try {
+                gl = canvas.getContext('webgl', {
+                    premultipliedAlpha: false,
+                    preserveDrawingBuffer: false,
+                    antialias: false
+                }) || canvas.getContext('experimental-webgl');
+                
+                if (!gl) {
+                    console.warn('WebGL не поддерживается, используется CPU режим');
+                    useGPU = false;
+                    ctx = canvas.getContext('2d');
+                    return false;
+                }
+                
+                // Проверка и включение необходимых расширений
+                const floatExt = gl.getExtension('OES_texture_float');
+                const floatLinearExt = gl.getExtension('OES_texture_float_linear');
+                const colorBufferFloatExt = gl.getExtension('WEBGL_color_buffer_float') || 
+                                             gl.getExtension('EXT_color_buffer_float');
+                
+                if (!floatExt) {
+                    console.warn('OES_texture_float не поддерживается, используется CPU режим');
+                    useGPU = false;
+                    gl = null;
+                    ctx = canvas.getContext('2d');
+                    return false;
+                }
+                
+                if (!colorBufferFloatExt) {
+                    console.warn('WEBGL_color_buffer_float не поддерживается, используется CPU режим');
+                    useGPU = false;
+                    gl = null;
+                    ctx = canvas.getContext('2d');
+                    return false;
+                }
+                
+                console.log('WebGL расширения успешно загружены:', {
+                    float: !!floatExt,
+                    floatLinear: !!floatLinearExt,
+                    colorBufferFloat: !!colorBufferFloatExt
+                });
+                
+                // Компиляция шейдеров
+                simulationProgram = createProgram(gl, vertexShaderSource, simulationFragmentShaderSource);
+                renderProgram = createProgram(gl, vertexShaderSource, renderFragmentShaderSource);
+                
+                if (!simulationProgram || !renderProgram) {
+                    console.error('Ошибка компиляции шейдеров');
+                    useGPU = false;
+                    gl = null;
+                    ctx = canvas.getContext('2d');
+                    return false;
+                }
+                
+                // Создание буфера для полноэкранного квадрата
+                quadBuffer = gl.createBuffer();
+                gl.bindBuffer(gl.ARRAY_BUFFER, quadBuffer);
+                const vertices = new Float32Array([
+                    -1, -1,  1, -1,  -1, 1,
+                    -1, 1,   1, -1,   1, 1
+                ]);
+                gl.bufferData(gl.ARRAY_BUFFER, vertices, gl.STATIC_DRAW);
+                
+                // Создание текстур и framebuffer'ов
+                createTextures();
+                
+                isWebGLReady = true;
+                console.log('WebGL успешно инициализирован');
+                return true;
+                
+            } catch (e) {
+                console.error('Ошибка инициализации WebGL:', e);
+                useGPU = false;
+                gl = null;
+                ctx = canvas.getContext('2d');
+                return false;
+            }
+        }
+        
+        // Если WebGL не инициализировался, используем 2D контекст
+        if (!initWebGL()) {
+            ctx = canvas.getContext('2d');
+        }
 
         // Карта параметров
         const paramMapCanvas = document.getElementById('paramMapCanvas');
@@ -1168,19 +1600,6 @@
                 drawParamMap();
             }
         }
-
-        // Сетки концентраций - используем типизированные массивы для скорости
-        let gridA = new Float32Array(size * size);
-        let gridB = new Float32Array(size * size);
-        let nextA = new Float32Array(size * size);
-        let nextB = new Float32Array(size * size);
-
-        // Состояние симуляции
-        let running = true;
-        let isDrawing = false;
-        let lastDrawX = -1;
-        let lastDrawY = -1;
-        window.currentFrame = 0;
         
         // Переменные для записи видео
         let mediaRecorder = null;
@@ -1220,18 +1639,52 @@
 
         // Инициализация сеток
         function initGrid() {
-            // Инициализируем все ячейки с настраиваемым случайным шумом
             for (let i = 0; i < size * size; i++) {
                 gridA[i] = 1;
-                gridB[i] = Math.random() * (noiseLevel / 100); // Шум в процентах
+                gridB[i] = Math.random() * (noiseLevel / 100);
             }
 
-            // Добавляем начальные возмущения с настраиваемыми параметрами
             for (let i = 0; i < seedCount; i++) {
                 const x = Math.floor(Math.random() * size);
                 const y = Math.floor(Math.random() * size);
                 const radius = seedSize + Math.random() * seedSize;
-                addChemical(x, y, radius);
+                
+                // Для CPU режима просто добавляем химикат
+                if (!useGPU || !isWebGLReady) {
+                    const radiusSq = radius * radius;
+                    const minX = Math.max(0, Math.floor(x - radius));
+                    const maxX = Math.min(size - 1, Math.floor(x + radius));
+                    const minY = Math.max(0, Math.floor(y - radius));
+                    const maxY = Math.min(size - 1, Math.floor(y + radius));
+
+                    for (let px = minX; px <= maxX; px++) {
+                        for (let py = minY; py <= maxY; py++) {
+                            const dx = px - x;
+                            const dy = py - y;
+                            const distSq = dx * dx + dy * dy;
+                            
+                            if (distSq <= radiusSq) {
+                                const idx = px + py * size;
+                                const strength = (1 - Math.sqrt(distSq) / radius) * 0.7;
+                                gridB[idx] = Math.min(1, gridB[idx] + strength);
+                                gridA[idx] = Math.max(0, gridA[idx] - strength * 0.3);
+                            }
+                        }
+                    }
+                }
+            }
+            
+            // Синхронизация с GPU (загружаем данные в текстуры)
+            if (useGPU && isWebGLReady) {
+                syncCPUtoGPU();
+                
+                // ВАЖНО: Добавляем точки уже после загрузки базовых данных
+                for (let i = 0; i < seedCount; i++) {
+                    const x = Math.floor(Math.random() * size);
+                    const y = Math.floor(Math.random() * size);
+                    const radius = seedSize + Math.random() * seedSize;
+                    addChemicalGPU(x, y, radius);
+                }
             }
         }
 
@@ -1243,34 +1696,177 @@
             const minY = Math.max(0, Math.floor(y - radius));
             const maxY = Math.min(size - 1, Math.floor(y + radius));
 
-            for (let px = minX; px <= maxX; px++) {
-                for (let py = minY; py <= maxY; py++) {
-                    const dx = px - x;
-                    const dy = py - y;
-                    const distSq = dx * dx + dy * dy;
-                    
-                    if (distSq <= radiusSq) {
-                        const idx = px + py * size;
-                        // Плавный градиент к краям с меньшей интенсивностью
-                        const strength = (1 - Math.sqrt(distSq) / radius) * 0.7;
-                        gridB[idx] = Math.min(1, gridB[idx] + strength);
-                        // Немного уменьшаем A для баланса
-                        gridA[idx] = Math.max(0, gridA[idx] - strength * 0.3);
+            // НЕ синхронизируем при рисовании - слишком медленно!
+            // Работаем напрямую с текстурами через временный буфер
+
+            if (useGPU && isWebGLReady) {
+                // Для GPU режима модифицируем текстуру напрямую
+                addChemicalGPU(x, y, radius);
+            } else {
+                // CPU режим - работаем с массивами
+                for (let px = minX; px <= maxX; px++) {
+                    for (let py = minY; py <= maxY; py++) {
+                        const dx = px - x;
+                        const dy = py - y;
+                        const distSq = dx * dx + dy * dy;
+                        
+                        if (distSq <= radiusSq) {
+                            const idx = px + py * size;
+                            const strength = (1 - Math.sqrt(distSq) / radius) * 0.7;
+                            gridB[idx] = Math.min(1, gridB[idx] + strength);
+                            gridA[idx] = Math.max(0, gridA[idx] - strength * 0.3);
+                        }
                     }
                 }
             }
         }
 
+        // Новая функция для быстрого рисования в GPU режиме
+        function addChemicalGPU(x, y, radius) {
+            // Читаем только нужную область
+            const minX = Math.max(0, Math.floor(x - radius));
+            const maxX = Math.min(size - 1, Math.floor(x + radius));
+            const minY = Math.max(0, Math.floor(y - radius));
+            const maxY = Math.min(size - 1, Math.floor(y + radius));
+            
+            const width = maxX - minX + 1;
+            const height = maxY - minY + 1;
+            
+            if (width <= 0 || height <= 0) return;
+            
+            // Читаем текущие значения из текстур в нужной области
+            const pixelsA = new Float32Array(width * height * 4);
+            const pixelsB = new Float32Array(width * height * 4);
+            
+            gl.bindFramebuffer(gl.FRAMEBUFFER, framebuffers[0]);
+            gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, textureA, 0);
+            if (gl.checkFramebufferStatus(gl.FRAMEBUFFER) === gl.FRAMEBUFFER_COMPLETE) {
+                gl.readPixels(minX, minY, width, height, gl.RGBA, gl.FLOAT, pixelsA);
+            }
+            
+            gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, textureB, 0);
+            if (gl.checkFramebufferStatus(gl.FRAMEBUFFER) === gl.FRAMEBUFFER_COMPLETE) {
+                gl.readPixels(minX, minY, width, height, gl.RGBA, gl.FLOAT, pixelsB);
+            }
+            
+            gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+            
+            // Модифицируем значения
+            const radiusSq = radius * radius;
+            for (let py = 0; py < height; py++) {
+                for (let px = 0; px < width; px++) {
+                    const worldX = minX + px;
+                    const worldY = minY + py;
+                    const dx = worldX - x;
+                    const dy = worldY - y;
+                    const distSq = dx * dx + dy * dy;
+                    
+                    if (distSq <= radiusSq) {
+                        const idx = (px + py * width) * 4;
+                        const strength = (1 - Math.sqrt(distSq) / radius) * 0.7;
+                        pixelsB[idx] = Math.min(1, pixelsB[idx] + strength);
+                        pixelsA[idx] = Math.max(0, pixelsA[idx] - strength * 0.3);
+                    }
+                }
+            }
+            
+            // Записываем обратно в текстуры (только модифицированную область)
+            gl.bindTexture(gl.TEXTURE_2D, textureA);
+            gl.texSubImage2D(gl.TEXTURE_2D, 0, minX, minY, width, height, gl.RGBA, gl.FLOAT, pixelsA);
+            
+            gl.bindTexture(gl.TEXTURE_2D, textureB);
+            gl.texSubImage2D(gl.TEXTURE_2D, 0, minX, minY, width, height, gl.RGBA, gl.FLOAT, pixelsB);
+        }
+        
+        // Функция синхронизации CPU -> GPU
+        function syncCPUtoGPU() {
+            if (!gl || !isWebGLReady) return;
+            
+            // Конвертируем в RGBA формат для textureA с инверсией Y
+            const rgbaDataA = new Float32Array(size * size * 4);
+            for (let y = 0; y < size; y++) {
+                for (let x = 0; x < size; x++) {
+                    const srcIdx = x + y * size;
+                    const dstIdx = (x + (size - 1 - y) * size) * 4;
+                    rgbaDataA[dstIdx + 0] = gridA[srcIdx];
+                    rgbaDataA[dstIdx + 1] = 0.0;
+                    rgbaDataA[dstIdx + 2] = 0.0;
+                    rgbaDataA[dstIdx + 3] = 1.0;
+                }
+            }
+            
+            gl.bindTexture(gl.TEXTURE_2D, textureA);
+            gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, size, size, 0, gl.RGBA, gl.FLOAT, rgbaDataA);
+            
+            // Конвертируем в RGBA формат для textureB с инверсией Y
+            const rgbaDataB = new Float32Array(size * size * 4);
+            for (let y = 0; y < size; y++) {
+                for (let x = 0; x < size; x++) {
+                    const srcIdx = x + y * size;
+                    const dstIdx = (x + (size - 1 - y) * size) * 4;
+                    rgbaDataB[dstIdx + 0] = gridB[srcIdx];
+                    rgbaDataB[dstIdx + 1] = 0.0;
+                    rgbaDataB[dstIdx + 2] = 0.0;
+                    rgbaDataB[dstIdx + 3] = 1.0;
+                }
+            }
+            
+            gl.bindTexture(gl.TEXTURE_2D, textureB);
+            gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, size, size, 0, gl.RGBA, gl.FLOAT, rgbaDataB);
+        }
+        
+        // Функция синхронизации GPU -> CPU (для экспорта)
+        function syncGPUtoCPU() {
+            if (!gl || !isWebGLReady) return;
+            
+            const pixels = new Float32Array(size * size * 4);
+            
+            // Читаем textureA
+            gl.bindFramebuffer(gl.FRAMEBUFFER, framebuffers[0]);
+            gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, textureA, 0);
+            
+            if (gl.checkFramebufferStatus(gl.FRAMEBUFFER) === gl.FRAMEBUFFER_COMPLETE) {
+                gl.readPixels(0, 0, size, size, gl.RGBA, gl.FLOAT, pixels);
+                
+                // Копируем с учётом инверсии Y (WebGL снизу вверх, наши данные сверху вниз)
+                for (let y = 0; y < size; y++) {
+                    for (let x = 0; x < size; x++) {
+                        const srcIdx = (x + y * size) * 4;
+                        const dstIdx = x + (size - 1 - y) * size;
+                        gridA[dstIdx] = pixels[srcIdx];
+                    }
+                }
+            }
+            
+            // Читаем textureB
+            gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, textureB, 0);
+            
+            if (gl.checkFramebufferStatus(gl.FRAMEBUFFER) === gl.FRAMEBUFFER_COMPLETE) {
+                gl.readPixels(0, 0, size, size, gl.RGBA, gl.FLOAT, pixels);
+                
+                // Копируем с учётом инверсии Y
+                for (let y = 0; y < size; y++) {
+                    for (let x = 0; x < size; x++) {
+                        const srcIdx = (x + y * size) * 4;
+                        const dstIdx = x + (size - 1 - y) * size;
+                        gridB[dstIdx] = pixels[srcIdx];
+                    }
+                }
+            }
+            
+            gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+        }
+
         // Оптимизированная функция Лапласа с полным 9-точечным ядром и поддержкой разных граничных условий
-        function laplace(x, y, grid) {
+        function computeLaplace(x, y, grid) {
+            // Вся существующая логика из оптимизированной версии laplace
             const idx = x + y * size;
             const center = grid[idx];
-            const isGridA = grid === gridA; // Вычисляем один раз
+            const isGridA = grid === gridA;
             
             let right, left, down, up, downRight, downLeft, upRight, upLeft;
             
             if (boundaryType === 'toroidal') {
-                // Тороидальные (периодические) граничные условия
                 const xp1 = ((x + 1) % size);
                 const xm1 = ((x - 1 + size) % size);
                 const yp1 = ((y + 1) % size);
@@ -1286,7 +1882,6 @@
                 upLeft = grid[xm1 + ym1 * size];
                 
             } else if (boundaryType === 'bounded') {
-                // Ограниченные граничные условия (Неймана - отражение)
                 const xp1 = Math.min(x + 1, size - 1);
                 const xm1 = Math.max(x - 1, 0);
                 const yp1 = Math.min(y + 1, size - 1);
@@ -1302,11 +1897,7 @@
                 upLeft = grid[xm1 + ym1 * size];
                 
             } else if (boundaryType === 'dirichlet') {
-                // Граничные условия Дирихле (фиксированные значения на границах)
-                // Оптимизировано: inline проверки вместо функций
                 const boundaryValue = isGridA ? 1.0 : 0.0;
-                
-                // Проверяем, находимся ли на границе
                 const onLeftEdge = x === 0;
                 const onRightEdge = x === size - 1;
                 const onTopEdge = y === 0;
@@ -1323,8 +1914,6 @@
                 upLeft = (onLeftEdge || onTopEdge) ? boundaryValue : grid[(x - 1) + (y - 1) * size];
                 
             } else if (boundaryType === 'absorbing') {
-                // Поглощающие граничные условия (затухание к нулю на краях)
-                // Оптимизировано: inline проверки
                 const onLeftEdge = x === 0;
                 const onRightEdge = x === size - 1;
                 const onTopEdge = y === 0;
@@ -1341,7 +1930,6 @@
                 upLeft = (onLeftEdge || onTopEdge) ? 0.0 : grid[(x - 1) + (y - 1) * size];
                 
             } else if (boundaryType === 'cylinder') {
-                // Цилиндрические условия: периодические по X, отражающие по Y
                 const xp1 = ((x + 1) % size);
                 const xm1 = ((x - 1 + size) % size);
                 const yp1 = Math.min(y + 1, size - 1);
@@ -1357,23 +1945,11 @@
                 upLeft = grid[xm1 + ym1 * size];
                 
             } else if (boundaryType === 'sphere') {
-                // Сферическая топология - ОПТИМИЗИРОВАНО
                 const xp1 = (x + 1) % size;
                 const xm1 = (x - 1 + size) % size;
                 
                 if (y === 0) {
-                    // Северный полюс - используем кэшированное среднее
-                    if (!window.sphereNorthPoleCache || window.sphereNorthPoleCacheFrame !== window.currentFrame) {
-                        // Вычисляем среднее только раз за кадр
-                        let poleSum = 0;
-                        for (let px = 0; px < size; px++) {
-                            poleSum += grid[px];
-                        }
-                        window.sphereNorthPoleCache = poleSum / size;
-                        window.sphereNorthPoleCacheFrame = window.currentFrame || 0;
-                    }
-                    const poleValue = window.sphereNorthPoleCache;
-                    
+                    const poleValue = isGridA ? window.sphereNorthPoleCacheA : window.sphereNorthPoleCacheB;
                     up = poleValue;
                     upLeft = poleValue;
                     upRight = poleValue;
@@ -1384,18 +1960,7 @@
                     left = grid[xm1];
                     
                 } else if (y === size - 1) {
-                    // Южный полюс - используем кэшированное среднее
-                    if (!window.sphereSouthPoleCache || window.sphereSouthPoleCacheFrame !== window.currentFrame) {
-                        let poleSum = 0;
-                        const baseIdx = (size - 1) * size;
-                        for (let px = 0; px < size; px++) {
-                            poleSum += grid[baseIdx + px];
-                        }
-                        window.sphereSouthPoleCache = poleSum / size;
-                        window.sphereSouthPoleCacheFrame = window.currentFrame || 0;
-                    }
-                    const poleValue = window.sphereSouthPoleCache;
-                    
+                    const poleValue = isGridA ? window.sphereSouthPoleCacheA : window.sphereSouthPoleCacheB;
                     down = poleValue;
                     downLeft = poleValue;
                     downRight = poleValue;
@@ -1406,7 +1971,6 @@
                     left = grid[xm1 + y * size];
                     
                 } else {
-                    // Обычные точки
                     const yp1 = y + 1;
                     const ym1 = y - 1;
                     
@@ -1421,7 +1985,6 @@
                 }
                 
             } else if (boundaryType === 'projective') {
-                // Проективная плоскость
                 const xp1 = (x + 1) % size;
                 const xm1 = (x - 1 + size) % size;
                 
@@ -1484,30 +2047,139 @@
 
         // Оптимизированный шаг симуляции
         function simulate() {
-            // Увеличиваем счётчик кадров для кэша полюсов сферы
+            if (useGPU && isWebGLReady) {
+                simulateGPU();
+            } else {
+                simulateCPU();
+            }
+        }
+        
+        // Новая CPU версия (старая функция simulate переименована)
+        function simulateCPU() {
             window.currentFrame = (window.currentFrame || 0) + 1;
-            
+            /*
+            // Предвычисляем для сферы (если используется)
+            if (boundaryType === 'sphere') {
+                let northSumA = 0, northSumB = 0;
+                for (let px = 0; px < size; px++) {
+                    northSumA += gridA[px];
+                    northSumB += gridB[px];
+                }
+                window.sphereNorthPoleCacheA = northSumA / size;
+                window.sphereNorthPoleCacheB = northSumB / size;
+                
+                let southSumA = 0, southSumB = 0;
+                const baseIdx = (size - 1) * size;
+                for (let px = 0; px < size; px++) {
+                    southSumA += gridA[baseIdx + px];
+                    southSumB += gridB[baseIdx + px];
+                }
+                window.sphereSouthPoleCacheA = southSumA / size;
+                window.sphereSouthPoleCacheB = southSumB / size;
+            }
+            */
             for (let y = 0; y < size; y++) {
                 for (let x = 0; x < size; x++) {
                     const idx = x + y * size;
                     const a = gridA[idx];
                     const b = gridB[idx];
+                    
+                    const laplaceA = computeLaplace(x, y, gridA);
+                    const laplaceB = computeLaplace(x, y, gridB);
+                    
                     const ab2 = a * b * b;
         
-                    nextA[idx] = a + 
-                        (dA * laplace(x, y, gridA) - ab2 + feedRate * (1 - a)) * dt;
-                    nextB[idx] = b + 
-                        (dB * laplace(x, y, gridB) + ab2 - (killRate + feedRate) * b) * dt;
+                    nextA[idx] = a + (dA * laplaceA - ab2 + feedRate * (1 - a)) * dt;
+                    nextB[idx] = b + (dB * laplaceB + ab2 - (killRate + feedRate) * b) * dt;
         
-                    // Ограничиваем значения
                     nextA[idx] = Math.max(0, Math.min(1, nextA[idx]));
                     nextB[idx] = Math.max(0, Math.min(1, nextB[idx]));
                 }
             }
         
-            // Swap arrays
             [gridA, nextA] = [nextA, gridA];
             [gridB, nextB] = [nextB, gridB];
+        }
+        
+        // GPU версия
+        function simulateGPU() {
+            if (!gl || !isWebGLReady) return;
+            
+            const boundaryTypeMap = {
+                'toroidal': 0,
+                'bounded': 1,
+                'dirichlet': 2,
+                'absorbing': 3,
+                'cylinder': 4,
+                'sphere': 5,
+                'projective': 6
+            };
+            
+            gl.useProgram(simulationProgram);
+            
+            // Установка uniform переменных
+            gl.uniform2f(gl.getUniformLocation(simulationProgram, 'resolution'), size, size);
+            gl.uniform1f(gl.getUniformLocation(simulationProgram, 'feedRate'), feedRate);
+            gl.uniform1f(gl.getUniformLocation(simulationProgram, 'killRate'), killRate);
+            gl.uniform1f(gl.getUniformLocation(simulationProgram, 'dA'), dA);
+            gl.uniform1f(gl.getUniformLocation(simulationProgram, 'dB'), dB);
+            gl.uniform1f(gl.getUniformLocation(simulationProgram, 'dt'), dt);
+            gl.uniform1i(gl.getUniformLocation(simulationProgram, 'boundaryType'), boundaryTypeMap[boundaryType] || 0);
+            
+            // Настройка буфера вершин
+            const positionLoc = gl.getAttribLocation(simulationProgram, 'position');
+            gl.bindBuffer(gl.ARRAY_BUFFER, quadBuffer);
+            gl.enableVertexAttribArray(positionLoc);
+            gl.vertexAttribPointer(positionLoc, 2, gl.FLOAT, false, 0, 0);
+            
+            gl.viewport(0, 0, size, size);
+            
+            // Вычисляем A
+            gl.uniform1i(gl.getUniformLocation(simulationProgram, 'computeChannel'), 0);
+            gl.uniform1i(gl.getUniformLocation(simulationProgram, 'textureA'), 0);
+            gl.uniform1i(gl.getUniformLocation(simulationProgram, 'textureB'), 1);
+            
+            gl.activeTexture(gl.TEXTURE0);
+            gl.bindTexture(gl.TEXTURE_2D, textureA);
+            gl.activeTexture(gl.TEXTURE1);
+            gl.bindTexture(gl.TEXTURE_2D, textureB);
+            
+            gl.bindFramebuffer(gl.FRAMEBUFFER, framebuffers[0]);
+            gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, textureTemp, 0);
+            
+            // Проверка framebuffer
+            if (gl.checkFramebufferStatus(gl.FRAMEBUFFER) !== gl.FRAMEBUFFER_COMPLETE) {
+                console.error('Framebuffer не готов для A');
+                return;
+            }
+            
+            gl.drawArrays(gl.TRIANGLES, 0, 6);
+            
+            // Копируем результат обратно в textureA
+            [textureA, textureTemp] = [textureTemp, textureA];
+            
+            // Вычисляем B
+            gl.uniform1i(gl.getUniformLocation(simulationProgram, 'computeChannel'), 1);
+            gl.activeTexture(gl.TEXTURE0);
+            gl.bindTexture(gl.TEXTURE_2D, textureA);
+            gl.activeTexture(gl.TEXTURE1);
+            gl.bindTexture(gl.TEXTURE_2D, textureB);
+            
+            gl.bindFramebuffer(gl.FRAMEBUFFER, framebuffers[1]);
+            gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, textureTemp, 0);
+            
+            // Проверка framebuffer
+            if (gl.checkFramebufferStatus(gl.FRAMEBUFFER) !== gl.FRAMEBUFFER_COMPLETE) {
+                console.error('Framebuffer не готов для B');
+                return;
+            }
+            
+            gl.drawArrays(gl.TRIANGLES, 0, 6);
+            
+            // Копируем результат обратно в textureB
+            [textureB, textureTemp] = [textureTemp, textureB];
+            
+            gl.bindFramebuffer(gl.FRAMEBUFFER, null);
         }
         
         // Улучшенные цветовые схемы с более динамичной визуализацией
@@ -1686,24 +2358,85 @@
 
         // Отрисовка
         function draw() {
+            if (useGPU && isWebGLReady) {
+                drawGPU();
+            } else {
+                drawCPU();
+            }
+        }
+        
+        // CPU версия (старая функция draw переименована)
+        function drawCPU() {
+            if (!ctx) return;
+            
             const imageData = ctx.createImageData(size, size);
             const data = imageData.data;
             const colorFunc = colorSchemes[colorScheme];
-
+        
             for (let i = 0; i < size * size; i++) {
                 const a = gridA[i];
                 const b = gridB[i];
                 const idx = i * 4;
                 const c = a - b;
-
+        
                 const [r, g, b_color] = colorFunc(c, b);
                 data[idx + 0] = r;
                 data[idx + 1] = g;
                 data[idx + 2] = b_color;
                 data[idx + 3] = 255;
             }
-
+        
             ctx.putImageData(imageData, 0, 0);
+        }
+        
+        // GPU версия
+        function drawGPU() {
+            if (!gl || !isWebGLReady) return;
+            
+            const colorSchemeMap = {
+                'cyanMagenta': 0,
+                'plasma': 1,
+                'bioluminescent': 2,
+                'aurora': 3,
+                'nebula': 4,
+                'oilSlick': 5,
+                'underwater': 6,
+                'lavaLamp': 7,
+                'electric': 8,
+                'toxic': 9,
+                'moltenMetal': 10,
+                'fire': 11,
+                'ocean': 12,
+                'forest': 13,
+                'sunset': 14,
+                'neon': 15,
+                'grayscale': 16
+            };
+            
+            gl.useProgram(renderProgram);
+            
+            // Установка uniform переменных
+            gl.uniform1i(gl.getUniformLocation(renderProgram, 'textureA'), 0);
+            gl.uniform1i(gl.getUniformLocation(renderProgram, 'textureB'), 1);
+            gl.uniform1i(gl.getUniformLocation(renderProgram, 'colorScheme'), colorSchemeMap[colorScheme] || 0);
+            gl.uniform1f(gl.getUniformLocation(renderProgram, 'contrast'), contrast);
+            
+            // Настройка буфера вершин
+            const positionLoc = gl.getAttribLocation(renderProgram, 'position');
+            gl.bindBuffer(gl.ARRAY_BUFFER, quadBuffer);
+            gl.enableVertexAttribArray(positionLoc);
+            gl.vertexAttribPointer(positionLoc, 2, gl.FLOAT, false, 0, 0);
+            
+            // Привязка текстур
+            gl.activeTexture(gl.TEXTURE0);
+            gl.bindTexture(gl.TEXTURE_2D, textureA);
+            gl.activeTexture(gl.TEXTURE1);
+            gl.bindTexture(gl.TEXTURE_2D, textureB);
+            
+            // Рендер на экран - ВАЖНО: canvas может быть больше size
+            gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+            gl.viewport(0, 0, canvas.width, canvas.height);
+            gl.drawArrays(gl.TRIANGLES, 0, 6);
         }
 
         // Переключение вкладок
@@ -1763,11 +2496,22 @@
                 stopRecording();
             }
             
+            // ВАЖНО: Читаем значения из UI перед применением
+            seedCount = parseInt(document.getElementById('seedCount').value);
+            seedSize = parseInt(document.getElementById('seedSize').value);
+            noiseLevel = parseFloat(document.getElementById('noise').value);
             const newSize = parseInt(document.getElementById('gridSize').value);
+            
+            console.log('Применение параметров инициализации:', { seedCount, seedSize, noiseLevel, newSize });
             
             // Если размер изменился, пересоздаём сетку
             if (newSize !== size) {
+                const wasRunning = running;
+                running = false;
+                
                 resizeGrid(newSize);
+                
+                running = wasRunning;
             } else {
                 // Иначе просто перезапускаем с новыми параметрами
                 initGrid();
@@ -1775,17 +2519,19 @@
             }
             
             // Визуальная обратная связь
-            const applyBtn = document.querySelector('#init button');
-            const originalText = applyBtn.innerHTML;
-            applyBtn.innerHTML = '<span>✓ Применено!</span>';
-            applyBtn.style.borderColor = 'var(--accent-cyan)';
-            applyBtn.style.background = 'rgba(0, 229, 255, 0.2)';
-            
-            setTimeout(() => {
-                applyBtn.innerHTML = originalText;
-                applyBtn.style.borderColor = '';
-                applyBtn.style.background = '';
-            }, 1500);
+            const applyBtn = document.querySelector('#init .compact-buttons button:first-child');
+            if (applyBtn) {
+                const originalText = applyBtn.innerHTML;
+                applyBtn.innerHTML = '<span>✓ Применено!</span>';
+                applyBtn.style.borderColor = 'var(--accent-cyan)';
+                applyBtn.style.background = 'rgba(0, 229, 255, 0.2)';
+                
+                setTimeout(() => {
+                    applyBtn.innerHTML = originalText;
+                    applyBtn.style.borderColor = '';
+                    applyBtn.style.background = '';
+                }, 1500);
+            }
         }
 
         // Функции сброса параметров по вкладкам
@@ -1889,23 +2635,71 @@
 
         // Экспорт изображения
         function exportImage() {
-            // Создаём временный canvas для экспорта в высоком разрешении
+            // ВАЖНО: принудительно рендерим перед экспортом
+            if (useGPU && isWebGLReady) {
+                draw();
+            }
+            
             const exportCanvas = document.createElement('canvas');
             exportCanvas.width = size;
             exportCanvas.height = size;
             const exportCtx = exportCanvas.getContext('2d');
             
-            // Копируем текущее изображение
-            exportCtx.drawImage(canvas, 0, 0);
+            if (useGPU && isWebGLReady) {
+                // Для WebGL используем альтернативный подход:
+                // Читаем пиксели напрямую из WebGL и рендерим в новый canvas
+                
+                const pixels = new Uint8Array(size * size * 4);
+                
+                // Читаем из WebGL canvas
+                gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+                gl.readPixels(0, 0, size, size, gl.RGBA, gl.UNSIGNED_BYTE, pixels);
+                
+                // Создаём ImageData и переворачиваем Y (WebGL рисует снизу вверх)
+                const imageData = exportCtx.createImageData(size, size);
+                for (let y = 0; y < size; y++) {
+                    for (let x = 0; x < size; x++) {
+                        const srcIdx = (x + y * size) * 4;
+                        const dstIdx = (x + (size - 1 - y) * size) * 4;
+                        imageData.data[dstIdx + 0] = pixels[srcIdx + 0];
+                        imageData.data[dstIdx + 1] = pixels[srcIdx + 1];
+                        imageData.data[dstIdx + 2] = pixels[srcIdx + 2];
+                        imageData.data[dstIdx + 3] = 255;
+                    }
+                }
+                
+                exportCtx.putImageData(imageData, 0, 0);
+                
+            } else {
+                // CPU режим - рендерим заново
+                const imageData = exportCtx.createImageData(size, size);
+                const data = imageData.data;
+                const colorFunc = colorSchemes[colorScheme];
+
+                for (let i = 0; i < size * size; i++) {
+                    const a = gridA[i];
+                    const b = gridB[i];
+                    const idx = i * 4;
+                    const c = a - b;
+
+                    const [r, g, b_color] = colorFunc(c, b);
+                    data[idx + 0] = r;
+                    data[idx + 1] = g;
+                    data[idx + 2] = b_color;
+                    data[idx + 3] = 255;
+                }
+
+                exportCtx.putImageData(imageData, 0, 0);
+            }
             
-            // Визуальная обратная связь
-            const exportBtn = document.querySelector('#export button:last-child');
+            const exportBtn = document.querySelector('#export .action-buttons button:last-child');
+            if (!exportBtn) return;
+            
             const originalText = exportBtn.innerHTML;
             exportBtn.innerHTML = '<span>✓ Сохранено!</span>';
             exportBtn.style.borderColor = 'var(--accent-cyan)';
             exportBtn.style.background = 'rgba(0, 229, 255, 0.2)';
             
-            // Скачиваем
             exportCanvas.toBlob(blob => {
                 const url = URL.createObjectURL(blob);
                 const link = document.createElement('a');
@@ -1914,7 +2708,6 @@
                 link.click();
                 URL.revokeObjectURL(url);
                 
-                // Возвращаем кнопку в исходное состояние через 2 секунды
                 setTimeout(() => {
                     exportBtn.innerHTML = originalText;
                     exportBtn.style.borderColor = '';
@@ -2053,17 +2846,20 @@
                 for (let i = 0; i < speed; i++) {
                     simulate();
                 }
-                draw();
-
-                // Подсчёт FPS
-                frameCount++;
-                if (currentTime - lastFrameTime >= 1000) {
-                    fps = frameCount;
-                    fpsCounter.textContent = `${fps} FPS`;
-                    frameCount = 0;
-                    lastFrameTime = currentTime;
-                }
             }
+            
+            // Рисуем ВСЕГДА, даже если симуляция остановлена
+            draw();
+
+            // Подсчёт FPS
+            frameCount++;
+            if (currentTime - lastFrameTime >= 1000) {
+                fps = frameCount;
+                fpsCounter.textContent = `${fps} FPS`;
+                frameCount = 0;
+                lastFrameTime = currentTime;
+            }
+            
             requestAnimationFrame(loop);
         }
 
@@ -2085,9 +2881,11 @@
             document.getElementById('killRate').value = killRate;
             updateValueDisplays();
             updateParamMap();
+            
+            // ВАЖНО: сначала сбрасываем симуляцию
             resetSimulation();
             
-            // Обновляем визуальное состояние кнопок
+            // Затем обновляем визуальное состояние кнопок
             currentPreset = name;
             document.querySelectorAll('.preset-btn').forEach(btn => {
                 btn.classList.remove('active');
@@ -2105,6 +2903,12 @@
 
         function resetSimulation() {
             initGrid();
+            
+            // Если GPU режим, синхронизируем
+            //if (useGPU && isWebGLReady) {
+            //    syncCPUtoGPU();
+            //}
+            
             draw();
         }
 
@@ -2113,6 +2917,11 @@
                 gridA[i] = 1;
                 gridB[i] = Math.random() * (noiseLevel / 100);
             }
+            
+            if (useGPU && isWebGLReady) {
+                syncCPUtoGPU();
+            }
+            
             draw();
         }
 
@@ -2310,10 +3119,17 @@
             const rect = canvas.getBoundingClientRect();
             const scaleX = canvas.width / rect.width;
             const scaleY = canvas.height / rect.height;
-            return {
-                x: Math.floor((clientX - rect.left) * scaleX),
-                y: Math.floor((clientY - rect.top) * scaleY)
-            };
+            
+            let x = Math.floor((clientX - rect.left) * scaleX);
+            let y = Math.floor((clientY - rect.top) * scaleY);
+            
+            // ВАЖНО: WebGL имеет Y координаты снизу вверх, canvas сверху вниз
+            // Инвертируем Y если используем GPU
+            if (useGPU && isWebGLReady) {
+                y = size - 1 - y;
+            }
+            
+            return { x, y };
         }
 
         function handleDraw(e) {
@@ -2356,7 +3172,152 @@
         initGrid();
         updateValueDisplays();
         drawParamMap();
+        draw();
         requestAnimationFrame(loop);
+        
+        // ============================================================================
+        // ВСПОМОГАТЕЛЬНЫЕ ФУНКЦИИ WEBGL
+        // ============================================================================
+        
+        function createShader(gl, type, source) {
+            const shader = gl.createShader(type);
+            gl.shaderSource(shader, source);
+            gl.compileShader(shader);
+            
+            if (!gl.getShaderParameter(shader, gl.COMPILE_STATUS)) {
+                console.error('Ошибка компиляции шейдера:', gl.getShaderInfoLog(shader));
+                gl.deleteShader(shader);
+                return null;
+            }
+            
+            return shader;
+        }
+        
+        function createProgram(gl, vertexSource, fragmentSource) {
+            const vertexShader = createShader(gl, gl.VERTEX_SHADER, vertexSource);
+            const fragmentShader = createShader(gl, gl.FRAGMENT_SHADER, fragmentSource);
+            
+            if (!vertexShader || !fragmentShader) {
+                return null;
+            }
+            
+            const program = gl.createProgram();
+            gl.attachShader(program, vertexShader);
+            gl.attachShader(program, fragmentShader);
+            gl.linkProgram(program);
+            
+            if (!gl.getProgramParameter(program, gl.LINK_STATUS)) {
+                console.error('Ошибка линковки программы:', gl.getProgramInfoLog(program));
+                gl.deleteProgram(program);
+                return null;
+            }
+            
+            return program;
+        }
+        
+        function createTexture(gl, data) {
+            const texture = gl.createTexture();
+            gl.bindTexture(gl.TEXTURE_2D, texture);
+            
+            gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+            gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+            gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
+            gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
+            
+            if (data) {
+                // Конвертируем данные в RGBA формат
+                const rgbaData = new Float32Array(size * size * 4);
+                for (let i = 0; i < size * size; i++) {
+                    rgbaData[i * 4 + 0] = data[i]; // R
+                    rgbaData[i * 4 + 1] = 0.0;      // G
+                    rgbaData[i * 4 + 2] = 0.0;      // B
+                    rgbaData[i * 4 + 3] = 1.0;      // A
+                }
+                gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, size, size, 0, gl.RGBA, gl.FLOAT, rgbaData);
+            } else {
+                gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, size, size, 0, gl.RGBA, gl.FLOAT, null);
+            }
+            
+            return texture;
+        }
+        
+        function createTextures() {
+            if (!gl) return;
+            
+            // Создаём текстуры и загружаем данные из CPU массивов
+            textureA = createTexture(gl, gridA);
+            textureB = createTexture(gl, gridB);
+            textureTemp = createTexture(gl, null);
+            
+            // Создаём framebuffer'ы
+            framebuffers[0] = gl.createFramebuffer();
+            framebuffers[1] = gl.createFramebuffer();
+        }
+        
+        function recreateTextures() {
+            if (!gl || !isWebGLReady) return;
+            
+            // Удаляем старые текстуры
+            if (textureA) gl.deleteTexture(textureA);
+            if (textureB) gl.deleteTexture(textureB);
+            if (textureTemp) gl.deleteTexture(textureTemp);
+            if (framebuffers[0]) gl.deleteFramebuffer(framebuffers[0]);
+            if (framebuffers[1]) gl.deleteFramebuffer(framebuffers[1]);
+            
+            // Создаём новые
+            createTextures();
+        }
+        
+        // Обработчик переключения режима
+        document.getElementById('computeMode').addEventListener('change', (e) => {
+            const newMode = e.target.value;
+            
+            if (newMode === 'gpu' && !gl) {
+                alert('WebGL не поддерживается вашим браузером. Используется CPU режим.');
+                e.target.value = 'cpu';
+                return;
+            }
+            
+            const wasGPU = useGPU;
+            useGPU = (newMode === 'gpu');
+            
+            // Синхронизация данных при переключении
+            if (wasGPU && !useGPU) {
+                // GPU -> CPU
+                syncGPUtoCPU();
+            } else if (!wasGPU && useGPU) {
+                // CPU -> GPU
+                syncCPUtoGPU();
+            }
+            
+            console.log(`Режим переключён на: ${useGPU ? 'GPU' : 'CPU'}`);
+        });
+        
+        // Обновить функцию resizeGrid для поддержки WebGL
+        function resizeGrid(newSize) {
+            size = parseInt(newSize);
+            canvas.width = size;
+            canvas.height = size;
+            
+            gridA = new Float32Array(size * size);
+            gridB = new Float32Array(size * size);
+            nextA = new Float32Array(size * size);
+            nextB = new Float32Array(size * size);
+            
+            if (useGPU && isWebGLReady) {
+                recreateTextures();
+            }
+            
+            const rect = canvas.getBoundingClientRect();
+            const scale = rect.width / canvas.width;
+            const diameter = brushSize * 2 * scale;
+            brushCursor.style.width = diameter + 'px';
+            brushCursor.style.height = diameter + 'px';
+            
+            initGrid();
+            draw();
+        }
+        
     </script>
 </body>
 </html>
