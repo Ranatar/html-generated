@@ -636,6 +636,26 @@
             0%, 100% { opacity: 0.3; }
             50% { opacity: 1; }
         }
+
+        /* Стили для details/summary */
+        details summary {
+            list-style: none;
+            transition: all 0.3s ease;
+        }
+
+        details summary::-webkit-details-marker {
+            display: none;
+        }
+
+        details summary:hover {
+            background: rgba(0, 229, 255, 0.1);
+            color: var(--accent-cyan);
+        }
+
+        details[open] summary {
+            margin-bottom: 0.5rem;
+            border-bottom: 1px solid var(--border);
+        }
     </style>
 </head>
 <body>
@@ -645,6 +665,9 @@
             <p class="subtitle">Реакционно-Диффузионная Система</p>
             <div id="recordingIndicator" style="display: none; margin-top: 1rem; color: var(--accent-magenta); font-family: 'Orbitron', sans-serif; font-size: 0.9rem; animation: recordPulse 1.5s ease-in-out infinite;">
                 ⏺ Идёт запись видео
+            </div>
+            <div id="computeModeIndicator" style="margin-top: 0.5rem; font-size: 0.75rem; color: var(--text-secondary); font-family: 'IBM Plex Mono', monospace;">
+                <span id="modeText">Режим: Инициализация...</span>
             </div>
         </header>
 
@@ -880,9 +903,48 @@
                         <button onclick="toggleSimulation()">
                             <span id="playPauseBtn">⏸ Пауза</span>
                         </button>
+                        
+                        <!-- НОВЫЙ БЛОК: Настройки записи -->
+                        <div class="control-group" style="margin-bottom: 1rem;">
+                            <label>Качество записи видео</label>
+                            <select id="recordingQuality" class="color-select" onchange="updateRecordingQualityInfo()">
+                                <option value="low">Низкое (15 FPS, 2 Mbps) ⚡</option>
+                                <option value="medium">Среднее (24 FPS, 4 Mbps) ⚖️</option>
+                                <option value="high" selected>Высокое (30 FPS, 8 Mbps) ⭐</option>
+                                <option value="ultra">Ультра (30 FPS, 15 Mbps) 🔥</option>
+                            </select>
+                            <div id="qualityInfo" style="font-size: 0.65rem; color: var(--text-secondary); margin-top: 0.5rem; line-height: 1.4;">
+                                💡 Высокое качество: лучший баланс скорости и качества. Использует аппаратное ускорение H.264.
+                            </div>
+                        </div>
+                        
                         <button onclick="toggleRecording()" id="recordBtn">
                             <span id="recordBtnText">⏺ Запись видео</span>
                         </button>
+                        
+                        <!-- НОВАЯ ОПЦИЯ: Оффлайн рендеринг -->
+                        <div class="control-group" style="margin-top: 0.5rem; margin-bottom: 1rem;">
+                            <details style="cursor: pointer;">
+                                <summary style="font-size: 0.7rem; color: var(--text-secondary); padding: 0.5rem; background: rgba(0, 229, 255, 0.05); border-radius: 4px;">
+                                    🎬 Продвинутые опции
+                                </summary>
+                                <div style="margin-top: 0.5rem; padding: 0.5rem; background: rgba(0, 0, 0, 0.3); border-radius: 4px;">
+                                    <p style="font-size: 0.65rem; color: var(--text-secondary); margin-bottom: 0.5rem;">
+                                        <strong style="color: var(--accent-cyan);">Оффлайн-рендеринг:</strong><br>
+                                        Захват без замедления симуляции (экспериментально)
+                                    </p>
+                                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.5rem;">
+                                        <button onclick="renderOfflineVideo(10, 30)" style="padding: 0.6rem; font-size: 0.7rem;">
+                                            <span>10 сек @ 30 FPS</span>
+                                        </button>
+                                        <button onclick="renderOfflineVideo(30, 30)" style="padding: 0.6rem; font-size: 0.7rem;">
+                                            <span>30 сек @ 30 FPS</span>
+                                        </button>
+                                    </div>
+                                </div>
+                            </details>
+                        </div>
+                        
                         <button onclick="resetSimulation()">
                             <span>🔄 Перезапуск</span>
                         </button>
@@ -911,7 +973,9 @@
                     - Сфера — как на глобусе (с полюсами)<br>
                     - Проективная — односторонняя поверхность (как лист Мёбиуса)<br><br>
                     <strong>🗺️ Карта:</strong> Вкладка "Карта" показывает параметрическое пространство (f, k). Кликните по карте для быстрой установки параметров.<br><br>
-                    <strong>⌨️ Горячие клавиши:</strong> Пробел — пауза/воспроизведение, R — перезапуск, C — очистить холст, V — запись видео.
+                    <strong>⌨️ Горячие клавиши:</strong> Пробел — пауза/воспроизведение, R — перезапуск, C — очистить холст, V — запись видео.<br><br>
+                    <strong>📹 Запись видео:</strong> Выберите качество перед записью. "Высокое" 
+                    рекомендуется для большинства устройств (использует аппаратное ускорение H.264).
                 </div>
             </div>
         </div>
@@ -1287,42 +1351,45 @@
         // Попытка инициализации WebGL
         function initWebGL() {
             try {
-                gl = canvas.getContext('webgl', {
+                // Сначала проверяем, можем ли мы вообще получить WebGL контекст
+                const testGl = canvas.getContext('webgl', {
                     premultipliedAlpha: false,
                     preserveDrawingBuffer: false,
                     antialias: false
                 }) || canvas.getContext('experimental-webgl');
                 
-                if (!gl) {
-                    console.warn('WebGL не поддерживается, используется CPU режим');
+                if (!testGl) {
+                    console.warn('[WebGL] Контекст недоступен, будет использован CPU режим');
                     useGPU = false;
-                    ctx = canvas.getContext('2d');
+                    isWebGLReady = false;
                     return false;
                 }
                 
-                // Проверка и включение необходимых расширений
-                const floatExt = gl.getExtension('OES_texture_float');
-                const floatLinearExt = gl.getExtension('OES_texture_float_linear');
-                const colorBufferFloatExt = gl.getExtension('WEBGL_color_buffer_float') || 
-                                             gl.getExtension('EXT_color_buffer_float');
+                // Проверяем необходимые расширения ДО присвоения gl
+                const floatExt = testGl.getExtension('OES_texture_float');
+                const floatLinearExt = testGl.getExtension('OES_texture_float_linear');
+                const colorBufferFloatExt = testGl.getExtension('WEBGL_color_buffer_float') || 
+                                             testGl.getExtension('EXT_color_buffer_float');
                 
                 if (!floatExt) {
-                    console.warn('OES_texture_float не поддерживается, используется CPU режим');
+                    console.warn('[WebGL] OES_texture_float не поддерживается, будет использован CPU режим');
+                    // ВАЖНО: Не присваиваем gl, чтобы canvas остался доступен для 2D контекста
                     useGPU = false;
-                    gl = null;
-                    ctx = canvas.getContext('2d');
+                    isWebGLReady = false;
                     return false;
                 }
                 
                 if (!colorBufferFloatExt) {
-                    console.warn('WEBGL_color_buffer_float не поддерживается, используется CPU режим');
+                    console.warn('[WebGL] WEBGL_color_buffer_float не поддерживается, будет использован CPU режим');
                     useGPU = false;
-                    gl = null;
-                    ctx = canvas.getContext('2d');
+                    isWebGLReady = false;
                     return false;
                 }
                 
-                console.log('WebGL расширения успешно загружены:', {
+                // Все проверки прошли успешно, теперь присваиваем gl
+                gl = testGl;
+                
+                console.log('[WebGL] Расширения загружены:', {
                     float: !!floatExt,
                     floatLinear: !!floatLinearExt,
                     colorBufferFloat: !!colorBufferFloatExt
@@ -1333,10 +1400,10 @@
                 renderProgram = createProgram(gl, vertexShaderSource, renderFragmentShaderSource);
                 
                 if (!simulationProgram || !renderProgram) {
-                    console.error('Ошибка компиляции шейдеров');
+                    console.error('[WebGL] Ошибка компиляции шейдеров');
                     useGPU = false;
+                    isWebGLReady = false;
                     gl = null;
-                    ctx = canvas.getContext('2d');
                     return false;
                 }
                 
@@ -1353,21 +1420,62 @@
                 createTextures();
                 
                 isWebGLReady = true;
-                console.log('WebGL успешно инициализирован');
+                useGPU = true;
+                console.log('[WebGL] Успешно инициализирован');
                 return true;
                 
             } catch (e) {
-                console.error('Ошибка инициализации WebGL:', e);
+                console.error('[WebGL] Ошибка инициализации:', e);
                 useGPU = false;
+                isWebGLReady = false;
                 gl = null;
-                ctx = canvas.getContext('2d');
                 return false;
             }
         }
         
-        // Если WebGL не инициализировался, используем 2D контекст
-        if (!initWebGL()) {
+        // Попытка инициализации WebGL
+        const webglSuccess = initWebGL();
+
+        // Если WebGL не удалось инициализировать, переключаемся на CPU режим
+        if (!webglSuccess) {
+            console.log('[CPU] Переключение на CPU режим');
+            useGPU = false;
+            isWebGLReady = false;
+            
+            // Получаем 2D контекст (это сработает только если WebGL не был присвоен)
             ctx = canvas.getContext('2d');
+            
+            if (!ctx) {
+                console.error('[CPU] КРИТИЧЕСКАЯ ОШИБКА: Не удалось получить 2D контекст');
+                console.error('[CPU] Canvas возможно уже привязан к WebGL');
+                
+                // Показываем ошибку пользователю
+                const loadingDiv = document.querySelector('.loading');
+                if (loadingDiv) {
+                    loadingDiv.textContent = 'ОШИБКА: Не удалось инициализировать графику';
+                    loadingDiv.style.display = 'block';
+                    loadingDiv.style.color = '#ff006e';
+                }
+                
+                // Пытаемся предложить решение
+                alert('Произошла ошибка инициализации. Попробуйте:\n1. Обновить страницу\n2. Использовать другой браузер\n3. Обновить браузер до последней версии');
+            } else {
+                console.log('[CPU] 2D контекст успешно получен, CPU режим активен');
+                
+                // Принудительно устанавливаем CPU режим в селекторе
+                const computeModeSelect = document.getElementById('computeMode');
+                if (computeModeSelect) {
+                    computeModeSelect.value = 'cpu';
+                    // Блокируем переключение на GPU если он недоступен
+                    const gpuOption = computeModeSelect.querySelector('option[value="gpu"]');
+                    if (gpuOption) {
+                        gpuOption.disabled = true;
+                        gpuOption.textContent = 'GPU (недоступен)';
+                    }
+                }
+            }
+        } else {
+            console.log('[WebGL] GPU режим активен');
         }
 
         // Карта параметров
@@ -1605,6 +1713,61 @@
         let mediaRecorder = null;
         let recordedChunks = [];
         let isRecording = false;
+        let recordingQuality = 'high'; // 'low', 'medium', 'high', 'ultra'
+
+        // Профили качества записи
+        const recordingProfiles = {
+            low: {
+                fps: 15,
+                bitrate: 2000000,      // 2 Mbps
+                codec: 'video/webm;codecs=vp8',
+                timeslice: 1000,
+                description: 'Низкое (быстро)'
+            },
+            medium: {
+                fps: 24,
+                bitrate: 4000000,      // 4 Mbps
+                codec: 'video/webm;codecs=vp8',
+                timeslice: 1000,
+                description: 'Среднее (баланс)'
+            },
+            high: {
+                fps: 30,
+                bitrate: 8000000,      // 8 Mbps
+                codec: 'video/webm;codecs=h264', // Аппаратное ускорение!
+                timeslice: 2000,
+                description: 'Высокое (рекоменд.)'
+            },
+            ultra: {
+                fps: 30,
+                bitrate: 15000000,     // 15 Mbps
+                codec: 'video/webm;codecs=vp9',
+                timeslice: 2000,
+                description: 'Ультра (медленно)'
+            }
+        };
+
+        // Функция подбора лучшего доступного кодека
+        function getBestAvailableCodec(preferredCodec) {
+            const codecFallbacks = [
+                preferredCodec,
+                'video/webm;codecs=h264',
+                'video/webm;codecs=vp8',
+                'video/webm;codecs=vp9',
+                'video/webm',
+                'video/mp4'
+            ];
+            
+            for (const codec of codecFallbacks) {
+                if (MediaRecorder.isTypeSupported(codec)) {
+                    console.log(`✓ Используется кодек: ${codec}`);
+                    return codec;
+                }
+            }
+            
+            console.warn('⚠ Не найден поддерживаемый кодек');
+            return '';
+        }
 
         // Обновление индикатора кисти
         function updateBrushCursor(clientX, clientY) {
@@ -2367,26 +2530,38 @@
         
         // CPU версия (старая функция draw переименована)
         function drawCPU() {
-            if (!ctx) return;
-            
-            const imageData = ctx.createImageData(size, size);
-            const data = imageData.data;
-            const colorFunc = colorSchemes[colorScheme];
-        
-            for (let i = 0; i < size * size; i++) {
-                const a = gridA[i];
-                const b = gridB[i];
-                const idx = i * 4;
-                const c = a - b;
-        
-                const [r, g, b_color] = colorFunc(c, b);
-                data[idx + 0] = r;
-                data[idx + 1] = g;
-                data[idx + 2] = b_color;
-                data[idx + 3] = 255;
+            if (!ctx) {
+                console.error('[drawCPU] ctx не инициализирован!');
+                return;
             }
-        
-            ctx.putImageData(imageData, 0, 0);
+            
+            try {
+                const imageData = ctx.createImageData(size, size);
+                const data = imageData.data;
+                const colorFunc = colorSchemes[colorScheme];
+                
+                if (!colorFunc) {
+                    console.error('[drawCPU] Цветовая схема не найдена:', colorScheme);
+                    return;
+                }
+            
+                for (let i = 0; i < size * size; i++) {
+                    const a = gridA[i];
+                    const b = gridB[i];
+                    const idx = i * 4;
+                    const c = a - b;
+            
+                    const [r, g, b_color] = colorFunc(c, b);
+                    data[idx + 0] = r;
+                    data[idx + 1] = g;
+                    data[idx + 2] = b_color;
+                    data[idx + 3] = 255;
+                }
+            
+                ctx.putImageData(imageData, 0, 0);
+            } catch (e) {
+                console.error('[drawCPU] Ошибка рендеринга:', e);
+            }
         }
         
         // GPU версия
@@ -2724,6 +2899,73 @@
                 stopRecording();
             }
         }
+
+        function renderOfflineVideo(duration = 10, fps = 30) {
+            console.log(`Начинается оффлайн-рендеринг: ${duration}s @ ${fps} FPS`);
+            
+            const frames = [];
+            const totalFrames = duration * fps;
+            const wasRunning = running;
+            
+            // Останавливаем реальную симуляцию
+            running = false;
+            
+            // Создаём временный canvas для захвата
+            const tempCanvas = document.createElement('canvas');
+            tempCanvas.width = size;
+            tempCanvas.height = size;
+            const tempCtx = tempCanvas.getContext('2d');
+            
+            let frameCount = 0;
+            
+            function captureFrame() {
+                if (frameCount >= totalFrames) {
+                    // Закончили захват, начинаем кодирование
+                    running = wasRunning;
+                    console.log('Захват завершён, начинается кодирование...');
+                    encodeOfflineVideo(frames, fps);
+                    return;
+                }
+                
+                // Делаем один шаг симуляции
+                for (let i = 0; i < speed; i++) {
+                    simulate();
+                }
+                draw();
+                
+                // Захватываем кадр
+                tempCtx.drawImage(canvas, 0, 0);
+                tempCanvas.toBlob((blob) => {
+                    frames.push(blob);
+                    frameCount++;
+                    
+                    // Показываем прогресс
+                    const progress = ((frameCount / totalFrames) * 100).toFixed(1);
+                    console.log(`Захват: ${frameCount}/${totalFrames} кадров (${progress}%)`);
+                    
+                    // Обновляем UI
+                    const recordBtnText = document.getElementById('recordBtnText');
+                    if (recordBtnText) {
+                        recordBtnText.textContent = `⏺ Захват: ${progress}%`;
+                    }
+                    
+                    // Захватываем следующий кадр
+                    requestAnimationFrame(captureFrame);
+                }, 'image/png');
+            }
+            
+            captureFrame();
+        }
+
+        function encodeOfflineVideo(frames, fps) {
+            console.log('Кодирование пока не реализовано полностью');
+            console.log('Используйте встроенную запись или внешние инструменты');
+            
+            // Здесь можно реализовать кодирование через WebCodecs API
+            // Или просто сохранить кадры как ZIP архив изображений
+            
+            alert(`Захвачено ${frames.length} кадров.\n\nДля создания видео используйте:\n- Встроенную запись (⏺ Запись видео)\n- Или ffmpeg: ffmpeg -framerate ${fps} -i frame%d.png output.mp4`);
+        }
         
         function updateRecordingUI() {
             const recordBtn = document.getElementById('recordBtn');
@@ -2751,80 +2993,130 @@
         }
         
         function startRecording() {
+
+            // В начале функции startRecording()
+            if (fps < 30 && recordingQuality === 'ultra') {
+                console.warn('⚠ FPS низкий, автопереключение на "high"');
+                recordingQuality = 'high';
+                document.getElementById('recordingQuality').value = 'high';
+            }
+
             recordedChunks = [];
             
+            const profile = recordingProfiles[recordingQuality];
+            
             try {
-                const stream = canvas.captureStream(30); // 30 FPS
+                const stream = canvas.captureStream(profile.fps);
+                const mimeType = getBestAvailableCodec(profile.codec);
                 
-                // Настройки для MediaRecorder
                 const options = {
-                    mimeType: 'video/webm;codecs=vp9',
-                    videoBitsPerSecond: 2500000 // 2.5 Mbps
+                    videoBitsPerSecond: profile.bitrate
                 };
                 
-                // Проверяем поддержку формата
-                if (!MediaRecorder.isTypeSupported(options.mimeType)) {
-                    options.mimeType = 'video/webm';
+                if (mimeType) {
+                    options.mimeType = mimeType;
                 }
+                
+                console.log('🎬 Параметры записи:', {
+                    quality: recordingQuality,
+                    fps: profile.fps,
+                    bitrate: (profile.bitrate / 1000000).toFixed(1) + ' Mbps',
+                    codec: mimeType || 'default'
+                });
                 
                 mediaRecorder = new MediaRecorder(stream, options);
                 
                 mediaRecorder.ondataavailable = (event) => {
-                    if (event.data.size > 0) {
+                    if (event.data && event.data.size > 0) {
                         recordedChunks.push(event.data);
+                        
+                        const sizeMB = (event.data.size / (1024 * 1024)).toFixed(2);
+                        console.log(`📼 Записано: ${sizeMB} MB`);
                     }
                 };
                 
                 mediaRecorder.onstop = () => {
-                    const blob = new Blob(recordedChunks, { type: 'video/webm' });
+                    const blob = new Blob(recordedChunks, { 
+                        type: mimeType || 'video/webm'
+                    });
+                    
+                    const sizeMB = (blob.size / (1024 * 1024)).toFixed(2);
+                    console.log(`✓ Финальный размер: ${sizeMB} MB`);
+                    
                     const url = URL.createObjectURL(blob);
                     const link = document.createElement('a');
-                    link.download = `turing-pattern-${Date.now()}.webm`;
+                    const timestamp = new Date().toISOString().slice(0, 19).replace(/:/g, '-');
+                    link.download = `turing-pattern-${timestamp}.webm`;
                     link.href = url;
                     link.click();
-                    URL.revokeObjectURL(url);
                     
-                    // Сбрасываем состояние
+                    setTimeout(() => URL.revokeObjectURL(url), 100);
+                    
                     isRecording = false;
                     mediaRecorder = null;
                     recordedChunks = [];
                     
-                    // Обновляем UI (проверка внутри функции)
                     updateRecordingUI();
                     
-                    // Показываем уведомление
                     const recordBtnText = document.getElementById('recordBtnText');
                     if (recordBtnText) {
-                        recordBtnText.textContent = '✓ Видео сохранено';
+                        recordBtnText.textContent = `✓ Видео сохранено (${sizeMB} MB)`;
                         setTimeout(() => {
-                            if (!isRecording) { // Проверяем, что не началась новая запись
+                            if (!isRecording) {
                                 recordBtnText.textContent = '⏺ Запись видео';
                             }
-                        }, 2000);
+                        }, 3000);
                     }
                 };
                 
                 mediaRecorder.onerror = (event) => {
-                    console.error('Ошибка MediaRecorder:', event.error);
+                    console.error('❌ Ошибка MediaRecorder:', event.error);
                     isRecording = false;
                     mediaRecorder = null;
                     updateRecordingUI();
-                    alert('Произошла ошибка при записи видео.');
+                    
+                    alert(`Ошибка записи: ${event.error?.message}\n\nПопробуйте снизить качество.`);
                 };
                 
-                mediaRecorder.start(100); // Сохраняем данные каждые 100ms для надёжности
+                mediaRecorder.start(profile.timeslice);
                 isRecording = true;
                 
-                // Обновляем UI
                 updateRecordingUI();
                 
-                console.log('Запись видео началась');
+                const recordBtnText = document.getElementById('recordBtnText');
+                if (recordBtnText) {
+                    recordBtnText.textContent = `⏹ Остановить (${profile.description})`;
+                }
+                
+                console.log('✓ Запись началась');
                 
             } catch (error) {
-                console.error('Ошибка при запуске записи:', error);
+                console.error('❌ Ошибка запуска:', error);
                 isRecording = false;
-                alert('Не удалось начать запись видео. Убедитесь, что ваш браузер поддерживает эту функцию.');
+                alert(`Не удалось начать запись:\n${error.message}\n\nПопробуйте снизить качество.`);
             }
+        }
+
+        // Обновление информации о качестве записи
+        function updateRecordingQualityInfo() {
+            const qualitySelect = document.getElementById('recordingQuality');
+            if (!qualitySelect) return;
+            
+            recordingQuality = qualitySelect.value;
+            const profile = recordingProfiles[recordingQuality];
+            const info = document.getElementById('qualityInfo');
+            
+            if (!info) return;
+            
+            const descriptions = {
+                low: '⚡ Минимальная нагрузка на процессор. Рекомендуется для слабых устройств или длинных записей.',
+                medium: '⚖️ Хороший баланс между качеством и производительностью. Подходит для большинства случаев.',
+                high: '⭐ Отличное качество с аппаратным ускорением H.264. Минимальное замедление на современных устройствах.',
+                ultra: '🔥 Максимальное качество, но требует мощного процессора. Может значительно замедлить симуляцию.'
+            };
+            
+            info.innerHTML = `💡 ${descriptions[recordingQuality]}<br>` +
+                             `<small style="opacity: 0.7;">Битрейт: ${(profile.bitrate / 1000000).toFixed(1)} Mbps • FPS: ${profile.fps}</small>`;
         }
         
         function stopRecording() {
@@ -3050,6 +3342,13 @@
             brushCursor.style.height = diameter + 'px';
         });
 
+        // Инициализация при загрузке
+        document.addEventListener('DOMContentLoaded', () => {
+            if (document.getElementById('recordingQuality')) {
+                updateRecordingQualityInfo();
+            }
+        });
+
         // Клавиатурные сочетания
         document.addEventListener('keydown', (e) => {
             // Пробел - пауза/воспроизведение
@@ -3169,11 +3468,56 @@
 
         // Инициализация
         document.querySelector('.loading').style.display = 'none';
+
+        // Отладочная информация
+        console.log('=== СТАТУС ИНИЦИАЛИЗАЦИИ ===');
+        console.log('useGPU:', useGPU);
+        console.log('isWebGLReady:', isWebGLReady);
+        console.log('gl:', gl ? 'установлен' : 'null');
+        console.log('ctx:', ctx ? 'установлен' : 'null');
+        console.log('Canvas размер:', canvas.width, 'x', canvas.height);
+        console.log('============================');
+
+        // Проверка корректности инициализации
+        if (!useGPU && !ctx) {
+            console.error('[INIT] Ни GPU, ни CPU режим не инициализированы!');
+            const loadingDiv = document.querySelector('.loading');
+            if (loadingDiv) {
+                loadingDiv.textContent = 'ОШИБКА ИНИЦИАЛИЗАЦИИ';
+                loadingDiv.style.display = 'block';
+                loadingDiv.style.color = '#ff006e';
+            }
+            return; // Останавливаем дальнейшую инициализацию
+        }
+
+        // Скрываем индикатор загрузки только если инициализация успешна
+        document.querySelector('.loading').style.display = 'none';
+
         initGrid();
         updateValueDisplays();
         drawParamMap();
         draw();
         requestAnimationFrame(loop);
+
+        // Обновляем индикатор режима
+        function updateModeIndicator() {
+            const modeText = document.getElementById('modeText');
+            if (modeText) {
+                if (useGPU && isWebGLReady) {
+                    modeText.textContent = '⚡ Режим: GPU (WebGL)';
+                    modeText.style.color = 'var(--accent-cyan)';
+                } else if (ctx) {
+                    modeText.textContent = '🖥️ Режим: CPU (Canvas 2D)';
+                    modeText.style.color = 'var(--accent-yellow)';
+                } else {
+                    modeText.textContent = '❌ Ошибка инициализации';
+                    modeText.style.color = 'var(--accent-magenta)';
+                }
+            }
+        }
+
+        // Вызываем после инициализации
+        updateModeIndicator();
         
         // ============================================================================
         // ВСПОМОГАТЕЛЬНЫЕ ФУНКЦИИ WEBGL
@@ -3272,8 +3616,15 @@
         document.getElementById('computeMode').addEventListener('change', (e) => {
             const newMode = e.target.value;
             
+            // Проверяем доступность GPU режима
             if (newMode === 'gpu' && !gl) {
-                alert('WebGL не поддерживается вашим браузером. Используется CPU режим.');
+                alert('GPU режим (WebGL) не поддерживается вашим устройством или браузером.\nИспользуется CPU режим.');
+                e.target.value = 'cpu';
+                return;
+            }
+            
+            if (newMode === 'gpu' && !isWebGLReady) {
+                alert('GPU режим недоступен из-за отсутствия необходимых расширений WebGL.\nИспользуется CPU режим.');
                 e.target.value = 'cpu';
                 return;
             }
@@ -3284,13 +3635,16 @@
             // Синхронизация данных при переключении
             if (wasGPU && !useGPU) {
                 // GPU -> CPU
+                console.log('[Переключение] GPU -> CPU');
                 syncGPUtoCPU();
             } else if (!wasGPU && useGPU) {
                 // CPU -> GPU
+                console.log('[Переключение] CPU -> GPU');
                 syncCPUtoGPU();
             }
             
-            console.log(`Режим переключён на: ${useGPU ? 'GPU' : 'CPU'}`);
+            updateModeIndicator();
+            console.log(`[Режим] Переключён на: ${useGPU ? 'GPU' : 'CPU'}`);
         });
         
         // Обновить функцию resizeGrid для поддержки WebGL
@@ -3317,6 +3671,13 @@
             initGrid();
             draw();
         }
+
+        // Инициализация качества записи при загрузке
+        setTimeout(() => {
+            if (document.getElementById('recordingQuality')) {
+                updateRecordingQualityInfo();
+            }
+        }, 100);
         
     </script>
 </body>
