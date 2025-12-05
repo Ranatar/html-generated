@@ -3467,37 +3467,57 @@
         }
 
         // Инициализация
-        document.querySelector('.loading').style.display = 'none';
-
-        // Отладочная информация
-        console.log('=== СТАТУС ИНИЦИАЛИЗАЦИИ ===');
+        console.log('=== НАЧАЛО ИНИЦИАЛИЗАЦИИ ===');
         console.log('useGPU:', useGPU);
         console.log('isWebGLReady:', isWebGLReady);
         console.log('gl:', gl ? 'установлен' : 'null');
         console.log('ctx:', ctx ? 'установлен' : 'null');
         console.log('Canvas размер:', canvas.width, 'x', canvas.height);
-        console.log('============================');
 
         // Проверка корректности инициализации
         if (!useGPU && !ctx) {
-            console.error('[INIT] Ни GPU, ни CPU режим не инициализированы!');
+            console.error('[INIT] КРИТИЧЕСКАЯ ОШИБКА: Ни GPU, ни CPU режим не инициализированы!');
+            
             const loadingDiv = document.querySelector('.loading');
             if (loadingDiv) {
-                loadingDiv.textContent = 'ОШИБКА ИНИЦИАЛИЗАЦИИ';
+                loadingDiv.textContent = 'ОШИБКА: Не удалось инициализировать графику. Обновите страницу.';
                 loadingDiv.style.display = 'block';
                 loadingDiv.style.color = '#ff006e';
+                loadingDiv.style.fontSize = '1rem';
             }
-            return; // Останавливаем дальнейшую инициализацию
+            
+            // Показываем alert только на мобильных устройствах
+            if (window.innerWidth < 768) {
+                setTimeout(() => {
+                    alert('Произошла ошибка инициализации.\n\nПопробуйте:\n1. Обновить страницу\n2. Использовать другой браузер\n3. Очистить кэш браузера');
+                }, 500);
+            }
+            
+            console.log('=== ИНИЦИАЛИЗАЦИЯ ПРЕРВАНА ===');
+            // НЕ запускаем дальнейшую инициализацию
+        } else {
+            // Успешная инициализация - продолжаем
+            console.log('[INIT] Инициализация успешна, режим:', useGPU ? 'GPU' : 'CPU');
+            console.log('=== КОНЕЦ ИНИЦИАЛИЗАЦИИ ===');
+            
+            // Скрываем индикатор загрузки
+            const loadingDiv = document.querySelector('.loading');
+            if (loadingDiv) {
+                loadingDiv.style.display = 'none';
+            }
+            
+            // Инициализируем сетку и запускаем симуляцию
+            initGrid();
+            updateValueDisplays();
+            drawParamMap();
+            draw();
+            
+            // Обновляем индикатор режима
+            updateModeIndicator();
+            
+            // Запускаем цикл анимации
+            requestAnimationFrame(loop);
         }
-
-        // Скрываем индикатор загрузки только если инициализация успешна
-        document.querySelector('.loading').style.display = 'none';
-
-        initGrid();
-        updateValueDisplays();
-        drawParamMap();
-        draw();
-        requestAnimationFrame(loop);
 
         // Обновляем индикатор режима
         function updateModeIndicator() {
