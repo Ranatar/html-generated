@@ -1,0 +1,1162 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Стратифицированная Монадология - Полная Диаграмма</title>
+    <script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            padding: 20px;
+            min-height: 100vh;
+        }
+        
+        .container {
+            max-width: 2000px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 15px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+            overflow: hidden;
+        }
+        
+        header {
+            background: linear-gradient(135deg, #2c3e50 0%, #34495e 100%);
+            color: white;
+            padding: 40px;
+            text-align: center;
+        }
+        
+        h1 {
+            font-size: 2.5em;
+            margin-bottom: 15px;
+            font-weight: 300;
+            letter-spacing: 2px;
+        }
+        
+        .subtitle {
+            font-size: 1.2em;
+            opacity: 0.9;
+            font-style: italic;
+        }
+        
+        .content {
+            padding: 40px;
+            background: #f8f9fa;
+        }
+        
+        .diagram-container {
+            background: white;
+            padding: 30px;
+            border-radius: 10px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+            overflow: auto;
+            position: relative;
+            max-height: 1200px;
+            cursor: default;
+        }
+        
+        .diagram-container.grabbing {
+            cursor: grabbing !important;
+        }
+        
+        .diagram-container.fullscreen {
+            cursor: default;
+        }
+        
+        .diagram-container.fullscreen.grabbing {
+            cursor: grabbing !important;
+        }
+        
+        .mermaid-wrapper {
+            display: block;
+            min-height: 800px;
+            transition: all 0.3s ease;
+            width: 100%;
+            padding: 0;
+            box-sizing: border-box;
+            overflow: visible;
+            position: relative;
+        }
+        
+        .mermaid {
+            transform-origin: top left;
+            transition: transform 0.3s ease, justify-content 0.3s ease;
+            width: 100%;
+            display: flex;
+            justify-content: flex-start;
+            min-width: 100%;
+            padding: 20px;
+            box-sizing: border-box;
+        }
+        
+        .zoom-controls {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            z-index: 1000;
+            background: rgba(255, 255, 255, 0.95);
+            border-radius: 10px;
+            padding: 15px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.2);
+            display: inline-flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+        
+        .zoom-controls-row {
+            display: flex;
+            gap: 10px;
+            align-items: center;
+        }
+        
+        .zoom-btn {
+            width: 40px;
+            height: 40px;
+            border: none;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 20px;
+            font-weight: bold;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.3s;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+        }
+        
+        .zoom-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+        }
+        
+        .zoom-btn:active {
+            transform: translateY(0);
+        }
+        
+        .zoom-slider {
+            width: 150px;
+            height: 8px;
+            -webkit-appearance: none;
+            appearance: none;
+            background: linear-gradient(to right, #667eea, #764ba2);
+            outline: none;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+        
+        .zoom-slider::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 20px;
+            height: 20px;
+            background: white;
+            border: 3px solid #667eea;
+            border-radius: 50%;
+            cursor: pointer;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+        }
+        
+        .zoom-slider::-moz-range-thumb {
+            width: 20px;
+            height: 20px;
+            background: white;
+            border: 3px solid #667eea;
+            border-radius: 50%;
+            cursor: pointer;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+        }
+        
+        .zoom-level {
+            font-size: 14px;
+            font-weight: 600;
+            color: #2c3e50;
+            min-width: 50px;
+            text-align: center;
+            transition: all 0.3s;
+        }
+        
+        .zoom-level.active {
+            color: #667eea;
+            transform: scale(1.2);
+        }
+        
+        .fullscreen-btn {
+            width: auto;
+            padding: 0 15px;
+            font-size: 14px;
+        }
+        
+        .diagram-wrapper {
+            position: relative;
+        }
+        
+        .diagram-container.fullscreen {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            max-height: none;
+            border-radius: 0;
+            z-index: 9999;
+            padding: 80px 30px 30px 30px;
+            overflow: auto;
+        }
+        
+        .diagram-container.fullscreen .zoom-controls {
+            position: fixed;
+            top: 15px;
+            left: 15px;
+            z-index: 10001;
+        }
+        
+        .diagram-wrapper {
+            position: relative;
+        }
+        
+        .exit-fullscreen {
+            display: none;
+            position: fixed;
+            top: 15px;
+            right: 15px;
+            z-index: 10000;
+            background: rgba(255, 255, 255, 0.95);
+            border: none;
+            padding: 10px 20px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 16px;
+            font-weight: 600;
+            color: #2c3e50;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.3);
+            transition: all 0.3s;
+        }
+        
+        .exit-fullscreen:hover {
+            background: white;
+            transform: translateY(-2px);
+        }
+        
+        .diagram-container.fullscreen ~ .exit-fullscreen {
+            display: block;
+        }
+        
+        .legend {
+            margin-top: 40px;
+            padding: 30px;
+            background: white;
+            border-radius: 10px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+        }
+        
+        .legend h2 {
+            color: #2c3e50;
+            margin-bottom: 25px;
+            font-size: 1.8em;
+            border-bottom: 3px solid #667eea;
+            padding-bottom: 10px;
+        }
+        
+        .legend-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
+            gap: 20px;
+            margin-top: 25px;
+        }
+        
+        .legend-section {
+            background: #f8f9fa;
+            padding: 20px;
+            border-radius: 8px;
+            border-left: 4px solid #667eea;
+        }
+        
+        .legend-section h3 {
+            color: #34495e;
+            margin-bottom: 15px;
+            font-size: 1.3em;
+        }
+        
+        .legend-items {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+        
+        .legend-item {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+        
+        .legend-color {
+            width: 35px;
+            height: 35px;
+            border-radius: 6px;
+            border: 2px solid #333;
+            flex-shrink: 0;
+        }
+        
+        .legend-text {
+            color: #555;
+            line-height: 1.5;
+        }
+        
+        .legend-text strong {
+            color: #2c3e50;
+            display: block;
+            margin-bottom: 3px;
+        }
+        
+        .notes {
+            margin-top: 30px;
+            padding: 30px;
+            background: white;
+            border-radius: 10px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+            border-left: 5px solid #3498db;
+        }
+        
+        .notes h2 {
+            color: #2c3e50;
+            margin-bottom: 20px;
+            font-size: 1.8em;
+        }
+        
+        .notes-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
+            gap: 25px;
+            margin-top: 20px;
+        }
+        
+        .note-item {
+            background: #f8f9fa;
+            padding: 20px;
+            border-radius: 8px;
+        }
+        
+        .note-item h4 {
+            color: #34495e;
+            margin-bottom: 12px;
+            font-size: 1.2em;
+        }
+        
+        .note-item p {
+            color: #555;
+            line-height: 1.7;
+        }
+        
+        .controls {
+            margin-top: 30px;
+            padding: 25px;
+            background: white;
+            border-radius: 10px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+            text-align: center;
+        }
+        
+        .controls h3 {
+            color: #2c3e50;
+            margin-bottom: 15px;
+        }
+        
+        .btn {
+            display: inline-block;
+            padding: 12px 30px;
+            margin: 10px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            text-decoration: none;
+            border-radius: 25px;
+            font-weight: 600;
+            transition: all 0.3s;
+            border: none;
+            cursor: pointer;
+            font-size: 1em;
+        }
+        
+        .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 20px rgba(102, 126, 234, 0.4);
+        }
+        
+        .scroll-top {
+            position: fixed;
+            bottom: 30px;
+            right: 30px;
+            background: #667eea;
+            color: white;
+            width: 50px;
+            height: 50px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.3);
+            transition: all 0.3s;
+            opacity: 0;
+            visibility: hidden;
+            font-size: 24px;
+            font-weight: bold;
+        }
+        
+        .scroll-top.visible {
+            opacity: 1;
+            visibility: visible;
+        }
+        
+        .scroll-top:hover {
+            background: #764ba2;
+            transform: translateY(-5px);
+        }
+        
+        @media (max-width: 768px) {
+            .legend-grid, .notes-grid {
+                grid-template-columns: 1fr;
+            }
+            
+            h1 {
+                font-size: 1.8em;
+            }
+            
+            .zoom-controls {
+                position: relative;
+                top: 0;
+                left: 0;
+                width: 100%;
+                box-sizing: border-box;
+            }
+            
+            .zoom-controls-row {
+                flex-wrap: wrap;
+                justify-content: center;
+            }
+            
+            .zoom-slider {
+                width: 100px;
+            }
+            
+            .fullscreen-btn {
+                font-size: 12px;
+                padding: 0 10px;
+            }
+            
+            .diagram-container {
+                padding: 15px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>СТРАТИФИЦИРОВАННАЯ МОНАДОЛОГИЯ</h1>
+            <div class="subtitle">Полная системная диаграмма органического синтеза<br/>метафизики Г.В. Лейбница и онтологии Н. Гартмана</div>
+            <div style="margin-top: 20px; font-size: 0.9em; opacity: 0.85;">
+                💡 Ctrl+колесо для зума • Левая кнопка+перетаскивание для навигации • Средняя кнопка для автопрокрутки
+            </div>
+        </header>
+        
+        <div class="content">
+            <div class="diagram-wrapper">
+                <div class="zoom-controls">
+                    <div class="zoom-controls-row">
+                        <button class="zoom-btn" onclick="zoomIn()" title="Увеличить">+</button>
+                        <button class="zoom-btn" onclick="zoomOut()" title="Уменьшить">−</button>
+                        <button class="zoom-btn" onclick="resetZoom()" title="Сбросить масштаб">⟲</button>
+                        <span class="zoom-level" id="zoomLevel">100%</span>
+                    </div>
+                    <div class="zoom-controls-row">
+                        <input type="range" min="25" max="200" value="100" class="zoom-slider" id="zoomSlider" title="Масштаб">
+                        <button class="zoom-btn fullscreen-btn" onclick="toggleFullscreen()" title="Полноэкранный режим">⛶ Полный экран</button>
+                    </div>
+                </div>
+                
+                <div class="diagram-container" id="diagramContainer">
+                <div class="mermaid-wrapper" id="mermaidWrapper">
+                <div class="mermaid">
+flowchart TB
+    %% ===== МЕТАФИЗИЧЕСКИЙ ФУНДАМЕНТ =====
+    God["<b>АБСОЛЮТНАЯ МОНАДА</b><br/>(БОГ-АРХИТЕКТОР)<br/>━━━━━━━━━━━<br/>Монада монад<br/>Архитектор стратификации<br/>Источник гармонии"]
+    
+    %% ===== ТРИ РЕГУЛЯТИВНЫХ ПРИНЦИПА =====
+    PSR["<b>Принцип Достаточного<br/>Основания</b><br/>━━━━━━━━━━━<br/>Principium rationis<br/>sufficientis<br/>Онтологическое<br/>обоснование слоёв"]
+    
+    PH["<b>Предустановленная<br/>Стратификационная<br/>Гармония</b><br/>━━━━━━━━━━━<br/>Harmonia praestabilita<br/>Горизонтальная координация<br/>Вертикальная координация"]
+    
+    PCN["<b>Принцип Категориальной<br/>Новизны</b><br/>━━━━━━━━━━━<br/>Несводимость высшего<br/>к низшему<br/>Эмергентность"]
+    
+    PNC["<b>Принцип Монадической<br/>Непрерывности</b><br/>━━━━━━━━━━━<br/>Natura non facit saltus<br/>Пограничные монады<br/>Дискретно-непрерывное бытие"]
+    
+    %% ===== ДУХОВНЫЙ СЛОЙ =====
+    subgraph Spirit["<b>═══════ ДУХОВНЫЙ СЛОЙ (Geist) ═══════</b>"]
+        direction LR
+        NM["<b>Ноэтические Монады</b><br/>━━━━━━━━━━━<br/>Разумные души<br/>Esprits<br/>Личности"]
+        
+        SL["<b>Категории Духа</b><br/>━━━━━━━━━━━<br/>• Личность<br/>• Свобода<br/>• Ответственность<br/>• Ценности<br/>• Смысл<br/>• Творчество"]
+        
+        VI["<b>Ценностные Интенции</b><br/>━━━━━━━━━━━<br/>Познавательные ценности<br/>Эстетические ценности<br/>Этические ценности<br/>Религиозные ценности"]
+        
+        Kingdom["<b>Царство Целей</b><br/>━━━━━━━━━━━<br/>Royaume de la grâce<br/>Духовное сообщество<br/>Смысловые связи"]
+        
+        NM --> SL
+        NM --> VI
+        VI --> Kingdom
+    end
+    
+    %% ===== ПСИХИЧЕСКИЙ СЛОЙ =====
+    subgraph Psyche["<b>═══════ ПСИХИЧЕСКИЙ СЛОЙ (Seelisch) ═══════</b>"]
+        direction LR
+        PM["<b>Психические Монады</b><br/>━━━━━━━━━━━<br/>Души с апперцепцией<br/>Aperceptio<br/>Сознающие субъекты"]
+        
+        PL["<b>Категории Психики</b><br/>━━━━━━━━━━━<br/>• Сознание<br/>• Интенциональность<br/>• Субъективность<br/>• Самосознание<br/>• Временность<br/>• Эмоциональность"]
+        
+        AA["<b>Апперцептивная<br/>Аппетиция</b><br/>━━━━━━━━━━━<br/>Сознательное желание<br/>Воля<br/>Рефлексия"]
+        
+        Qualia["<b>Субъективный Опыт</b><br/>━━━━━━━━━━━<br/>Qualia<br/>От-первого-лица<br/>перспектива"]
+        
+        PM --> PL
+        PM --> AA
+        AA --> Qualia
+    end
+    
+    %% ===== ОРГАНИЧЕСКИЙ СЛОЙ =====
+    subgraph Organic["<b>═══════ ОРГАНИЧЕСКИЙ СЛОЙ (Organisch) ═══════</b>"]
+        direction LR
+        OM["<b>Органические Монады</b><br/>━━━━━━━━━━━<br/>Энтелехии<br/>Души животных<br/>Витальные формы"]
+        
+        OL["<b>Категории Жизни</b><br/>━━━━━━━━━━━<br/>• Целостность (Ganzheit)<br/>• Саморегуляция<br/>• Метаболизм<br/>• Размножение<br/>• Эволюция"]
+        
+        VT["<b>Витальная Телеология</b><br/>━━━━━━━━━━━<br/>Целенаправленность<br/>Органическая память<br/>Инстинкт"]
+        
+        Entelechy["<b>Энтелехия</b><br/>━━━━━━━━━━━<br/>Формирующий принцип<br/>Доминирующая монада<br/>организма"]
+        
+        OM --> OL
+        OM --> VT
+        VT --> Entelechy
+    end
+    
+    %% ===== МАТЕРИАЛЬНЫЙ СЛОЙ =====
+    subgraph Material["<b>═══════ МАТЕРИАЛЬНЫЙ СЛОЙ (Anorganisch) ═══════</b>"]
+        direction LR
+        PhM["<b>Физические Монады</b><br/>━━━━━━━━━━━<br/>Простые монады<br/>Monades simples<br/>Бессознательные"]
+        
+        ML["<b>Категории Материи</b><br/>━━━━━━━━━━━<br/>• Субстанция<br/>• Причинность<br/>• Пространство<br/>• Время<br/>• Движение"]
+        
+        PD["<b>Перцептивная Динамика</b><br/>━━━━━━━━━━━<br/>Смутная перцепция<br/>Механическая аппетиция<br/>Физические законы"]
+        
+        ST["<b>Пространство-Время</b><br/>━━━━━━━━━━━<br/>Ordre des coexistences<br/>Ordre des successions<br/>Bene fundata phenomena"]
+        
+        PhM --> ML
+        PhM --> PD
+        PD --> ST
+    end
+    
+    %% ===== ОНТОЛОГИЧЕСКИЙ ФУНДАМЕНТ =====
+    FO["<b>Фундирующая Онтология</b><br/>━━━━━━━━━━━<br/>Реальное бытие<br/>Актуальность<br/>Существование"]
+    
+    PW["<b>Возможные Миры</b><br/>━━━━━━━━━━━<br/>Стратификационные<br/>конфигурации<br/>Компоссибильность<br/>Наилучший мир"]
+    
+    AL["<b>Актуализация</b><br/>━━━━━━━━━━━<br/>Космогонический процесс<br/>Историческое развёртывание<br/>Творение через слои"]
+    
+    %% ===== БОКОВЫЕ КОНЦЕПЦИИ =====
+    
+    %% Фундирование и Суперформация
+    Fund["<b>ФУНДИРОВАНИЕ</b><br/>━━━━━━━━━━━<br/>(Fundierung)<br/>━━━━━━━━━━━<br/>Онтологическая зависимость<br/>Перцептивное включение<br/>Низшее → Высшее<br/>Нисходящая детерминация"]
+    
+    Super["<b>СУПЕРФОРМАЦИЯ</b><br/>━━━━━━━━━━━<br/>(Superformation)<br/>━━━━━━━━━━━<br/>Онтологическая свобода<br/>Категориальная автономия<br/>Высшее ⊥ Низшее<br/>Восходящая индетерминация"]
+    
+    %% Пограничные формации
+    Border1["<b>Пограничные Монады</b><br/>Психика ↔ Дух<br/>━━━━━━━━━━━<br/>Архаическая культура<br/>Мифологическое сознание<br/>Детское развитие"]
+    
+    Border2["<b>Пограничные Монады</b><br/>Органика ↔ Психика<br/>━━━━━━━━━━━<br/>Высшие животные<br/>Инстинктивное поведение<br/>Зачатки сознания"]
+    
+    Border3["<b>Пограничные Монады</b><br/>Материя ↔ Органика<br/>━━━━━━━━━━━<br/>Вирусы<br/>Макромолекулы<br/>Протобиотические структуры"]
+    
+    %% Континуум
+    Cont["<b>КОНТИНУУМ<br/>МОНАД-СЛОЁВ</b><br/>━━━━━━━━━━━<br/>Принцип непрерывности<br/>Дискретно-непрерывное бытие<br/>Исторический процесс"]
+    
+    %% Эпистемология
+    Epist["<b>ЭПИСТЕМОЛОГИЯ</b><br/>━━━━━━━━━━━<br/>Перцепция → Апперцепция → Ноэзис<br/>Ясное познание своего слоя<br/>Смутное познание высших<br/>Границы познания"]
+    
+    %% Этика
+    Ethics["<b>ЭТИКА</b><br/>━━━━━━━━━━━<br/>Свобода воли<br/>Моральная автономия<br/>Ответственность на<br/>духовном слое"]
+    
+    %% История
+    History["<b>ФИЛОСОФИЯ ИСТОРИИ</b><br/>━━━━━━━━━━━<br/>Актуализация духовного слоя<br/>Космогонический процесс:<br/>Материя→Жизнь→Психика→Дух"]
+    
+    %% Теодицея
+    Theodicy["<b>ТЕОДИЦЕЯ</b><br/>━━━━━━━━━━━<br/>Метафизическое зло<br/>(несовершенство)<br/>Физическое зло (фундирование)<br/>Моральное зло (свобода)"]
+    
+    %% ===== ГЛАВНЫЕ ВЕРТИКАЛЬНЫЕ СВЯЗИ =====
+    
+    %% От Бога к принципам
+    God ==>|устанавливает| PSR
+    God ==>|устанавливает| PH
+    God ==>|устанавливает| PCN
+    God ==>|устанавливает| PNC
+    
+    %% Принципы к слоям
+    PSR -.->|обосновывает| Material
+    PSR -.->|обосновывает| Organic
+    PSR -.->|обосновывает| Psyche
+    PSR -.->|обосновывает| Spirit
+    
+    PH ==>|гармонизирует| Material
+    PH ==>|гармонизирует| Organic
+    PH ==>|гармонизирует| Psyche
+    PH ==>|гармонизирует| Spirit
+    
+    PCN -->|создаёт новое в| Organic
+    PCN -->|создаёт новое в| Psyche
+    PCN -->|создаёт новое в| Spirit
+    
+    PNC -.->|обеспечивает| Cont
+    
+    %% Фундирование между слоями
+    Material ===>|ФУНДИРУЕТ| Organic
+    Organic ===>|ФУНДИРУЕТ| Psyche
+    Psyche ===>|ФУНДИРУЕТ| Spirit
+    
+    %% Суперформация
+    Organic -.->|СУПЕРФОРМИРУЕТ| Material
+    Psyche -.->|СУПЕРФОРМИРУЕТ| Organic
+    Spirit -.->|СУПЕРФОРМИРУЕТ| Psyche
+    
+    %% Пограничные монады
+    Material ---|пограничная зона| Border3
+    Border3 ---|пограничная зона| Organic
+    
+    Organic ---|пограничная зона| Border2
+    Border2 ---|пограничная зона| Psyche
+    
+    Psyche ---|пограничная зона| Border1
+    Border1 ---|пограничная зона| Spirit
+    
+    %% Связь с фундированием и суперформацией
+    Material -.->|зависимость| Fund
+    Organic -.->|зависимость| Fund
+    Psyche -.->|зависимость| Fund
+    
+    Spirit -.->|свобода| Super
+    Psyche -.->|свобода| Super
+    Organic -.->|свобода| Super
+    
+    %% К фундаменту
+    Material ==>|основывается на| FO
+    
+    %% Возможные миры
+    God -->|созерцает| PW
+    PH -.->|определяет компоссибильность| PW
+    PW ==>|актуализируется через| AL
+    AL -->|проявляется в| History
+    
+    %% Эпистемология
+    Spirit -->|ясное познание| Epist
+    Psyche -.->|относительно ясное| Epist
+    Organic -.->|опосредованное| Epist
+    Material -.->|максимально опосредованное| Epist
+    
+    %% Этика
+    Spirit ==>|реализует| Ethics
+    Super -.->|основывает| Ethics
+    
+    %% Континуум
+    Cont -.->|пронизывает| Material
+    Cont -.->|пронизывает| Organic
+    Cont -.->|пронизывает| Psyche
+    Cont -.->|пронизывает| Spirit
+    
+    %% Теодицея
+    God -.->|допускает зло ради блага| Theodicy
+    Super -.->|свобода → возможность зла| Theodicy
+    Fund -.->|страдание от зависимости| Theodicy
+    
+    %% ===== СТИЛИ =====
+    classDef godStyle fill:#FFD700,stroke:#8B6914,stroke-width:4px,color:#000,font-weight:bold
+    classDef principleStyle fill:#228B22,stroke:#000,stroke-width:3px,color:#fff,font-weight:bold
+    classDef spiritStyle fill:#C73E1D,stroke:#000,stroke-width:3px,color:#fff,font-weight:bold
+    classDef psycheStyle fill:#8E7DBE,stroke:#000,stroke-width:3px,color:#fff,font-weight:bold
+    classDef organicStyle fill:#54C6EB,stroke:#000,stroke-width:3px,color:#fff,font-weight:bold
+    classDef materialStyle fill:#048A81,stroke:#000,stroke-width:3px,color:#fff,font-weight:bold
+    classDef foundationStyle fill:#2E4057,stroke:#000,stroke-width:3px,color:#fff,font-weight:bold
+    classDef relationStyle fill:#8B4513,stroke:#000,stroke-width:2px,color:#fff,font-weight:bold
+    classDef borderStyle fill:#9370DB,stroke:#000,stroke-width:2px,color:#fff,font-style:italic
+    classDef conceptStyle fill:#20B2AA,stroke:#000,stroke-width:2px,color:#fff,font-weight:bold
+    classDef practicalStyle fill:#FF6347,stroke:#000,stroke-width:2px,color:#fff,font-weight:bold
+    
+    class God godStyle
+    class PSR,PH,PCN,PNC principleStyle
+    class NM,SL,VI,Kingdom spiritStyle
+    class PM,PL,AA,Qualia psycheStyle
+    class OM,OL,VT,Entelechy organicStyle
+    class PhM,ML,PD,ST materialStyle
+    class FO,PW,AL foundationStyle
+    class Fund,Super,Cont relationStyle
+    class Border1,Border2,Border3 borderStyle
+    class Epist conceptStyle
+    class Ethics,History,Theodicy practicalStyle
+                </div>
+                </div>
+                
+                <button class="exit-fullscreen" onclick="toggleFullscreen()">✕ Выйти из полноэкранного режима</button>
+            </div>
+            
+            <div class="legend">
+                <h2>Легенда: Цветовая Кодировка Системы</h2>
+                <div class="legend-grid">
+                    <div class="legend-section">
+                        <h3>Метафизические Уровни</h3>
+                        <div class="legend-items">
+                            <div class="legend-item">
+                                <div class="legend-color" style="background:#FFD700;"></div>
+                                <div class="legend-text">
+                                    <strong>Абсолютная Монада</strong>
+                                    Бог как Архитектор стратификации
+                                </div>
+                            </div>
+                            <div class="legend-item">
+                                <div class="legend-color" style="background:#228B22;"></div>
+                                <div class="legend-text">
+                                    <strong>Регулятивные принципы</strong>
+                                    Достаточное основание, гармония, категориальная новизна, непрерывность
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="legend-section">
+                        <h3>Онтологические Слои</h3>
+                        <div class="legend-items">
+                            <div class="legend-item">
+                                <div class="legend-color" style="background:#C73E1D;"></div>
+                                <div class="legend-text">
+                                    <strong>Духовный слой (Geist)</strong>
+                                    Ноэтические монады, личность, свобода, ценности
+                                </div>
+                            </div>
+                            <div class="legend-item">
+                                <div class="legend-color" style="background:#8E7DBE;"></div>
+                                <div class="legend-text">
+                                    <strong>Психический слой (Seelisch)</strong>
+                                    Сознание, апперцепция, субъективность
+                                </div>
+                            </div>
+                            <div class="legend-item">
+                                <div class="legend-color" style="background:#54C6EB;"></div>
+                                <div class="legend-text">
+                                    <strong>Органический слой (Organisch)</strong>
+                                    Жизнь, энтелехия, телеология
+                                </div>
+                            </div>
+                            <div class="legend-item">
+                                <div class="legend-color" style="background:#048A81;"></div>
+                                <div class="legend-text">
+                                    <strong>Материальный слой (Anorganisch)</strong>
+                                    Физические монады, перцептивная динамика
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="legend-section">
+                        <h3>Фундаментальные Отношения</h3>
+                        <div class="legend-items">
+                            <div class="legend-item">
+                                <div class="legend-color" style="background:#8B4513;"></div>
+                                <div class="legend-text">
+                                    <strong>Фундирование и Суперформация</strong>
+                                    Вертикальные связи между слоями
+                                </div>
+                            </div>
+                            <div class="legend-item">
+                                <div class="legend-color" style="background:#9370DB;"></div>
+                                <div class="legend-text">
+                                    <strong>Пограничные монады</strong>
+                                    Обеспечивают непрерывность между слоями
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="legend-section">
+                        <h3>Концептуальные Области</h3>
+                        <div class="legend-items">
+                            <div class="legend-item">
+                                <div class="legend-color" style="background:#2E4057;"></div>
+                                <div class="legend-text">
+                                    <strong>Онтологический фундамент</strong>
+                                    Возможные миры, актуализация
+                                </div>
+                            </div>
+                            <div class="legend-item">
+                                <div class="legend-color" style="background:#20B2AA;"></div>
+                                <div class="legend-text">
+                                    <strong>Эпистемология</strong>
+                                    Теория познания, границы знания
+                                </div>
+                            </div>
+                            <div class="legend-item">
+                                <div class="legend-color" style="background:#FF6347;"></div>
+                                <div class="legend-text">
+                                    <strong>Практическая философия</strong>
+                                    Этика, история, теодицея
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="notes">
+                <h2>Ключевые Концепции Системы</h2>
+                <div class="notes-grid">
+                    <div class="note-item">
+                        <h4>🔷 Стратифицированная Реальность</h4>
+                        <p>Бытие организовано в четыре онтологических слоя, каждый с уникальными категориями. Монады Лейбница локализованы в слоях Гартмана, обеспечивая субстанциальное содержание стратификации.</p>
+                    </div>
+                    
+                    <div class="note-item">
+                        <h4>🔷 Предустановленная Гармония</h4>
+                        <p>Координация осуществляется как горизонтально (между монадами одного слоя), так и вертикально (между различными слоями). Монады не взаимодействуют, но идеально согласованы.</p>
+                    </div>
+                    
+                    <div class="note-item">
+                        <h4>🔷 Фундирование (Fundierung)</h4>
+                        <p>Высший слой зависит от низшего в бытии, но автономен в категориях. Низшее не производит высшее, но предоставляет ему онтологическое основание. Нисходящая детерминация при восходящей индетерминации.</p>
+                    </div>
+                    
+                    <div class="note-item">
+                        <h4>🔷 Суперформация (Superformation)</h4>
+                        <p>Высший слой надстраивается над низшим, обретая новые степени свободы. Категориальная автономия растёт с подъёмом по слоям: от материальной необходимости к духовной свободе.</p>
+                    </div>
+                    
+                    <div class="note-item">
+                        <h4>🔷 Категориальная Новизна</h4>
+                        <p>Каждый высший слой обладает категориями, отсутствующими в низших. Жизнь несводима к физике, сознание — к биологии, дух — к психологии. Эмергентность как онтологический факт.</p>
+                    </div>
+                    
+                    <div class="note-item">
+                        <h4>🔷 Монадическая Непрерывность</h4>
+                        <p>При категориальной дискретности существует монадический континуум. Пограничные монады обеспечивают переходы между слоями, реализуя принцип natura non facit saltus.</p>
+                    </div>
+                    
+                    <div class="note-item">
+                        <h4>🔷 Возможные Миры</h4>
+                        <p>Различаются не только составом монад, но и стратификационными конфигурациями. Актуальный мир оптимален по полноте, гармонии, богатству и иерархической упорядоченности.</p>
+                    </div>
+                    
+                    <div class="note-item">
+                        <h4>🔷 Эпистемологическая Градация</h4>
+                        <p>Монада ясно познаёт свой слой и низшие, высшие — смутно. Отсюда различная точность наук: физика строже биологии, биология — психологии, психология — гуманитарных наук.</p>
+                    </div>
+                    
+                    <div class="note-item">
+                        <h4>🔷 Свобода и Детерминизм</h4>
+                        <p>Свобода нарастает с подъёмом по слоям. Материя детерминирована, дух автономен. Свобода не как отсутствие детерминации, но как самодетерминация высшим вопреки низшему.</p>
+                    </div>
+                    
+                    <div class="note-item">
+                        <h4>🔷 Историческая Актуализация</h4>
+                        <p>Космогонический процесс: последовательное возникновение слоёв от материи через жизнь и сознание к духу. История как актуализация духовного слоя, развёртывание его потенциальностей.</p>
+                    </div>
+                    
+                    <div class="note-item">
+                        <h4>🔷 Царство Целей</h4>
+                        <p>Духовный слой как сообщество личностей, связанных не причинами, но ценностями и смыслами. Каждая личность — цель сама по себе, реализующая уникальную перспективу на универсум.</p>
+                    </div>
+                    
+                    <div class="note-item">
+                        <h4>🔷 Теодицея</h4>
+                        <p>Зло трёх видов: метафизическое (несовершенство конечного), физическое (страдание от фундирования), моральное (злоупотребление свободой). Бог допускает зло ради большего блага.</p>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="controls">
+                <h3>Управление диаграммой</h3>
+                
+                <div style="margin: 20px 0; text-align: left; max-width: 900px; margin-left: auto; margin-right: auto;">
+                    <div style="background: #f8f9fa; padding: 20px; border-radius: 8px; margin-bottom: 20px;">
+                        <h4 style="margin-top: 0; color: #2c3e50;">🔍 Масштабирование и Навигация</h4>
+                        <p style="margin: 10px 0;"><strong>Кнопки +/−:</strong> Увеличение/уменьшение на 10%</p>
+                        <p style="margin: 10px 0;"><strong>Кнопка ⟲:</strong> Сброс масштаба до 100%</p>
+                        <p style="margin: 10px 0;"><strong>Ползунок:</strong> Плавное изменение масштаба от 25% до 200%</p>
+                        <p style="margin: 10px 0;"><strong>Ctrl + колесо мыши:</strong> Быстрое масштабирование (на ПК)</p>
+                        <p style="margin: 10px 0;"><strong>Левая кнопка мыши + перетаскивание:</strong> Ручная навигация по диаграмме (drag-to-pan)</p>
+                        <p style="margin: 10px 0;"><strong>Средняя кнопка мыши (колесо):</strong> Стандартная автопрокрутка браузера (нажать и двигать мышью)</p>
+                        <p style="margin: 10px 0;"><strong>Полосы прокрутки:</strong> Для точной навигации по вертикали и горизонтали</p>
+                        <p style="margin: 10px 0;"><strong>Pinch-жест:</strong> Сведение/разведение двух пальцев для масштабирования (на сенсорных экранах)</p>
+                        <p style="margin: 10px 0;"><strong>⛶ Полный экран:</strong> Разворачивает диаграмму на весь экран (Escape для выхода)</p>
+                    </div>
+                    
+                    <div style="background: #f8f9fa; padding: 20px; border-radius: 8px;">
+                        <h4 style="margin-top: 0; color: #2c3e50;">📋 Типы связей</h4>
+                        <p style="margin: 10px 0;"><strong>═══╶ (толстая двойная):</strong> Установление, творение, конституирование</p>
+                        <p style="margin: 10px 0;"><strong>━━━╶ (толстая):</strong> Фундирование — онтологическая зависимость высшего от низшего</p>
+                        <p style="margin: 10px 0;"><strong>───╶ (обычная):</strong> Основные концептуальные связи</p>
+                        <p style="margin: 10px 0;"><strong>╌╌╌╶ (пунктир):</strong> Суперформация, влияние, обоснование</p>
+                        <p style="margin: 10px 0;"><strong>┄┄┄╶ (точки):</strong> Дополнительные отношения, пронизывание</p>
+                    </div>
+                </div>
+                
+                <div style="margin-top: 30px;">
+                    <button class="btn" onclick="window.print()">🖨️ Печать диаграммы</button>
+                    <a href="stratified_monadology_full" class="btn">📖 Открыть трактат</a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="scroll-top" id="scrollTop" onclick="window.scrollTo({top: 0, behavior: 'smooth'})">
+        ↑
+    </div>
+
+    <script>
+        // Mermaid initialization
+        mermaid.initialize({ 
+            startOnLoad: true,
+            theme: 'default',
+            flowchart: {
+                useMaxWidth: true,
+                htmlLabels: true,
+                curve: 'basis',
+                padding: 15,
+                nodeSpacing: 80,
+                rankSpacing: 100
+            },
+            themeVariables: {
+                fontSize: '14px',
+                fontFamily: 'Segoe UI, Tahoma, Geneva, Verdana, sans-serif'
+            }
+        });
+
+        // Zoom functionality
+        let currentZoom = 100;
+        const mermaidElement = document.querySelector('.mermaid');
+        const mermaidWrapper = document.getElementById('mermaidWrapper');
+        const zoomLevelDisplay = document.getElementById('zoomLevel');
+        const zoomSlider = document.getElementById('zoomSlider');
+        const diagramContainer = document.getElementById('diagramContainer');
+
+        function updateZoom(zoom) {
+            currentZoom = Math.max(25, Math.min(200, zoom));
+            const scale = currentZoom / 100;
+            
+            // Apply transform to mermaid element
+            mermaidElement.style.transform = `scale(${scale})`;
+            
+            // Calculate actual dimensions needed
+            // Account for padding (20px on each side = 40px total)
+            const paddingTotal = 40;
+            const baseWidth = 100; // percentage
+            const baseHeight = 800; // pixels
+            
+            const scaledWidth = baseWidth * scale;
+            const scaledHeight = (baseHeight + paddingTotal) * scale;
+            
+            // Dynamic alignment: center at 100%, left when zoomed in
+            if (scale > 1) {
+                // When zoomed in, align left and use top-left origin
+                mermaidElement.style.transformOrigin = 'top left';
+                mermaidElement.style.justifyContent = 'flex-start';
+                
+                // Set wrapper dimensions to accommodate the scaled content
+                // Add extra width to ensure horizontal scrolling works
+                mermaidWrapper.style.minWidth = `${scaledWidth}%`;
+                mermaidWrapper.style.minHeight = `${scaledHeight}px`;
+                mermaidWrapper.style.width = `${scaledWidth}%`;
+                mermaidWrapper.style.height = `${scaledHeight}px`;
+                
+                // Ensure proper overflow
+                mermaidWrapper.style.overflow = 'visible';
+            } else if (scale < 1) {
+                // When zoomed out, center
+                mermaidElement.style.transformOrigin = 'top center';
+                mermaidElement.style.justifyContent = 'center';
+                
+                mermaidWrapper.style.width = '100%';
+                mermaidWrapper.style.height = 'auto';
+                mermaidWrapper.style.minWidth = '100%';
+                mermaidWrapper.style.minHeight = `${baseHeight}px`;
+                mermaidWrapper.style.overflow = 'visible';
+            } else {
+                // At exactly 100%, center the diagram
+                mermaidElement.style.transformOrigin = 'top center';
+                mermaidElement.style.justifyContent = 'center';
+                
+                mermaidWrapper.style.width = '100%';
+                mermaidWrapper.style.height = 'auto';
+                mermaidWrapper.style.minWidth = '100%';
+                mermaidWrapper.style.minHeight = `${baseHeight}px`;
+                mermaidWrapper.style.overflow = 'visible';
+            }
+            
+            // Update display
+            zoomLevelDisplay.textContent = `${currentZoom}%`;
+            zoomSlider.value = currentZoom;
+            
+            // Visual feedback
+            zoomLevelDisplay.classList.add('active');
+            setTimeout(() => {
+                zoomLevelDisplay.classList.remove('active');
+            }, 300);
+        }
+
+        function zoomIn() {
+            updateZoom(currentZoom + 10);
+        }
+
+        function zoomOut() {
+            updateZoom(currentZoom - 10);
+        }
+
+        function resetZoom() {
+            updateZoom(100);
+        }
+
+        // Slider control
+        zoomSlider.addEventListener('input', function() {
+            updateZoom(parseInt(this.value));
+        });
+
+        // Mouse wheel zoom
+        diagramContainer.addEventListener('wheel', function(e) {
+            if (e.ctrlKey || e.metaKey) {
+                e.preventDefault();
+                const delta = e.deltaY > 0 ? -5 : 5;
+                updateZoom(currentZoom + delta);
+            }
+        }, { passive: false });
+
+        // Drag to pan functionality (only with left mouse button)
+        let isDragging = false;
+        let startX, startY, scrollLeft, scrollTop;
+
+        diagramContainer.addEventListener('mousedown', function(e) {
+            // Only work with left mouse button (button 0)
+            // Allow middle button (button 1) and right button (button 2) to work normally
+            if (e.button !== 0) return;
+            
+            // Don't interfere with interactive elements
+            if (e.target.closest('a, button, .zoom-controls')) return;
+            
+            isDragging = true;
+            diagramContainer.classList.add('grabbing');
+            startX = e.pageX - diagramContainer.offsetLeft;
+            startY = e.pageY - diagramContainer.offsetTop;
+            scrollLeft = diagramContainer.scrollLeft;
+            scrollTop = diagramContainer.scrollTop;
+            diagramContainer.style.scrollBehavior = 'auto';
+            e.preventDefault(); // Prevent text selection while dragging
+        });
+
+        diagramContainer.addEventListener('mouseleave', function() {
+            isDragging = false;
+            diagramContainer.classList.remove('grabbing');
+            diagramContainer.style.scrollBehavior = 'smooth';
+        });
+
+        diagramContainer.addEventListener('mouseup', function(e) {
+            // Only handle left button release
+            if (e.button === 0) {
+                isDragging = false;
+                diagramContainer.classList.remove('grabbing');
+                diagramContainer.style.scrollBehavior = 'smooth';
+            }
+        });
+
+        diagramContainer.addEventListener('mousemove', function(e) {
+            if (!isDragging) return;
+            e.preventDefault();
+            const x = e.pageX - diagramContainer.offsetLeft;
+            const y = e.pageY - diagramContainer.offsetTop;
+            const walkX = (x - startX) * 1.5; // Multiplier for faster scroll
+            const walkY = (y - startY) * 1.5;
+            diagramContainer.scrollLeft = scrollLeft - walkX;
+            diagramContainer.scrollTop = scrollTop - walkY;
+        });
+
+        // Disable context menu on middle mouse button to allow standard browser panning
+        diagramContainer.addEventListener('auxclick', function(e) {
+            if (e.button === 1) {
+                // Middle button - allow browser's default autopan behavior
+                // Don't prevent default here
+            }
+        });
+
+        // Fullscreen functionality
+        function toggleFullscreen() {
+            diagramContainer.classList.toggle('fullscreen');
+            if (diagramContainer.classList.contains('fullscreen')) {
+                document.body.style.overflow = 'hidden';
+            } else {
+                document.body.style.overflow = 'auto';
+            }
+        }
+
+        // Escape key to exit fullscreen
+        document.addEventListener('keydown', function(e) {
+            if (e.key === 'Escape' && diagramContainer.classList.contains('fullscreen')) {
+                toggleFullscreen();
+            }
+        });
+
+        // Touch gestures for mobile zoom (pinch to zoom)
+        let touchStartDistance = 0;
+        let touchStartZoom = 100;
+
+        diagramContainer.addEventListener('touchstart', function(e) {
+            if (e.touches.length === 2) {
+                e.preventDefault();
+                const touch1 = e.touches[0];
+                const touch2 = e.touches[1];
+                touchStartDistance = Math.hypot(
+                    touch2.clientX - touch1.clientX,
+                    touch2.clientY - touch1.clientY
+                );
+                touchStartZoom = currentZoom;
+            }
+        }, { passive: false });
+
+        diagramContainer.addEventListener('touchmove', function(e) {
+            if (e.touches.length === 2) {
+                e.preventDefault();
+                const touch1 = e.touches[0];
+                const touch2 = e.touches[1];
+                const touchDistance = Math.hypot(
+                    touch2.clientX - touch1.clientX,
+                    touch2.clientY - touch1.clientY
+                );
+                
+                const scale = touchDistance / touchStartDistance;
+                const newZoom = touchStartZoom * scale;
+                updateZoom(newZoom);
+            }
+        }, { passive: false });
+
+        // Show/hide scroll to top button
+        window.addEventListener('scroll', function() {
+            const scrollTop = document.getElementById('scrollTop');
+            if (window.pageYOffset > 300) {
+                scrollTop.classList.add('visible');
+            } else {
+                scrollTop.classList.remove('visible');
+            }
+        });
+    </script>
+</body>
+</html>
