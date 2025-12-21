@@ -1,0 +1,2721 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Изометрическая Стратегия</title>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700&family=Press+Start+2P&display=swap');
+        
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            background: #0a0e1a;
+            font-family: 'JetBrains Mono', monospace;
+            color: #00ff41;
+            overflow: hidden;
+            height: 100vh;
+        }
+        
+        #game-container {
+            display: flex;
+            height: 100vh;
+        }
+        
+        #canvas-area {
+            flex: 1;
+            position: relative;
+            background: linear-gradient(135deg, #0a0e1a 0%, #1a1e2a 100%);
+        }
+        
+        #game-canvas {
+            display: block;
+            image-rendering: pixelated;
+            cursor: crosshair;
+        }
+        
+        #ui-panel {
+            width: 320px;
+            background: rgba(10, 14, 26, 0.95);
+            border-left: 2px solid #00ff41;
+            padding: 20px;
+            overflow-y: auto;
+            box-shadow: -10px 0 30px rgba(0, 255, 65, 0.1);
+        }
+        
+        .panel-section {
+            margin-bottom: 20px;
+            border: 1px solid #00ff41;
+            padding: 15px;
+            background: rgba(0, 255, 65, 0.03);
+        }
+        
+        .panel-title {
+            font-family: 'Press Start 2P', monospace;
+            font-size: 10px;
+            color: #00ff41;
+            margin-bottom: 10px;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            text-shadow: 0 0 10px rgba(0, 255, 65, 0.5);
+        }
+        
+        .resource-display {
+            display: flex;
+            justify-content: space-between;
+            margin: 8px 0;
+            font-size: 14px;
+            color: #7fff7f;
+        }
+        
+        .resource-label {
+            color: #00ff41;
+        }
+        
+        .unit-info {
+            padding: 10px;
+            background: rgba(0, 255, 65, 0.05);
+            border-left: 3px solid #00ff41;
+            margin: 10px 0;
+        }
+        
+        .unit-name {
+            font-weight: bold;
+            color: #00ff41;
+            margin-bottom: 5px;
+        }
+        
+        .unit-stats {
+            font-size: 12px;
+            color: #7fff7f;
+            line-height: 1.6;
+        }
+        
+        .action-buttons {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+            margin-top: 10px;
+        }
+        
+        button {
+            background: rgba(0, 255, 65, 0.1);
+            border: 2px solid #00ff41;
+            color: #00ff41;
+            padding: 10px;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 11px;
+            cursor: pointer;
+            transition: all 0.2s;
+            text-transform: uppercase;
+        }
+        
+        button:hover:not(:disabled) {
+            background: rgba(0, 255, 65, 0.2);
+            box-shadow: 0 0 15px rgba(0, 255, 65, 0.4);
+            transform: translateY(-2px);
+        }
+        
+        button:disabled {
+            opacity: 0.3;
+            cursor: not-allowed;
+        }
+        
+        .build-menu {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 8px;
+        }
+        
+        .build-btn {
+            padding: 8px;
+            font-size: 10px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 5px;
+        }
+        
+        .build-icon {
+            font-size: 20px;
+        }
+        
+        .build-cost {
+            font-size: 9px;
+            color: #7fff7f;
+        }
+        
+        #minimap {
+            width: 100%;
+            height: 200px;
+            border: 2px solid #00ff41;
+            margin-top: 15px;
+            background: #000;
+            image-rendering: pixelated;
+        }
+        
+        .race-indicator {
+            display: inline-block;
+            padding: 3px 8px;
+            background: rgba(0, 255, 65, 0.2);
+            border-radius: 3px;
+            font-size: 11px;
+            margin-left: 10px;
+        }
+        
+        .health-bar {
+            width: 100%;
+            height: 8px;
+            background: rgba(255, 0, 0, 0.3);
+            border: 1px solid #00ff41;
+            margin: 5px 0;
+            position: relative;
+            overflow: hidden;
+        }
+        
+        .health-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #ff0000, #00ff00);
+            transition: width 0.3s;
+        }
+        
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+        
+        .selected-indicator {
+            animation: pulse 1.5s infinite;
+        }
+    </style>
+</head>
+<body>
+    <div id="game-container">
+        <div id="canvas-area">
+            <canvas id="game-canvas"></canvas>
+        </div>
+        <div id="ui-panel">
+            <div class="panel-section">
+                <div class="panel-title">🗺 Terrain Info</div>
+                <div id="terrain-info">
+                    <p style="color: #7fff7f; font-size: 12px;">Наведите на клетку</p>
+                </div>
+            </div>
+            
+            <div class="panel-section">
+                <div class="panel-title">⚔ Resources</div>
+                <div class="resource-display">
+                    <span class="resource-label">🪙 Gold:</span>
+                    <span id="gold-amount">500</span>
+                </div>
+                <div class="resource-display">
+                    <span class="resource-label">🌲 Wood:</span>
+                    <span id="wood-amount">300</span>
+                </div>
+                <div class="resource-display">
+                    <span class="resource-label">👥 Supply:</span>
+                    <span id="supply-amount">0/50</span>
+                </div>
+            </div>
+            
+            <div class="panel-section">
+                <div class="panel-title">📋 Selection</div>
+                <div id="selection-info">
+                    <p style="color: #7fff7f; font-size: 12px;">Выберите юнит или здание</p>
+                </div>
+            </div>
+            
+            <div class="panel-section" id="actions-panel" style="display: none;">
+                <div class="panel-title">⚡ Actions</div>
+                <div id="action-buttons-container"></div>
+            </div>
+            
+            <div class="panel-section">
+                <div class="panel-title">🏗 Build</div>
+                <div class="build-menu" id="build-menu">
+                    <!-- Будет заполнено из JS -->
+                </div>
+            </div>
+            
+            <canvas id="minimap"></canvas>
+            
+            <div class="panel-section" style="margin-top: 15px; font-size: 10px; color: #7fff7f; line-height: 1.6;">
+                <div class="panel-title" style="font-size: 9px;">⌨ Controls</div>
+                <div style="margin: 5px 0;"><strong>ЛКМ</strong> - Выбор</div>
+                <div style="margin: 5px 0;"><strong>ПКМ</strong> - Приказ/Атака</div>
+                <div style="margin: 5px 0;"><strong>Колесо</strong> - Движение камеры</div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // ============================================================================
+        // КОНСТАНТЫ И НАСТРОЙКИ
+        // ============================================================================
+        
+        const TILE_WIDTH = 64;
+        const TILE_HEIGHT = 32;
+        const MAP_WIDTH = 30;
+        const MAP_HEIGHT = 30;
+        
+        const RACES = {
+            HUMAN: 'human',
+            ORC: 'orc'
+        };
+        
+        const UNIT_TYPES = {
+            // ===== ЛЮДИ =====
+            // Рабочие и базовые юниты
+            PEASANT: {
+                name: 'Крестьянин',
+                icon: '👤',
+                race: RACES.HUMAN,
+                hp: 50,
+                damage: 5,
+                range: 1,
+                speed: 2,
+                cost: { gold: 50, wood: 0 },
+                supply: 1,
+                canBuild: true,
+                canGather: true,
+                carryCapacity: 10,
+                trainTime: 5000
+            },
+            FOOTMAN: {
+                name: 'Воин',
+                icon: '⚔',
+                race: RACES.HUMAN,
+                hp: 100,
+                damage: 15,
+                range: 1,
+                speed: 3,
+                cost: { gold: 100, wood: 20 },
+                supply: 2,
+                trainTime: 8000
+            },
+            ARCHER: {
+                name: 'Лучник',
+                icon: '🏹',
+                race: RACES.HUMAN,
+                hp: 60,
+                damage: 12,
+                range: 5,
+                speed: 3,
+                cost: { gold: 90, wood: 30 },
+                supply: 2,
+                trainTime: 10000
+            },
+            
+            // Элитные юниты
+            KNIGHT: {
+                name: 'Рыцарь',
+                icon: '🐴',
+                race: RACES.HUMAN,
+                hp: 150,
+                damage: 25,
+                range: 1,
+                speed: 5,
+                cost: { gold: 200, wood: 50 },
+                supply: 3,
+                trainTime: 12000,
+                ability: {
+                    name: 'Рывок',
+                    icon: '💨',
+                    cooldown: 10000,
+                    range: 0,
+                    effect: 'speed_boost',
+                    value: 3,
+                    duration: 5000
+                }
+            },
+            CROSSBOWMAN: {
+                name: 'Арбалетчик',
+                icon: '🎯',
+                race: RACES.HUMAN,
+                hp: 70,
+                damage: 20,
+                range: 6,
+                speed: 2.5,
+                cost: { gold: 130, wood: 60 },
+                supply: 2,
+                trainTime: 11000
+            },
+            
+            // Магические юниты
+            MAGE: {
+                name: 'Маг',
+                icon: '🧙',
+                race: RACES.HUMAN,
+                hp: 70,
+                damage: 20,
+                range: 4,
+                speed: 2,
+                cost: { gold: 150, wood: 50 },
+                supply: 3,
+                ability: {
+                    name: 'Огненный шар',
+                    icon: '🔥',
+                    cooldown: 5000,
+                    range: 5,
+                    effect: 'damage',
+                    value: 50
+                },
+                trainTime: 15000
+            },
+            PRIEST: {
+                name: 'Жрец',
+                icon: '⛪',
+                race: RACES.HUMAN,
+                hp: 60,
+                damage: 8,
+                range: 4,
+                speed: 2,
+                cost: { gold: 140, wood: 40 },
+                supply: 2,
+                ability: {
+                    name: 'Массовое исцеление',
+                    icon: '✨',
+                    cooldown: 12000,
+                    range: 4,
+                    effect: 'mass_heal',
+                    value: 30
+                },
+                trainTime: 14000
+            },
+            ARCHMAGE: {
+                name: 'Архимаг',
+                icon: '🧝',
+                race: RACES.HUMAN,
+                hp: 90,
+                damage: 35,
+                range: 5,
+                speed: 2,
+                cost: { gold: 300, wood: 100 },
+                supply: 4,
+                ability: {
+                    name: 'Метеор',
+                    icon: '☄',
+                    cooldown: 20000,
+                    range: 6,
+                    effect: 'aoe_damage',
+                    value: 80,
+                    radius: 2
+                },
+                trainTime: 25000
+            },
+            
+            // Осадные орудия
+            CATAPULT: {
+                name: 'Катапульта',
+                icon: '🎪',
+                race: RACES.HUMAN,
+                hp: 80,
+                damage: 50,
+                range: 7,
+                speed: 1,
+                cost: { gold: 250, wood: 100 },
+                supply: 4,
+                trainTime: 18000
+            },
+            
+            // Летающие юниты
+            GRIFFIN: {
+                name: 'Грифон',
+                icon: '🦅',
+                race: RACES.HUMAN,
+                hp: 120,
+                damage: 22,
+                range: 1,
+                speed: 6,
+                cost: { gold: 220, wood: 80 },
+                supply: 3,
+                trainTime: 16000,
+                flying: true
+            },
+            
+            // Герои
+            PALADIN: {
+                name: 'Паладин',
+                icon: '👼',
+                race: RACES.HUMAN,
+                hp: 250,
+                damage: 40,
+                range: 1,
+                speed: 3.5,
+                cost: { gold: 500, wood: 150 },
+                supply: 5,
+                ability: {
+                    name: 'Божественный щит',
+                    icon: '🛡',
+                    cooldown: 30000,
+                    range: 0,
+                    effect: 'invulnerable',
+                    value: 1,
+                    duration: 3000
+                },
+                trainTime: 30000,
+                hero: true
+            },
+            
+            // ===== ОРКИ =====
+            // Рабочие и базовые юниты
+            PEON: {
+                name: 'Пеон',
+                icon: '🧟',
+                race: RACES.ORC,
+                hp: 60,
+                damage: 7,
+                range: 1,
+                speed: 2,
+                cost: { gold: 50, wood: 0 },
+                supply: 1,
+                canBuild: true,
+                canGather: true,
+                carryCapacity: 10,
+                trainTime: 5000
+            },
+            GRUNT: {
+                name: 'Grunt',
+                icon: '⚔',
+                race: RACES.ORC,
+                hp: 120,
+                damage: 18,
+                range: 1,
+                speed: 3,
+                cost: { gold: 100, wood: 20 },
+                supply: 2,
+                trainTime: 8000
+            },
+            RAIDER: {
+                name: 'Рейдер',
+                icon: '🪓',
+                race: RACES.ORC,
+                hp: 80,
+                damage: 16,
+                range: 1,
+                speed: 4,
+                cost: { gold: 110, wood: 30 },
+                supply: 2,
+                trainTime: 10000
+            },
+            HEADHUNTER: {
+                name: 'Охотник за головами',
+                icon: '🗡',
+                race: RACES.ORC,
+                hp: 65,
+                damage: 14,
+                range: 5,
+                speed: 3,
+                cost: { gold: 95, wood: 35 },
+                supply: 2,
+                trainTime: 10000
+            },
+            
+            // Элитные юниты
+            TAUREN: {
+                name: 'Таурен',
+                icon: '🐂',
+                race: RACES.ORC,
+                hp: 200,
+                damage: 30,
+                range: 1,
+                speed: 2.5,
+                cost: { gold: 220, wood: 80 },
+                supply: 4,
+                ability: {
+                    name: 'Топот',
+                    icon: '💥',
+                    cooldown: 15000,
+                    range: 2,
+                    effect: 'stun',
+                    value: 2000
+                },
+                trainTime: 16000
+            },
+            BERSERKER: {
+                name: 'Берсерк',
+                icon: '😡',
+                race: RACES.ORC,
+                hp: 110,
+                damage: 35,
+                range: 1,
+                speed: 4,
+                cost: { gold: 180, wood: 60 },
+                supply: 3,
+                ability: {
+                    name: 'Ярость',
+                    icon: '🔴',
+                    cooldown: 20000,
+                    range: 0,
+                    effect: 'damage_boost',
+                    value: 20,
+                    duration: 8000
+                },
+                trainTime: 14000
+            },
+            
+            // Магические юниты
+            SHAMAN: {
+                name: 'Шаман',
+                icon: '🔮',
+                race: RACES.ORC,
+                hp: 65,
+                damage: 18,
+                range: 4,
+                speed: 2,
+                cost: { gold: 150, wood: 50 },
+                supply: 3,
+                ability: {
+                    name: 'Исцеление',
+                    icon: '💚',
+                    cooldown: 8000,
+                    range: 3,
+                    effect: 'heal',
+                    value: 40
+                },
+                trainTime: 15000
+            },
+            WITCH_DOCTOR: {
+                name: 'Знахарь',
+                icon: '🧙‍♂️',
+                race: RACES.ORC,
+                hp: 70,
+                damage: 22,
+                range: 4,
+                speed: 2,
+                cost: { gold: 160, wood: 70 },
+                supply: 3,
+                ability: {
+                    name: 'Проклятие',
+                    icon: '☠',
+                    cooldown: 10000,
+                    range: 5,
+                    effect: 'weaken',
+                    value: 10,
+                    duration: 10000
+                },
+                trainTime: 16000
+            },
+            WARLOCK: {
+                name: 'Чернокнижник',
+                icon: '👹',
+                race: RACES.ORC,
+                hp: 85,
+                damage: 30,
+                range: 5,
+                speed: 2,
+                cost: { gold: 280, wood: 90 },
+                supply: 4,
+                ability: {
+                    name: 'Призыв демона',
+                    icon: '👿',
+                    cooldown: 25000,
+                    range: 3,
+                    effect: 'summon',
+                    value: 1
+                },
+                trainTime: 22000
+            },
+            
+            // Осадные орудия
+            DEMOLISHER: {
+                name: 'Разрушитель',
+                icon: '🎡',
+                race: RACES.ORC,
+                hp: 90,
+                damage: 55,
+                range: 7,
+                speed: 1.5,
+                cost: { gold: 260, wood: 110 },
+                supply: 4,
+                trainTime: 18000
+            },
+            
+            // Летающие юниты
+            WYVERN: {
+                name: 'Виверна',
+                icon: '🐉',
+                race: RACES.ORC,
+                hp: 130,
+                damage: 24,
+                range: 1,
+                speed: 6,
+                cost: { gold: 230, wood: 90 },
+                supply: 3,
+                ability: {
+                    name: 'Ядовитое дыхание',
+                    icon: '🟢',
+                    cooldown: 12000,
+                    range: 4,
+                    effect: 'poison',
+                    value: 5,
+                    duration: 10000
+                },
+                trainTime: 17000,
+                flying: true
+            },
+            
+            // Герои
+            BLADEMASTER: {
+                name: 'Мастер клинка',
+                icon: '⚡',
+                race: RACES.ORC,
+                hp: 230,
+                damage: 45,
+                range: 1,
+                speed: 4.5,
+                cost: { gold: 500, wood: 150 },
+                supply: 5,
+                ability: {
+                    name: 'Зеркальное изображение',
+                    icon: '👥',
+                    cooldown: 30000,
+                    range: 0,
+                    effect: 'mirror_image',
+                    value: 2
+                },
+                trainTime: 30000,
+                hero: true
+            }
+        };
+        
+        const BUILDING_TYPES = {
+            // ===== ЛЮДИ =====
+            TOWN_HALL: {
+                name: 'Ратуша',
+                icon: '⛪',
+                race: RACES.HUMAN,
+                hp: 500,
+                width: 3,
+                height: 3,
+                cost: { gold: 0, wood: 0 },
+                trains: ['PEASANT'],
+                provides: 10,
+                buildTime: 0,
+                researches: [
+                    { name: 'Усиленная добыча', icon: '⛏', cost: { gold: 100, wood: 50 }, effect: 'carry_capacity', value: 5, time: 12000 }
+                ]
+            },
+            FARM: {
+                name: 'Ферма',
+                icon: '🏠',
+                race: RACES.HUMAN,
+                hp: 150,
+                width: 2,
+                height: 2,
+                cost: { gold: 80, wood: 20 },
+                provides: 5,
+                buildTime: 10000
+            },
+            BARRACKS: {
+                name: 'Казарма',
+                icon: '⚒',
+                race: RACES.HUMAN,
+                hp: 300,
+                width: 2,
+                height: 2,
+                cost: { gold: 150, wood: 50 },
+                trains: ['FOOTMAN', 'ARCHER', 'CROSSBOWMAN'],
+                researches: [
+                    { name: 'Улучшение оружия I', icon: '⚔', cost: { gold: 100, wood: 50 }, effect: 'damage', value: 2, time: 15000 },
+                    { name: 'Улучшение брони I', icon: '🛡', cost: { gold: 150, wood: 50 }, effect: 'armor', value: 1, time: 20000 },
+                    { name: 'Строевая подготовка', icon: '🎯', cost: { gold: 120, wood: 60 }, effect: 'range', value: 1, time: 18000 }
+                ],
+                buildTime: 15000
+            },
+            BLACKSMITH: {
+                name: 'Кузница',
+                icon: '🔨',
+                race: RACES.HUMAN,
+                hp: 250,
+                width: 2,
+                height: 2,
+                cost: { gold: 120, wood: 60 },
+                researches: [
+                    { name: 'Улучшение оружия II', icon: '⚔', cost: { gold: 200, wood: 100 }, effect: 'damage', value: 3, time: 25000 },
+                    { name: 'Улучшение брони II', icon: '🛡', cost: { gold: 250, wood: 100 }, effect: 'armor', value: 2, time: 30000 },
+                    { name: 'Стальное оружие', icon: '🗡', cost: { gold: 300, wood: 150 }, effect: 'damage', value: 5, time: 40000 }
+                ],
+                buildTime: 18000
+            },
+            STABLES: {
+                name: 'Конюшня',
+                icon: '🏇',
+                race: RACES.HUMAN,
+                hp: 280,
+                width: 2,
+                height: 2,
+                cost: { gold: 180, wood: 70 },
+                trains: ['KNIGHT'],
+                researches: [
+                    { name: 'Разведение коней', icon: '🐎', cost: { gold: 150, wood: 80 }, effect: 'speed', value: 1, time: 20000 }
+                ],
+                buildTime: 20000
+            },
+            ARCANE_TOWER: {
+                name: 'Башня Магов',
+                icon: '🗼',
+                race: RACES.HUMAN,
+                hp: 250,
+                width: 2,
+                height: 2,
+                cost: { gold: 200, wood: 80 },
+                trains: ['MAGE', 'PRIEST', 'ARCHMAGE'],
+                researches: [
+                    { name: 'Мистицизм', icon: '✨', cost: { gold: 180, wood: 90 }, effect: 'ability_power', value: 10, time: 22000 },
+                    { name: 'Регенерация маны', icon: '💙', cost: { gold: 200, wood: 100 }, effect: 'cooldown', value: -2000, time: 25000 }
+                ],
+                buildTime: 20000
+            },
+            WORKSHOP: {
+                name: 'Мастерская',
+                icon: '🏭',
+                race: RACES.HUMAN,
+                hp: 300,
+                width: 2,
+                height: 2,
+                cost: { gold: 220, wood: 100 },
+                trains: ['CATAPULT'],
+                researches: [
+                    { name: 'Улучшенные балансиры', icon: '⚙', cost: { gold: 200, wood: 120 }, effect: 'siege_damage', value: 15, time: 30000 }
+                ],
+                buildTime: 25000
+            },
+            AVIARY: {
+                name: 'Вольер грифонов',
+                icon: '🏔',
+                race: RACES.HUMAN,
+                hp: 260,
+                width: 2,
+                height: 2,
+                cost: { gold: 250, wood: 120 },
+                trains: ['GRIFFIN'],
+                researches: [
+                    { name: 'Маневры в воздухе', icon: '🌪', cost: { gold: 180, wood: 100 }, effect: 'flying_speed', value: 1.5, time: 20000 }
+                ],
+                buildTime: 22000
+            },
+            CASTLE: {
+                name: 'Замок',
+                icon: '🏰',
+                race: RACES.HUMAN,
+                hp: 600,
+                width: 3,
+                height: 3,
+                cost: { gold: 400, wood: 200 },
+                trains: ['PALADIN'],
+                provides: 15,
+                researches: [
+                    { name: 'Королевская гвардия', icon: '👑', cost: { gold: 300, wood: 150 }, effect: 'elite_damage', value: 8, time: 35000 }
+                ],
+                buildTime: 40000
+            },
+            GUARD_TOWER: {
+                name: 'Сторожевая башня',
+                icon: '🗿',
+                race: RACES.HUMAN,
+                hp: 200,
+                width: 1,
+                height: 1,
+                cost: { gold: 100, wood: 50 },
+                damage: 10,
+                range: 6,
+                buildTime: 12000,
+                isDefense: true
+            },
+            CANNON_TOWER: {
+                name: 'Пушечная башня',
+                icon: '🎆',
+                race: RACES.HUMAN,
+                hp: 250,
+                width: 1,
+                height: 1,
+                cost: { gold: 180, wood: 80 },
+                damage: 30,
+                range: 7,
+                buildTime: 18000,
+                isDefense: true
+            },
+            
+            // ===== ОРКИ =====
+            GREAT_HALL: {
+                name: 'Большой Зал',
+                icon: '⛺',
+                race: RACES.ORC,
+                hp: 550,
+                width: 3,
+                height: 3,
+                cost: { gold: 0, wood: 0 },
+                trains: ['PEON'],
+                provides: 10,
+                buildTime: 0,
+                researches: [
+                    { name: 'Усиленная добыча', icon: '⛏', cost: { gold: 100, wood: 50 }, effect: 'carry_capacity', value: 5, time: 12000 }
+                ]
+            },
+            PIG_FARM: {
+                name: 'Свиноферма',
+                icon: '🏕',
+                race: RACES.ORC,
+                hp: 180,
+                width: 2,
+                height: 2,
+                cost: { gold: 80, wood: 20 },
+                provides: 5,
+                buildTime: 10000
+            },
+            ORC_BARRACKS: {
+                name: 'Казарма',
+                icon: '⚔',
+                race: RACES.ORC,
+                hp: 320,
+                width: 2,
+                height: 2,
+                cost: { gold: 150, wood: 50 },
+                trains: ['GRUNT', 'RAIDER', 'HEADHUNTER', 'BERSERKER'],
+                researches: [
+                    { name: 'Улучшение оружия I', icon: '⚔', cost: { gold: 100, wood: 50 }, effect: 'damage', value: 2, time: 15000 },
+                    { name: 'Улучшение брони I', icon: '🛡', cost: { gold: 150, wood: 50 }, effect: 'armor', value: 1, time: 20000 },
+                    { name: 'Боевое безумие', icon: '💢', cost: { gold: 140, wood: 70 }, effect: 'attack_speed', value: 10, time: 18000 }
+                ],
+                buildTime: 15000
+            },
+            WAR_MILL: {
+                name: 'Военная мельница',
+                icon: '⚒',
+                race: RACES.ORC,
+                hp: 260,
+                width: 2,
+                height: 2,
+                cost: { gold: 120, wood: 60 },
+                researches: [
+                    { name: 'Улучшение оружия II', icon: '⚔', cost: { gold: 200, wood: 100 }, effect: 'damage', value: 3, time: 25000 },
+                    { name: 'Улучшение брони II', icon: '🛡', cost: { gold: 250, wood: 100 }, effect: 'armor', value: 2, time: 30000 },
+                    { name: 'Заточка клинков', icon: '🔪', cost: { gold: 300, wood: 150 }, effect: 'damage', value: 5, time: 40000 }
+                ],
+                buildTime: 18000
+            },
+            TAUREN_TOTEM: {
+                name: 'Тотем тауренов',
+                icon: '🗿',
+                race: RACES.ORC,
+                hp: 290,
+                width: 2,
+                height: 2,
+                cost: { gold: 190, wood: 80 },
+                trains: ['TAUREN'],
+                researches: [
+                    { name: 'Сила земли', icon: '🌍', cost: { gold: 160, wood: 90 }, effect: 'hp', value: 50, time: 20000 }
+                ],
+                buildTime: 22000
+            },
+            SPIRIT_LODGE: {
+                name: 'Хижина Духов',
+                icon: '🛖',
+                race: RACES.ORC,
+                hp: 270,
+                width: 2,
+                height: 2,
+                cost: { gold: 200, wood: 80 },
+                trains: ['SHAMAN', 'WITCH_DOCTOR', 'WARLOCK'],
+                researches: [
+                    { name: 'Духовная сила', icon: '👻', cost: { gold: 180, wood: 90 }, effect: 'ability_power', value: 10, time: 22000 },
+                    { name: 'Зелья предков', icon: '🧪', cost: { gold: 200, wood: 100 }, effect: 'cooldown', value: -2000, time: 25000 }
+                ],
+                buildTime: 20000
+            },
+            GOBLIN_FOUNDRY: {
+                name: 'Гоблинская литейная',
+                icon: '⚙',
+                race: RACES.ORC,
+                hp: 310,
+                width: 2,
+                height: 2,
+                cost: { gold: 220, wood: 100 },
+                trains: ['DEMOLISHER'],
+                researches: [
+                    { name: 'Нестабильные боеприпасы', icon: '💣', cost: { gold: 200, wood: 120 }, effect: 'siege_damage', value: 20, time: 30000 }
+                ],
+                buildTime: 25000
+            },
+            WYVERN_ROOST: {
+                name: 'Гнездо виверн',
+                icon: '⛰',
+                race: RACES.ORC,
+                hp: 270,
+                width: 2,
+                height: 2,
+                cost: { gold: 250, wood: 120 },
+                trains: ['WYVERN'],
+                researches: [
+                    { name: 'Укрепленная чешуя', icon: '🐲', cost: { gold: 180, wood: 100 }, effect: 'flying_armor', value: 2, time: 20000 }
+                ],
+                buildTime: 22000
+            },
+            FORTRESS: {
+                name: 'Крепость',
+                icon: '🏯',
+                race: RACES.ORC,
+                hp: 650,
+                width: 3,
+                height: 3,
+                cost: { gold: 400, wood: 200 },
+                trains: ['BLADEMASTER'],
+                provides: 15,
+                researches: [
+                    { name: 'Путь воина', icon: '⚡', cost: { gold: 300, wood: 150 }, effect: 'elite_damage', value: 8, time: 35000 }
+                ],
+                buildTime: 40000
+            },
+            WATCH_TOWER: {
+                name: 'Дозорная башня',
+                icon: '🗼',
+                race: RACES.ORC,
+                hp: 220,
+                width: 1,
+                height: 1,
+                cost: { gold: 100, wood: 50 },
+                damage: 12,
+                range: 6,
+                buildTime: 12000,
+                isDefense: true
+            },
+            SPIKE_TOWER: {
+                name: 'Шипованная башня',
+                icon: '🌵',
+                race: RACES.ORC,
+                hp: 260,
+                width: 1,
+                height: 1,
+                cost: { gold: 180, wood: 80 },
+                damage: 35,
+                range: 5,
+                buildTime: 18000,
+                isDefense: true
+            }
+        };
+        
+        const TERRAIN_TYPES = {
+            GRASS: { char: '▓', color: '#2d5016', passable: true },
+            FOREST: { char: '♠', color: '#1a3d0a', passable: true, resource: 'wood', amount: 500 },
+            GOLD: { char: '◆', color: '#ffd700', passable: true, resource: 'gold', amount: 1000 },
+            WATER: { char: '≈', color: '#1e40af', passable: false },
+            MOUNTAIN: { char: '▲', color: '#4a5568', passable: false },
+            DEPLETED: { char: '░', color: '#3d4d26', passable: true }
+        };
+        
+        // ============================================================================
+        // ИГРОВОЕ СОСТОЯНИЕ
+        // ============================================================================
+        
+        class GameState {
+            constructor() {
+                this.resourceTiles = new Map(); // Сначала инициализируем Map
+                this.map = this.generateMap(); // Потом генерируем карту
+                this.units = [];
+                this.buildings = [];
+                this.selectedUnits = [];
+                this.selectedBuilding = null;
+                this.player = {
+                    race: RACES.HUMAN,
+                    gold: 500,
+                    wood: 300,
+                    supply: 0,
+                    maxSupply: 10,
+                    researches: new Set()
+                };
+                this.enemy = {
+                    race: RACES.ORC,
+                    gold: 500,
+                    wood: 300,
+                    supply: 0,
+                    maxSupply: 10,
+                    researches: new Set()
+                };
+                this.camera = { x: 0, y: 0 };
+                this.buildMode = null;
+                this.time = 0;
+                this.gameOver = false;
+                this.victory = false;
+                this.messages = [];
+                
+                this.initializeStartingUnits();
+                this.showMessage('⚔ Битва начинается! Уничтожьте вражескую базу!');
+            }
+            
+            showMessage(text, duration = 5000) {
+                this.messages.push({ text, time: this.time, duration });
+            }
+            
+            generateMap() {
+                const map = [];
+                for (let y = 0; y < MAP_HEIGHT; y++) {
+                    map[y] = [];
+                    for (let x = 0; x < MAP_WIDTH; x++) {
+                        const noise = Math.random();
+                        if (noise > 0.9) {
+                            map[y][x] = TERRAIN_TYPES.FOREST;
+                            this.resourceTiles.set(`${x},${y}`, TERRAIN_TYPES.FOREST.amount);
+                        } else if (noise > 0.85 && (x < 5 || x > MAP_WIDTH - 6 || y < 5 || y > MAP_HEIGHT - 6)) {
+                            map[y][x] = TERRAIN_TYPES.GOLD;
+                            this.resourceTiles.set(`${x},${y}`, TERRAIN_TYPES.GOLD.amount);
+                        } else if (noise < 0.05) {
+                            map[y][x] = TERRAIN_TYPES.WATER;
+                        } else if (noise < 0.08) {
+                            map[y][x] = TERRAIN_TYPES.MOUNTAIN;
+                        } else {
+                            map[y][x] = TERRAIN_TYPES.GRASS;
+                        }
+                    }
+                }
+                return map;
+            }
+            
+            initializeStartingUnits() {
+                // Игрок (внизу слева)
+                const playerTownHall = new Building(3, 3, 'TOWN_HALL', true);
+                this.buildings.push(playerTownHall);
+                this.player.maxSupply += BUILDING_TYPES['TOWN_HALL'].provides || 0;
+                
+                this.units.push(new Unit(2, 5, 'PEASANT', true));
+                this.units.push(new Unit(3, 6, 'PEASANT', true));
+                this.units.push(new Unit(4, 5, 'PEASANT', true));
+                
+                // Враг (вверху справа)
+                const enemyGreatHall = new Building(MAP_WIDTH - 6, MAP_HEIGHT - 6, 'GREAT_HALL', false);
+                this.buildings.push(enemyGreatHall);
+                this.enemy.maxSupply += BUILDING_TYPES['GREAT_HALL'].provides || 0;
+                
+                this.units.push(new Unit(MAP_WIDTH - 5, MAP_HEIGHT - 4, 'PEON', false));
+                this.units.push(new Unit(MAP_WIDTH - 6, MAP_HEIGHT - 3, 'PEON', false));
+                this.units.push(new Unit(MAP_WIDTH - 4, MAP_HEIGHT - 4, 'PEON', false));
+            }
+            
+            update(deltaTime) {
+                if (this.gameOver) return;
+                
+                this.time += deltaTime;
+                
+                // Обновление юнитов
+                this.units.forEach(unit => unit.update(deltaTime, this));
+                
+                // Обновление зданий
+                this.buildings.forEach(building => building.update(deltaTime, this));
+                
+                // ИИ врага - вызываем чаще для более активного поведения
+                if (Math.random() < 0.005) {
+                    this.enemyAI();
+                }
+                
+                // Враг автоматически собирает ресурсы
+                if (Math.random() < 0.01) {
+                    this.enemyGatherResources();
+                }
+                
+                // Враг периодически атакует
+                if (Math.random() < 0.002 && this.time > 30000) {
+                    this.enemyAttack();
+                }
+                
+                // Удаление мёртвых юнитов
+                this.units = this.units.filter(unit => {
+                    if (unit.hp <= 0) {
+                        const owner = unit.isPlayer ? this.player : this.enemy;
+                        owner.supply -= UNIT_TYPES[unit.type].supply || 0;
+                        return false;
+                    }
+                    return true;
+                });
+                
+                // Удаление разрушенных зданий
+                this.buildings = this.buildings.filter(building => {
+                    if (building.hp <= 0) {
+                        const owner = building.isPlayer ? this.player : this.enemy;
+                        const provides = BUILDING_TYPES[building.type].provides || 0;
+                        owner.maxSupply -= provides;
+                        
+                        // Проверка уничтожения главного здания
+                        if (building.type === 'TOWN_HALL' && building.isPlayer) {
+                            this.gameOver = true;
+                            this.victory = false;
+                            this.showMessage('💀 ПОРАЖЕНИЕ! Ваша Ратуша разрушена!', 999999);
+                        } else if (building.type === 'GREAT_HALL' && !building.isPlayer) {
+                            this.gameOver = true;
+                            this.victory = true;
+                            this.showMessage('👑 ПОБЕДА! Вражеский Большой Зал уничтожен!', 999999);
+                        }
+                        
+                        return false;
+                    }
+                    return true;
+                });
+                
+                // Удаление старых сообщений
+                this.messages = this.messages.filter(msg => 
+                    this.time - msg.time < msg.duration
+                );
+            }
+            
+            enemyAI() {
+                const enemyPeons = this.units.filter(u => u.type === 'PEON' && !u.isPlayer);
+                const enemyBuildings = this.buildings.filter(b => !b.isPlayer);
+                
+                // Враг строит фермы если нужен supply
+                if (this.enemy.supply >= this.enemy.maxSupply - 3 && this.enemy.gold >= 80) {
+                    const freePeon = enemyPeons.find(p => !p.buildingTarget && !p.gatherTarget && !p.carrying);
+                    
+                    if (freePeon) {
+                        const x = MAP_WIDTH - 10 + Math.floor(Math.random() * 5);
+                        const y = MAP_HEIGHT - 10 + Math.floor(Math.random() * 5);
+                        
+                        if (this.canPlaceBuilding(x, y, 'PIG_FARM')) {
+                            const cost = BUILDING_TYPES['PIG_FARM'].cost;
+                            this.enemy.gold -= cost.gold;
+                            this.enemy.wood -= cost.wood;
+                            const buildTime = BUILDING_TYPES['PIG_FARM'].buildTime;
+                            const newBuilding = new Building(x, y, 'PIG_FARM', false, buildTime);
+                            this.buildings.push(newBuilding);
+                            this.enemy.maxSupply += BUILDING_TYPES['PIG_FARM'].provides || 0;
+                            
+                            freePeon.buildingTarget = newBuilding;
+                            freePeon.moveTo(x, y, this);
+                        }
+                    }
+                }
+                
+                // Враг строит боевые здания
+                if (this.enemy.gold >= 150 && enemyBuildings.length < 8) {
+                    const freePeon = enemyPeons.find(p => !p.buildingTarget && !p.gatherTarget && !p.carrying);
+                    
+                    if (freePeon) {
+                        const buildingTypes = ['ORC_BARRACKS', 'SPIRIT_LODGE'];
+                        const type = buildingTypes[Math.floor(Math.random() * buildingTypes.length)];
+                        const x = MAP_WIDTH - 10 + Math.floor(Math.random() * 5);
+                        const y = MAP_HEIGHT - 10 + Math.floor(Math.random() * 5);
+                        
+                        if (this.canPlaceBuilding(x, y, type)) {
+                            const cost = BUILDING_TYPES[type].cost;
+                            this.enemy.gold -= cost.gold;
+                            this.enemy.wood -= cost.wood;
+                            const buildTime = BUILDING_TYPES[type].buildTime;
+                            const newBuilding = new Building(x, y, type, false, buildTime);
+                            this.buildings.push(newBuilding);
+                            this.enemy.maxSupply += BUILDING_TYPES[type].provides || 0;
+                            
+                            freePeon.buildingTarget = newBuilding;
+                            freePeon.moveTo(x, y, this);
+                        }
+                    }
+                }
+                
+                // Враг создаёт юнитов более активно
+                const greatHall = enemyBuildings.find(b => b.type === 'GREAT_HALL' && !b.isUnderConstruction);
+                if (greatHall && this.enemy.supply < this.enemy.maxSupply) {
+                    // Создаём пеонов если их мало
+                    if (enemyPeons.length < 5 && this.enemy.gold >= 50) {
+                        this.enemy.gold -= 50;
+                        greatHall.trainUnit('PEON');
+                        return;
+                    }
+                    
+                    // Создаём боевые юниты
+                    if (this.enemy.gold >= 100) {
+                        const unitTypes = ['GRUNT', 'RAIDER', 'SHAMAN'];
+                        const type = unitTypes[Math.floor(Math.random() * unitTypes.length)];
+                        const cost = UNIT_TYPES[type].cost;
+                        
+                        if (this.enemy.gold >= cost.gold && this.enemy.wood >= cost.wood) {
+                            this.enemy.gold -= cost.gold;
+                            this.enemy.wood -= cost.wood;
+                            greatHall.trainUnit(type);
+                        }
+                    }
+                }
+            }
+            
+            enemyGatherResources() {
+                const enemyPeons = this.units.filter(u => 
+                    u.type === 'PEON' && 
+                    !u.isPlayer && 
+                    !u.gatherTarget && 
+                    !u.carrying &&
+                    !u.buildingTarget &&
+                    u.path.length === 0
+                );
+                
+                enemyPeons.forEach(peon => {
+                    // Ищем ближайший ресурс
+                    let nearestResource = null;
+                    let minDist = Infinity;
+                    
+                    for (let y = MAP_HEIGHT - 15; y < MAP_HEIGHT; y++) {
+                        for (let x = MAP_WIDTH - 15; x < MAP_WIDTH; x++) {
+                            if (x >= 0 && y >= 0 && x < MAP_WIDTH && y < MAP_HEIGHT) {
+                                const terrain = this.map[y][x];
+                                if (terrain === TERRAIN_TYPES.GOLD || terrain === TERRAIN_TYPES.FOREST) {
+                                    const dx = x - peon.x;
+                                    const dy = y - peon.y;
+                                    const dist = Math.sqrt(dx * dx + dy * dy);
+                                    
+                                    if (dist < minDist) {
+                                        minDist = dist;
+                                        nearestResource = { 
+                                            x, 
+                                            y, 
+                                            type: terrain === TERRAIN_TYPES.GOLD ? 'GOLD' : 'FOREST' 
+                                        };
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    
+                    if (nearestResource) {
+                        peon.gatherTarget = nearestResource;
+                        peon.autoGather = true; // Включаем автосбор
+                    }
+                });
+            }
+            
+            enemyAttack() {
+                const enemyUnits = this.units.filter(u => 
+                    !u.isPlayer && 
+                    u.type !== 'PEON' &&
+                    !u.target
+                );
+                
+                // Если у врага достаточно армии - атакуем
+                if (enemyUnits.length >= 5) {
+                    const playerBuildings = this.buildings.filter(b => b.isPlayer);
+                    if (playerBuildings.length > 0) {
+                        // Приоритет - главное здание
+                        const townHall = playerBuildings.find(b => b.type === 'TOWN_HALL');
+                        const target = townHall || playerBuildings[Math.floor(Math.random() * playerBuildings.length)];
+                        
+                        enemyUnits.forEach(unit => {
+                            unit.moveTo(target.x + 1, target.y + 1, this);
+                            unit.attackBuilding = target; // Новое поле для атаки зданий
+                        });
+                        
+                        this.showMessage('⚠ Враг атакует ваши здания!');
+                    }
+                }
+            }
+            
+            canPlaceBuilding(x, y, buildingType) {
+                const building = BUILDING_TYPES[buildingType];
+                
+                // Проверка границ карты
+                if (x < 0 || y < 0 || x + building.width > MAP_WIDTH || y + building.height > MAP_HEIGHT) {
+                    return false;
+                }
+                
+                // Проверка занятости клеток
+                for (let dy = 0; dy < building.height; dy++) {
+                    for (let dx = 0; dx < building.width; dx++) {
+                        const terrain = this.map[y + dy][x + dx];
+                        if (!terrain.passable) {
+                            return false;
+                        }
+                        
+                        // Проверка других зданий
+                        if (this.buildings.some(b => 
+                            x + dx >= b.x && x + dx < b.x + BUILDING_TYPES[b.type].width &&
+                            y + dy >= b.y && y + dy < b.y + BUILDING_TYPES[b.type].height
+                        )) {
+                            return false;
+                        }
+                    }
+                }
+                
+                return true;
+            }
+        }
+        
+        // ============================================================================
+        // КЛАССЫ ИГРОВЫХ ОБЪЕКТОВ
+        // ============================================================================
+        
+        class Unit {
+            constructor(x, y, type, isPlayer) {
+                this.x = x;
+                this.y = y;
+                this.type = type;
+                this.isPlayer = isPlayer;
+                const stats = UNIT_TYPES[type];
+                this.maxHp = stats.hp;
+                this.hp = stats.hp;
+                this.target = null;
+                this.attackBuilding = null;
+                this.path = [];
+                this.attackCooldown = 0;
+                this.gatherTarget = null;
+                this.gatherCooldown = 0;
+                this.carrying = null;
+                this.carryAmount = 0;
+                this.abilityCooldown = 0;
+                this.autoGather = false; // Автоматический сбор
+                this.autoAttack = false; // Автоматическая атака
+                this.buildingTarget = null; // Здание, которое строит
+                this.buildProgress = 0; // Прогресс строительства
+            }
+            
+            update(deltaTime, gameState) {
+                // Строительство здания
+                if (this.buildingTarget && this.buildingTarget.isUnderConstruction) {
+                    const dx = this.buildingTarget.x - this.x;
+                    const dy = this.buildingTarget.y - this.y;
+                    const dist = Math.sqrt(dx * dx + dy * dy);
+                    
+                    if (dist <= 2) {
+                        this.buildingTarget.buildProgress += deltaTime;
+                        
+                        if (this.buildingTarget.buildProgress >= this.buildingTarget.buildTime) {
+                            this.buildingTarget.isUnderConstruction = false;
+                            this.buildingTarget = null;
+                            gameState.showMessage('✓ Строительство завершено!', 2000);
+                        }
+                    } else {
+                        // Движение к зданию
+                        const speed = UNIT_TYPES[this.type].speed * deltaTime * 0.001;
+                        this.x += (dx / dist) * speed;
+                        this.y += (dy / dist) * speed;
+                    }
+                    return; // Во время строительства не делаем ничего другого
+                }
+                
+                // Движение по пути
+                if (this.path.length > 0 && !this.target && !this.attackBuilding) {
+                    const next = this.path[0];
+                    const dx = next.x - this.x;
+                    const dy = next.y - this.y;
+                    const dist = Math.sqrt(dx * dx + dy * dy);
+                    
+                    if (dist < 0.1) {
+                        this.path.shift();
+                    } else {
+                        const speed = UNIT_TYPES[this.type].speed * deltaTime * 0.001;
+                        this.x += (dx / dist) * speed;
+                        this.y += (dy / dist) * speed;
+                    }
+                }
+                
+                // Автоатака для врагов и для юнитов с autoAttack
+                if (!this.target && !this.attackBuilding && ((!this.isPlayer && this.type !== 'PEON') || this.autoAttack)) {
+                    const nearestEnemy = this.findNearestEnemy(gameState);
+                    if (nearestEnemy) {
+                        this.target = nearestEnemy;
+                    }
+                }
+                
+                // Атака юнитов
+                if (this.target) {
+                    const dx = this.target.x - this.x;
+                    const dy = this.target.y - this.y;
+                    const dist = Math.sqrt(dx * dx + dy * dy);
+                    const range = UNIT_TYPES[this.type].range;
+                    
+                    if (dist <= range) {
+                        this.attackCooldown -= deltaTime;
+                        if (this.attackCooldown <= 0) {
+                            this.target.hp -= UNIT_TYPES[this.type].damage;
+                            this.attackCooldown = 1000;
+                            
+                            // Контратака - если атакован, атаковать в ответ
+                            if (!this.target.target && this.target.isPlayer !== this.isPlayer) {
+                                this.target.target = this;
+                                this.target.autoAttack = true;
+                            }
+                            
+                            if (this.target.hp <= 0) {
+                                this.target = null;
+                                // Продолжить поиск врагов если autoAttack
+                                if (this.autoAttack) {
+                                    const nextEnemy = this.findNearestEnemy(gameState);
+                                    if (nextEnemy) {
+                                        this.target = nextEnemy;
+                                    }
+                                }
+                            }
+                        }
+                    } else {
+                        // Движение к цели
+                        const speed = UNIT_TYPES[this.type].speed * deltaTime * 0.001;
+                        this.x += (dx / dist) * speed;
+                        this.y += (dy / dist) * speed;
+                    }
+                }
+                
+                // Атака зданий
+                if (this.attackBuilding && this.attackBuilding.hp > 0) {
+                    const dx = this.attackBuilding.x - this.x;
+                    const dy = this.attackBuilding.y - this.y;
+                    const dist = Math.sqrt(dx * dx + dy * dy);
+                    const range = UNIT_TYPES[this.type].range;
+                    
+                    if (dist <= range + 2) {
+                        this.attackCooldown -= deltaTime;
+                        if (this.attackCooldown <= 0) {
+                            this.attackBuilding.hp -= UNIT_TYPES[this.type].damage;
+                            this.attackCooldown = 1000;
+                            
+                            if (this.attackBuilding.hp <= 0) {
+                                this.attackBuilding = null;
+                            }
+                        }
+                    } else {
+                        // Движение к зданию
+                        const speed = UNIT_TYPES[this.type].speed * deltaTime * 0.001;
+                        this.x += (dx / dist) * speed;
+                        this.y += (dy / dist) * speed;
+                    }
+                } else {
+                    this.attackBuilding = null;
+                }
+                
+                // Сбор ресурсов с истощением
+                if (this.gatherTarget && UNIT_TYPES[this.type].canGather && !this.carrying) {
+                    const dx = this.gatherTarget.x - this.x;
+                    const dy = this.gatherTarget.y - this.y;
+                    const dist = Math.sqrt(dx * dx + dy * dy);
+                    
+                    if (dist <= 1) {
+                        this.gatherCooldown -= deltaTime;
+                        if (this.gatherCooldown <= 0) {
+                            const tileKey = `${this.gatherTarget.x},${this.gatherTarget.y}`;
+                            const remainingResource = gameState.resourceTiles.get(tileKey) || 0;
+                            
+                            if (remainingResource > 0) {
+                                const capacity = UNIT_TYPES[this.type].carryCapacity || 10;
+                                const gathered = Math.min(capacity, remainingResource);
+                                
+                                this.carrying = this.gatherTarget.type;
+                                this.carryAmount = gathered;
+                                gameState.resourceTiles.set(tileKey, remainingResource - gathered);
+                                
+                                // Истощение ресурса
+                                if (remainingResource - gathered <= 0) {
+                                    gameState.map[this.gatherTarget.y][this.gatherTarget.x] = TERRAIN_TYPES.DEPLETED;
+                                    if (!this.autoGather) {
+                                        this.gatherTarget = null;
+                                    }
+                                }
+                                
+                                this.gatherCooldown = 2000;
+                                
+                                // Возврат в базу
+                                const base = gameState.buildings.find(b => 
+                                    b.isPlayer === this.isPlayer && 
+                                    (b.type === 'TOWN_HALL' || b.type === 'GREAT_HALL')
+                                );
+                                
+                                if (base) {
+                                    this.moveTo(base.x + 1, base.y + 1, gameState);
+                                }
+                            } else {
+                                this.gatherTarget = null;
+                                this.autoGather = false;
+                            }
+                        }
+                    } else {
+                        const speed = UNIT_TYPES[this.type].speed * deltaTime * 0.001;
+                        this.x += (dx / dist) * speed;
+                        this.y += (dy / dist) * speed;
+                    }
+                }
+                
+                // Сдача ресурсов
+                if (this.carrying && this.carryAmount > 0) {
+                    const base = gameState.buildings.find(b => 
+                        b.isPlayer === this.isPlayer && 
+                        (b.type === 'TOWN_HALL' || b.type === 'GREAT_HALL') &&
+                        Math.abs(b.x - this.x) < 2 && Math.abs(b.y - this.y) < 2
+                    );
+                    
+                    if (base) {
+                        const owner = this.isPlayer ? gameState.player : gameState.enemy;
+                        if (this.carrying === 'GOLD') {
+                            owner.gold += this.carryAmount;
+                        } else if (this.carrying === 'FOREST') {
+                            owner.wood += this.carryAmount;
+                        }
+                        this.carrying = null;
+                        this.carryAmount = 0;
+                        
+                        // Автоматически возвращаемся к сбору если autoGather
+                        if (this.autoGather && this.gatherTarget) {
+                            this.moveTo(this.gatherTarget.x, this.gatherTarget.y, gameState);
+                        } else {
+                            this.gatherTarget = null;
+                            this.autoGather = false;
+                        }
+                    }
+                }
+                
+                // Обновление кулдауна способности
+                if (this.abilityCooldown > 0) {
+                    this.abilityCooldown -= deltaTime;
+                }
+            }
+            
+            findNearestEnemy(gameState) {
+                let nearest = null;
+                let minDist = Infinity;
+                
+                const enemies = gameState.units.filter(u => u.isPlayer !== this.isPlayer);
+                enemies.forEach(enemy => {
+                    const dx = enemy.x - this.x;
+                    const dy = enemy.y - this.y;
+                    const dist = Math.sqrt(dx * dx + dy * dy);
+                    
+                    if (dist < minDist && dist < 10) {
+                        minDist = dist;
+                        nearest = enemy;
+                    }
+                });
+                
+                return nearest;
+            }
+            
+            moveTo(targetX, targetY, gameState) {
+                this.path = this.findPath(targetX, targetY, gameState);
+                this.target = null;
+                this.attackBuilding = null;
+                // Не сбрасываем gatherTarget если несём ресурсы или autoGather активен
+                if (!this.carrying && !this.autoGather) {
+                    this.gatherTarget = null;
+                }
+            }
+            
+            findPath(targetX, targetY, gameState) {
+                // Простой A* pathfinding
+                const start = { x: Math.floor(this.x), y: Math.floor(this.y) };
+                const goal = { x: Math.floor(targetX), y: Math.floor(targetY) };
+                
+                const openSet = [start];
+                const cameFrom = new Map();
+                const gScore = new Map();
+                const fScore = new Map();
+                
+                const key = (x, y) => `${x},${y}`;
+                
+                gScore.set(key(start.x, start.y), 0);
+                fScore.set(key(start.x, start.y), this.heuristic(start, goal));
+                
+                while (openSet.length > 0) {
+                    // Находим узел с наименьшим fScore
+                    let current = openSet[0];
+                    let currentKey = key(current.x, current.y);
+                    let lowestF = fScore.get(currentKey);
+                    
+                    for (let i = 1; i < openSet.length; i++) {
+                        const nodeKey = key(openSet[i].x, openSet[i].y);
+                        const f = fScore.get(nodeKey);
+                        if (f < lowestF) {
+                            current = openSet[i];
+                            currentKey = nodeKey;
+                            lowestF = f;
+                        }
+                    }
+                    
+                    if (current.x === goal.x && current.y === goal.y) {
+                        return this.reconstructPath(cameFrom, current);
+                    }
+                    
+                    openSet.splice(openSet.indexOf(current), 1);
+                    
+                    // Проверяем соседей
+                    const neighbors = [
+                        { x: current.x + 1, y: current.y },
+                        { x: current.x - 1, y: current.y },
+                        { x: current.x, y: current.y + 1 },
+                        { x: current.x, y: current.y - 1 }
+                    ];
+                    
+                    for (const neighbor of neighbors) {
+                        if (neighbor.x < 0 || neighbor.y < 0 || 
+                            neighbor.x >= MAP_WIDTH || neighbor.y >= MAP_HEIGHT) {
+                            continue;
+                        }
+                        
+                        const terrain = gameState.map[neighbor.y][neighbor.x];
+                        if (!terrain.passable) {
+                            continue;
+                        }
+                        
+                        const neighborKey = key(neighbor.x, neighbor.y);
+                        const tentativeG = gScore.get(currentKey) + 1;
+                        
+                        if (!gScore.has(neighborKey) || tentativeG < gScore.get(neighborKey)) {
+                            cameFrom.set(neighborKey, current);
+                            gScore.set(neighborKey, tentativeG);
+                            fScore.set(neighborKey, tentativeG + this.heuristic(neighbor, goal));
+                            
+                            if (!openSet.some(n => n.x === neighbor.x && n.y === neighbor.y)) {
+                                openSet.push(neighbor);
+                            }
+                        }
+                    }
+                    
+                    if (openSet.length > 100) break; // Предотвращение зависаний
+                }
+                
+                return [];
+            }
+            
+            heuristic(a, b) {
+                return Math.abs(a.x - b.x) + Math.abs(a.y - b.y);
+            }
+            
+            reconstructPath(cameFrom, current) {
+                const path = [current];
+                const key = (x, y) => `${x},${y}`;
+                
+                while (cameFrom.has(key(current.x, current.y))) {
+                    current = cameFrom.get(key(current.x, current.y));
+                    path.unshift(current);
+                }
+                
+                return path;
+            }
+        }
+        
+        class Building {
+            constructor(x, y, type, isPlayer, buildTime = 0) {
+                this.x = x;
+                this.y = y;
+                this.type = type;
+                this.isPlayer = isPlayer;
+                const stats = BUILDING_TYPES[type];
+                this.maxHp = stats.hp;
+                this.hp = buildTime > 0 ? 1 : stats.hp; // Во время строительства минимальное HP
+                this.trainingQueue = [];
+                this.trainingProgress = 0;
+                this.currentTraining = null;
+                this.researchQueue = [];
+                this.researchProgress = 0;
+                this.currentResearch = null;
+                this.isUnderConstruction = buildTime > 0;
+                this.buildTime = buildTime;
+                this.buildProgress = 0;
+            }
+            
+            update(deltaTime, gameState) {
+                // Завершение строительства здания
+                if (this.isUnderConstruction) {
+                    // HP растёт по мере строительства
+                    const progress = this.buildProgress / this.buildTime;
+                    this.hp = Math.max(1, Math.floor(this.maxHp * progress));
+                    return; // Во время строительства не производим юнитов
+                }
+                
+                // Производство юнитов
+                if (this.currentTraining) {
+                    this.trainingProgress += deltaTime;
+                    
+                    if (this.trainingProgress >= UNIT_TYPES[this.currentTraining].trainTime) {
+                        // Создаём юнита
+                        const owner = this.isPlayer ? gameState.player : gameState.enemy;
+                        owner.supply += UNIT_TYPES[this.currentTraining].supply;
+                        gameState.units.push(new Unit(this.x + 1, this.y + 1, this.currentTraining, this.isPlayer));
+                        
+                        this.currentTraining = null;
+                        this.trainingProgress = 0;
+                        
+                        // Берём следующего из очереди
+                        if (this.trainingQueue.length > 0) {
+                            this.currentTraining = this.trainingQueue.shift();
+                        }
+                    }
+                } else if (this.trainingQueue.length > 0) {
+                    this.currentTraining = this.trainingQueue.shift();
+                    this.trainingProgress = 0;
+                }
+                
+                // Исследования
+                if (this.currentResearch !== null) {
+                    this.researchProgress += deltaTime;
+                    const stats = BUILDING_TYPES[this.type];
+                    const research = stats.researches[this.currentResearch];
+                    
+                    if (this.researchProgress >= research.time) {
+                        // Завершаем исследование
+                        const owner = this.isPlayer ? gameState.player : gameState.enemy;
+                        const researchKey = `${this.type}_${this.currentResearch}`;
+                        owner.researches.add(researchKey);
+                        
+                        // Применяем улучшение
+                        gameState.units.filter(u => u.isPlayer === this.isPlayer).forEach(unit => {
+                            if (research.effect === 'damage') {
+                                UNIT_TYPES[unit.type].damage += research.value;
+                            } else if (research.effect === 'armor') {
+                                unit.maxHp += research.value * 10;
+                                unit.hp += research.value * 10;
+                            }
+                        });
+                        
+                        gameState.showMessage(`✓ Исследование завершено: ${research.name}`, 3000);
+                        
+                        this.currentResearch = null;
+                        this.researchProgress = 0;
+                    }
+                }
+            }
+            
+            trainUnit(unitType) {
+                this.trainingQueue.push(unitType);
+            }
+            
+            startResearch(researchIdx) {
+                this.currentResearch = researchIdx;
+                this.researchProgress = 0;
+            }
+        }
+        
+        // ============================================================================
+        // РЕНДЕРИНГ
+        // ============================================================================
+        
+        class Renderer {
+            constructor(canvas) {
+                this.canvas = canvas;
+                this.ctx = canvas.getContext('2d');
+                this.resize();
+                window.addEventListener('resize', () => this.resize());
+            }
+            
+            resize() {
+                this.canvas.width = this.canvas.parentElement.clientWidth;
+                this.canvas.height = this.canvas.parentElement.clientHeight;
+            }
+            
+            worldToScreen(x, y, gameState) {
+                const isoX = (x - y) * (TILE_WIDTH / 2);
+                const isoY = (x + y) * (TILE_HEIGHT / 2);
+                
+                return {
+                    x: isoX + this.canvas.width / 2 - gameState.camera.x,
+                    y: isoY + 100 - gameState.camera.y
+                };
+            }
+            
+            screenToWorld(screenX, screenY, gameState) {
+                const adjustedX = screenX - this.canvas.width / 2 + gameState.camera.x;
+                const adjustedY = screenY - 100 + gameState.camera.y;
+                
+                const worldX = (adjustedX / (TILE_WIDTH / 2) + adjustedY / (TILE_HEIGHT / 2)) / 2;
+                const worldY = (adjustedY / (TILE_HEIGHT / 2) - adjustedX / (TILE_WIDTH / 2)) / 2;
+                
+                return { x: worldX, y: worldY };
+            }
+            
+            render(gameState) {
+                this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
+                
+                // Рисуем terrain
+                for (let y = 0; y < MAP_HEIGHT; y++) {
+                    for (let x = 0; x < MAP_WIDTH; x++) {
+                        this.drawTile(x, y, gameState.map[y][x], gameState);
+                    }
+                }
+                
+                // Рисуем здания
+                gameState.buildings.forEach(building => {
+                    this.drawBuilding(building, gameState);
+                });
+                
+                // Рисуем юнитов
+                gameState.units.forEach(unit => {
+                    this.drawUnit(unit, gameState);
+                });
+                
+                // Рисуем выделение
+                if (gameState.buildMode) {
+                    this.drawBuildPreview(gameState);
+                }
+                
+                // Рисуем сообщения
+                this.drawMessages(gameState);
+            }
+            
+            drawMessages(gameState) {
+                gameState.messages.forEach((msg, index) => {
+                    const alpha = Math.min(1, (msg.time + msg.duration - gameState.time) / 1000);
+                    
+                    this.ctx.fillStyle = `rgba(0, 255, 65, ${alpha})`;
+                    this.ctx.font = 'bold 18px JetBrains Mono';
+                    this.ctx.textAlign = 'center';
+                    this.ctx.strokeStyle = `rgba(0, 0, 0, ${alpha})`;
+                    this.ctx.lineWidth = 3;
+                    
+                    const y = 50 + index * 30;
+                    this.ctx.strokeText(msg.text, this.canvas.width / 2, y);
+                    this.ctx.fillText(msg.text, this.canvas.width / 2, y);
+                });
+            }
+            
+            drawTile(x, y, terrain, gameState) {
+                const screen = this.worldToScreen(x, y, gameState);
+                
+                // Рисуем ромб
+                this.ctx.fillStyle = terrain.color;
+                this.ctx.beginPath();
+                this.ctx.moveTo(screen.x, screen.y);
+                this.ctx.lineTo(screen.x + TILE_WIDTH / 2, screen.y + TILE_HEIGHT / 2);
+                this.ctx.lineTo(screen.x, screen.y + TILE_HEIGHT);
+                this.ctx.lineTo(screen.x - TILE_WIDTH / 2, screen.y + TILE_HEIGHT / 2);
+                this.ctx.closePath();
+                this.ctx.fill();
+                
+                // Рисуем символ
+                this.ctx.fillStyle = '#000';
+                this.ctx.font = '16px JetBrains Mono';
+                this.ctx.textAlign = 'center';
+                this.ctx.textBaseline = 'middle';
+                this.ctx.fillText(terrain.char, screen.x, screen.y + TILE_HEIGHT / 2);
+                
+                // Рисуем счётчик ресурсов
+                if (terrain.resource) {
+                    const tileKey = `${x},${y}`;
+                    const remaining = gameState.resourceTiles.get(tileKey) || 0;
+                    
+                    if (remaining > 0) {
+                        this.ctx.fillStyle = terrain.resource === 'gold' ? '#ffd700' : '#8b4513';
+                        this.ctx.font = '9px JetBrains Mono';
+                        this.ctx.fillText(remaining, screen.x, screen.y + TILE_HEIGHT / 2 + 12);
+                    }
+                }
+            }
+            
+            drawUnit(unit, gameState) {
+                const screen = this.worldToScreen(unit.x, unit.y, gameState);
+                const stats = UNIT_TYPES[unit.type];
+                
+                // Тень
+                this.ctx.fillStyle = 'rgba(0, 0, 0, 0.5)';
+                this.ctx.beginPath();
+                this.ctx.ellipse(screen.x, screen.y + 25, 18, 6, 0, 0, Math.PI * 2);
+                this.ctx.fill();
+                
+                // Фон юнита (команда)
+                this.ctx.fillStyle = unit.isPlayer ? 'rgba(0, 255, 65, 0.3)' : 'rgba(255, 68, 68, 0.3)';
+                this.ctx.beginPath();
+                this.ctx.arc(screen.x, screen.y, 22, 0, Math.PI * 2);
+                this.ctx.fill();
+                
+                // Обводка иконки для контраста
+                this.ctx.strokeStyle = unit.isPlayer ? '#00ff41' : '#ff4444';
+                this.ctx.lineWidth = 3;
+                this.ctx.font = '28px JetBrains Mono';
+                this.ctx.textAlign = 'center';
+                this.ctx.textBaseline = 'middle';
+                this.ctx.strokeText(stats.icon, screen.x, screen.y);
+                
+                // Иконка юнита
+                this.ctx.fillStyle = '#ffffff';
+                this.ctx.fillText(stats.icon, screen.x, screen.y);
+                
+                // Визуализация переносимых ресурсов
+                if (unit.carrying && unit.carryAmount > 0) {
+                    const resourceIcon = unit.carrying === 'GOLD' ? '💰' : '🪵';
+                    this.ctx.font = '16px JetBrains Mono';
+                    this.ctx.fillText(resourceIcon, screen.x + 20, screen.y - 20);
+                    
+                    // Количество ресурса
+                    this.ctx.font = '10px JetBrains Mono';
+                    this.ctx.fillStyle = '#ffff00';
+                    this.ctx.fillText(unit.carryAmount, screen.x + 20, screen.y - 5);
+                }
+                
+                // HP bar с обводкой
+                const barWidth = 35;
+                const barHeight = 5;
+                const hpPercent = unit.hp / unit.maxHp;
+                
+                this.ctx.strokeStyle = '#000000';
+                this.ctx.lineWidth = 1;
+                this.ctx.strokeRect(screen.x - barWidth / 2, screen.y - 25, barWidth, barHeight);
+                
+                this.ctx.fillStyle = '#ff0000';
+                this.ctx.fillRect(screen.x - barWidth / 2, screen.y - 25, barWidth, barHeight);
+                this.ctx.fillStyle = '#00ff00';
+                this.ctx.fillRect(screen.x - barWidth / 2, screen.y - 25, barWidth * hpPercent, barHeight);
+                
+                // Выделение
+                if (gameState.selectedUnits.includes(unit)) {
+                    this.ctx.strokeStyle = '#ffff00';
+                    this.ctx.lineWidth = 3;
+                    this.ctx.setLineDash([5, 5]);
+                    this.ctx.beginPath();
+                    this.ctx.arc(screen.x, screen.y, 25, 0, Math.PI * 2);
+                    this.ctx.stroke();
+                    this.ctx.setLineDash([]);
+                }
+            }
+            
+            drawBuilding(building, gameState) {
+                const screen = this.worldToScreen(building.x, building.y, gameState);
+                const stats = BUILDING_TYPES[building.type];
+                
+                // Основание здания
+                const width = stats.width * TILE_WIDTH / 2;
+                const height = stats.height * TILE_HEIGHT / 2;
+                
+                // Тень здания
+                this.ctx.fillStyle = 'rgba(0, 0, 0, 0.4)';
+                this.ctx.fillRect(screen.x - width / 2 + 5, screen.y - height / 2 + 5, width, height);
+                
+                // Фон здания (команда) - полупрозрачный если строится
+                const alpha = building.isUnderConstruction ? 0.1 : 0.2;
+                this.ctx.fillStyle = building.isPlayer ? `rgba(0, 255, 65, ${alpha})` : `rgba(255, 68, 68, ${alpha})`;
+                this.ctx.fillRect(screen.x - width / 2, screen.y - height / 2, width, height);
+                
+                // Граница здания
+                this.ctx.strokeStyle = building.isPlayer ? '#00ff41' : '#ff4444';
+                this.ctx.lineWidth = building.isUnderConstruction ? 1 : 2;
+                this.ctx.setLineDash(building.isUnderConstruction ? [5, 5] : []);
+                this.ctx.strokeRect(screen.x - width / 2, screen.y - height / 2, width, height);
+                this.ctx.setLineDash([]);
+                
+                // Обводка иконки для контраста
+                this.ctx.strokeStyle = building.isPlayer ? '#00ff41' : '#ff4444';
+                this.ctx.lineWidth = 4;
+                this.ctx.font = '42px JetBrains Mono';
+                this.ctx.textAlign = 'center';
+                this.ctx.textBaseline = 'middle';
+                this.ctx.strokeText(stats.icon, screen.x, screen.y + 10);
+                
+                // Иконка здания - полупрозрачная если строится
+                this.ctx.globalAlpha = building.isUnderConstruction ? 0.5 : 1.0;
+                this.ctx.fillStyle = '#ffffff';
+                this.ctx.fillText(stats.icon, screen.x, screen.y + 10);
+                this.ctx.globalAlpha = 1.0;
+                
+                // Прогресс строительства
+                if (building.isUnderConstruction) {
+                    const progress = building.buildProgress / building.buildTime;
+                    const barWidth = width;
+                    const barHeight = 10;
+                    
+                    this.ctx.fillStyle = 'rgba(0, 0, 0, 0.5)';
+                    this.ctx.fillRect(screen.x - barWidth / 2, screen.y + height / 2 + 5, barWidth, barHeight);
+                    
+                    this.ctx.fillStyle = '#ffaa00';
+                    this.ctx.fillRect(screen.x - barWidth / 2, screen.y + height / 2 + 5, barWidth * progress, barHeight);
+                    
+                    this.ctx.strokeStyle = '#000000';
+                    this.ctx.lineWidth = 1;
+                    this.ctx.strokeRect(screen.x - barWidth / 2, screen.y + height / 2 + 5, barWidth, barHeight);
+                    
+                    // Текст процента
+                    this.ctx.fillStyle = '#ffffff';
+                    this.ctx.font = '10px JetBrains Mono';
+                    this.ctx.fillText(`${Math.floor(progress * 100)}%`, screen.x, screen.y + height / 2 + 10);
+                }
+                
+                // HP bar с обводкой (только для завершённых зданий)
+                if (!building.isUnderConstruction) {
+                    const barWidth = width;
+                    const barHeight = 8;
+                    const hpPercent = building.hp / building.maxHp;
+                    
+                    this.ctx.strokeStyle = '#000000';
+                    this.ctx.lineWidth = 1;
+                    this.ctx.strokeRect(screen.x - barWidth / 2, screen.y - height / 2 - 12, barWidth, barHeight);
+                    
+                    this.ctx.fillStyle = '#ff0000';
+                    this.ctx.fillRect(screen.x - barWidth / 2, screen.y - height / 2 - 12, barWidth, barHeight);
+                    this.ctx.fillStyle = '#00ff00';
+                    this.ctx.fillRect(screen.x - barWidth / 2, screen.y - height / 2 - 12, barWidth * hpPercent, barHeight);
+                }
+                
+                // Выделение
+                if (gameState.selectedBuilding === building) {
+                    this.ctx.strokeStyle = '#ffff00';
+                    this.ctx.lineWidth = 4;
+                    this.ctx.setLineDash([8, 8]);
+                    this.ctx.strokeRect(screen.x - width / 2 - 4, screen.y - height / 2 - 4, width + 8, height + 8);
+                    this.ctx.setLineDash([]);
+                }
+            }
+            
+            drawBuildPreview(gameState) {
+                const mouseWorld = this.screenToWorld(input.mouseX, input.mouseY, gameState);
+                const gridX = Math.floor(mouseWorld.x);
+                const gridY = Math.floor(mouseWorld.y);
+                const screen = this.worldToScreen(gridX, gridY, gameState);
+                
+                const building = BUILDING_TYPES[gameState.buildMode];
+                const canPlace = gameState.canPlaceBuilding(gridX, gridY, gameState.buildMode);
+                
+                this.ctx.fillStyle = canPlace ? 'rgba(0, 255, 65, 0.3)' : 'rgba(255, 0, 0, 0.3)';
+                const width = building.width * TILE_WIDTH / 2;
+                const height = building.height * TILE_HEIGHT / 2;
+                this.ctx.fillRect(screen.x - width / 2, screen.y - height / 2, width, height);
+                
+                this.ctx.font = '36px JetBrains Mono';
+                this.ctx.textAlign = 'center';
+                this.ctx.fillText(building.icon, screen.x, screen.y + 10);
+            }
+        }
+        
+        // ============================================================================
+        // ВВОД
+        // ============================================================================
+        
+        class InputHandler {
+            constructor(canvas) {
+                this.canvas = canvas;
+                this.mouseX = 0;
+                this.mouseY = 0;
+                this.isDragging = false;
+                this.dragStartX = 0;
+                this.dragStartY = 0;
+                
+                canvas.addEventListener('mousemove', (e) => this.handleMouseMove(e));
+                canvas.addEventListener('mousedown', (e) => this.handleMouseDown(e));
+                canvas.addEventListener('mouseup', (e) => this.handleMouseUp(e));
+                canvas.addEventListener('contextmenu', (e) => e.preventDefault());
+            }
+            
+            handleMouseMove(e) {
+                const rect = this.canvas.getBoundingClientRect();
+                this.mouseX = e.clientX - rect.left;
+                this.mouseY = e.clientY - rect.top;
+                
+                if (this.isDragging) {
+                    gameState.camera.x -= (e.clientX - this.dragStartX);
+                    gameState.camera.y -= (e.clientY - this.dragStartY);
+                    this.dragStartX = e.clientX;
+                    this.dragStartY = e.clientY;
+                }
+                
+                // Обновляем информацию о тайле
+                this.updateTerrainInfo();
+            }
+            
+            updateTerrainInfo() {
+                const worldPos = renderer.screenToWorld(this.mouseX, this.mouseY, gameState);
+                const gridX = Math.floor(worldPos.x);
+                const gridY = Math.floor(worldPos.y);
+                
+                if (gridX >= 0 && gridY >= 0 && gridX < MAP_WIDTH && gridY < MAP_HEIGHT) {
+                    const terrain = gameState.map[gridY][gridX];
+                    const terrainInfo = document.getElementById('terrain-info');
+                    
+                    let terrainName = '';
+                    let terrainDesc = '';
+                    
+                    if (terrain === TERRAIN_TYPES.GRASS) {
+                        terrainName = '▓ Трава';
+                        terrainDesc = 'Обычная земля';
+                    } else if (terrain === TERRAIN_TYPES.FOREST) {
+                        terrainName = '♠ Лес';
+                        const tileKey = `${gridX},${gridY}`;
+                        const remaining = gameState.resourceTiles.get(tileKey) || 0;
+                        terrainDesc = `Древесина: ${remaining}`;
+                    } else if (terrain === TERRAIN_TYPES.GOLD) {
+                        terrainName = '◆ Золото';
+                        const tileKey = `${gridX},${gridY}`;
+                        const remaining = gameState.resourceTiles.get(tileKey) || 0;
+                        terrainDesc = `Золото: ${remaining}`;
+                    } else if (terrain === TERRAIN_TYPES.WATER) {
+                        terrainName = '≈ Вода';
+                        terrainDesc = 'Непроходимо';
+                    } else if (terrain === TERRAIN_TYPES.MOUNTAIN) {
+                        terrainName = '▲ Горы';
+                        terrainDesc = 'Непроходимо';
+                    } else if (terrain === TERRAIN_TYPES.DEPLETED) {
+                        terrainName = '░ Истощено';
+                        terrainDesc = 'Ресурс исчерпан';
+                    }
+                    
+                    terrainInfo.innerHTML = `
+                        <div style="color: #00ff41; font-weight: bold; margin-bottom: 5px;">${terrainName}</div>
+                        <div style="color: #7fff7f; font-size: 11px;">${terrainDesc}</div>
+                        <div style="color: #7fff7f; font-size: 11px; margin-top: 5px;">Координаты: ${gridX}, ${gridY}</div>
+                    `;
+                }
+            }
+            
+            handleMouseDown(e) {
+                if (e.button === 1) { // Средняя кнопка (колесо)
+                    this.isDragging = true;
+                    this.dragStartX = e.clientX;
+                    this.dragStartY = e.clientY;
+                    e.preventDefault();
+                }
+            }
+            
+            handleMouseUp(e) {
+                if (e.button === 1) {
+                    this.isDragging = false;
+                    return;
+                }
+                
+                const worldPos = renderer.screenToWorld(this.mouseX, this.mouseY, gameState);
+                
+                if (gameState.buildMode) {
+                    this.handleBuildClick(worldPos);
+                } else if (e.button === 0) { // Левая кнопка
+                    this.handleLeftClick(worldPos);
+                } else if (e.button === 2) { // Правая кнопка
+                    this.handleRightClick(worldPos);
+                }
+            }
+            
+            handleLeftClick(worldPos) {
+                const clickedUnit = gameState.units.find(u => 
+                    Math.abs(u.x - worldPos.x) < 0.5 && 
+                    Math.abs(u.y - worldPos.y) < 0.5
+                );
+                
+                if (clickedUnit && clickedUnit.isPlayer) {
+                    gameState.selectedUnits = [clickedUnit];
+                    gameState.selectedBuilding = null;
+                    updateUI();
+                    return;
+                }
+                
+                const clickedBuilding = gameState.buildings.find(b => {
+                    const stats = BUILDING_TYPES[b.type];
+                    return worldPos.x >= b.x && worldPos.x < b.x + stats.width &&
+                           worldPos.y >= b.y && worldPos.y < b.y + stats.height;
+                });
+                
+                if (clickedBuilding && clickedBuilding.isPlayer) {
+                    gameState.selectedUnits = [];
+                    gameState.selectedBuilding = clickedBuilding;
+                    updateUI();
+                    return;
+                }
+                
+                gameState.selectedUnits = [];
+                gameState.selectedBuilding = null;
+                updateUI();
+            }
+            
+            handleRightClick(worldPos) {
+                if (gameState.selectedUnits.length > 0) {
+                    const gridX = Math.floor(worldPos.x);
+                    const gridY = Math.floor(worldPos.y);
+                    
+                    // Проверяем клик по вражескому юниту
+                    const enemy = gameState.units.find(u => 
+                        !u.isPlayer &&
+                        Math.abs(u.x - worldPos.x) < 0.5 && 
+                        Math.abs(u.y - worldPos.y) < 0.5
+                    );
+                    
+                    if (enemy) {
+                        gameState.selectedUnits.forEach(unit => {
+                            unit.target = enemy;
+                            unit.path = [];
+                            unit.autoAttack = true; // Включаем автоатаку
+                        });
+                        return;
+                    }
+                    
+                    // Проверяем клик по вражескому зданию
+                    const enemyBuilding = gameState.buildings.find(b => {
+                        const stats = BUILDING_TYPES[b.type];
+                        return !b.isPlayer &&
+                               worldPos.x >= b.x && worldPos.x < b.x + stats.width &&
+                               worldPos.y >= b.y && worldPos.y < b.y + stats.height;
+                    });
+                    
+                    if (enemyBuilding) {
+                        gameState.selectedUnits.forEach(unit => {
+                            unit.attackBuilding = enemyBuilding;
+                            unit.moveTo(enemyBuilding.x + 1, enemyBuilding.y + 1, gameState);
+                        });
+                        return;
+                    }
+                    
+                    // Проверяем клик по ресурсам
+                    if (gridX >= 0 && gridY >= 0 && gridX < MAP_WIDTH && gridY < MAP_HEIGHT) {
+                        const terrain = gameState.map[gridY][gridX];
+                        
+                        if ((terrain === TERRAIN_TYPES.GOLD || terrain === TERRAIN_TYPES.FOREST) &&
+                            gameState.selectedUnits.some(u => UNIT_TYPES[u.type].canGather)) {
+                            gameState.selectedUnits.forEach(unit => {
+                                if (UNIT_TYPES[unit.type].canGather) {
+                                    unit.gatherTarget = { x: gridX, y: gridY, type: terrain === TERRAIN_TYPES.GOLD ? 'GOLD' : 'FOREST' };
+                                    unit.target = null;
+                                    unit.autoGather = true; // Включаем автосбор
+                                }
+                            });
+                            return;
+                        }
+                    }
+                    
+                    // Обычное движение
+                    gameState.selectedUnits.forEach(unit => {
+                        unit.moveTo(gridX, gridY, gameState);
+                        unit.autoAttack = false; // Выключаем автоатаку при обычном движении
+                    });
+                }
+            }
+            
+            handleBuildClick(worldPos) {
+                const gridX = Math.floor(worldPos.x);
+                const gridY = Math.floor(worldPos.y);
+                
+                if (gameState.canPlaceBuilding(gridX, gridY, gameState.buildMode)) {
+                    const cost = BUILDING_TYPES[gameState.buildMode].cost;
+                    
+                    if (gameState.player.gold >= cost.gold && gameState.player.wood >= cost.wood) {
+                        // Списываем ресурсы
+                        gameState.player.gold -= cost.gold;
+                        gameState.player.wood -= cost.wood;
+                        
+                        // Создаём здание в стадии строительства
+                        const buildTime = BUILDING_TYPES[gameState.buildMode].buildTime;
+                        const newBuilding = new Building(gridX, gridY, gameState.buildMode, true, buildTime);
+                        gameState.buildings.push(newBuilding);
+                        
+                        // Добавляем supply если есть
+                        gameState.player.maxSupply += BUILDING_TYPES[gameState.buildMode].provides || 0;
+                        
+                        // Назначаем крестьянина строить
+                        if (gameState.selectedUnits.length > 0) {
+                            const builder = gameState.selectedUnits[0];
+                            builder.buildingTarget = newBuilding;
+                            builder.moveTo(gridX, gridY, gameState);
+                        }
+                        
+                        gameState.buildMode = null;
+                        updateUI();
+                    }
+                }
+            }
+        }
+        
+        // ============================================================================
+        // UI
+        // ============================================================================
+        
+        function updateUI() {
+            document.getElementById('gold-amount').textContent = gameState.player.gold;
+            document.getElementById('wood-amount').textContent = gameState.player.wood;
+            document.getElementById('supply-amount').textContent = 
+                `${gameState.player.supply}/${gameState.player.maxSupply}`;
+            
+            const selectionInfo = document.getElementById('selection-info');
+            const actionsPanel = document.getElementById('actions-panel');
+            const actionsContainer = document.getElementById('action-buttons-container');
+            
+            if (gameState.selectedUnits.length > 0) {
+                const unit = gameState.selectedUnits[0];
+                const stats = UNIT_TYPES[unit.type];
+                
+                let statusText = '';
+                if (unit.buildingTarget) {
+                    const progress = Math.floor((unit.buildingTarget.buildProgress / unit.buildingTarget.buildTime) * 100);
+                    statusText = `<br>🔨 Строит: ${progress}%`;
+                } else if (unit.autoGather) {
+                    statusText = `<br>⛏ Автосбор активен`;
+                } else if (unit.autoAttack) {
+                    statusText = `<br>⚔ Автоатака активна`;
+                }
+                
+                selectionInfo.innerHTML = `
+                    <div class="unit-info">
+                        <div class="unit-name">${stats.icon} ${stats.name}</div>
+                        <div class="health-bar">
+                            <div class="health-fill" style="width: ${(unit.hp / unit.maxHp) * 100}%"></div>
+                        </div>
+                        <div class="unit-stats">
+                            HP: ${Math.floor(unit.hp)}/${unit.maxHp}<br>
+                            Урон: ${stats.damage}<br>
+                            Дальность: ${stats.range}<br>
+                            Скорость: ${stats.speed}
+                            ${unit.carrying ? `<br>Несёт: ${unit.carrying === 'GOLD' ? '💰' : '🪵'} ${unit.carryAmount}` : ''}
+                            ${statusText}
+                        </div>
+                    </div>
+                `;
+                
+                actionsPanel.style.display = 'block';
+                let buttons = `
+                    <button onclick="stopUnit()">⏸ Стоп</button>
+                    <button onclick="patrolUnit()">🔄 Патруль</button>
+                `;
+                
+                // Добавляем кнопку способности если есть
+                if (stats.ability) {
+                    const canUse = unit.abilityCooldown <= 0;
+                    const cooldownText = canUse ? '' : `(${Math.ceil(unit.abilityCooldown / 1000)}s)`;
+                    buttons += `
+                        <button onclick="useAbility()" ${!canUse ? 'disabled' : ''}>
+                            ${stats.ability.icon} ${stats.ability.name} ${cooldownText}
+                        </button>
+                    `;
+                }
+                
+                actionsContainer.innerHTML = buttons;
+            } else if (gameState.selectedBuilding) {
+                const building = gameState.selectedBuilding;
+                const stats = BUILDING_TYPES[building.type];
+                
+                let statusText = '';
+                if (building.isUnderConstruction) {
+                    const progress = Math.floor((building.buildProgress / building.buildTime) * 100);
+                    statusText = `<br>🔨 Строительство: ${progress}%`;
+                } else if (building.currentTraining) {
+                    const progress = Math.floor((building.trainingProgress / UNIT_TYPES[building.currentTraining].trainTime) * 100);
+                    statusText = `<br>⏳ Обучение ${UNIT_TYPES[building.currentTraining].icon}: ${progress}%`;
+                } else if (building.currentResearch !== null) {
+                    const research = stats.researches[building.currentResearch];
+                    const progress = Math.floor((building.researchProgress / research.time) * 100);
+                    statusText = `<br>🔬 ${research.icon} ${research.name}: ${progress}%`;
+                }
+                
+                if (building.trainingQueue.length > 0) {
+                    statusText += `<br>📋 В очереди: ${building.trainingQueue.length}`;
+                }
+                
+                selectionInfo.innerHTML = `
+                    <div class="unit-info">
+                        <div class="unit-name">${stats.icon} ${stats.name}</div>
+                        <div class="health-bar">
+                            <div class="health-fill" style="width: ${(building.hp / building.maxHp) * 100}%"></div>
+                        </div>
+                        <div class="unit-stats">
+                            HP: ${Math.floor(building.hp)}/${building.maxHp}
+                            ${statusText}
+                        </div>
+                    </div>
+                `;
+                
+                if ((stats.trains || stats.researches) && !building.isUnderConstruction) {
+                    actionsPanel.style.display = 'block';
+                    let buttons = '';
+                    
+                    // Кнопки создания юнитов
+                    if (stats.trains) {
+                        buttons += stats.trains.map(unitType => {
+                            const unitStats = UNIT_TYPES[unitType];
+                            const canAfford = gameState.player.gold >= unitStats.cost.gold && 
+                                            gameState.player.wood >= unitStats.cost.wood &&
+                                            gameState.player.supply + unitStats.supply <= gameState.player.maxSupply;
+                            
+                            return `
+                                <button onclick="trainUnit('${unitType}')" ${!canAfford ? 'disabled' : ''}>
+                                    <div class="build-icon">${unitStats.icon}</div>
+                                    <div>${unitStats.name}</div>
+                                    <div class="build-cost">💰${unitStats.cost.gold} 🌲${unitStats.cost.wood}</div>
+                                </button>
+                            `;
+                        }).join('');
+                    }
+                    
+                    // Кнопки исследований
+                    if (stats.researches) {
+                        buttons += stats.researches.map((research, idx) => {
+                            const researchKey = `${building.type}_${idx}`;
+                            const isResearched = gameState.player.researches.has(researchKey);
+                            const isResearching = building.currentResearch === idx;
+                            const canAfford = !isResearched && !isResearching &&
+                                            building.currentResearch === null &&
+                                            gameState.player.gold >= research.cost.gold && 
+                                            gameState.player.wood >= research.cost.wood;
+                            
+                            return `
+                                <button onclick="doResearch(${idx})" ${!canAfford || isResearched || isResearching ? 'disabled' : ''}>
+                                    <div class="build-icon">${research.icon}</div>
+                                    <div style="font-size: 9px;">${research.name}</div>
+                                    <div class="build-cost">${isResearched ? '✓' : isResearching ? '...' : `💰${research.cost.gold} 🌲${research.cost.wood}`}</div>
+                                </button>
+                            `;
+                        }).join('');
+                    }
+                    
+                    actionsContainer.innerHTML = buttons;
+                } else {
+                    actionsPanel.style.display = 'none';
+                }
+            } else {
+                selectionInfo.innerHTML = '<p style="color: #7fff7f; font-size: 12px;">Выберите юнит или здание</p>';
+                actionsPanel.style.display = 'none';
+            }
+            
+            updateBuildMenu();
+        }
+        
+        function updateBuildMenu() {
+            const buildMenu = document.getElementById('build-menu');
+            
+            // Показываем меню строительства только если выбран крестьянин или пеон
+            const hasBuilder = gameState.selectedUnits.length > 0 && 
+                              UNIT_TYPES[gameState.selectedUnits[0].type].canBuild;
+            
+            if (!hasBuilder) {
+                buildMenu.innerHTML = '<p style="color: #7fff7f; font-size: 11px; text-align: center; grid-column: 1/-1;">Выберите крестьянина или пеона</p>';
+                return;
+            }
+            
+            const playerRace = gameState.player.race;
+            
+            const buildings = Object.entries(BUILDING_TYPES).filter(([key, stats]) => 
+                stats.race === playerRace && stats.cost.gold > 0
+            );
+            
+            buildMenu.innerHTML = buildings.map(([key, stats]) => {
+                const canAfford = gameState.player.gold >= stats.cost.gold && 
+                                gameState.player.wood >= stats.cost.wood;
+                
+                return `
+                    <button class="build-btn" onclick="startBuild('${key}')" ${!canAfford ? 'disabled' : ''}>
+                        <div class="build-icon">${stats.icon}</div>
+                        <div style="font-size: 9px;">${stats.name}</div>
+                        <div class="build-cost">💰${stats.cost.gold} 🌲${stats.cost.wood}</div>
+                    </button>
+                `;
+            }).join('');
+        }
+        
+        function startBuild(buildingType) {
+            // Проверяем, что выбран крестьянин или пеон
+            if (gameState.selectedUnits.length === 0) return;
+            
+            const unit = gameState.selectedUnits[0];
+            const stats = UNIT_TYPES[unit.type];
+            
+            if (!stats.canBuild) {
+                gameState.showMessage('⚠ Только крестьяне и пеоны могут строить!', 2000);
+                return;
+            }
+            
+            gameState.buildMode = buildingType;
+        }
+        
+        function trainUnit(unitType) {
+            if (!gameState.selectedBuilding) return;
+            
+            const unitStats = UNIT_TYPES[unitType];
+            const cost = unitStats.cost;
+            
+            if (gameState.player.gold >= cost.gold && 
+                gameState.player.wood >= cost.wood &&
+                gameState.player.supply + unitStats.supply <= gameState.player.maxSupply) {
+                
+                gameState.player.gold -= cost.gold;
+                gameState.player.wood -= cost.wood;
+                
+                const building = gameState.selectedBuilding;
+                building.trainUnit(unitType);
+                
+                gameState.showMessage(`⏳ Обучение ${unitStats.name}...`, 2000);
+                updateUI();
+            }
+        }
+        
+        function stopUnit() {
+            gameState.selectedUnits.forEach(unit => {
+                unit.path = [];
+                unit.target = null;
+                unit.attackBuilding = null;
+                unit.gatherTarget = null;
+                unit.autoGather = false;
+                unit.autoAttack = false;
+                unit.buildingTarget = null;
+            });
+        }
+        
+        function patrolUnit() {
+            // Простой патруль - движение в случайную точку
+            gameState.selectedUnits.forEach(unit => {
+                const x = Math.floor(Math.random() * MAP_WIDTH);
+                const y = Math.floor(Math.random() * MAP_HEIGHT);
+                unit.moveTo(x, y, gameState);
+            });
+        }
+        
+        function useAbility() {
+            if (gameState.selectedUnits.length === 0) return;
+            
+            const unit = gameState.selectedUnits[0];
+            const stats = UNIT_TYPES[unit.type];
+            
+            if (!stats.ability || unit.abilityCooldown > 0) return;
+            
+            const ability = stats.ability;
+            
+            if (ability.effect === 'damage') {
+                // Прямой урон одной цели
+                const enemies = gameState.units.filter(u => 
+                    u.isPlayer !== unit.isPlayer &&
+                    Math.abs(u.x - unit.x) <= ability.range &&
+                    Math.abs(u.y - unit.y) <= ability.range
+                );
+                
+                if (enemies.length > 0) {
+                    enemies[0].hp -= ability.value;
+                    unit.abilityCooldown = ability.cooldown;
+                    gameState.showMessage(`${stats.icon} использует ${ability.icon}!`, 2000);
+                    updateUI();
+                }
+            } else if (ability.effect === 'aoe_damage') {
+                // АОЕ урон
+                const enemies = gameState.units.filter(u => 
+                    u.isPlayer !== unit.isPlayer &&
+                    Math.abs(u.x - unit.x) <= ability.range &&
+                    Math.abs(u.y - unit.y) <= ability.range
+                );
+                
+                if (enemies.length > 0) {
+                    enemies.forEach(enemy => {
+                        enemy.hp -= ability.value;
+                    });
+                    unit.abilityCooldown = ability.cooldown;
+                    gameState.showMessage(`${stats.icon} использует ${ability.icon}! АОЕ урон!`, 2000);
+                    updateUI();
+                }
+            } else if (ability.effect === 'heal') {
+                // Лечение одной цели
+                const allies = gameState.units.filter(u => 
+                    u.isPlayer === unit.isPlayer &&
+                    u.hp < u.maxHp &&
+                    Math.abs(u.x - unit.x) <= ability.range &&
+                    Math.abs(u.y - unit.y) <= ability.range
+                );
+                
+                if (allies.length > 0) {
+                    allies[0].hp = Math.min(allies[0].maxHp, allies[0].hp + ability.value);
+                    unit.abilityCooldown = ability.cooldown;
+                    gameState.showMessage(`${stats.icon} использует ${ability.icon}!`, 2000);
+                    updateUI();
+                }
+            } else if (ability.effect === 'mass_heal') {
+                // Массовое лечение
+                const allies = gameState.units.filter(u => 
+                    u.isPlayer === unit.isPlayer &&
+                    u.hp < u.maxHp &&
+                    Math.abs(u.x - unit.x) <= ability.range &&
+                    Math.abs(u.y - unit.y) <= ability.range
+                );
+                
+                if (allies.length > 0) {
+                    allies.forEach(ally => {
+                        ally.hp = Math.min(ally.maxHp, ally.hp + ability.value);
+                    });
+                    unit.abilityCooldown = ability.cooldown;
+                    gameState.showMessage(`${stats.icon} использует ${ability.icon}! Массовое лечение!`, 2000);
+                    updateUI();
+                }
+            } else if (ability.effect === 'speed_boost' || ability.effect === 'damage_boost') {
+                // Баффы - временно увеличивают характеристики
+                unit.abilityCooldown = ability.cooldown;
+                unit.buffDuration = ability.duration;
+                unit.buffType = ability.effect;
+                unit.buffValue = ability.value;
+                gameState.showMessage(`${stats.icon} использует ${ability.icon}!`, 2000);
+                updateUI();
+            } else if (ability.effect === 'summon') {
+                // Призыв юнита
+                const summonType = unit.isPlayer ? 'FOOTMAN' : 'GRUNT'; // Простой юнит
+                gameState.units.push(new Unit(unit.x + 1, unit.y, summonType, unit.isPlayer));
+                unit.abilityCooldown = ability.cooldown;
+                gameState.showMessage(`${stats.icon} призывает существо!`, 2000);
+                updateUI();
+            }
+        }
+        
+        function doResearch(researchIdx) {
+            if (!gameState.selectedBuilding) return;
+            
+            const building = gameState.selectedBuilding;
+            const stats = BUILDING_TYPES[building.type];
+            
+            if (!stats.researches || researchIdx >= stats.researches.length) return;
+            
+            const research = stats.researches[researchIdx];
+            const researchKey = `${building.type}_${researchIdx}`;
+            
+            if (gameState.player.researches.has(researchKey)) return;
+            if (building.currentResearch !== null) return; // Уже исследуем что-то
+            
+            if (gameState.player.gold >= research.cost.gold && 
+                gameState.player.wood >= research.cost.wood) {
+                
+                gameState.player.gold -= research.cost.gold;
+                gameState.player.wood -= research.cost.wood;
+                
+                building.startResearch(researchIdx);
+                
+                gameState.showMessage(`🔬 Исследование: ${research.name}...`, 2000);
+                updateUI();
+            }
+        }
+        
+        // ============================================================================
+        // МИНИКАРТА
+        // ============================================================================
+        
+        function renderMinimap() {
+            const minimap = document.getElementById('minimap');
+            const ctx = minimap.getContext('2d');
+            
+            const scaleX = minimap.width / MAP_WIDTH;
+            const scaleY = minimap.height / MAP_HEIGHT;
+            
+            ctx.clearRect(0, 0, minimap.width, minimap.height);
+            
+            // Рисуем terrain
+            for (let y = 0; y < MAP_HEIGHT; y++) {
+                for (let x = 0; x < MAP_WIDTH; x++) {
+                    ctx.fillStyle = gameState.map[y][x].color;
+                    ctx.fillRect(x * scaleX, y * scaleY, scaleX, scaleY);
+                }
+            }
+            
+            // Рисуем здания
+            gameState.buildings.forEach(b => {
+                ctx.fillStyle = b.isPlayer ? '#00ff41' : '#ff4444';
+                ctx.fillRect(b.x * scaleX, b.y * scaleY, scaleX * 2, scaleY * 2);
+            });
+            
+            // Рисуем юнитов
+            gameState.units.forEach(u => {
+                ctx.fillStyle = u.isPlayer ? '#7fff7f' : '#ff8888';
+                ctx.fillRect(u.x * scaleX - 1, u.y * scaleY - 1, 2, 2);
+            });
+        }
+        
+        // ============================================================================
+        // ИГРОВОЙ ЦИКЛ
+        // ============================================================================
+        
+        let gameState, renderer, input;
+        let lastTime = 0;
+        
+        function gameLoop(timestamp) {
+            const deltaTime = timestamp - lastTime;
+            lastTime = timestamp;
+            
+            gameState.update(deltaTime);
+            renderer.render(gameState);
+            renderMinimap();
+            
+            requestAnimationFrame(gameLoop);
+        }
+        
+        function init() {
+            const canvas = document.getElementById('game-canvas');
+            gameState = new GameState();
+            renderer = new Renderer(canvas);
+            input = new InputHandler(canvas);
+            
+            updateUI();
+            requestAnimationFrame(gameLoop);
+        }
+        
+        window.addEventListener('load', init);
+    </script>
+</body>
+</html>
