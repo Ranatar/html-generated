@@ -1042,6 +1042,7 @@
                 this.gameOver = false;
                 this.victory = false;
                 this.messages = [];
+                this.visualEffects = []; // Визуальные эффекты способностей
                 
                 this.initializeStartingUnits();
                 this.showMessage('⚔ Битва начинается! Уничтожьте вражескую базу!');
@@ -1049,6 +1050,19 @@
             
             showMessage(text, duration = 5000) {
                 this.messages.push({ text, time: this.time, duration });
+            }
+            
+            addVisualEffect(type, x, y, targetX, targetY, color, size, duration) {
+                this.visualEffects.push({
+                    type, // 'projectile', 'explosion', 'heal', 'buff', 'aoe'
+                    x, y,
+                    targetX, targetY,
+                    color,
+                    size,
+                    duration,
+                    elapsed: 0,
+                    particles: []
+                });
             }
             
             generateMap() {
@@ -1106,17 +1120,66 @@
                 // Обновление зданий
                 this.buildings.forEach(building => building.update(deltaTime, this));
                 
-                // ИИ врага - вызываем чаще для более активного поведения
+                // Обновление визуальных эффектов
+                this.visualEffects.forEach(effect => {
+                    effect.elapsed += deltaTime;
+                    
+                    if (effect.type === 'projectile') {
+                        // Движение снаряда к цели
+                        const progress = effect.elapsed / effect.duration;
+                        effect.x = effect.x + (effect.targetX - effect.x) * progress * 0.1;
+                        effect.y = effect.y + (effect.targetY - effect.y) * progress * 0.1;
+                    } else if (effect.type === 'explosion' || effect.type === 'aoe') {
+                        // Создаём частицы для взрыва
+                        if (effect.particles.length === 0) {
+                            for (let i = 0; i < 20; i++) {
+                                const angle = (Math.PI * 2 * i) / 20;
+                                effect.particles.push({
+                                    x: effect.x,
+                                    y: effect.y,
+                                    vx: Math.cos(angle) * 2,
+                                    vy: Math.sin(angle) * 2,
+                                    life: 1
+                                });
+                            }
+                        }
+                        // Обновляем частицы
+                        effect.particles.forEach(p => {
+                            p.x += p.vx * deltaTime * 0.01;
+                            p.y += p.vy * deltaTime * 0.01;
+                            p.life -= deltaTime / effect.duration;
+                        });
+                    } else if (effect.type === 'heal') {
+                        // Частицы лечения поднимаются вверх
+                        if (effect.particles.length === 0) {
+                            for (let i = 0; i < 10; i++) {
+                                effect.particles.push({
+                                    x: effect.x + (Math.random() - 0.5) * 2,
+                                    y: effect.y + (Math.random() - 0.5) * 2,
+                                    vy: -1,
+                                    life: 1
+                                });
+                            }
+                        }
+                        effect.particles.forEach(p => {
+                            p.y += p.vy * deltaTime * 0.01;
+                            p.life -= deltaTime / effect.duration;
+                        });
+                    }
+                });
+                
+                // Удаляем завершённые эффекты
+                this.visualEffects = this.visualEffects.filter(effect => effect.elapsed < effect.duration);
+                
+                // ИИ врага
                 if (Math.random() < 0.005) {
                     this.enemyAI();
                 }
                 
-                // Враг автоматически собирает ресурсы
                 if (Math.random() < 0.01) {
                     this.enemyGatherResources();
                 }
                 
-                // Враг периодически атакует
                 if (Math.random() < 0.002 && this.time > 30000) {
                     this.enemyAttack();
                 }
@@ -1138,7 +1201,6 @@
                         const provides = BUILDING_TYPES[building.type].provides || 0;
                         owner.maxSupply -= provides;
                         
-                        // Проверка уничтожения главного здания
                         if (building.type === 'TOWN_HALL' && building.isPlayer) {
                             this.gameOver = true;
                             this.victory = false;
@@ -1154,7 +1216,6 @@
                     return true;
                 });
                 
-                // Удаление старых сообщений
                 this.messages = this.messages.filter(msg => 
                     this.time - msg.time < msg.duration
                 );
@@ -1592,11 +1653,16 @@
             }
             
             findPath(targetX, targetY, gameState) {
-                // Простой A* pathfinding
                 const start = { x: Math.floor(this.x), y: Math.floor(this.y) };
                 const goal = { x: Math.floor(targetX), y: Math.floor(targetY) };
                 
+                // Проверка что цель достижима
+                if (goal.x < 0 || goal.y < 0 || goal.x >= MAP_WIDTH || goal.y >= MAP_HEIGHT) {
+                    return [];
+                }
+                
                 const openSet = [start];
+                const closedSet = new Set();
                 const cameFrom = new Map();
                 const gScore = new Map();
                 const fScore = new Map();
@@ -1606,11 +1672,17 @@
                 gScore.set(key(start.x, start.y), 0);
                 fScore.set(key(start.x, start.y), this.heuristic(start, goal));
                 
-                while (openSet.length > 0) {
+                let iterations = 0;
+                const maxIterations = 300;
+                
+                while (openSet.length > 0 && iterations < maxIterations) {
+                    iterations++;
+                    
                     // Находим узел с наименьшим fScore
                     let current = openSet[0];
                     let currentKey = key(current.x, current.y);
                     let lowestF = fScore.get(currentKey);
+                    let currentIdx = 0;
                     
                     for (let i = 1; i < openSet.length; i++) {
                         const nodeKey = key(openSet[i].x, openSet[i].y);
@@ -1619,21 +1691,28 @@
                             current = openSet[i];
                             currentKey = nodeKey;
                             lowestF = f;
+                            currentIdx = i;
                         }
                     }
                     
-                    if (current.x === goal.x && current.y === goal.y) {
+                    // Достигли цели (или близко к ней)
+                    if (Math.abs(current.x - goal.x) <= 1 && Math.abs(current.y - goal.y) <= 1) {
                         return this.reconstructPath(cameFrom, current);
                     }
                     
-                    openSet.splice(openSet.indexOf(current), 1);
+                    openSet.splice(currentIdx, 1);
+                    closedSet.add(currentKey);
                     
-                    // Проверяем соседей
+                    // Проверяем соседей (8 направлений - включая диагонали)
                     const neighbors = [
-                        { x: current.x + 1, y: current.y },
-                        { x: current.x - 1, y: current.y },
-                        { x: current.x, y: current.y + 1 },
-                        { x: current.x, y: current.y - 1 }
+                        { x: current.x + 1, y: current.y, cost: 1 },
+                        { x: current.x - 1, y: current.y, cost: 1 },
+                        { x: current.x, y: current.y + 1, cost: 1 },
+                        { x: current.x, y: current.y - 1, cost: 1 },
+                        { x: current.x + 1, y: current.y + 1, cost: 1.414 },
+                        { x: current.x + 1, y: current.y - 1, cost: 1.414 },
+                        { x: current.x - 1, y: current.y + 1, cost: 1.414 },
+                        { x: current.x - 1, y: current.y - 1, cost: 1.414 }
                     ];
                     
                     for (const neighbor of neighbors) {
@@ -1642,13 +1721,27 @@
                             continue;
                         }
                         
+                        const neighborKey = key(neighbor.x, neighbor.y);
+                        if (closedSet.has(neighborKey)) continue;
+                        
+                        // Проверка проходимости террейна
                         const terrain = gameState.map[neighbor.y][neighbor.x];
                         if (!terrain.passable) {
                             continue;
                         }
                         
-                        const neighborKey = key(neighbor.x, neighbor.y);
-                        const tentativeG = gScore.get(currentKey) + 1;
+                        // Проверка зданий как препятствий
+                        const hasBuilding = gameState.buildings.some(b => {
+                            const stats = BUILDING_TYPES[b.type];
+                            return neighbor.x >= b.x && neighbor.x < b.x + stats.width &&
+                                   neighbor.y >= b.y && neighbor.y < b.y + stats.height;
+                        });
+                        
+                        if (hasBuilding && !(neighbor.x === goal.x && neighbor.y === goal.y)) {
+                            continue;
+                        }
+                        
+                        const tentativeG = gScore.get(currentKey) + neighbor.cost;
                         
                         if (!gScore.has(neighborKey) || tentativeG < gScore.get(neighborKey)) {
                             cameFrom.set(neighborKey, current);
@@ -1660,15 +1753,17 @@
                             }
                         }
                     }
-                    
-                    if (openSet.length > 100) break; // Предотвращение зависаний
                 }
                 
-                return [];
+                // Путь не найден - возвращаем прямую линию
+                return [goal];
             }
             
             heuristic(a, b) {
-                return Math.abs(a.x - b.x) + Math.abs(a.y - b.y);
+                // Диагональная дистанция (Chebyshev + Euclidean)
+                const dx = Math.abs(a.x - b.x);
+                const dy = Math.abs(a.y - b.y);
+                return Math.max(dx, dy) + 0.414 * Math.min(dx, dy);
             }
             
             reconstructPath(cameFrom, current) {
@@ -1680,7 +1775,28 @@
                     path.unshift(current);
                 }
                 
-                return path;
+                // Сглаживание пути - убираем промежуточные точки на прямых линиях
+                if (path.length <= 2) return path;
+                
+                const smoothed = [path[0]];
+                for (let i = 1; i < path.length - 1; i++) {
+                    const prev = smoothed[smoothed.length - 1];
+                    const current = path[i];
+                    const next = path[i + 1];
+                    
+                    const dx1 = current.x - prev.x;
+                    const dy1 = current.y - prev.y;
+                    const dx2 = next.x - current.x;
+                    const dy2 = next.y - current.y;
+                    
+                    // Если направление изменилось, добавляем точку
+                    if (dx1 !== dx2 || dy1 !== dy2) {
+                        smoothed.push(current);
+                    }
+                }
+                smoothed.push(path[path.length - 1]);
+                
+                return smoothed;
             }
         }
         
@@ -1833,6 +1949,11 @@
                     this.drawUnit(unit, gameState);
                 });
                 
+                // Рисуем визуальные эффекты
+                gameState.visualEffects.forEach(effect => {
+                    this.drawEffect(effect, gameState);
+                });
+                
                 // Рисуем выделение
                 if (gameState.buildMode) {
                     this.drawBuildPreview(gameState);
@@ -1840,6 +1961,101 @@
                 
                 // Рисуем сообщения
                 this.drawMessages(gameState);
+            }
+            
+            drawEffect(effect, gameState) {
+                const screen = this.worldToScreen(effect.x, effect.y, gameState);
+                const alpha = 1 - (effect.elapsed / effect.duration);
+                
+                this.ctx.globalAlpha = alpha;
+                
+                if (effect.type === 'projectile') {
+                    // Снаряд - светящийся шар
+                    const gradient = this.ctx.createRadialGradient(screen.x, screen.y, 0, screen.x, screen.y, effect.size);
+                    gradient.addColorStop(0, effect.color);
+                    gradient.addColorStop(1, 'rgba(0,0,0,0)');
+                    
+                    this.ctx.fillStyle = gradient;
+                    this.ctx.beginPath();
+                    this.ctx.arc(screen.x, screen.y, effect.size, 0, Math.PI * 2);
+                    this.ctx.fill();
+                    
+                    // След
+                    this.ctx.fillStyle = effect.color;
+                    this.ctx.globalAlpha = alpha * 0.3;
+                    this.ctx.beginPath();
+                    this.ctx.arc(screen.x, screen.y, effect.size * 1.5, 0, Math.PI * 2);
+                    this.ctx.fill();
+                    
+                } else if (effect.type === 'explosion' || effect.type === 'aoe') {
+                    // Взрыв - расширяющиеся частицы
+                    effect.particles.forEach(particle => {
+                        if (particle.life > 0) {
+                            const pScreen = this.worldToScreen(particle.x, particle.y, gameState);
+                            this.ctx.fillStyle = effect.color;
+                            this.ctx.globalAlpha = particle.life;
+                            this.ctx.beginPath();
+                            this.ctx.arc(pScreen.x, pScreen.y, 4, 0, Math.PI * 2);
+                            this.ctx.fill();
+                        }
+                    });
+                    
+                    // Центральная вспышка
+                    const size = effect.size * (1 + (1 - alpha));
+                    const gradient = this.ctx.createRadialGradient(screen.x, screen.y, 0, screen.x, screen.y, size);
+                    gradient.addColorStop(0, effect.color);
+                    gradient.addColorStop(1, 'rgba(0,0,0,0)');
+                    
+                    this.ctx.globalAlpha = alpha * 0.5;
+                    this.ctx.fillStyle = gradient;
+                    this.ctx.beginPath();
+                    this.ctx.arc(screen.x, screen.y, size, 0, Math.PI * 2);
+                    this.ctx.fill();
+                    
+                } else if (effect.type === 'heal') {
+                    // Лечение - частицы поднимаются вверх
+                    effect.particles.forEach(particle => {
+                        if (particle.life > 0) {
+                            const pScreen = this.worldToScreen(particle.x, particle.y, gameState);
+                            
+                            // Крестик или плюс
+                            this.ctx.strokeStyle = effect.color;
+                            this.ctx.lineWidth = 3;
+                            this.ctx.globalAlpha = particle.life;
+                            this.ctx.beginPath();
+                            this.ctx.moveTo(pScreen.x - 5, pScreen.y);
+                            this.ctx.lineTo(pScreen.x + 5, pScreen.y);
+                            this.ctx.moveTo(pScreen.x, pScreen.y - 5);
+                            this.ctx.lineTo(pScreen.x, pScreen.y + 5);
+                            this.ctx.stroke();
+                        }
+                    });
+                    
+                } else if (effect.type === 'buff') {
+                    // Бафф - пульсирующее кольцо
+                    const pulse = Math.sin(effect.elapsed * 0.01) * 0.3 + 0.7;
+                    const size = effect.size * pulse;
+                    
+                    this.ctx.strokeStyle = effect.color;
+                    this.ctx.lineWidth = 3;
+                    this.ctx.globalAlpha = alpha * 0.8;
+                    this.ctx.beginPath();
+                    this.ctx.arc(screen.x, screen.y, size, 0, Math.PI * 2);
+                    this.ctx.stroke();
+                    
+                    // Внутреннее свечение
+                    const gradient = this.ctx.createRadialGradient(screen.x, screen.y, 0, screen.x, screen.y, size);
+                    gradient.addColorStop(0, effect.color);
+                    gradient.addColorStop(1, 'rgba(0,0,0,0)');
+                    
+                    this.ctx.fillStyle = gradient;
+                    this.ctx.globalAlpha = alpha * 0.3;
+                    this.ctx.beginPath();
+                    this.ctx.arc(screen.x, screen.y, size, 0, Math.PI * 2);
+                    this.ctx.fill();
+                }
+                
+                this.ctx.globalAlpha = 1.0;
             }
             
             drawMessages(gameState) {
@@ -1907,6 +2123,20 @@
                 this.ctx.arc(screen.x, screen.y, 22, 0, Math.PI * 2);
                 this.ctx.fill();
                 
+                // Визуализация активного баффа
+                if (unit.buffDuration > 0 && unit.buffType) {
+                    const buffColor = unit.buffType === 'speed_boost' ? '#00ccff' : '#ff0000';
+                    const pulse = Math.sin(Date.now() * 0.01) * 0.2 + 0.8;
+                    
+                    this.ctx.strokeStyle = buffColor;
+                    this.ctx.lineWidth = 2;
+                    this.ctx.globalAlpha = pulse;
+                    this.ctx.beginPath();
+                    this.ctx.arc(screen.x, screen.y, 28, 0, Math.PI * 2);
+                    this.ctx.stroke();
+                    this.ctx.globalAlpha = 1.0;
+                }
+                
                 // Обводка иконки для контраста
                 this.ctx.strokeStyle = unit.isPlayer ? '#00ff41' : '#ff4444';
                 this.ctx.lineWidth = 3;
@@ -1925,7 +2155,6 @@
                     this.ctx.font = '16px JetBrains Mono';
                     this.ctx.fillText(resourceIcon, screen.x + 20, screen.y - 20);
                     
-                    // Количество ресурса
                     this.ctx.font = '10px JetBrains Mono';
                     this.ctx.fillStyle = '#ffff00';
                     this.ctx.fillText(unit.carryAmount, screen.x + 20, screen.y - 5);
@@ -2547,7 +2776,6 @@
             const ability = stats.ability;
             
             if (ability.effect === 'damage') {
-                // Прямой урон одной цели
                 const enemies = gameState.units.filter(u => 
                     u.isPlayer !== unit.isPlayer &&
                     Math.abs(u.x - unit.x) <= ability.range &&
@@ -2555,13 +2783,23 @@
                 );
                 
                 if (enemies.length > 0) {
-                    enemies[0].hp -= ability.value;
+                    const target = enemies[0];
+                    // Визуальный эффект - снаряд летит к цели
+                    gameState.addVisualEffect('projectile', unit.x, unit.y, target.x, target.y, '#ff4400', 20, 500);
+                    
+                    setTimeout(() => {
+                        if (target.hp > 0) {
+                            target.hp -= ability.value;
+                            // Взрыв при попадании
+                            gameState.addVisualEffect('explosion', target.x, target.y, 0, 0, '#ff6600', 30, 300);
+                        }
+                    }, 500);
+                    
                     unit.abilityCooldown = ability.cooldown;
                     gameState.showMessage(`${stats.icon} использует ${ability.icon}!`, 2000);
                     updateUI();
                 }
             } else if (ability.effect === 'aoe_damage') {
-                // АОЕ урон
                 const enemies = gameState.units.filter(u => 
                     u.isPlayer !== unit.isPlayer &&
                     Math.abs(u.x - unit.x) <= ability.range &&
@@ -2569,15 +2807,25 @@
                 );
                 
                 if (enemies.length > 0) {
-                    enemies.forEach(enemy => {
-                        enemy.hp -= ability.value;
-                    });
+                    const centerX = enemies.reduce((sum, e) => sum + e.x, 0) / enemies.length;
+                    const centerY = enemies.reduce((sum, e) => sum + e.y, 0) / enemies.length;
+                    
+                    // Большой снаряд к центру
+                    gameState.addVisualEffect('projectile', unit.x, unit.y, centerX, centerY, '#ff8800', 30, 700);
+                    
+                    setTimeout(() => {
+                        // АОЕ взрыв
+                        gameState.addVisualEffect('aoe', centerX, centerY, 0, 0, '#ffaa00', 60, 600);
+                        enemies.forEach(enemy => {
+                            enemy.hp -= ability.value;
+                        });
+                    }, 700);
+                    
                     unit.abilityCooldown = ability.cooldown;
                     gameState.showMessage(`${stats.icon} использует ${ability.icon}! АОЕ урон!`, 2000);
                     updateUI();
                 }
             } else if (ability.effect === 'heal') {
-                // Лечение одной цели
                 const allies = gameState.units.filter(u => 
                     u.isPlayer === unit.isPlayer &&
                     u.hp < u.maxHp &&
@@ -2586,13 +2834,17 @@
                 );
                 
                 if (allies.length > 0) {
-                    allies[0].hp = Math.min(allies[0].maxHp, allies[0].hp + ability.value);
+                    const target = allies[0];
+                    target.hp = Math.min(target.maxHp, target.hp + ability.value);
+                    
+                    // Зелёные частицы лечения
+                    gameState.addVisualEffect('heal', target.x, target.y, 0, 0, '#00ff88', 25, 1000);
+                    
                     unit.abilityCooldown = ability.cooldown;
                     gameState.showMessage(`${stats.icon} использует ${ability.icon}!`, 2000);
                     updateUI();
                 }
             } else if (ability.effect === 'mass_heal') {
-                // Массовое лечение
                 const allies = gameState.units.filter(u => 
                     u.isPlayer === unit.isPlayer &&
                     u.hp < u.maxHp &&
@@ -2603,23 +2855,33 @@
                 if (allies.length > 0) {
                     allies.forEach(ally => {
                         ally.hp = Math.min(ally.maxHp, ally.hp + ability.value);
+                        // Эффект лечения для каждого
+                        gameState.addVisualEffect('heal', ally.x, ally.y, 0, 0, '#00ffcc', 20, 800);
                     });
+                    
                     unit.abilityCooldown = ability.cooldown;
                     gameState.showMessage(`${stats.icon} использует ${ability.icon}! Массовое лечение!`, 2000);
                     updateUI();
                 }
             } else if (ability.effect === 'speed_boost' || ability.effect === 'damage_boost') {
-                // Баффы - временно увеличивают характеристики
                 unit.abilityCooldown = ability.cooldown;
                 unit.buffDuration = ability.duration;
                 unit.buffType = ability.effect;
                 unit.buffValue = ability.value;
+                
+                // Эффект баффа - свечение вокруг юнита
+                const color = ability.effect === 'speed_boost' ? '#00aaff' : '#ff0000';
+                gameState.addVisualEffect('buff', unit.x, unit.y, 0, 0, color, 35, ability.duration);
+                
                 gameState.showMessage(`${stats.icon} использует ${ability.icon}!`, 2000);
                 updateUI();
             } else if (ability.effect === 'summon') {
-                // Призыв юнита
-                const summonType = unit.isPlayer ? 'FOOTMAN' : 'GRUNT'; // Простой юнит
+                const summonType = unit.isPlayer ? 'FOOTMAN' : 'GRUNT';
                 gameState.units.push(new Unit(unit.x + 1, unit.y, summonType, unit.isPlayer));
+                
+                // Эффект призыва
+                gameState.addVisualEffect('explosion', unit.x + 1, unit.y, 0, 0, '#8800ff', 40, 500);
+                
                 unit.abilityCooldown = ability.cooldown;
                 gameState.showMessage(`${stats.icon} призывает существо!`, 2000);
                 updateUI();
