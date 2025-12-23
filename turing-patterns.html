@@ -1334,8 +1334,9 @@
             }
         `;
     
-        const canvas = document.getElementById('canvas');
+        let canvas = document.getElementById('canvas');
         let ctx = null;
+        let canvasContainer = null;
 
         // Настройка размера canvas - уменьшен для оптимизации
         let size = 256;
@@ -1773,24 +1774,8 @@
         }
 
         // Обработчик движения мыши для курсора
-        canvas.addEventListener('mousemove', (e) => {
-            updateBrushCursor(e.clientX, e.clientY);
-            if (isDrawing) {
-                handleDraw(e);
-            }
-        });
-
-        canvas.addEventListener('mouseenter', (e) => {
-            brushCursor.style.opacity = '0.7';
-        });
-
-        canvas.addEventListener('mouseleave', () => {
-            brushCursor.style.opacity = '0';
-            isDrawing = false;
-            lastDrawX = -1;
-            lastDrawY = -1;
-        });
-
+        // УДАЛЕНО: Обработчики теперь устанавливаются через setupCanvasEventListeners()
+        
         // Инициализация сеток
         function initGrid() {
             for (let i = 0; i < size * size; i++) {
@@ -1934,7 +1919,12 @@
         
         // Функция синхронизации CPU -> GPU
         function syncCPUtoGPU() {
-            if (!gl || !isWebGLReady) return;
+            if (!gl || !isWebGLReady) {
+                console.warn('[syncCPUtoGPU] WebGL не готов, пропускаем синхронизацию');
+                return;
+            }
+            
+            console.log('[syncCPUtoGPU] Начало синхронизации...');
             
             // Конвертируем в RGBA формат для textureA с инверсией Y
             const rgbaDataA = new Float32Array(size * size * 4);
@@ -1951,6 +1941,7 @@
             
             gl.bindTexture(gl.TEXTURE_2D, textureA);
             gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, size, size, 0, gl.RGBA, gl.FLOAT, rgbaDataA);
+            console.log('[syncCPUtoGPU] textureA загружена');
             
             // Конвертируем в RGBA формат для textureB с инверсией Y
             const rgbaDataB = new Float32Array(size * size * 4);
@@ -1967,11 +1958,19 @@
             
             gl.bindTexture(gl.TEXTURE_2D, textureB);
             gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, size, size, 0, gl.RGBA, gl.FLOAT, rgbaDataB);
+            console.log('[syncCPUtoGPU] textureB загружена');
+            
+            console.log('[syncCPUtoGPU] Завершено');
         }
         
         // Функция синхронизации GPU -> CPU (для экспорта)
         function syncGPUtoCPU() {
-            if (!gl || !isWebGLReady) return;
+            if (!gl || !isWebGLReady) {
+                console.warn('[syncGPUtoCPU] WebGL не готов, пропускаем синхронизацию');
+                return;
+            }
+            
+            console.log('[syncGPUtoCPU] Начало синхронизации...');
             
             const pixels = new Float32Array(size * size * 4);
             
@@ -1982,7 +1981,7 @@
             if (gl.checkFramebufferStatus(gl.FRAMEBUFFER) === gl.FRAMEBUFFER_COMPLETE) {
                 gl.readPixels(0, 0, size, size, gl.RGBA, gl.FLOAT, pixels);
                 
-                // Копируем с учётом инверсии Y (WebGL снизу вверх, наши данные сверху вниз)
+                // Копируем с учётом инверсии Y
                 for (let y = 0; y < size; y++) {
                     for (let x = 0; x < size; x++) {
                         const srcIdx = (x + y * size) * 4;
@@ -1990,6 +1989,14 @@
                         gridA[dstIdx] = pixels[srcIdx];
                     }
                 }
+                console.log('[syncGPUtoCPU] textureA синхронизирована');
+            } else {
+                console.error('[syncGPUtoCPU] Framebuffer для textureA не готов');
+                // Если не удалось прочитать, инициализируем значениями по умолчанию
+                for (let i = 0; i < size * size; i++) {
+                    gridA[i] = 1.0;
+                }
+                console.warn('[syncGPUtoCPU] textureA заполнена значениями по умолчанию');
             }
             
             // Читаем textureB
@@ -2006,9 +2013,36 @@
                         gridB[dstIdx] = pixels[srcIdx];
                     }
                 }
+                console.log('[syncGPUtoCPU] textureB синхронизирована');
+            } else {
+                console.error('[syncGPUtoCPU] Framebuffer для textureB не готов');
+                // Если не удалось прочитать, инициализируем значениями по умолчанию
+                for (let i = 0; i < size * size; i++) {
+                    gridB[i] = Math.random() * (noiseLevel / 100);
+                }
+                console.warn('[syncGPUtoCPU] textureB заполнена значениями по умолчанию');
             }
             
             gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+            
+            // Проверяем что данные не пустые
+            let nonEmptyA = 0, nonEmptyB = 0;
+            for (let i = 0; i < Math.min(1000, gridA.length); i++) {
+                if (gridA[i] < 0.99) nonEmptyA++;
+                if (gridB[i] > 0.01) nonEmptyB++;
+            }
+            
+            console.log('[syncGPUtoCPU] Проверка данных:', {
+                nonEmptyA: nonEmptyA,
+                nonEmptyB: nonEmptyB,
+                totalSampled: Math.min(1000, gridA.length)
+            });
+            
+            // Логируем результат
+            console.log('[syncGPUtoCPU] Завершено. Примеры данных:', {
+                gridA_sample: Array.from(gridA.slice(0, 10)),
+                gridB_sample: Array.from(gridB.slice(0, 10))
+            });
         }
 
         // Оптимизированная функция Лапласа с полным 9-точечным ядром и поддержкой разных граничных условий
@@ -2211,7 +2245,7 @@
         // Новая CPU версия (старая функция simulate переименована)
         function simulateCPU() {
             window.currentFrame = (window.currentFrame || 0) + 1;
-            /*
+            
             // Предвычисляем для сферы (если используется)
             if (boundaryType === 'sphere') {
                 let northSumA = 0, northSumB = 0;
@@ -2231,7 +2265,7 @@
                 window.sphereSouthPoleCacheA = southSumA / size;
                 window.sphereSouthPoleCacheB = southSumB / size;
             }
-            */
+            
             for (let y = 0; y < size; y++) {
                 for (let x = 0; x < size; x++) {
                     const idx = x + y * size;
@@ -2514,13 +2548,21 @@
         function draw() {
             if (useGPU && isWebGLReady) {
                 drawGPU();
-            } else {
+            } else if (ctx) {
                 drawCPU();
+            } else {
+                console.error('[draw] Ни GPU, ни CPU не готовы! useGPU:', useGPU, 'ctx:', ctx);
             }
         }
         
         // CPU версия (старая функция draw переименована)
         function drawCPU() {
+            // Получаем актуальный ctx (может измениться после переключения режима)
+            if (!ctx) {
+                ctx = canvas.getContext('2d');
+                console.log('[drawCPU] ctx был null, получен заново:', ctx);
+            }
+            
             if (!ctx) {
                 console.error('[drawCPU] ctx не инициализирован!');
                 return;
@@ -2534,6 +2576,19 @@
                 if (!colorFunc) {
                     console.error('[drawCPU] Цветовая схема не найдена:', colorScheme);
                     return;
+                }
+                
+                // Проверяем, есть ли данные для рисования
+                let hasData = false;
+                for (let i = 0; i < Math.min(100, gridA.length); i++) {
+                    if (gridA[i] < 0.99 || gridB[i] > 0.01) {
+                        hasData = true;
+                        break;
+                    }
+                }
+                
+                if (!hasData) {
+                    console.warn('[drawCPU] Данные выглядят пустыми (все A≈1, B≈0)');
                 }
             
                 for (let i = 0; i < size * size; i++) {
@@ -2557,7 +2612,13 @@
         
         // GPU версия
         function drawGPU() {
-            if (!gl || !isWebGLReady) return;
+
+            if (!gl || !isWebGLReady) {
+                    console.warn('[drawGPU] WebGL не готов');
+                    return;
+            }
+
+            //if (!gl || !isWebGLReady) return;
             
             const colorSchemeMap = {
                 'cyanMagenta': 0,
@@ -3363,48 +3424,10 @@
                 toggleRecording();
             }
         });
-
+        
         // Рисование на canvas с поддержкой мыши
-        canvas.addEventListener('mousedown', (e) => {
-            isDrawing = true;
-            handleDraw(e);
-        });
-
-        canvas.addEventListener('mouseup', () => {
-            isDrawing = false;
-            lastDrawX = -1;
-            lastDrawY = -1;
-        });
-
-        // Поддержка touch для мобильных устройств
-        canvas.addEventListener('touchstart', (e) => {
-            e.preventDefault();
-            isDrawing = true;
-            brushCursor.style.opacity = '0'; // Скрываем курсор на touch устройствах
-            handleTouchDraw(e);
-        });
-
-        canvas.addEventListener('touchmove', (e) => {
-            e.preventDefault();
-            if (isDrawing) {
-                handleTouchDraw(e);
-            }
-        });
-
-        canvas.addEventListener('touchend', (e) => {
-            e.preventDefault();
-            isDrawing = false;
-            lastDrawX = -1;
-            lastDrawY = -1;
-        });
-
-        canvas.addEventListener('touchcancel', (e) => {
-            e.preventDefault();
-            isDrawing = false;
-            lastDrawX = -1;
-            lastDrawY = -1;
-        });
-
+        // УДАЛЕНО: Обработчики теперь устанавливаются через setupCanvasEventListeners()
+        
         function getCanvasCoordinates(clientX, clientY) {
             const rect = canvas.getBoundingClientRect();
             const scaleX = canvas.width / rect.width;
@@ -3414,7 +3437,6 @@
             let y = Math.floor((clientY - rect.top) * scaleY);
             
             // ВАЖНО: WebGL имеет Y координаты снизу вверх, canvas сверху вниз
-            // Инвертируем Y если используем GPU
             if (useGPU && isWebGLReady) {
                 y = size - 1 - y;
             }
@@ -3465,29 +3487,43 @@
         console.log('ctx:', ctx ? 'установлен' : 'null');
         console.log('Canvas размер:', canvas.width, 'x', canvas.height);
 
+        // Флаг успешной инициализации
+        let initSuccess = true;
+
         // Проверка корректности инициализации
         if (!useGPU && !ctx) {
             console.error('[INIT] КРИТИЧЕСКАЯ ОШИБКА: Ни GPU, ни CPU режим не инициализированы!');
             
-            const loadingDiv = document.querySelector('.loading');
-            if (loadingDiv) {
-                loadingDiv.textContent = 'ОШИБКА: Не удалось инициализировать графику. Обновите страницу.';
-                loadingDiv.style.display = 'block';
-                loadingDiv.style.color = '#ff006e';
-                loadingDiv.style.fontSize = '1rem';
-            }
+            // Пробуем принудительно получить 2D контекст
+            ctx = canvas.getContext('2d');
             
-            // Показываем alert только на мобильных устройствах
-            if (window.innerWidth < 768) {
-                setTimeout(() => {
-                    alert('Произошла ошибка инициализации.\n\nПопробуйте:\n1. Обновить страницу\n2. Использовать другой браузер\n3. Очистить кэш браузера');
-                }, 500);
+            if (!ctx) {
+                initSuccess = false; // Помечаем инициализацию как неудачную
+                
+                const loadingDiv = document.querySelector('.loading');
+                if (loadingDiv) {
+                    loadingDiv.textContent = 'ОШИБКА: Не удалось инициализировать графику. Обновите страницу.';
+                    loadingDiv.style.display = 'block';
+                    loadingDiv.style.color = '#ff006e';
+                    loadingDiv.style.fontSize = '1rem';
+                }
+                
+                if (window.innerWidth < 768) {
+                    setTimeout(() => {
+                        alert('Произошла ошибка инициализации.\n\nПопробуйте:\n1. Обновить страницу\n2. Использовать другой браузер\n3. Очистить кэш браузера');
+                    }, 500);
+                }
+                
+                console.log('=== ИНИЦИАЛИЗАЦИЯ ПРЕРВАНА ===');
+            } else {
+                console.log('[INIT] 2D контекст получен принудительно, продолжаем в CPU режиме');
+                useGPU = false;
+                isWebGLReady = false;
             }
-            
-            console.log('=== ИНИЦИАЛИЗАЦИЯ ПРЕРВАНА ===');
-            // НЕ запускаем дальнейшую инициализацию
-        } else {
-            // Успешная инициализация - продолжаем
+        }
+
+        // Продолжаем только если инициализация успешна
+        if (initSuccess) {
             console.log('[INIT] Инициализация успешна, режим:', useGPU ? 'GPU' : 'CPU');
             console.log('=== КОНЕЦ ИНИЦИАЛИЗАЦИИ ===');
             
@@ -3502,6 +3538,9 @@
             updateValueDisplays();
             drawParamMap();
             draw();
+            
+            // Устанавливаем обработчики событий canvas
+            setupCanvasEventListeners();
             
             // Обновляем индикатор режима
             updateModeIndicator();
@@ -3608,6 +3647,250 @@
             framebuffers[0] = gl.createFramebuffer();
             framebuffers[1] = gl.createFramebuffer();
         }
+
+        // ПЕРЕКЛЮЧЕНИЕ МЕЖДУ CPU И GPU РЕЖИМАМИ
+        function switchComputeMode(newMode) {
+            const targetGPU = (newMode === 'gpu');
+            
+            // Если режим не меняется, ничего не делаем
+            if (targetGPU === useGPU) {
+                console.log('[Режим] Уже в режиме:', newMode);
+                return;
+            }
+            
+            console.log(`[Режим] Переключение: ${useGPU ? 'GPU' : 'CPU'} -> ${targetGPU ? 'GPU' : 'CPU'}`);
+            
+            // Останавливаем симуляцию (временно)
+            const wasRunning = running;
+            running = false;
+            
+            // Сохраняем данные из текущего режима
+            if (useGPU && isWebGLReady) {
+                console.log('[Режим] Синхронизация GPU -> CPU');
+                syncGPUtoCPU();
+            }
+            
+            // Логируем состояние данных перед переключением
+            console.log('[Режим] Данные перед переключением:', {
+                gridA_sample: gridA.slice(0, 10),
+                gridB_sample: gridB.slice(0, 10)
+            });
+            
+            // Очищаем старый контекст
+            if (useGPU && gl) {
+                console.log('[Режим] Очистка WebGL ресурсов...');
+                // Освобождаем WebGL ресурсы
+                if (textureA) gl.deleteTexture(textureA);
+                if (textureB) gl.deleteTexture(textureB);
+                if (textureTemp) gl.deleteTexture(textureTemp);
+                if (framebuffers[0]) gl.deleteFramebuffer(framebuffers[0]);
+                if (framebuffers[1]) gl.deleteFramebuffer(framebuffers[1]);
+                if (quadBuffer) gl.deleteBuffer(quadBuffer);
+                if (simulationProgram) gl.deleteProgram(simulationProgram);
+                if (renderProgram) gl.deleteProgram(renderProgram);
+                
+                // НЕ теряем контекст принудительно - он будет потерян при пересоздании canvas
+                // const loseContext = gl.getExtension('WEBGL_lose_context');
+                // if (loseContext) {
+                //     loseContext.loseContext();
+                // }
+                
+                gl = null;
+                isWebGLReady = false;
+            }
+            
+            // Сбрасываем ctx если переключаемся с CPU
+            if (!useGPU && ctx) {
+                ctx = null;
+            }
+            
+            // Пересоздаем canvas в DOM (необходимо для переключения между WebGL и 2D)
+            console.log('[Режим] Пересоздание canvas...');
+            const oldCanvas = canvas;
+            const newCanvas = document.createElement('canvas');
+            newCanvas.id = 'canvas';
+            newCanvas.width = size;
+            newCanvas.height = size;
+            
+            // Сохраняем обработчики событий
+            const savedHandlers = {};
+            const eventTypes = ['mousemove', 'mouseenter', 'mouseleave', 'mousedown', 'mouseup', 
+                               'touchstart', 'touchmove', 'touchend', 'touchcancel'];
+            
+            // Заменяем canvas в DOM
+            oldCanvas.parentNode.replaceChild(newCanvas, oldCanvas);
+            canvas = newCanvas;
+            
+            // Инициализируем новый режим
+            if (targetGPU) {
+                // Переключение на GPU
+                console.log('[Режим] Инициализация GPU...');
+                
+                const webglSuccess = initWebGL();
+                
+                if (!webglSuccess) {
+                    console.error('[Режим] Не удалось инициализировать WebGL, откат на CPU');
+                    
+                    // Откатываемся на CPU
+                    useGPU = false;
+                    isWebGLReady = false;
+                    ctx = canvas.getContext('2d');
+                    
+                    if (!ctx) {
+                        console.error('[Режим] КРИТИЧЕСКАЯ ОШИБКА: не удалось получить 2D контекст');
+                        alert('Ошибка инициализации графики. Пожалуйста, обновите страницу.');
+                        return;
+                    }
+                    
+                    // Обновляем селектор
+                    document.getElementById('computeMode').value = 'cpu';
+                } else {
+                    useGPU = true;
+                    ctx = null;
+                    console.log('[Режим] GPU инициализирован успешно');
+                }
+            } else {
+                // Переключение на CPU
+                console.log('[Режим] Инициализация CPU...');
+                
+                useGPU = false;
+                isWebGLReady = false;
+                
+                ctx = canvas.getContext('2d');
+                
+                if (!ctx) {
+                    console.error('[Режим] КРИТИЧЕСКАЯ ОШИБКА: не удалось получить 2D контекст');
+                    alert('Ошибка инициализации графики. Пожалуйста, обновите страницу.');
+                    return;
+                }
+                
+                console.log('[Режим] CPU инициализирован успешно, ctx:', ctx);
+            }
+            
+            // Восстанавливаем данные в новый режим
+            if (useGPU && isWebGLReady) {
+                console.log('[Режим] Синхронизация CPU -> GPU');
+                syncCPUtoGPU();
+            }
+            
+            // Логируем состояние данных после переключения
+            console.log('[Режим] Данные после переключения:', {
+                gridA_sample: gridA.slice(0, 10),
+                gridB_sample: gridB.slice(0, 10),
+                useGPU: useGPU,
+                ctx: ctx ? 'есть' : 'нет',
+                gl: gl ? 'есть' : 'нет'
+            });
+            
+            // Логируем параметры симуляции
+            console.log('[Режим] Параметры симуляции:', {
+                speed: speed,
+                feedRate: feedRate,
+                killRate: killRate,
+                dA: dA,
+                dB: dB,
+                running: running
+            });
+            
+            // Восстанавливаем обработчики событий на новом canvas
+            setupCanvasEventListeners();
+            
+            // Обновляем индикатор режима
+            updateModeIndicator();
+            
+            // Обновляем кнопку play/pause в соответствии с текущим состоянием
+            const playPauseBtn = document.getElementById('playPauseBtn');
+            if (playPauseBtn) {
+                playPauseBtn.textContent = running ? '⏸ Пауза' : '▶ Старт';
+            }
+            
+            console.log('[Режим] UI обновлён, running:', running);
+            
+            // ВАЖНО: Принудительно рисуем кадр
+            console.log('[Режим] Принудительная отрисовка...');
+            draw();
+            
+            // Даём браузеру время отрисовать
+            setTimeout(() => {
+                draw();
+                console.log('[Режим] Повторная отрисовка после таймаута');
+                
+                // Возобновляем симуляцию после стабилизации
+                running = wasRunning;
+                console.log('[Режим] Симуляция возобновлена:', running);
+                
+                console.log(`[Режим] Переключение завершено: ${useGPU ? 'GPU' : 'CPU'}`);
+            }, 100);
+        }
+
+        function setupCanvasEventListeners() {
+            // Получаем кисть
+            const brushCursor = document.getElementById('brushCursor');
+            
+            // Убираем все старые обработчики с помощью removeEventListener
+            // (это безопасно, даже если их нет)
+            const eventTypes = ['mousemove', 'mouseenter', 'mouseleave', 'mousedown', 'mouseup', 
+                               'touchstart', 'touchmove', 'touchend', 'touchcancel'];
+            
+            // Создаём функции-обработчики
+            const handlers = {
+                mousemove: (e) => {
+                    updateBrushCursor(e.clientX, e.clientY);
+                    if (isDrawing) {
+                        handleDraw(e);
+                    }
+                },
+                mouseenter: (e) => {
+                    brushCursor.style.opacity = '0.7';
+                },
+                mouseleave: () => {
+                    brushCursor.style.opacity = '0';
+                    isDrawing = false;
+                    lastDrawX = -1;
+                    lastDrawY = -1;
+                },
+                mousedown: (e) => {
+                    isDrawing = true;
+                    handleDraw(e);
+                },
+                mouseup: () => {
+                    isDrawing = false;
+                    lastDrawX = -1;
+                    lastDrawY = -1;
+                },
+                touchstart: (e) => {
+                    e.preventDefault();
+                    isDrawing = true;
+                    brushCursor.style.opacity = '0';
+                    handleTouchDraw(e);
+                },
+                touchmove: (e) => {
+                    e.preventDefault();
+                    if (isDrawing) {
+                        handleTouchDraw(e);
+                    }
+                },
+                touchend: (e) => {
+                    e.preventDefault();
+                    isDrawing = false;
+                    lastDrawX = -1;
+                    lastDrawY = -1;
+                },
+                touchcancel: (e) => {
+                    e.preventDefault();
+                    isDrawing = false;
+                    lastDrawX = -1;
+                    lastDrawY = -1;
+                }
+            };
+            
+            // Добавляем новые обработчики
+            Object.keys(handlers).forEach(eventName => {
+                canvas.addEventListener(eventName, handlers[eventName]);
+            });
+            
+            console.log('[EventListeners] Обработчики событий установлены');
+        }
         
         function recreateTextures() {
             if (!gl || !isWebGLReady) return;
@@ -3628,38 +3911,32 @@
             const newMode = e.target.value;
             
             // Проверяем доступность GPU режима
-            if (newMode === 'gpu' && !gl) {
-                alert('GPU режим (WebGL) не поддерживается вашим устройством или браузером.\nИспользуется CPU режим.');
-                e.target.value = 'cpu';
-                return;
+            if (newMode === 'gpu') {
+                // Пытаемся инициализировать WebGL для проверки
+                const testCanvas = document.createElement('canvas');
+                const testGl = testCanvas.getContext('webgl') || 
+                               testCanvas.getContext('experimental-webgl');
+                
+                if (!testGl) {
+                    alert('GPU режим (WebGL) не поддерживается вашим устройством или браузером.\nИспользуется CPU режим.');
+                    e.target.value = 'cpu';
+                    return;
+                }
+                
+                // Проверяем расширения
+                const floatExt = testGl.getExtension('OES_texture_float');
+                const colorBufferFloatExt = testGl.getExtension('WEBGL_color_buffer_float') || 
+                                             testGl.getExtension('EXT_color_buffer_float');
+                
+                if (!floatExt || !colorBufferFloatExt) {
+                    alert('GPU режим недоступен: необходимые расширения WebGL не поддерживаются.\nИспользуется CPU режим.');
+                    e.target.value = 'cpu';
+                    return;
+                }
             }
             
-            if (newMode === 'gpu' && !isWebGLReady) {
-                alert('GPU режим недоступен из-за отсутствия необходимых расширений WebGL.\nИспользуется CPU режим.');
-                e.target.value = 'cpu';
-                return;
-            }
-            
-            const wasGPU = useGPU;
-            useGPU = (newMode === 'gpu');
-            
-            // Синхронизация данных при переключении
-            if (wasGPU && !useGPU) {
-                // GPU -> CPU
-                console.log('[Переключение] GPU -> CPU');
-                syncGPUtoCPU();
-            } else if (!wasGPU && useGPU) {
-                // CPU -> GPU
-                console.log('[Переключение] CPU -> GPU');
-                syncCPUtoGPU();
-            }
-            
-            // Обновляем индикатор
-            if (typeof updateModeIndicator === 'function') {
-                updateModeIndicator();
-            }
-            
-            console.log(`[Режим] Переключён на: ${useGPU ? 'GPU' : 'CPU'}`);
+            // Переключаем режим
+            switchComputeMode(newMode);
         });
         
         // Обновить функцию resizeGrid для поддержки WebGL
