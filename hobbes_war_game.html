@@ -1,0 +1,672 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Игра Жизнь: Война всех против всех (по Гоббсу)</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 20px;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #1e1e2e 0%, #2d2d44 100%);
+            color: #e0e0e0;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            min-height: 100vh;
+        }
+        
+        h1 {
+            color: #ff6b6b;
+            text-shadow: 0 0 10px rgba(255, 107, 107, 0.5);
+            margin-bottom: 10px;
+        }
+        
+        .subtitle {
+            color: #a0a0a0;
+            font-style: italic;
+            margin-bottom: 20px;
+            text-align: center;
+        }
+        
+        #canvas {
+            border: 2px solid #444;
+            background: #0a0a0a;
+            box-shadow: 0 0 30px rgba(0, 0, 0, 0.8);
+            cursor: crosshair;
+        }
+        
+        .controls {
+            margin-top: 20px;
+            display: flex;
+            gap: 15px;
+            flex-wrap: wrap;
+            justify-content: center;
+            align-items: center;
+        }
+        
+        button {
+            padding: 12px 24px;
+            font-size: 16px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.3s;
+            box-shadow: 0 4px 15px rgba(102, 126, 234, 0.3);
+        }
+        
+        button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(102, 126, 234, 0.4);
+        }
+        
+        button:active {
+            transform: translateY(0);
+        }
+        
+        button.danger {
+            background: linear-gradient(135deg, #ff6b6b 0%, #ee5a6f 100%);
+        }
+        
+        button.success {
+            background: linear-gradient(135deg, #51cf66 0%, #37b24d 100%);
+        }
+        
+        .stats {
+            margin-top: 20px;
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+            width: 100%;
+            max-width: 1000px;
+        }
+        
+        .stat-box {
+            background: rgba(255, 255, 255, 0.05);
+            padding: 15px;
+            border-radius: 8px;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(10px);
+        }
+        
+        .stat-label {
+            font-size: 12px;
+            color: #888;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+        
+        .stat-value {
+            font-size: 24px;
+            font-weight: bold;
+            margin-top: 5px;
+        }
+        
+        .normal-cell { color: #51cf66; }
+        .xenophobic-cell { color: #ff6b6b; }
+        .war-zones { color: #ffd43b; }
+        
+        .legend {
+            margin-top: 20px;
+            display: flex;
+            gap: 20px;
+            flex-wrap: wrap;
+            justify-content: center;
+        }
+        
+        .legend-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        
+        .legend-color {
+            width: 20px;
+            height: 20px;
+            border-radius: 4px;
+            border: 1px solid rgba(255, 255, 255, 0.3);
+        }
+        
+        .slider-group {
+            display: flex;
+            flex-direction: column;
+            gap: 5px;
+        }
+        
+        .slider-group label {
+            font-size: 12px;
+            color: #888;
+        }
+        
+        input[type="range"] {
+            width: 150px;
+        }
+    </style>
+</head>
+<body>
+    <h1>🔥 Игра Жизнь: Война всех против всех 🔥</h1>
+    <div class="subtitle">"Homo homini lupus est" — Томас Гоббс</div>
+    
+    <canvas id="canvas" width="800" height="800"></canvas>
+    
+    <div class="controls">
+        <button id="startBtn" class="success">▶ Старт</button>
+        <button id="pauseBtn">⏸ Пауза</button>
+        <button id="clearBtn" class="danger">🗑 Очистить</button>
+        <button id="randomBtn">🎲 Случайное заполнение</button>
+        
+        <div class="slider-group">
+            <label>Скорость: <span id="speedValue">100</span> мс</label>
+            <input type="range" id="speedSlider" min="10" max="500" value="100" step="10">
+        </div>
+        
+        <div class="slider-group">
+            <label>Шанс ксенофобии: <span id="xenoChanceValue">33</span>%</label>
+            <input type="range" id="xenoChanceSlider" min="0" max="100" value="33" step="1">
+        </div>
+        
+        <div class="slider-group">
+            <label>Шанс убеждения: <span id="persuasionValue">15</span>%</label>
+            <input type="range" id="persuasionSlider" min="0" max="100" value="15" step="1">
+        </div>
+        
+        <div class="slider-group">
+            <label>Начальная ксенофобия: <span id="initialXenoValue">33</span>%</label>
+            <input type="range" id="initialXenoSlider" min="0" max="100" value="33" step="1">
+        </div>
+    </div>
+    
+    <div class="stats">
+        <div class="stat-box">
+            <div class="stat-label">Поколение</div>
+            <div class="stat-value" id="generation">0</div>
+        </div>
+        <div class="stat-box">
+            <div class="stat-label">Живых клеток</div>
+            <div class="stat-value" id="totalCells">0</div>
+        </div>
+        <div class="stat-box">
+            <div class="stat-label normal-cell">Нормальные</div>
+            <div class="stat-value normal-cell" id="normalCells">0</div>
+        </div>
+        <div class="stat-box">
+            <div class="stat-label xenophobic-cell">Ксенофобные</div>
+            <div class="stat-value xenophobic-cell" id="xenoCells">0</div>
+        </div>
+        <div class="stat-box">
+            <div class="stat-label war-zones">Зоны войны</div>
+            <div class="stat-value war-zones" id="warZones">0</div>
+        </div>
+        <div class="stat-box">
+            <div class="stat-label war-zones">Средняя температура войны</div>
+            <div class="stat-value war-zones" id="avgHeat">0%</div>
+        </div>
+    </div>
+    
+    <div class="legend">
+        <div class="legend-item">
+            <div class="legend-color" style="background: #51cf66;"></div>
+            <span>Нормальная клетка</span>
+        </div>
+        <div class="legend-item">
+            <div class="legend-color" style="background: #ff6b6b;"></div>
+            <span>Ксенофобная клетка</span>
+        </div>
+        <div class="legend-item">
+            <div class="legend-color" style="background: linear-gradient(to right, #ffd43b, #ffa500, #ff0000, #8b0000);"></div>
+            <span>Температура войны: холодная → горячая</span>
+        </div>
+    </div>
+
+    <script>
+        const canvas = document.getElementById('canvas');
+        const ctx = canvas.getContext('2d');
+        
+        const CELL_SIZE = 8;
+        const COLS = Math.floor(canvas.width / CELL_SIZE);
+        const ROWS = Math.floor(canvas.height / CELL_SIZE);
+        const WAR_ZONE_SIZE = 10; // Размер зоны для проверки
+        const WAR_THRESHOLD = 0.5; // 50% порог
+        
+        let grid = [];
+        let isRunning = false;
+        let generation = 0;
+        let interval = null;
+        let speed = 100;
+        let xenoChance = 0.33;
+        let persuasionChance = 0.15;
+        let initialXenoChance = 0.33;
+        let warZones = new Set();
+        let warZoneData = new Map(); // Хранит данные о "температуре" зон
+        
+        // Типы клеток
+        const CELL_TYPE = {
+            DEAD: 0,
+            NORMAL: 1,
+            XENOPHOBIC: 2
+        };
+        
+        // Инициализация сетки
+        function initGrid() {
+            grid = [];
+            for (let y = 0; y < ROWS; y++) {
+                grid[y] = [];
+                for (let x = 0; x < COLS; x++) {
+                    grid[y][x] = CELL_TYPE.DEAD;
+                }
+            }
+        }
+        
+        // Отрисовка
+        function draw() {
+            ctx.fillStyle = '#0a0a0a';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            
+            // Сначала рисуем зоны войны с градиентом температуры
+            warZones.forEach(zoneKey => {
+                const [zx, zy] = zoneKey.split(',').map(Number);
+                const zoneData = warZoneData.get(zoneKey);
+                const heat = zoneData ? zoneData.heat : 0;
+                
+                // Цветовая шкала от желтого (холодная война) до темно-красного (горячая война)
+                // heat от 0 (50% ксенофобов) до 1 (100% ксенофобов при максимальной плотности)
+                let r, g, b;
+                if (heat < 0.33) {
+                    // Желтый → Оранжевый
+                    const t = heat / 0.33;
+                    r = 255;
+                    g = Math.floor(212 - t * 47); // 212 → 165
+                    b = Math.floor(59 * (1 - t)); // 59 → 0
+                } else if (heat < 0.66) {
+                    // Оранжевый → Красный
+                    const t = (heat - 0.33) / 0.33;
+                    r = 255;
+                    g = Math.floor(165 * (1 - t)); // 165 → 0
+                    b = 0;
+                } else {
+                    // Красный → Темно-красный
+                    const t = (heat - 0.66) / 0.34;
+                    r = Math.floor(255 - t * 100); // 255 → 155
+                    g = 0;
+                    b = 0;
+                }
+                
+                ctx.fillStyle = `rgba(${r}, ${g}, ${b}, ${0.2 + heat * 0.3})`;
+                ctx.fillRect(zx * CELL_SIZE, zy * CELL_SIZE, 
+                           WAR_ZONE_SIZE * CELL_SIZE, WAR_ZONE_SIZE * CELL_SIZE);
+                ctx.strokeStyle = `rgb(${r}, ${g}, ${b})`;
+                ctx.lineWidth = 2 + heat * 2;
+                ctx.strokeRect(zx * CELL_SIZE, zy * CELL_SIZE, 
+                             WAR_ZONE_SIZE * CELL_SIZE, WAR_ZONE_SIZE * CELL_SIZE);
+            });
+            
+            // Рисуем клетки
+            for (let y = 0; y < ROWS; y++) {
+                for (let x = 0; x < COLS; x++) {
+                    if (grid[y][x] === CELL_TYPE.NORMAL) {
+                        ctx.fillStyle = '#51cf66';
+                        ctx.fillRect(x * CELL_SIZE + 1, y * CELL_SIZE + 1, 
+                                   CELL_SIZE - 2, CELL_SIZE - 2);
+                    } else if (grid[y][x] === CELL_TYPE.XENOPHOBIC) {
+                        ctx.fillStyle = '#ff6b6b';
+                        ctx.fillRect(x * CELL_SIZE + 1, y * CELL_SIZE + 1, 
+                                   CELL_SIZE - 2, CELL_SIZE - 2);
+                        // Добавляем "злой" эффект
+                        ctx.fillStyle = '#ff0000';
+                        ctx.fillRect(x * CELL_SIZE + 3, y * CELL_SIZE + 3, 
+                                   CELL_SIZE - 6, CELL_SIZE - 6);
+                    }
+                }
+            }
+        }
+        
+        // Подсчет соседей
+        function countNeighbors(x, y, type = null) {
+            let count = 0;
+            for (let dy = -1; dy <= 1; dy++) {
+                for (let dx = -1; dx <= 1; dx++) {
+                    if (dx === 0 && dy === 0) continue;
+                    
+                    const nx = (x + dx + COLS) % COLS;
+                    const ny = (y + dy + ROWS) % ROWS;
+                    
+                    if (type === null) {
+                        // Считаем всех живых соседей
+                        if (grid[ny][nx] !== CELL_TYPE.DEAD) count++;
+                    } else {
+                        // Считаем соседей определенного типа
+                        if (grid[ny][nx] === type) count++;
+                    }
+                }
+            }
+            return count;
+        }
+        
+        // Проверка зоны на концентрацию ксенофобов и расчет "температуры" войны
+        function checkWarZone(startX, startY) {
+            let totalCells = 0;
+            let xenoCells = 0;
+            let normalCells = 0;
+            let conflictEdges = 0; // Количество пар соседних клеток разного типа
+            const maxCells = WAR_ZONE_SIZE * WAR_ZONE_SIZE;
+            
+            // Первый проход - подсчет клеток
+            for (let y = startY; y < Math.min(startY + WAR_ZONE_SIZE, ROWS); y++) {
+                for (let x = startX; x < Math.min(startX + WAR_ZONE_SIZE, COLS); x++) {
+                    if (grid[y][x] !== CELL_TYPE.DEAD) {
+                        totalCells++;
+                        if (grid[y][x] === CELL_TYPE.XENOPHOBIC) {
+                            xenoCells++;
+                        } else {
+                            normalCells++;
+                        }
+                    }
+                }
+            }
+            
+            if (totalCells === 0) return { isWar: false, heat: 0 };
+            
+            const xenoRatio = xenoCells / totalCells;
+            const isWar = xenoRatio > WAR_THRESHOLD;
+            
+            if (!isWar) return { isWar: false, heat: 0 };
+            
+            // Второй проход - подсчет конфликтных границ
+            for (let y = startY; y < Math.min(startY + WAR_ZONE_SIZE, ROWS); y++) {
+                for (let x = startX; x < Math.min(startX + WAR_ZONE_SIZE, COLS); x++) {
+                    const current = grid[y][x];
+                    if (current === CELL_TYPE.DEAD) continue;
+                    
+                    // Проверяем соседей справа и снизу (чтобы не считать дважды)
+                    const neighbors = [
+                        { dx: 1, dy: 0 },  // справа
+                        { dx: 0, dy: 1 },  // снизу
+                    ];
+                    
+                    for (const {dx, dy} of neighbors) {
+                        const nx = x + dx;
+                        const ny = y + dy;
+                        
+                        // Проверяем, что сосед в пределах зоны
+                        if (nx >= startX && nx < Math.min(startX + WAR_ZONE_SIZE, COLS) &&
+                            ny >= startY && ny < Math.min(startY + WAR_ZONE_SIZE, ROWS)) {
+                            
+                            const neighbor = grid[ny][nx];
+                            
+                            // Считаем конфликтные границы (разные типы клеток)
+                            if ((current === CELL_TYPE.NORMAL && neighbor === CELL_TYPE.XENOPHOBIC) ||
+                                (current === CELL_TYPE.XENOPHOBIC && neighbor === CELL_TYPE.NORMAL)) {
+                                conflictEdges++;
+                            }
+                        }
+                    }
+                }
+            }
+            
+            // Расчет "температуры" войны на основе разных метрик:
+            
+            // Метрика 1: Интенсивность конфликта - много ли активных границ?
+            // Максимум конфликтных границ достигается при 50/50 распределении
+            // При полном доминировании одной стороны конфликтных границ почти нет
+            const maxPossibleEdges = totalCells * 2; // грубая оценка
+            const conflictIntensity = conflictEdges / Math.max(1, maxPossibleEdges);
+            
+            // Метрика 2: Доминирование одной стороны (отклонение от 50%)
+            const dominance = Math.abs(xenoRatio - 0.5) * 2; // 0 при 50/50, 1 при 100/0
+            
+            // Метрика 3: Плотность населения
+            const density = totalCells / maxCells;
+            
+            // Комбинированная температура:
+            // - Высокая при активном фронте (много границ) И высокой плотности
+            // - Средняя при доминировании одной стороны
+            // - Низкая при малой активности
+            
+            // Нормализуем conflictIntensity для лучшего диапазона
+            const normalizedConflict = Math.min(1, conflictIntensity * 5);
+            
+            // Температура комбинирует:
+            // 60% - интенсивность конфликта (много границ = горячо)
+            // 20% - доминирование (чем больше перевес, тем холоднее становится после пика)
+            // 20% - плотность населения
+            let heat = normalizedConflict * 0.6 + dominance * 0.2 + density * 0.2;
+            
+            // Альтернативный подход: температура максимальна на "переломном моменте"
+            // когда есть и высокая конфликтность И начинается доминирование
+            const transitionHeat = normalizedConflict * (1 - dominance * 0.5);
+            heat = Math.max(heat, transitionHeat);
+            
+            return { 
+                isWar: true, 
+                heat: Math.min(1, heat),
+                xenoRatio: xenoRatio,
+                density: density,
+                totalCells: totalCells,
+                xenoCells: xenoCells,
+                normalCells: normalCells,
+                conflictEdges: conflictEdges,
+                conflictIntensity: normalizedConflict
+            };
+        }
+        
+        // Проверка, находится ли клетка в зоне войны
+        function isInWarZone(x, y) {
+            for (let zy = Math.floor(y / WAR_ZONE_SIZE) * WAR_ZONE_SIZE - WAR_ZONE_SIZE; 
+                 zy <= Math.floor(y / WAR_ZONE_SIZE) * WAR_ZONE_SIZE + WAR_ZONE_SIZE; 
+                 zy += WAR_ZONE_SIZE) {
+                for (let zx = Math.floor(x / WAR_ZONE_SIZE) * WAR_ZONE_SIZE - WAR_ZONE_SIZE; 
+                     zx <= Math.floor(x / WAR_ZONE_SIZE) * WAR_ZONE_SIZE + WAR_ZONE_SIZE; 
+                     zx += WAR_ZONE_SIZE) {
+                    if (zx >= 0 && zy >= 0 && zx < COLS && zy < ROWS) {
+                        if (warZones.has(`${zx},${zy}`)) {
+                            return true;
+                        }
+                    }
+                }
+            }
+            return false;
+        }
+        
+        // Обновление состояния
+        function update() {
+            const newGrid = [];
+            warZones.clear();
+            warZoneData.clear();
+            
+            // Проверяем все зоны на войну
+            for (let y = 0; y < ROWS; y += WAR_ZONE_SIZE) {
+                for (let x = 0; x < COLS; x += WAR_ZONE_SIZE) {
+                    const zoneCheck = checkWarZone(x, y);
+                    if (zoneCheck.isWar) {
+                        const zoneKey = `${x},${y}`;
+                        warZones.add(zoneKey);
+                        warZoneData.set(zoneKey, zoneCheck);
+                    }
+                }
+            }
+            
+            // Применяем правила игры
+            for (let y = 0; y < ROWS; y++) {
+                newGrid[y] = [];
+                for (let x = 0; x < COLS; x++) {
+                    const neighbors = countNeighbors(x, y);
+                    const xenoNeighbors = countNeighbors(x, y, CELL_TYPE.XENOPHOBIC);
+                    const currentCell = grid[y][x];
+                    const inWarZone = isInWarZone(x, y);
+                    
+                    // Модифицированные правила Conway's Game of Life
+                    if (currentCell !== CELL_TYPE.DEAD) {
+                        // Клетка жива
+                        if (neighbors < 2 || neighbors > 3) {
+                            // Смерть от одиночества или перенаселения
+                            newGrid[y][x] = CELL_TYPE.DEAD;
+                        } else {
+                            // Клетка выживает
+                            newGrid[y][x] = currentCell;
+                            
+                            // Механика убеждения: ксенофобы могут убедить нормальных
+                            if (currentCell === CELL_TYPE.NORMAL && xenoNeighbors > 0) {
+                                const persuasionPower = inWarZone ? persuasionChance * 2 : persuasionChance;
+                                if (Math.random() < persuasionPower * xenoNeighbors / 8) {
+                                    newGrid[y][x] = CELL_TYPE.XENOPHOBIC;
+                                }
+                            }
+                        }
+                    } else if (neighbors === 3) {
+                        // Рождение новой клетки
+                        let birthXenoChance = xenoChance;
+                        
+                        // В зоне войны шанс ксенофобии увеличивается
+                        if (inWarZone) {
+                            birthXenoChance = Math.min(0.8, xenoChance + 0.3);
+                        }
+                        
+                        // Если много ксенофобных соседей, шанс тоже выше
+                        if (xenoNeighbors >= 2) {
+                            birthXenoChance = Math.min(0.9, birthXenoChance + 0.2);
+                        }
+                        
+                        newGrid[y][x] = Math.random() < birthXenoChance 
+                            ? CELL_TYPE.XENOPHOBIC 
+                            : CELL_TYPE.NORMAL;
+                    } else {
+                        newGrid[y][x] = CELL_TYPE.DEAD;
+                    }
+                }
+            }
+            
+            grid = newGrid;
+            generation++;
+            updateStats();
+            draw();
+        }
+        
+        // Обновление статистики
+        function updateStats() {
+            let total = 0;
+            let normal = 0;
+            let xeno = 0;
+            
+            for (let y = 0; y < ROWS; y++) {
+                for (let x = 0; x < COLS; x++) {
+                    if (grid[y][x] !== CELL_TYPE.DEAD) {
+                        total++;
+                        if (grid[y][x] === CELL_TYPE.NORMAL) normal++;
+                        else if (grid[y][x] === CELL_TYPE.XENOPHOBIC) xeno++;
+                    }
+                }
+            }
+            
+            // Расчет средней температуры войны
+            let avgHeat = 0;
+            if (warZones.size > 0) {
+                let totalHeat = 0;
+                warZoneData.forEach(data => {
+                    totalHeat += data.heat;
+                });
+                avgHeat = (totalHeat / warZones.size) * 100;
+            }
+            
+            document.getElementById('generation').textContent = generation;
+            document.getElementById('totalCells').textContent = total;
+            document.getElementById('normalCells').textContent = normal;
+            document.getElementById('xenoCells').textContent = xeno;
+            document.getElementById('warZones').textContent = warZones.size;
+            document.getElementById('avgHeat').textContent = avgHeat.toFixed(1) + '%';
+        }
+        
+        // Случайное заполнение
+        function randomFill() {
+            for (let y = 0; y < ROWS; y++) {
+                for (let x = 0; x < COLS; x++) {
+                    if (Math.random() < 0.3) {
+                        grid[y][x] = Math.random() < initialXenoChance 
+                            ? CELL_TYPE.XENOPHOBIC 
+                            : CELL_TYPE.NORMAL;
+                    }
+                }
+            }
+            generation = 0;
+            updateStats();
+            draw();
+        }
+        
+        // Управление
+        function start() {
+            if (!isRunning) {
+                isRunning = true;
+                interval = setInterval(update, speed);
+            }
+        }
+        
+        function pause() {
+            isRunning = false;
+            if (interval) clearInterval(interval);
+        }
+        
+        function clear() {
+            pause();
+            initGrid();
+            generation = 0;
+            warZones.clear();
+            warZoneData.clear();
+            updateStats();
+            draw();
+        }
+        
+        // События
+        canvas.addEventListener('click', (e) => {
+            const rect = canvas.getBoundingClientRect();
+            const x = Math.floor((e.clientX - rect.left) / CELL_SIZE);
+            const y = Math.floor((e.clientY - rect.top) / CELL_SIZE);
+            
+            if (x >= 0 && x < COLS && y >= 0 && y < ROWS) {
+                if (grid[y][x] === CELL_TYPE.DEAD) {
+                    grid[y][x] = e.shiftKey ? CELL_TYPE.XENOPHOBIC : CELL_TYPE.NORMAL;
+                } else {
+                    grid[y][x] = CELL_TYPE.DEAD;
+                }
+                updateStats();
+                draw();
+            }
+        });
+        
+        document.getElementById('startBtn').addEventListener('click', start);
+        document.getElementById('pauseBtn').addEventListener('click', pause);
+        document.getElementById('clearBtn').addEventListener('click', clear);
+        document.getElementById('randomBtn').addEventListener('click', randomFill);
+        
+        document.getElementById('speedSlider').addEventListener('input', (e) => {
+            speed = parseInt(e.target.value);
+            document.getElementById('speedValue').textContent = speed;
+            if (isRunning) {
+                pause();
+                start();
+            }
+        });
+        
+        document.getElementById('xenoChanceSlider').addEventListener('input', (e) => {
+            xenoChance = parseInt(e.target.value) / 100;
+            document.getElementById('xenoChanceValue').textContent = e.target.value;
+        });
+        
+        document.getElementById('persuasionSlider').addEventListener('input', (e) => {
+            persuasionChance = parseInt(e.target.value) / 100;
+            document.getElementById('persuasionValue').textContent = e.target.value;
+        });
+        
+        document.getElementById('initialXenoSlider').addEventListener('input', (e) => {
+            initialXenoChance = parseInt(e.target.value) / 100;
+            document.getElementById('initialXenoValue').textContent = e.target.value;
+        });
+        
+        // Инициализация
+        initGrid();
+        draw();
+        updateStats();
+    </script>
+</body>
+</html>
