@@ -148,7 +148,8 @@
 </head>
 <body>
     <h1>🔥 Игра Жизнь: Война всех против всех 🔥</h1>
-    <div class="subtitle">"Homo homini lupus est" — Томас Гоббс</div>
+    <div class="subtitle">"Homo homini lupus est" — Томас Гоббс<br>
+    <small style="color: #666;">Ксенофобы агрессивны и не терпят соседства. Нормальные мирные, но защищаются числом.</small></div>
     
     <canvas id="canvas" width="800" height="800"></canvas>
     
@@ -176,6 +177,11 @@
         <div class="slider-group">
             <label>Начальная ксенофобия: <span id="initialXenoValue">33</span>%</label>
             <input type="range" id="initialXenoSlider" min="0" max="100" value="33" step="1">
+        </div>
+        
+        <div class="slider-group">
+            <label>Степень враждебности: <span id="hostilityValue">50</span>%</label>
+            <input type="range" id="hostilitySlider" min="0" max="100" value="50" step="10">
         </div>
     </div>
     
@@ -209,15 +215,15 @@
     <div class="legend">
         <div class="legend-item">
             <div class="legend-color" style="background: #51cf66;"></div>
-            <span>Нормальная клетка</span>
+            <span>Нормальная клетка — мирная, защищается только когда атакуют</span>
         </div>
         <div class="legend-item">
             <div class="legend-color" style="background: #ff6b6b;"></div>
-            <span>Ксенофобная клетка</span>
+            <span>Ксенофобная клетка — воюет со всеми, не терпит соседства</span>
         </div>
         <div class="legend-item">
             <div class="legend-color" style="background: linear-gradient(to right, #ffd43b, #ffa500, #ff0000, #8b0000);"></div>
-            <span>Температура войны: холодная → горячая</span>
+            <span>Температура войны: активный фронт → доминирование одной стороны</span>
         </div>
     </div>
 
@@ -239,6 +245,7 @@
         let xenoChance = 0.33;
         let persuasionChance = 0.15;
         let initialXenoChance = 0.33;
+        let hostility = 0.5; // Степень враждебности 0-1
         let warZones = new Set();
         let warZoneData = new Map(); // Хранит данные о "температуре" зон
         
@@ -494,29 +501,119 @@
                 for (let x = 0; x < COLS; x++) {
                     const neighbors = countNeighbors(x, y);
                     const xenoNeighbors = countNeighbors(x, y, CELL_TYPE.XENOPHOBIC);
+                    const normalNeighbors = countNeighbors(x, y, CELL_TYPE.NORMAL);
                     const currentCell = grid[y][x];
                     const inWarZone = isInWarZone(x, y);
                     
-                    // Модифицированные правила Conway's Game of Life
-                    if (currentCell !== CELL_TYPE.DEAD) {
-                        // Клетка жива
-                        if (neighbors < 2 || neighbors > 3) {
-                            // Смерть от одиночества или перенаселения
+                    // АСИММЕТРИЧНЫЕ ПРАВИЛА для разных типов клеток
+                    
+                    if (currentCell === CELL_TYPE.XENOPHOBIC) {
+                        // === КСЕНОФОБНАЯ КЛЕТКА: АГРЕССИВНАЯ ===
+                        // Ксенофобы не терпят соседства и воюют со всеми, включая друг друга
+                        
+                        if (neighbors < 2) {
+                            // Смерть от одиночества
                             newGrid[y][x] = CELL_TYPE.DEAD;
+                        } else if (xenoNeighbors === 0) {
+                            // Окружен только нормальными - агрессивно атакует и выживает
+                            if (neighbors <= 3) {
+                                newGrid[y][x] = CELL_TYPE.XENOPHOBIC;
+                            } else {
+                                newGrid[y][x] = CELL_TYPE.DEAD;
+                            }
                         } else {
-                            // Клетка выживает
-                            newGrid[y][x] = currentCell;
+                            // Есть ксенофобные соседи - риск внутреннего конфликта
+                            // Снижены шансы для баланса
                             
-                            // Механика убеждения: ксенофобы могут убедить нормальных
-                            if (currentCell === CELL_TYPE.NORMAL && xenoNeighbors > 0) {
-                                const persuasionPower = inWarZone ? persuasionChance * 2 : persuasionChance;
-                                if (Math.random() < persuasionPower * xenoNeighbors / 8) {
+                            let conflictChance = 0;
+                            
+                            if (xenoNeighbors === 1) {
+                                conflictChance = 0.02 + hostility * 0.08; // 2-10%
+                            } else if (xenoNeighbors === 2) {
+                                conflictChance = 0.05 + hostility * 0.15; // 5-20%
+                            } else if (xenoNeighbors === 3) {
+                                conflictChance = 0.1 + hostility * 0.25; // 10-35%
+                            } else if (xenoNeighbors >= 4) {
+                                conflictChance = 0.2 + hostility * 0.4; // 20-60%
+                            }
+                            
+                            // Война всех против всех - случайная гибель от конфликта
+                            if (Math.random() < conflictChance) {
+                                newGrid[y][x] = CELL_TYPE.DEAD;
+                            } else {
+                                // Выжил в конфликте - стандартные правила перенаселения
+                                if (neighbors >= 2 && neighbors <= 3) {
+                                    newGrid[y][x] = CELL_TYPE.XENOPHOBIC;
+                                } else if (neighbors === 4) {
+                                    // При 4 соседях еще может выжить с шансом
+                                    if (Math.random() < 0.5) {
+                                        newGrid[y][x] = CELL_TYPE.XENOPHOBIC;
+                                    } else {
+                                        newGrid[y][x] = CELL_TYPE.DEAD;
+                                    }
+                                } else {
+                                    newGrid[y][x] = CELL_TYPE.DEAD;
+                                }
+                            }
+                        }
+                        
+                    } else if (currentCell === CELL_TYPE.NORMAL) {
+                        // === НОРМАЛЬНАЯ КЛЕТКА: МИРНАЯ, НО ЗАЩИЩАЕТСЯ ===
+                        
+                        if (xenoNeighbors === 0) {
+                            // Нет ксенофобов рядом - стандартные мирные правила
+                            if (neighbors >= 2 && neighbors <= 3) {
+                                newGrid[y][x] = CELL_TYPE.NORMAL;
+                            } else {
+                                newGrid[y][x] = CELL_TYPE.DEAD;
+                            }
+                        } else {
+                            // Есть ксенофобные соседи - под угрозой!
+                            
+                            // Базовое правило: нормальные клетки более хрупкие под давлением
+                            // но могут выжить при поддержке других нормальных
+                            
+                            const xenoPressure = xenoNeighbors / neighbors; // Доля ксенофобов среди соседей
+                            
+                            // Если большинство соседей ксенофобы - высокий риск
+                            if (xenoPressure > 0.6) {
+                                // Более 60% соседей ксенофобы
+                                const survivalChance = 0.3 * (1 - hostility * 0.7); // 30% при низкой враждебности, 9% при высокой
+                                if (Math.random() > survivalChance) {
+                                    newGrid[y][x] = CELL_TYPE.DEAD;
+                                } else {
+                                    newGrid[y][x] = CELL_TYPE.NORMAL;
+                                }
+                            } else if (neighbors >= 2 && neighbors <= 3) {
+                                // Стандартное число соседей, не слишком много ксенофобов
+                                // Может выжить если достаточно нормальных союзников
+                                if (normalNeighbors >= 1) {
+                                    newGrid[y][x] = CELL_TYPE.NORMAL;
+                                } else {
+                                    // Один против всех
+                                    if (Math.random() < 0.5 - hostility * 0.3) {
+                                        newGrid[y][x] = CELL_TYPE.NORMAL;
+                                    } else {
+                                        newGrid[y][x] = CELL_TYPE.DEAD;
+                                    }
+                                }
+                            } else {
+                                // Неподходящее число соседей
+                                newGrid[y][x] = CELL_TYPE.DEAD;
+                            }
+                            
+                            // Механика убеждения (только если выжила)
+                            if (newGrid[y][x] === CELL_TYPE.NORMAL && xenoNeighbors >= 2) {
+                                const persuasionPower = (inWarZone ? persuasionChance * 1.5 : persuasionChance) * (1 + hostility * 0.5);
+                                if (Math.random() < persuasionPower) {
                                     newGrid[y][x] = CELL_TYPE.XENOPHOBIC;
                                 }
                             }
                         }
+                        
                     } else if (neighbors === 3) {
-                        // Рождение новой клетки
+                        // === РОЖДЕНИЕ НОВОЙ КЛЕТКИ ===
+                        
                         let birthXenoChance = xenoChance;
                         
                         // В зоне войны шанс ксенофобии увеличивается
@@ -524,10 +621,13 @@
                             birthXenoChance = Math.min(0.8, xenoChance + 0.3);
                         }
                         
-                        // Если много ксенофобных соседей, шанс тоже выше
+                        // Если много ксенофобных "родителей", шанс тоже выше
                         if (xenoNeighbors >= 2) {
-                            birthXenoChance = Math.min(0.9, birthXenoChance + 0.2);
+                            birthXenoChance = Math.min(0.9, birthXenoChance + 0.2 + hostility * 0.2);
                         }
+                        
+                        // Враждебность увеличивает базовый шанс ксенофобии при рождении
+                        birthXenoChance = Math.min(0.95, birthXenoChance + hostility * 0.1);
                         
                         newGrid[y][x] = Math.random() < birthXenoChance 
                             ? CELL_TYPE.XENOPHOBIC 
@@ -661,6 +761,11 @@
         document.getElementById('initialXenoSlider').addEventListener('input', (e) => {
             initialXenoChance = parseInt(e.target.value) / 100;
             document.getElementById('initialXenoValue').textContent = e.target.value;
+        });
+        
+        document.getElementById('hostilitySlider').addEventListener('input', (e) => {
+            hostility = parseInt(e.target.value) / 100;
+            document.getElementById('hostilityValue').textContent = e.target.value;
         });
         
         // Инициализация
