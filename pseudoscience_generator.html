@@ -1,0 +1,1768 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Генератор Квантовой Мудрости</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        @keyframes starFloat {
+            0%, 100% { 
+                transform: translateY(0) scale(1);
+                opacity: 0.8;
+            }
+            50% { 
+                transform: translateY(-20px) scale(1.2);
+                opacity: 1;
+            }
+        }
+
+        @keyframes particleMove {
+            0% {
+                transform: translate(0, 0);
+                opacity: 0;
+            }
+            50% {
+                opacity: 1;
+            }
+            100% {
+                transform: translate(var(--tx), var(--ty));
+                opacity: 0;
+            }
+        }
+
+        @keyframes glow {
+            0%, 100% {
+                filter: drop-shadow(0 0 8px rgba(138, 43, 226, 0.8));
+            }
+            50% {
+                filter: drop-shadow(0 0 20px rgba(138, 43, 226, 1));
+            }
+        }
+
+        body {
+            font-family: 'Georgia', serif;
+            background: radial-gradient(ellipse at top, #1a0033 0%, #0a0015 50%, #000000 100%);
+            min-height: 100vh;
+            padding: 20px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            position: relative;
+            overflow-x: hidden;
+        }
+
+        body::before {
+            content: '';
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 2px;
+            height: 2px;
+            background: transparent;
+            box-shadow: 
+                200px 150px white, 400px 300px white, 600px 100px white, 
+                800px 400px white, 100px 500px white, 950px 200px white,
+                300px 450px white, 700px 550px white, 500px 250px white,
+                150px 350px white, 850px 150px white, 450px 500px white,
+                250px 200px white, 550px 350px white, 750px 450px white,
+                350px 100px white, 650px 500px white, 900px 300px white,
+                50px 400px white, 1000px 100px white, 800px 550px white,
+                180px 120px rgba(255,255,255,0.5), 380px 280px rgba(255,255,255,0.5),
+                580px 80px rgba(255,255,255,0.5), 780px 380px rgba(255,255,255,0.5),
+                80px 480px rgba(255,255,255,0.5), 930px 180px rgba(255,255,255,0.5),
+                280px 430px rgba(255,255,255,0.5), 680px 530px rgba(255,255,255,0.5),
+                480px 230px rgba(255,255,255,0.5), 130px 330px rgba(255,255,255,0.5),
+                830px 130px rgba(255,255,255,0.5), 430px 480px rgba(255,255,255,0.5),
+                230px 180px rgba(255,255,255,0.5), 530px 330px rgba(255,255,255,0.5),
+                730px 430px rgba(255,255,255,0.5), 330px 80px rgba(255,255,255,0.5),
+                120px 250px rgba(255,255,255,0.8), 520px 150px rgba(255,255,255,0.8),
+                720px 350px rgba(255,255,255,0.8), 320px 450px rgba(255,255,255,0.8),
+                620px 250px rgba(255,255,255,0.8), 920px 350px rgba(255,255,255,0.8),
+                90px 90px rgba(255,255,255,0.3), 290px 290px rgba(255,255,255,0.3),
+                490px 190px rgba(255,255,255,0.3), 690px 390px rgba(255,255,255,0.3),
+                890px 490px rgba(255,255,255,0.3), 160px 460px rgba(255,255,255,0.3),
+                360px 360px rgba(255,255,255,0.3), 560px 460px rgba(255,255,255,0.3),
+                760px 260px rgba(255,255,255,0.3), 960px 160px rgba(255,255,255,0.3);
+            animation: starFloat 20s ease-in-out infinite;
+            pointer-events: none;
+            z-index: 1;
+        }
+        
+        body::after {
+            content: '';
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 1px;
+            height: 1px;
+            background: transparent;
+            box-shadow: 
+                220px 170px white, 420px 320px white, 620px 120px white,
+                820px 420px white, 120px 520px white, 970px 220px white,
+                320px 470px white, 720px 570px white, 520px 270px white,
+                170px 370px white, 870px 170px white, 470px 520px white,
+                270px 220px white, 570px 370px white, 770px 470px white,
+                370px 120px white, 670px 520px white, 920px 320px white,
+                70px 420px white, 1020px 120px white, 820px 570px white,
+                200px 140px rgba(255,255,255,0.4), 400px 300px rgba(255,255,255,0.4),
+                600px 100px rgba(255,255,255,0.4), 800px 400px rgba(255,255,255,0.4),
+                100px 500px rgba(255,255,255,0.4), 950px 200px rgba(255,255,255,0.4),
+                210px 310px rgba(255,255,255,0.6), 510px 210px rgba(255,255,255,0.6),
+                710px 410px rgba(255,255,255,0.6), 910px 510px rgba(255,255,255,0.6);
+            animation: starFloat 15s ease-in-out infinite reverse;
+            pointer-events: none;
+            z-index: 1;
+        }
+
+        .container {
+            background: rgba(15, 0, 40, 0.85);
+            border: 2px solid rgba(138, 43, 226, 0.5);
+            border-radius: 20px;
+            box-shadow: 
+                0 0 60px rgba(138, 43, 226, 0.4),
+                inset 0 0 40px rgba(138, 43, 226, 0.1);
+            max-width: 900px;
+            width: 100%;
+            padding: 40px;
+            position: relative;
+            z-index: 2;
+            backdrop-filter: blur(10px);
+        }
+
+        .container::before {
+            content: '';
+            position: absolute;
+            top: -2px;
+            left: -2px;
+            right: -2px;
+            bottom: -2px;
+            background: linear-gradient(45deg, 
+                transparent 40%,
+                rgba(138, 43, 226, 0.3) 50%,
+                transparent 60%);
+            background-size: 200% 200%;
+            border-radius: 20px;
+            z-index: -1;
+            animation: glow 3s ease-in-out infinite;
+        }
+
+        h1 {
+            text-align: center;
+            background: linear-gradient(90deg, #00ffff, #ff00ff, #00ffff);
+            background-size: 200% auto;
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            font-size: 2.5em;
+            margin-bottom: 10px;
+            text-shadow: 0 0 20px rgba(138, 43, 226, 0.8);
+            animation: glow 2s ease-in-out infinite;
+            filter: drop-shadow(0 0 10px rgba(138, 43, 226, 0.8));
+        }
+
+        .subtitle {
+            text-align: center;
+            color: #a78bfa;
+            font-style: italic;
+            margin-bottom: 30px;
+            text-shadow: 0 0 10px rgba(167, 139, 250, 0.5);
+        }
+
+        .controls {
+            display: grid;
+            gap: 20px;
+            margin-bottom: 30px;
+        }
+
+        .control-group {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+
+        label {
+            font-weight: bold;
+            color: #a78bfa;
+            font-size: 0.95em;
+            text-shadow: 0 0 10px rgba(167, 139, 250, 0.5);
+        }
+
+        .slider-container {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+        }
+
+        input[type="range"] {
+            flex: 1;
+            height: 8px;
+            border-radius: 5px;
+            background: linear-gradient(to right, #4ade80, #fbbf24, #f87171);
+            outline: none;
+            -webkit-appearance: none;
+            box-shadow: 0 0 10px rgba(138, 43, 226, 0.3);
+        }
+
+        input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, #8b5cf6, #ec4899);
+            cursor: pointer;
+            box-shadow: 0 0 15px rgba(138, 43, 226, 0.8);
+        }
+
+        input[type="range"]::-moz-range-thumb {
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, #8b5cf6, #ec4899);
+            cursor: pointer;
+            box-shadow: 0 0 15px rgba(138, 43, 226, 0.8);
+            border: none;
+        }
+
+        .level-label {
+            min-width: 150px;
+            text-align: right;
+            color: #00ffff;
+            font-weight: bold;
+            text-shadow: 0 0 10px rgba(0, 255, 255, 0.8);
+        }
+
+        select {
+            padding: 10px 15px;
+            border: 2px solid rgba(138, 43, 226, 0.5);
+            border-radius: 8px;
+            font-size: 1em;
+            background: rgba(30, 0, 60, 0.6);
+            color: #a78bfa;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+
+        select:hover {
+            border-color: #8b5cf6;
+            box-shadow: 0 0 15px rgba(138, 43, 226, 0.5);
+        }
+
+        select:focus {
+            outline: none;
+            border-color: #8b5cf6;
+            box-shadow: 0 0 20px rgba(138, 43, 226, 0.8);
+        }
+
+        .mode-switch {
+            display: flex;
+            gap: 10px;
+            margin-top: 10px;
+        }
+
+        .mode-btn {
+            flex: 1;
+            padding: 10px;
+            border: 2px solid rgba(138, 43, 226, 0.5);
+            border-radius: 8px;
+            background: rgba(30, 0, 60, 0.4);
+            color: #a78bfa;
+            cursor: pointer;
+            transition: all 0.3s;
+            font-size: 0.95em;
+        }
+
+        .mode-btn.active {
+            background: linear-gradient(135deg, rgba(138, 43, 226, 0.6), rgba(236, 72, 153, 0.6));
+            color: #ffffff;
+            border-color: #8b5cf6;
+            box-shadow: 0 0 20px rgba(138, 43, 226, 0.8);
+        }
+
+        .mode-btn:hover {
+            border-color: #8b5cf6;
+            box-shadow: 0 0 15px rgba(138, 43, 226, 0.5);
+        }
+
+        .theme-checkboxes {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 10px;
+            margin-top: 10px;
+        }
+
+        .checkbox-label {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            cursor: pointer;
+            padding: 8px 12px;
+            border: 2px solid rgba(138, 43, 226, 0.5);
+            border-radius: 8px;
+            background: rgba(30, 0, 60, 0.4);
+            transition: all 0.3s;
+        }
+
+        .checkbox-label:hover {
+            border-color: #8b5cf6;
+            background: rgba(138, 43, 226, 0.2);
+            box-shadow: 0 0 15px rgba(138, 43, 226, 0.3);
+        }
+
+        .checkbox-label input[type="checkbox"] {
+            width: 18px;
+            height: 18px;
+            cursor: pointer;
+            accent-color: #8b5cf6;
+        }
+
+        .checkbox-label input[type="checkbox"]:checked + span {
+            font-weight: bold;
+            color: #00ffff;
+            text-shadow: 0 0 10px rgba(0, 255, 255, 0.8);
+        }
+
+        .checkbox-label span {
+            font-size: 0.95em;
+            color: #a78bfa;
+        }
+
+        .quote-box {
+            background: linear-gradient(135deg, 
+                rgba(30, 0, 60, 0.8) 0%, 
+                rgba(60, 0, 120, 0.6) 100%);
+            border: 2px solid rgba(138, 43, 226, 0.6);
+            border-radius: 15px;
+            padding: 40px;
+            margin: 30px 0;
+            min-height: 200px;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            position: relative;
+            box-shadow: 
+                0 0 30px rgba(138, 43, 226, 0.4),
+                inset 0 0 60px rgba(138, 43, 226, 0.1);
+        }
+
+        .quote-box::before {
+            content: '"';
+            font-size: 80px;
+            color: rgba(138, 43, 226, 0.3);
+            position: absolute;
+            top: 10px;
+            left: 20px;
+            font-family: Georgia, serif;
+            text-shadow: 0 0 20px rgba(138, 43, 226, 0.5);
+        }
+
+        .quote-text {
+            font-size: 1.3em;
+            line-height: 1.6;
+            color: #e0d0ff;
+            text-align: center;
+            position: relative;
+            z-index: 1;
+            text-shadow: 0 0 10px rgba(138, 43, 226, 0.3);
+        }
+
+        .author-box {
+            margin-top: 20px;
+            text-align: right;
+            font-style: italic;
+            color: #a78bfa;
+        }
+
+        .author-name {
+            font-weight: bold;
+            color: #00ffff;
+            text-shadow: 0 0 10px rgba(0, 255, 255, 0.6);
+        }
+
+        .generate-btn {
+            width: 100%;
+            padding: 18px;
+            font-size: 1.3em;
+            background: linear-gradient(135deg, 
+                rgba(138, 43, 226, 0.8) 0%, 
+                rgba(236, 72, 153, 0.8) 100%);
+            color: white;
+            border: 2px solid rgba(138, 43, 226, 0.8);
+            border-radius: 12px;
+            cursor: pointer;
+            font-weight: bold;
+            transition: all 0.3s;
+            box-shadow: 
+                0 0 20px rgba(138, 43, 226, 0.6),
+                0 4px 15px rgba(138, 43, 226, 0.4);
+            position: relative;
+            overflow: hidden;
+        }
+
+        .generate-btn::before {
+            content: '';
+            position: absolute;
+            top: -50%;
+            left: -50%;
+            width: 200%;
+            height: 200%;
+            background: linear-gradient(
+                45deg,
+                transparent 30%,
+                rgba(255, 255, 255, 0.3) 50%,
+                transparent 70%
+            );
+            transform: rotate(45deg);
+            animation: shimmer 3s infinite;
+        }
+
+        @keyframes shimmer {
+            0% { transform: translateX(-100%) translateY(-100%) rotate(45deg); }
+            100% { transform: translateX(100%) translateY(100%) rotate(45deg); }
+        }
+
+        .generate-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 
+                0 0 30px rgba(138, 43, 226, 0.8),
+                0 6px 20px rgba(138, 43, 226, 0.6);
+        }
+
+        .generate-btn:active {
+            transform: translateY(0);
+        }
+
+        .copy-btn {
+            margin-top: 15px;
+            padding: 10px 20px;
+            background: linear-gradient(135deg, 
+                rgba(16, 185, 129, 0.8),
+                rgba(5, 150, 105, 0.8));
+            color: white;
+            border: 2px solid rgba(16, 185, 129, 0.6);
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 0.95em;
+            transition: all 0.3s;
+            display: block;
+            margin-left: auto;
+            margin-right: auto;
+            box-shadow: 0 0 15px rgba(16, 185, 129, 0.4);
+        }
+
+        .copy-btn:hover {
+            background: linear-gradient(135deg, 
+                rgba(5, 150, 105, 0.9),
+                rgba(4, 120, 87, 0.9));
+            box-shadow: 0 0 25px rgba(16, 185, 129, 0.6);
+            transform: translateY(-2px);
+        }
+
+        .copied-notification {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            background: linear-gradient(135deg, 
+                rgba(16, 185, 129, 0.95),
+                rgba(5, 150, 105, 0.95));
+            color: white;
+            padding: 15px 25px;
+            border-radius: 8px;
+            border: 2px solid rgba(16, 185, 129, 0.8);
+            box-shadow: 0 0 25px rgba(16, 185, 129, 0.6);
+            opacity: 0;
+            transition: opacity 0.3s;
+            z-index: 1000;
+        }
+
+        .copied-notification.show {
+            opacity: 1;
+        }
+
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+                transform: translateY(10px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .quote-text.animate {
+            animation: fadeIn 0.5s ease-out;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>⚛️ Генератор Квантовой Мудрости ⚛️</h1>
+        <p class="subtitle">Синергетический инструмент для манифестации трансцендентного знания</p>
+
+        <div class="controls">
+            <div class="control-group">
+                <label>Уровень псевдонаучности:</label>
+                <div class="slider-container">
+                    <input type="range" id="pseudoLevel" min="1" max="5" value="3">
+                    <span class="level-label" id="levelLabel">Классическое</span>
+                </div>
+            </div>
+
+            <div class="control-group">
+                <label>Тематические пресеты (можно выбрать несколько):</label>
+                <div class="theme-checkboxes">
+                    <label class="checkbox-label">
+                        <input type="checkbox" name="theme" value="quantum" checked>
+                        <span>Квантовая мистика</span>
+                    </label>
+                    <label class="checkbox-label">
+                        <input type="checkbox" name="theme" value="success">
+                        <span>Психология успеха</span>
+                    </label>
+                    <label class="checkbox-label">
+                        <input type="checkbox" name="theme" value="cosmic">
+                        <span>Космическая философия</span>
+                    </label>
+                    <label class="checkbox-label">
+                        <input type="checkbox" name="theme" value="ancient">
+                        <span>Древняя мудрость</span>
+                    </label>
+                    <label class="checkbox-label">
+                        <input type="checkbox" name="theme" value="bioenergy">
+                        <span>Биоэнергетика</span>
+                    </label>
+                </div>
+            </div>
+
+            <div class="control-group">
+                <label>Формат:</label>
+                <div class="mode-switch">
+                    <button class="mode-btn active" data-mode="single">Одно высказывание</button>
+                    <button class="mode-btn" data-mode="article">Академический абзац</button>
+                </div>
+            </div>
+        </div>
+
+        <button class="generate-btn" onclick="generate()">✨ Получить Просветление ✨</button>
+
+        <div class="quote-box">
+            <div class="quote-text" id="quoteText">
+                Нажмите кнопку, чтобы получить квантовое озарение...
+            </div>
+            <div class="author-box" id="authorBox" style="display: none;">
+                <div class="author-name" id="authorName"></div>
+                <div id="authorCredentials"></div>
+                <div id="authorSource"></div>
+            </div>
+        </div>
+
+        <button class="copy-btn" onclick="copyToClipboard()">📋 Копировать мудрость</button>
+    </div>
+
+    <div class="copied-notification" id="notification">Скопировано в буфер обмена!</div>
+
+    <script>
+        // ====== МОРФОЛОГИЧЕСКАЯ СИСТЕМА ======
+        
+        // Типы склонения существительных (упрощённая версия по Зализняку)
+        const declensionTypes = {
+            // Мужской род
+            m1: { // на твёрдый согласный: стол, дом
+                endings: {
+                    им: '', род: 'а', дат: 'у', вин: '', тв: 'ом', пр: 'е'
+                }
+            },
+            m2: { // на -й: герой, случай
+                endings: {
+                    им: 'й', род: 'я', дат: 'ю', вин: 'й', тв: 'ем', пр: 'е'
+                }
+            },
+            m3: { // на мягкий: путь, день
+                endings: {
+                    им: 'ь', род: 'я', дат: 'ю', вин: 'ь', тв: 'ём', пр: 'е'
+                }
+            },
+            // Женский род
+            f1: { // на -а: вода, земля
+                endings: {
+                    им: 'а', род: 'ы', дат: 'е', вин: 'у', тв: 'ой', пр: 'е'
+                },
+                softEndings: {
+                    им: 'я', род: 'и', дат: 'е', вин: 'ю', тв: 'ей', пр: 'е'
+                }
+            },
+            f2: { // на -ия: энергия, суперпозиция
+                endings: {
+                    им: 'ия', род: 'ии', дат: 'ии', вин: 'ию', тв: 'ией', пр: 'ии'
+                }
+            },
+            f3: { // на -ь: ночь, тень
+                endings: {
+                    им: 'ь', род: 'и', дат: 'и', вин: 'ь', тв: 'ью', пр: 'и'
+                }
+            },
+            // Средний род
+            n1: { // на -о/-е: окно, поле
+                endings: {
+                    им: 'о', род: 'а', дат: 'у', вин: 'о', тв: 'ом', пр: 'е'
+                },
+                softEndings: {
+                    им: 'е', род: 'я', дат: 'ю', вин: 'е', тв: 'ем', пр: 'е'
+                }
+            },
+            n2: { // на -ие: знание, состояние
+                endings: {
+                    им: 'ие', род: 'ия', дат: 'ию', вин: 'ие', тв: 'ием', пр: 'ии'
+                }
+            }
+        };
+
+        // Типы склонения прилагательных
+        const adjectiveDeclensions = {
+            hard: { // твёрдый: новый
+                м: { им: 'ый', род: 'ого', дат: 'ому', вин: 'ый', тв: 'ым', пр: 'ом' },
+                ж: { им: 'ая', род: 'ой', дат: 'ой', вин: 'ую', тв: 'ой', пр: 'ой' },
+                с: { им: 'ое', род: 'ого', дат: 'ому', вин: 'ое', тв: 'ым', пр: 'ом' }
+            },
+            soft: { // мягкий: синий
+                м: { им: 'ий', род: 'его', дат: 'ему', вин: 'ий', тв: 'им', пр: 'ем' },
+                ж: { им: 'яя', род: 'ей', дат: 'ей', вин: 'юю', тв: 'ей', пр: 'ей' },
+                с: { им: 'ее', род: 'его', дат: 'ему', вин: 'ее', тв: 'им', пр: 'ем' }
+            }
+        };
+
+        // Словарь слов с морфологической информацией
+        const lexicon = {
+            nouns: {
+                quantum: [
+                    { base: 'резонанс', type: 'm1', gender: 'м' },
+                    { base: 'потенциал', type: 'm1', gender: 'м' },
+                    { base: 'вакуум', type: 'm1', gender: 'м' },
+                    { base: 'коллапс', type: 'm1', gender: 'м' },
+                    { base: 'спин', type: 'm1', gender: 'м' },
+                    { base: 'гамильтониан', type: 'm1', gender: 'м' },
+                    { base: 'лагранжиан', type: 'm1', gender: 'м' },
+                    { base: 'оператор', type: 'm1', gender: 'м' },
+                    { base: 'суперпозиц', type: 'f2', gender: 'ж' },
+                    { base: 'когерентност', type: 'f3', gender: 'ж' },
+                    { base: 'запутанност', type: 'f3', gender: 'ж' },
+                    { base: 'интерференц', type: 'f2', gender: 'ж' },
+                    { base: 'флуктуац', type: 'f2', gender: 'ж' },
+                    { base: 'декогеренц', type: 'f2', gender: 'ж' },
+                    { base: 'корреляц', type: 'f2', gender: 'ж' },
+                    { base: 'сознан', type: 'n2', gender: 'с' },
+                    { base: 'пол', type: 'n1', gender: 'с', soft: true },
+                    { base: 'пространств', type: 'n1', gender: 'с' },
+                    { base: 'измерен', type: 'n2', gender: 'с' },
+                    { base: 'состоян', type: 'n2', gender: 'с' },
+                    { base: 'вибрац', type: 'f2', gender: 'ж' },
+                    { base: 'частиц', type: 'f1', gender: 'ж' },
+                    { base: 'волн', type: 'f1', gender: 'ж' },
+                    { base: 'матриц', type: 'f1', gender: 'ж' },
+                    { base: 'континуум', type: 'm1', gender: 'м' }
+                ],
+                success: [
+                    { base: 'намерен', type: 'n2', gender: 'с' },
+                    { base: 'мышлен', type: 'n2', gender: 'с' },
+                    { base: 'притяжен', type: 'n2', gender: 'с' },
+                    { base: 'визуализац', type: 'f2', gender: 'ж' },
+                    { base: 'аффирмац', type: 'f2', gender: 'ж' },
+                    { base: 'изобил', type: 'n2', gender: 'с' },
+                    { base: 'манифестац', type: 'f2', gender: 'ж' },
+                    { base: 'фокус', type: 'm1', gender: 'м' },
+                    { base: 'вер', type: 'f1', gender: 'ж' },
+                    { base: 'установк', type: 'f1', gender: 'ж' },
+                    { base: 'успех', type: 'm1', gender: 'м' },
+                    { base: 'потенциал', type: 'm1', gender: 'м' },
+                    { base: 'результат', type: 'm1', gender: 'м' },
+                    { base: 'достижен', type: 'n2', gender: 'с' },
+                    { base: 'процветан', type: 'n2', gender: 'с' },
+                    { base: 'реализац', type: 'f2', gender: 'ж' },
+                    { base: 'цел', type: 'f3', gender: 'ж' },
+                    { base: 'импульс', type: 'm1', gender: 'м' },
+                    { base: 'ресурс', type: 'm1', gender: 'м' },
+                    { base: 'вдохновен', type: 'n2', gender: 'с' }
+                ],
+                cosmic: [
+                    { base: 'разум', type: 'm1', gender: 'м' },
+                    { base: 'цикл', type: 'm1', gender: 'м' },
+                    { base: 'порядок', type: 'm1', gender: 'м' },
+                    { base: 'хаос', type: 'm1', gender: 'м' },
+                    { base: 'баланс', type: 'm1', gender: 'м' },
+                    { base: 'аттрактор', type: 'm1', gender: 'м' },
+                    { base: 'паттерн', type: 'm1', gender: 'м' },
+                    { base: 'гармон', type: 'f2', gender: 'ж' },
+                    { base: 'закон', type: 'm1', gender: 'м' },
+                    { base: 'принцип', type: 'm1', gender: 'м' },
+                    { base: 'ритм', type: 'm1', gender: 'м' },
+                    { base: 'Вселенн', type: 'f1', gender: 'ж' },
+                    { base: 'реальност', type: 'f3', gender: 'ж' },
+                    { base: 'матер', type: 'f2', gender: 'ж' },
+                    { base: 'энерг', type: 'f2', gender: 'ж' },
+                    { base: 'галактик', type: 'f1', gender: 'ж' },
+                    { base: 'быт', type: 'n2', gender: 'с' },
+                    { base: 'измерен', type: 'n2', gender: 'с' },
+                    { base: 'космос', type: 'm1', gender: 'м' },
+                    { base: 'орбит', type: 'f1', gender: 'ж' },
+                    { base: 'траектор', type: 'f2', gender: 'ж' }
+                ],
+                ancient: [
+                    { base: 'символ', type: 'm1', gender: 'м' },
+                    { base: 'архетип', type: 'm1', gender: 'м' },
+                    { base: 'ритуал', type: 'm1', gender: 'м' },
+                    { base: 'миф', type: 'm1', gender: 'м' },
+                    { base: 'знак', type: 'm1', gender: 'м' },
+                    { base: 'иероглиф', type: 'm1', gender: 'м' },
+                    { base: 'артефакт', type: 'm1', gender: 'м' },
+                    { base: 'инициац', type: 'f2', gender: 'ж' },
+                    { base: 'трансмутац', type: 'f2', gender: 'ж' },
+                    { base: 'традиц', type: 'f2', gender: 'ж' },
+                    { base: 'мистер', type: 'f2', gender: 'ж' },
+                    { base: 'откровен', type: 'n2', gender: 'с' },
+                    { base: 'мудрост', type: 'f3', gender: 'ж' },
+                    { base: 'тайн', type: 'f1', gender: 'ж' },
+                    { base: 'истин', type: 'f1', gender: 'ж' },
+                    { base: 'доктрин', type: 'f1', gender: 'ж' },
+                    { base: 'знан', type: 'n2', gender: 'с' },
+                    { base: 'учен', type: 'n2', gender: 'с' },
+                    { base: 'просветлен', type: 'n2', gender: 'с' },
+                    { base: 'пут', type: 'm3', gender: 'м' },
+                    { base: 'эгрегор', type: 'm1', gender: 'м' },
+                    { base: 'руна', type: 'f1', gender: 'ж' },
+                    { base: 'мандал', type: 'f1', gender: 'ж' }
+                ],
+                bioenergy: [
+                    { base: 'поток', type: 'm1', gender: 'м' },
+                    { base: 'канал', type: 'm1', gender: 'м' },
+                    { base: 'центр', type: 'm1', gender: 'м' },
+                    { base: 'контур', type: 'm1', gender: 'м' },
+                    { base: 'меридиан', type: 'm1', gender: 'м' },
+                    { base: 'кокон', type: 'm1', gender: 'м' },
+                    { base: 'узел', type: 'm1', gender: 'м' },
+                    { base: 'блок', type: 'm1', gender: 'м' },
+                    { base: 'оболочк', type: 'f1', gender: 'ж' },
+                    { base: 'точк', type: 'f1', gender: 'ж' },
+                    { base: 'аур', type: 'f1', gender: 'ж' },
+                    { base: 'чакр', type: 'f1', gender: 'ж' },
+                    { base: 'систем', type: 'f1', gender: 'ж' },
+                    { base: 'энергетик', type: 'f1', gender: 'ж' },
+                    { base: 'структур', type: 'f1', gender: 'ж' },
+                    { base: 'матриц', type: 'f1', gender: 'ж' },
+                    { base: 'тел', type: 'n1', gender: 'с' },
+                    { base: 'биопол', type: 'n1', gender: 'с', soft: true },
+                    { base: 'организм', type: 'm1', gender: 'м' }
+                ]
+            },
+            adjectives: {
+                quantum: [
+                    { base: 'квантов', type: 'hard' },
+                    { base: 'голографическ', type: 'soft' },
+                    { base: 'синергетическ', type: 'soft' },
+                    { base: 'энергоинформационн', type: 'hard' },
+                    { base: 'торсионн', type: 'hard' },
+                    { base: 'нелинейн', type: 'hard' },
+                    { base: 'волнов', type: 'hard' },
+                    { base: 'когерентн', type: 'hard' },
+                    { base: 'фрактальн', type: 'hard' },
+                    { base: 'морфогенетическ', type: 'soft' },
+                    { base: 'нелокальн', type: 'hard' },
+                    { base: 'солитонн', type: 'hard' },
+                    { base: 'диссипативн', type: 'hard' }
+                ],
+                success: [
+                    { base: 'подсознательн', type: 'hard' },
+                    { base: 'позитивн', type: 'hard' },
+                    { base: 'трансформационн', type: 'hard' },
+                    { base: 'целев', type: 'hard' },
+                    { base: 'ресурсн', type: 'hard' },
+                    { base: 'манифестационн', type: 'hard' },
+                    { base: 'креативн', type: 'hard' },
+                    { base: 'интуитивн', type: 'hard' },
+                    { base: 'трансперсональн', type: 'hard' },
+                    { base: 'холистическ', type: 'soft' }
+                ],
+                cosmic: [
+                    { base: 'космическ', type: 'soft' },
+                    { base: 'галактическ', type: 'soft' },
+                    { base: 'вселенск', type: 'soft' },
+                    { base: 'астральн', type: 'hard' },
+                    { base: 'звёздн', type: 'hard' },
+                    { base: 'межпланетн', type: 'hard' },
+                    { base: 'небесн', type: 'hard' },
+                    { base: 'орбитальн', type: 'hard' },
+                    { base: 'метагалактическ', type: 'soft' },
+                    { base: 'хаотическ', type: 'soft' },
+                    { base: 'циклическ', type: 'soft' }
+                ],
+                ancient: [
+                    { base: 'сакральн', type: 'hard' },
+                    { base: 'эзотерическ', type: 'soft' },
+                    { base: 'герметическ', type: 'soft' },
+                    { base: 'алхимическ', type: 'soft' },
+                    { base: 'оккультн', type: 'hard' },
+                    { base: 'мистическ', type: 'soft' },
+                    { base: 'тайн', type: 'hard' },
+                    { base: 'древн', type: 'soft' },
+                    { base: 'каббалистическ', type: 'soft' },
+                    { base: 'гностическ', type: 'soft' },
+                    { base: 'архетипическ', type: 'soft' },
+                    { base: 'символическ', type: 'soft' }
+                ],
+                bioenergy: [
+                    { base: 'биоэнергетическ', type: 'soft' },
+                    { base: 'праническ', type: 'soft' },
+                    { base: 'витальн', type: 'hard' },
+                    { base: 'эфирн', type: 'hard' },
+                    { base: 'тонк', type: 'soft' },
+                    { base: 'кармическ', type: 'soft' },
+                    { base: 'энергетическ', type: 'soft' },
+                    { base: 'информационн', type: 'hard' },
+                    { base: 'меридианн', type: 'hard' },
+                    { base: 'чакральн', type: 'hard' }
+                ]
+            }
+        };
+
+        // Функция склонения существительного
+        function declineNoun(wordData, caseForm) {
+            const { base, type, gender, soft } = wordData;
+            
+            // Специальные слова с неправильным склонением
+            const irregulars = {
+                'пут': { // путь - разносклоняемое
+                    им: 'ь', род: 'и', дат: 'и', вин: 'ь', тв: 'ём', пр: 'и'
+                },
+                'матер': { // материя
+                    им: 'ия', род: 'ии', дат: 'ии', вин: 'ию', тв: 'ией', пр: 'ии'
+                }
+            };
+            
+            // Проверка на неправильные слова
+            if (irregulars[base]) {
+                return base + irregulars[base][caseForm];
+            }
+            
+            const declension = declensionTypes[type];
+            
+            if (!declension) return base;
+            
+            const endings = (soft && declension.softEndings) ? declension.softEndings : declension.endings;
+            let ending = endings[caseForm] || endings.им;
+            
+            // ======= РАСШИРЕННАЯ ОБРАБОТКА БЕГЛЫХ ГЛАСНЫХ =======
+            let workingBase = base;
+            
+            // Словарь слов с беглыми гласными (основа ИМ → основа косвенных падежей)
+            const fleetingVowelDict = {
+                // Мужской род на -ец
+                'отец': 'отц',
+                'конец': 'конц',
+                'дворец': 'дворц',
+                'огурец': 'огурц',
+                'творец': 'творц',
+                'немец': 'немц',
+                'месяц': 'месяц', // исключение - не выпадает
+                
+                // Мужской род на -ок/-ек
+                'поток': 'поток',  // не выпадает
+                'урок': 'урок',    // не выпадает
+                'кусок': 'куск',
+                'замок': 'замк',
+                'подарок': 'подарк',
+                'узел': 'узл',
+                'огонь': 'огн',
+                'день': 'дн',
+                'пень': 'пн',
+                'лень': 'лен', // исключение - не выпадает
+                'тень': 'тен', // исключение - не выпадает
+                'цел': 'цел', // цель - исключение, не выпадает
+                
+                // Слова с о/е в середине
+                'сон': 'сн',
+                'лев': 'льв',
+                'лёд': 'льд',
+                'рот': 'рт',
+                'кокон': 'кокон', // не выпадает
+                'центр': 'центр', // не выпадает
+                'узор': 'узор', // не выпадает
+                'блок': 'блок', // не выпадает
+            };
+            
+            // Проверяем словарь беглых гласных
+            if (caseForm !== 'им' && caseForm !== 'вин' && fleetingVowelDict[base]) {
+                workingBase = fleetingVowelDict[base];
+            } else if (caseForm !== 'им' && caseForm !== 'вин') {
+                // Автоматическое определение беглых гласных по паттернам
+                
+                // 1. Слова на -ец (кроме исключений)
+                if (/ец$/.test(workingBase) && !['месяц', 'отец', 'боец'].includes(workingBase)) {
+                    workingBase = workingBase.replace(/ец$/, 'ц');
+                }
+                // Специально для слов типа "отец"
+                else if (workingBase === 'отец') {
+                    workingBase = 'отц';
+                }
+                
+                // 2. Слова на -ок с беглым о (кусок → куск)
+                else if (/([бвгджзклмнпрстфхцчшщ])ок$/.test(workingBase)) {
+                    // Но не для слов: урок, поток, восток, итог и подобных
+                    if (!['урок', 'поток', 'восток', 'исток', 'восток', 'каток'].includes(workingBase)) {
+                        workingBase = workingBase.replace(/([бвгджзклмнпрстфхцчшщ])ок$/, '$1к');
+                    }
+                }
+                
+                // 3. Слова на -ел с беглым е (узел → узл)
+                else if (/([бвгджзклмнпрстфхцчшщ])ел$/.test(workingBase)) {
+                    if (!['котел', 'козел'].includes(workingBase)) {
+                        workingBase = workingBase.replace(/([бвгджзклмнпрстфхцчшщ])ел$/, '$1л');
+                    }
+                }
+                
+                // 4. Слова на -ень (день → дн)
+                else if (/ень$/.test(workingBase)) {
+                    // Исключения: лень, тень, пень
+                    if (!['лень', 'тень', 'камень', 'ремень', 'пень'].includes(workingBase)) {
+                        workingBase = workingBase.replace(/ень$/, 'н');
+                    }
+                }
+                
+                // 5. Односложные слова с о/е (сон → сн, лёд → льд)
+                else if (/^[бвгджзклмнпрстфхцчшщ][оеё][нмлрт]$/.test(workingBase)) {
+                    // сон, лев, лёд, рот
+                    if (['сон'].includes(workingBase)) {
+                        workingBase = workingBase.replace(/о([нмлрт])$/, '$1');
+                    } else if (workingBase === 'лев') {
+                        workingBase = 'льв';
+                    } else if (workingBase === 'лёд') {
+                        workingBase = 'льд';
+                    } else if (workingBase === 'рот') {
+                        workingBase = 'рт';
+                    }
+                }
+            }
+            
+            // Для женского рода на -а после к,г,х,ш,ж,ч,щ: род.пад = и (не ы)
+            if (type === 'f1' && !soft) {
+                const lastChar = workingBase.charAt(workingBase.length - 1);
+                if ('кгхшжчщ'.includes(lastChar)) {
+                    if (caseForm === 'род' && ending === 'ы') {
+                        ending = 'и';
+                    }
+                    if (caseForm === 'тв') {
+                        // После шипящих и ц: ей (не ой)
+                        if ('шжчщц'.includes(lastChar)) {
+                            ending = 'ей';
+                        } else {
+                            ending = 'ой';
+                        }
+                    }
+                }
+            }
+            
+            return workingBase + ending;
+        }
+
+        // Функция склонения прилагательного
+        function declineAdjective(wordData, gender, caseForm) {
+            const { base, type } = wordData;
+            const declension = adjectiveDeclensions[type];
+            
+            if (!declension || !declension[gender]) return base + 'ый';
+            
+            let ending = declension[gender][caseForm] || declension[gender].им;
+            
+            // Для основ на к, г, х, ш, ж, ч, щ применяем особые правила
+            const lastChar = base.charAt(base.length - 1);
+            const velar = 'кгх'.includes(lastChar); // заднеязычные
+            const sibilant = 'шжчщ'.includes(lastChar); // шипящие
+            
+            if (type === 'soft') {
+                // Мягкое склонение с корректировкой для к,г,х и шипящих
+                if (gender === 'м') {
+                    if (velar || sibilant) {
+                        // к,г,х,ш,ж,ч,щ + ий → ий (корректно)
+                        // но род: его, дат: ему, тв: им
+                    }
+                } else if (gender === 'ж') {
+                    if (velar || sibilant) {
+                        // Для этих согласных: ая/ую вместо яя/юю
+                        const replacements = {
+                            'яя': 'ая',
+                            'юю': 'ую',
+                            'ей': 'ой' // для род/дат/пр после шипящих
+                        };
+                        if (replacements[ending]) {
+                            ending = replacements[ending];
+                        }
+                    }
+                } else if (gender === 'с') {
+                    if (velar || sibilant) {
+                        // ое вместо ее
+                        if (ending === 'ее') ending = 'ое';
+                    }
+                }
+            }
+            
+            return base + ending;
+        }
+
+        // Функция склонения dimension (прилагательное + существительное)
+        function declineDimension(dimData, caseForm) {
+            const { word, adj, base, type, gender, soft } = dimData;
+            
+            // Определяем тип склонения прилагательного по окончанию
+            let adjType = 'hard';
+            if (adj.endsWith('ий') || adj.endsWith('яя') || adj.endsWith('ее')) {
+                adjType = 'soft';
+            }
+            
+            // Склоняем прилагательное
+            const adjWord = { base: word, type: adjType };
+            const adjDeclined = declineAdjective(adjWord, gender, caseForm);
+            
+            // Склоняем существительное
+            const nounWord = { base, type, gender, soft };
+            const nounDeclined = declineNoun(nounWord, caseForm);
+            
+            return adjDeclined + ' ' + nounDeclined;
+        }
+
+        // Функция склонения статичного прилагательного по роду существительного
+        function declineStaticAdjective(adjBase, nounGender, caseForm) {
+            // Определяем тип склонения по окончанию базы
+            let adjType = 'hard';
+            const lastTwo = adjBase.slice(-2);
+            
+            // Проверяем на мягкое склонение
+            if (adjBase.endsWith('ическ') || adjBase.endsWith('енн') || 
+                adjBase.endsWith('ельн') || adjBase.endsWith('ческ')) {
+                adjType = 'soft';
+            }
+            
+            const adjWord = { base: adjBase, type: adjType };
+            return declineAdjective(adjWord, nounGender, caseForm);
+        }
+
+        // ====== ШАБЛОНЫ ПРЕДЛОЖЕНИЙ ======
+        
+        const templates = {
+            1: [
+                // Базовые причинно-следственные
+                'Исследования показывают, что {adj:concept:им} {concept:им} влияет на {object:вин} через механизм {process}.',
+                'При взаимодействии {concept:род} и {object:род} наблюдается {adj:м:им} эффект.',
+                'Анализ {adj:concept:род} {concept:род} демонстрирует корреляцию с {object:тв}.',
+                '{adj:concept:им} {concept:им} создаёт условия для трансформации {object:род}.',
+                'Экспериментальные данные подтверждают влияние {concept:род} на структуру {object:род}.',
+                'Наблюдаемый эффект {concept:род} коррелирует с изменением {object:род}.',
+                'Статистический анализ выявил зависимость {object:род} от {adj:concept:род} {concept:род}.',
+                'При достижении критического уровня {concept:род} активируется {adj:м:им} механизм.',
+                'Изучение {adj:concept:род} {concept:род} позволяет прогнозировать динамику {object:род}.',
+                'В условиях {adj:concept:род} {process} происходит модификация {object:род}.',
+                
+                // Условные конструкции
+                'Если {concept:им} превышает пороговое значение, {object:им} подвергается трансформации.',
+                'В случае синхронизации {concept:род} с {object:тв} возникает {adj:м:им} резонанс.',
+                'При соблюдении определённых условий {concept:им} может модулировать {object:вин}.',
+                
+                // Сравнительные конструкции
+                'Подобно тому, как {concept:им} регулирует {process}, {object:им} определяет динамику системы.',
+                'В отличие от классических моделей, {adj:concept:им} {concept:им} демонстрирует нелинейную зависимость от {object:род}.',
+                'Аналогично процессам {process}, {concept:им} воздействует на {object:вин}.',
+                
+                // Временные конструкции
+                'После активации {concept:род} наблюдается изменение параметров {object:род}.',
+                'В течение периода {process} {concept:им} постепенно изменяет {object:вин}.',
+                'До момента стабилизации {concept:род} {object:им} находится в переходном состоянии.'
+            ],
+            '1_question': [
+                'Не свидетельствует ли это о влиянии {concept:род} на {object:вин}?',
+                'Может ли {adj:concept:им} {concept:им} объяснить феномен {object:род}?',
+                'Не является ли {concept:им} определяющим фактором для {object:род}?'
+            ],
+            2: [
+                // Базовые манифестационные
+                '{adj:concept:им} {concept:им} способен манифестировать {object:вин} при правильном {process}.',
+                'Синхронизация {concept:род} с {object:тв} открывает доступ к {adj:м:дат} потенциалу.',
+                'Гармонизация {adj:concept:род} {concept:род} приводит к резонансу с {object:тв}.',
+                'Активация {concept:род} через {adj:concept:вин} {process} усиливает {object:вин}.',
+                'Достигая состояния {process}, {concept:им} интегрируется с {object:тв}.',
+                'Практика {process} позволяет настроить {concept:вин} на частоту {object:род}.',
+                'Трансформация {concept:род} создаёт условия для проявления {object:род}.',
+                'Согласно современным представлениям, {concept:им} детерминирует {object:вин}.',
+                'Энергетический обмен между {concept:тв} и {object:тв} обеспечивает {adj:м:вин} баланс.',
+                'В процессе {process} происходит выравнивание {concept:род} и {object:род}.',
+                'Установление связи между {concept:тв} и {object:тв} требует {adj:ж:род} настройки.',
+                'При правильной работе с {concept:тв} открывается канал к {object:дат}.',
+                
+                // Причинно-следственные с "благодаря", "поскольку"
+                'Благодаря {adj:concept:дат} {concept:дат} происходит активация {object:род}.',
+                'Поскольку {concept:им} резонирует с {object:тв}, возникает эффект {process}.',
+                'Вследствие {process} {concept:им} начинает влиять на {object:вин}.',
+                
+                // Конструкции с целью
+                'Для достижения {process} необходимо синхронизировать {concept:вин} с {object:тв}.',
+                'С целью активации {object:род} практикующие работают с {concept:тв}.',
+                
+                // Конструкции с перечислением
+                '{concept:им} не только усиливает {object:вин}, но и создаёт условия для {process}.',
+                'Как {concept:им}, так и {object:им} участвуют в процессе {process}.'
+            ],
+            '2_question': [
+                'Не открывает ли {concept:им} путь к {adj:object:дат} {object:дат}?',
+                'Может ли практика {process} усилить связь между {concept:тв} и {object:тв}?',
+                'Разве не очевидно, что {concept:им} влияет на {object:вин}?'
+            ],
+            3: [
+                // Базовые квантовые утверждения
+                'Квантовая природа {concept:род} позволяет сознанию влиять на {object:вин}.',
+                '{adj:concept:им} {concept:им} находится в состоянии нелокальной запутанности с {object:тв}.',
+                'Коллапс волновой функции {concept:род} создаёт {adj:object:вин} {object:вин}.',
+                'На квантовом уровне {concept:им} и {object:им} образуют единую систему.',
+                'Квантовая суперпозиция {concept:род} позволяет {object:дат} существовать в нескольких состояниях.',
+                'Феномен запутанности связывает {concept:вин} с {object:тв} на расстоянии.',
+                'Сознание, взаимодействуя с {adj:concept:тв} полем, коллапсирует {object:вин}.',
+                'Квантовая когерентность {concept:род} определяет структуру {object:род}.',
+                
+                // Условные конструкции с квантовой спецификой
+                'Если наблюдатель фокусируется на {concept:пр}, волновая функция {object:род} мгновенно коллапсирует.',
+                'В случае достижения квантовой когерентности {concept:род} с {object:тв} возникает нелокальная связь.',
+                'При условии сохранения запутанности {concept:им} может мгновенно влиять на {object:вин}.',
+                'Когда {concept:им} достигает критической амплитуды, {object:им} переходит в суперпозицию.',
+                
+                // Сравнительные конструкции
+                'Подобно тому, как фотон проявляет корпускулярно-волновой дуализм, {concept:им} демонстрирует квантовые свойства в {object:пр}.',
+                'В отличие от классической физики, где {concept:им} детерминирован, квантовый {object:им} вероятностен.',
+                'Аналогично принципу дополнительности Бора, {concept:им} и {object:им} взаимоисключающи, но дополняют друг друга.',
+                
+                // Голографическая парадигма
+                'Голографический принцип устанавливает связь между {concept:тв} и {object:тв}.',
+                'Каждая часть {concept:род} содержит информацию о целостности {object:род}.',
+                'В голограмме реальности {concept:им} отражается в {object:пр}.',
+                
+                // Информационная теория
+                'Информационная структура {concept:род} кодирует параметры {object:род}.',
+                '{concept:им} передаёт данные {object:дат} через нелокальные каналы связи.',
+                'Энтропия {concept:род} определяет степень упорядоченности {object:род}.',
+                
+                // Резонансные и вибрационные модели
+                'Наблюдатель, фокусируясь на {concept:пр}, изменяет состояние {object:род}.',
+                'Эффект наблюдателя распространяется на {concept:вин} через {adj:м:вин} резонанс.',
+                'В многомерном пространстве {concept:им} резонирует с {object:тв}.',
+                'Вибрационная частота {concept:род} синхронизируется с {object:тв}.',
+                'Резонансные частоты {concept:род} и {object:род} образуют единый спектр.',
+                'Принцип неопределённости проявляется в соотношении {concept:род} и {object:род}.',
+                
+                // Морфогенетические поля с вариациями
+                'Морфогенетическое поле {concept:род} содержит матрицу {object:род}.',
+                'Через морфический резонанс {concept:им} влияет на формирование {object:род}.',
+                'Поскольку {concept:им} обладает морфогенетическими свойствами, {object:им} наследует его структуру.'
+            ],
+            '3_question': [
+                'Не является ли {concept:им} квантовым проявлением {object:род}?',
+                'Может ли наблюдатель коллапсировать волновую функцию {object:род}?',
+                'Разве {adj:concept:им} {concept:им} не запутан с {object:тв} нелокально?',
+                'Не свидетельствует ли коллапс {concept:род} о влиянии сознания на {object:вин}?',
+                'Если {concept:им} находится в суперпозиции, разве {object:им} не должен также находиться в неопределённом состоянии?',
+                'Не подтверждает ли голографический принцип связь между {concept:тв} и {object:тв}?',
+                'Может ли информационная структура {concept:род} определять параметры {object:род}?'
+            ],
+            4: [
+                // Базовые конструкции с латынью
+                '{adj:concept:им} {concept:им} transcendирует {object:вин} через {латынь}.',
+                'Согласно {латынь}, {concept:им} эмергентно проявляется в {object:пр}.',
+                'Мультиверсальный {concept:им} экстраполируется на {object:вин} посредством {латынь}.',
+                
+                // Условные конструкции высокой сложности
+                'Если {concept:им} достигает точки бифуркации, то, согласно {латынь}, {object:им} претерпевает фазовый переход в {измерение:пр}.',
+                'В случае, когда нелинейная динамика {concept:род} создаёт странный аттрактор, {object:им} рекурсивно самоорганизуется.',
+                'При условии, что {concept:им} вибрирует на частоте {число} Гц, резонанс с {object:тв} становится неизбежным.',
+                
+                // Сравнительные конструкции с математической лексикой
+                'Подобно тому, как диссипативные структуры самоорганизуются вдали от равновесия, {concept:им} генерирует фрактальные паттерны в {object:пр}.',
+                'В отличие от линейных систем, где траектория детерминирована, {adj:concept:им} {concept:им} демонстрирует хаотическую динамику относительно {object:род}.',
+                'Аналогично процессу {process}, протекающему {латынь}, {concept:им} экспоненциально амплифицирует {object:вин}.',
+                
+                // Теория катастроф и бифуркации
+                'Парадигмальный сдвиг {concept:род} инициирует квантовый скачок {object:род} в {измерение:пр}.',
+                'Нелинейная динамика {concept:род} создаёт точку бифуркации в континууме {object:род}.',
+                'При достижении критической массы {concept:род} происходит фазовый переход {object:род}.',
+                '{concept:им}, достигая сингулярности, рекурсивно модифицирует {object:вин}.',
+                'В топологическом пространстве {concept:род} формируется странный аттрактор {object:род}.',
+                'Гиперболическая траектория {concept:род} пересекается с асимптотой {object:род}.',
+                
+                // Вложенные причинно-следственные цепочки
+                'Поскольку автокаталитический процесс {concept:род} генерирует фрактальную структуру, а {object:им}, в свою очередь, резонирует на {число} Гц, возникает каскадная самоорганизация.',
+                'Благодаря тому, что морфогенетическое поле {concept:род} резонирует с матрицей {object:род}, система переходит в режим {латынь}.',
+                
+                // Фракталы и самоподобие
+                'Автокаталитический процесс {concept:род} генерирует фрактальную структуру {object:род}.',
+                'Диссипативные структуры {concept:род} самоорганизуются в {adj:м:вин} паттерн {object:род}.',
+                'Фрактальная размерность {concept:род} соответствует степени сложности {object:род}.',
+                'Рекурсивная природа {concept:род} проявляется на всех масштабах {object:род}.',
+                
+                // Частоты и резонансы
+                '{concept:им} вибрирует на частоте {число} Гц, резонируя с {adj:object:тв} {object:тв}.',
+                'Спектральный анализ {concept:род} выявляет гармоники {число} Гц в структуре {object:род}.',
+                
+                // Морфогенез и поля
+                'Морфогенетическое поле {concept:род} резонирует с {adj:ж:тв} матрицей {object:род}.',
+                'В результате {process} {concept:им} интерферирует с {object:тв} на уровне {измерение:род}.',
+                
+                // Теория информации с временными конструкциями
+                'После того как информационная энтропия {concept:род} превышает пороговое значение, степень неопределённости {object:род} экспоненциально возрастает.',
+                '{concept:им} кодирует данные в {число}-мерном пространстве признаков {object:род}.',
+                
+                // Нелинейная оптика и волны
+                'Солитонная волна {concept:род} распространяется через среду {object:род} без диссипации.',
+                'Нелинейный отклик {concept:род} генерирует гармоники высших порядков в {object:пр}.'
+            ],
+            '4_question': [
+                'Не достиг ли {concept:им} точки бифуркации в континууме {object:род}?',
+                'Может ли {adj:concept:им} {concept:им} трансцендировать {object:вин}?',
+                'Разве не очевидна фрактальная природа {concept:род} в контексте {object:род}?',
+                'Не является ли диссипативная структура {concept:род} странным аттрактором для {object:род}?',
+                'Если {concept:им} демонстрирует автокаталитические свойства, не генерирует ли он фрактальные паттерны в {object:пр}?',
+                'Не свидетельствует ли резонанс на частоте {число} Гц о морфогенетической связи между {concept:тв} и {object:тв}?',
+                'Может ли нелинейная динамика {concept:род} привести к каскадной самоорганизации {object:род}?',
+                'Разве солитонная волна {concept:род} не распространяется через {object:вин} {латынь}?'
+            ],
+            5: [
+                // Квантовая теория поля - базовые
+                '{adj:ж:им} суперпозиция {concept:род} экспоненциально амплифицирует {adj:object:вин} {object:вин}.',
+                'Неабелева группа симметрий {concept:род} спонтанно нарушается в вакууме {object:род}.',
+                'Спинорная структура {concept:род} калибруется через SU(3)-симметрию {object:род}.',
+                'Инстантонные конфигурации {concept:род} туннелируют через потенциальный барьер {object:род}.',
+                'Ренормгрупповые потоки {concept:род} стремятся к ИК-фиксированной точке в пространстве {object:род}.',
+                
+                // Условные конструкции с математическими кванторами
+                'Если и только если оператор эволюции {concept:род} коммутирует с гамильтонианом, то спектр {object:род} дискретен в замкнутой области.',
+                'При условии, что функториальное отображение {concept:род} сохраняет структуру морфизмов, категория {object:род} локально декартово замкнута.',
+                'В случае, когда мера Лебега на {concept:пр} σ-аддитивна, почти всюду в пространстве {object:род} сходимость гарантирована.',
+                'Для любого ε > 0 существует такое δ, что если расстояние между {concept:тв} и {object:тв} меньше δ, то {adj:ж:им} топологическая инвариантность сохраняется.',
+                
+                // Сложные вложенные конструкции
+                'Поскольку гомеоморфное отображение {concept:род} на {object:вин} индуцирует метрику, а риманова кривизна, в свою очередь, определяет геодезические, система демонстрирует глобальную гиперболичность.',
+                'Благодаря тому, что естественная трансформация связывает {concept:вин} с дуальным объектом {object:род}, а функтор при этом коммутирует с пределами, диаграмма коммутирует в смысле теории категорий.',
+                
+                // Сравнительные конструкции с глубокой математикой
+                'Подобно тому, как эргодическая теорема устанавливает равенство временного и фазового среднего, {concept:им} демонстрирует перемешивание потока в пространстве {object:род}.',
+                'Аналогично процессу бозе-конденсации, происходящему ниже критической температуры, {concept:им} достигает основного состояния при абсолютном нуле в {object:пр}.',
+                'В отличие от абелевых групп, где все элементы коммутируют, {adj:concept:им} {concept:им} проявляет некоммутативную структуру относительно {object:род}.',
+                
+                // Топология и геометрия
+                '{concept:им} автоморфно {кратк_прил:изоморфен:concept} {object:дат} в топологическом пространстве {измерение:род}.',
+                'Гомеоморфное отображение {concept:род} на {object:вин} индуцирует {adj:ж:вин} метрику.',
+                '{adj:ж:им} инвариантность {concept:род} сохраняется при гомотопии в пространстве {object:род}.',
+                'Фундаментальная группа {concept:род} нетривиальна в односвязном {object:пр}.',
+                'Риманова кривизна {concept:род} определяет геодезические в {object:пр}.',
+                
+                // Статистическая механика
+                '{статич_прил:квантово-релятивистск:concept:им} {concept:им} осциллирует между {number}% {object:род} и абсолютным нулём.',
+                '{adj:ж:им} энтропия {concept:род} детерминирует стохастическую траекторию {object:род}.',
+                'Эргодичность {concept:род} проявляется в перемешивании фазового потока {object:род}.',
+                '{concept:им} демонстрирует сверхтекучесть на критической изотерме {object:род}.',
+                'Бозе-конденсация {concept:род} происходит ниже температуры Дебая {object:род}.',
+                'Флуктуационно-диссипативная теорема связывает {concept:вин} с корреляциями {object:род}.',
+                
+                // Функциональный анализ с условиями
+                '{concept:им}, будучи лагранжианом системы, экстремизирует функционал действия {object:род}.',
+                'Оператор эволюции {concept:род} действует в гильбертовом пространстве {object:род}.',
+                'Спектр гамильтониана {concept:род} дискретен в ограниченном {object:пр}.',
+                'Если собственные значения оператора {concept:род} вырождены, то в базисе {object:род} возникает дополнительная симметрия.',
+                
+                // Теория категорий
+                'Функториальное отображение {concept:род} коммутирует с морфизмами в категории {object:род}.',
+                'Естественная трансформация связывает {concept:вин} с дуальным объектом {object:род}.',
+                
+                // Теория меры и вероятность с вложениями
+                'Мера Лебега на пространстве {concept:род} σ-аддитивна относительно {object:род}.',
+                'Условное математическое ожидание {concept:род} минимизирует квадратичное отклонение от {object:род}.',
+                'В силу того, что σ-алгебра борелевских множеств порождена {concept:тв}, случайный процесс в {object:пр} оказывается измеримым.'
+            ],
+            '5_question': [
+                'Не является ли {concept:им} {статич_прил:гомеоморфн:concept:тв} {object:дат}?',
+                'Может ли топологическая инвариантность {concept:род} быть нарушена в вакууме {object:род}?',
+                'Разве {adj:concept:им} {concept:им} не экстремизирует функционал действия?',
+                'Не коммутирует ли оператор эволюции {concept:род} с гамильтонианом {object:род}?',
+                'Если спектр {concept:род} дискретен, не означает ли это, что пространство {object:род} компактно?',
+                'Не индуцирует ли гомеоморфное отображение {concept:род} риманову метрику на многообразии {object:род}?',
+                'Разве фундаментальная группа {concept:род} не изоморфна группе симметрий {object:род}?',
+                'Может ли неабелева структура {concept:род} спонтанно нарушить калибровочную инвариантность {object:род}?',
+                'Не является ли σ-аддитивность меры на {concept:пр} необходимым условием измеримости {object:род}?'
+            ]
+        };
+
+        // Союзы следствия
+        const consequenceConjunctions = [
+            'Поэтому',
+            'Следовательно',
+            'Таким образом',
+            'В результате',
+            'Отсюда следует, что',
+            'Из этого вытекает, что',
+            'Это означает, что'
+        ];
+
+        // Дополнительные элементы
+        const extras = {
+            processes: [
+                'когерентности', 'резонанса', 'синхронизации', 'активации', 
+                'гармонизации', 'интеграции', 'трансформации', 'манифестации', 
+                'кристаллизации', 'сублимации', 'диссипации', 'конвергенции',
+                'эмерджентности', 'бифуркации', 'самоорганизации', 'рекурсии',
+                'итерации', 'коллапсирования', 'декогеренции', 'перенормировки'
+            ],
+            latin: [
+                'ex nihilo', 'per se', 'a priori', 'sui generis', 'in potentia', 
+                'ab initio', 'ad infinitum', 'in situ', 'tabula rasa', 'deus ex machina', 
+                'modus operandi', 'sine qua non', 'per aspera ad astra', 'ceteris paribus',
+                'mutatis mutandis', 'post hoc', 'ipso facto', 'vice versa', 'de facto',
+                'quantum satis', 'quid pro quo', 'status quo', 'ad absurdum'
+            ],
+            dimensions: [
+                { word: 'седьм', adj: 'ой', base: 'измерен', type: 'n2', gender: 'с' },
+                { word: 'астральн', adj: 'ый', base: 'план', type: 'm1', gender: 'м' },
+                { word: 'ментальн', adj: 'ое', base: 'пол', type: 'n1', gender: 'с', soft: true },
+                { word: 'каузальн', adj: 'ое', base: 'тел', type: 'n1', gender: 'с' },
+                { word: 'буддхическ', adj: 'ая', base: 'сфер', type: 'f1', gender: 'ж' },
+                { word: 'атмическ', adj: 'ий', base: 'уровень', type: 'm1', gender: 'м' },
+                { word: 'межпространственн', adj: 'ый', base: 'континуум', type: 'm1', gender: 'м' },
+                { word: 'логоическ', adj: 'ое', base: 'пространств', type: 'n1', gender: 'с' },
+                { word: 'монадическ', adj: 'ий', base: 'план', type: 'm1', gender: 'м' },
+                { word: 'нулев', adj: 'ая', base: 'точк', type: 'f1', gender: 'ж' },
+                { word: 'гиперпространственн', adj: 'ый', base: 'слой', type: 'm1', gender: 'м' },
+                { word: 'квантов', adj: 'ое', base: 'вакуум', type: 'm1', gender: 'м' }
+            ],
+            numbers: [
+                432, 528, 963, 741, 639, 94.7, 87.3, 99.2, 13.8, 42.0, 
+                108, 144, 369, 7.83, 11.11, 22.22, 33.33, 1.618, 3.14159,
+                137, 273, 666, 777, 888, 21, 12, 9, 5, 8, 13
+            ]
+        };
+
+        // Генератор авторов
+        const authors = {
+            firstNames: {
+                russian: ['Василий', 'Геннадий', 'Анатолий', 'Григорий', 'Владимир', 'Олег', 'Игорь', 'Виктор', 'Станислав', 'Вадим', 'Евгений', 'Михаил'],
+                western: ['Дэвид', 'Ричард', 'Майкл', 'Роберт', 'Джон', 'Стивен', 'Брюс', 'Питер', 'Дэниел', 'Кристофер'],
+                exotic: ['Дипак', 'Садхгуру', 'Раджеш', 'Амит', 'Шри', 'Свами']
+            },
+            lastNames: {
+                scientific: ['Квантумов', 'Резонансов', 'Биоэнергетиков', 'Космознаев', 'Трансцендентов', 'Голографов', 'Синергетов', 'Морфогенезов'],
+                western: ['Лайтман', 'Шелдрейк', 'Уилбер', 'Капра', 'Бом', 'Прибрам', 'Талбот', 'Лазло', 'Пенроуз'],
+                neutral: ['Соколов', 'Орлов', 'Волков', 'Медведев', 'Смирнов', 'Кузнецов'],
+                exotic: ['Чопра', 'Махариши', 'Васвани', 'Рао', 'Дас']
+            },
+            titles: {
+                academic: ['д.ф.н.', 'к.т.н.', 'д.ф.-м.н.', 'PhD', 'DSc', 'к.б.н.', 'д.псих.н.'],
+                position: ['профессор', 'доцент', 'академик', 'член-корреспондент']
+            },
+            institutions: {
+                quantum: ['Института квантовой психологии', 'Центра квантового сознания', 'Лаборатории квантовой биологии', 'Института квантовой метафизики', 'Центра нелокальных взаимодействий'],
+                holistic: ['Международной академии холистических наук', 'Центра интегративной медицины', 'Института холистической психологии', 'Академии синергетических практик'],
+                energy: ['Центра биоэнергетических исследований', 'Института изучения тонких энергий', 'НИИ биополей', 'Лаборатории праны и ци'],
+                consciousness: ['Института исследований сознания', 'Центра трансперсональной психологии', 'Института ноэтических наук', 'Академии расширенных состояний'],
+                cosmic: ['Института космической философии', 'Центра астрологических исследований', 'Академии космоэнергетики', 'Института галактических резонансов']
+            },
+            positions: ['директор', 'руководитель', 'главный научный сотрудник', 'ведущий исследователь', 'президент', 'основатель', 'заведующий лабораторией'],
+            associations: [
+                'Ассоциации трансперсональных практик',
+                'Международного общества квантовой медицины',
+                'Союза биоэнергетиков',
+                'Федерации холистических наук',
+                'Гильдии духовных целителей',
+                'Общества изучения паранормальных явлений',
+                'Международной ассоциации морфогенеза',
+                'Совета по нелокальным взаимодействиям'
+            ],
+            sources: {
+                journals: [
+                    'Журнал трансцендентной физики',
+                    'Вестник квантовой метафизики',
+                    'Journal of Consciousness Studies',
+                    'Международный журнал биоэнергетики',
+                    'Holistic Medicine Quarterly',
+                    'Annals of Morphogenetic Research',
+                    'Quantum Biology Review'
+                ],
+                books: [
+                    'Квантовый скачок сознания',
+                    'Голографическая Вселенная',
+                    'Торсионные поля и реальность',
+                    'Энергия мысли',
+                    'Сознание и квантовая реальность',
+                    'Синергетика духа',
+                    'Морфический резонанс',
+                    'Нелокальные взаимодействия',
+                    'Фракталы бытия'
+                ],
+                conferences: [
+                    'Международная конференция по квантовому сознанию',
+                    'Симпозиум "Наука и духовность"',
+                    'Конгресс холистической медицины',
+                    'Форум "Новая парадигма науки"',
+                    'Конференция по морфогенетическим полям',
+                    'Симпозиум нелокальности и запутанности'
+                ]
+            },
+            years: [2015, 2016, 2017, 2018, 2019, 2020, 2021, 2022, 2023, 2024],
+            pages: Array.from({length: 50}, (_, i) => 23 + i * 7)
+        };
+
+        // ====== ОСНОВНЫЕ ФУНКЦИИ ГЕНЕРАЦИИ ======
+        
+        let currentMode = 'single';
+        let selectedThemes = ['quantum']; // Массив выбранных тем
+        let currentLevel = 3;
+
+        function random(arr) {
+            return arr[Math.floor(Math.random() * arr.length)];
+        }
+
+        function getRandomTheme() {
+            if (selectedThemes.length === 0) {
+                // Если ничего не выбрано, используем все темы
+                const allThemes = ['quantum', 'success', 'cosmic', 'ancient', 'bioenergy'];
+                return allThemes[Math.floor(Math.random() * allThemes.length)];
+            }
+            return selectedThemes[Math.floor(Math.random() * selectedThemes.length)];
+        }
+
+        function generateSentence(usedTemplates = [], sentenceIndex = 0, totalSentences = 1) {
+            // Выбираем тип предложения
+            const isQuestion = (sentenceIndex === totalSentences - 1) && Math.random() > 0.7;
+            const levelTemplates = isQuestion && templates[currentLevel + '_question'] 
+                ? templates[currentLevel + '_question'] 
+                : templates[currentLevel];
+            
+            // Выбираем шаблон
+            let availableTemplates = levelTemplates.filter(t => !usedTemplates.includes(t));
+            if (availableTemplates.length === 0) {
+                availableTemplates = levelTemplates;
+            }
+            
+            const template = random(availableTemplates);
+            usedTemplates.push(template);
+            
+            // Выбираем concept и object
+            const conceptTheme = getRandomTheme();
+            const objectTheme = getRandomTheme();
+            
+            const conceptWord = random(lexicon.nouns[conceptTheme]);
+            const objectWord = random(lexicon.nouns[objectTheme]);
+            
+            // Заменяем в шаблоне
+            let sentence = template;
+            
+            sentence = sentence.replace(/\{([^}]+)\}/g, (match, content) => {
+                const parts = content.split(':');
+                const type = parts[0];
+                
+                if (type === 'adj') {
+                    // Формат: {adj:concept:род} или {adj:object:вин} или {adj:ж:вин} (явный род)
+                    const target = parts[1]; // 'concept', 'object', или явный род ('м', 'ж', 'с')
+                    const caseForm = parts[2] || 'им'; // падеж
+                    
+                    let targetGender;
+                    if (target === 'concept') {
+                        targetGender = conceptWord.gender;
+                    } else if (target === 'object') {
+                        targetGender = objectWord.gender;
+                    } else if (['м', 'ж', 'с'].includes(target)) {
+                        // Явное указание рода
+                        targetGender = target;
+                    } else {
+                        targetGender = conceptWord.gender; // fallback
+                    }
+                    
+                    const adjTheme = getRandomTheme();
+                    const adjWord = random(lexicon.adjectives[adjTheme]);
+                    
+                    return declineAdjective(adjWord, targetGender, caseForm);
+                } else if (type === 'concept') {
+                    const caseForm = parts[1] || 'им';
+                    return declineNoun(conceptWord, caseForm);
+                } else if (type === 'object') {
+                    const caseForm = parts[1] || 'им';
+                    return declineNoun(objectWord, caseForm);
+                } else if (type === 'process') {
+                    return random(extras.processes);
+                } else if (type === 'латынь') {
+                    return random(extras.latin);
+                } else if (type === 'измерение') {
+                    const caseForm = parts[1] || 'им'; // падеж для измерения
+                    const dim = random(extras.dimensions);
+                    return declineDimension(dim, caseForm);
+                } else if (type === 'число' || type === 'number') {
+                    return random(extras.numbers);
+                } else if (type === 'кратк_прил') {
+                    // Формат: {кратк_прил:база:target}
+                    // Краткие прилагательные согласуются по роду
+                    const base = parts[1]; // база прилагательного, например "изоморфен"
+                    const target = parts[2]; // 'concept' или 'object'
+                    
+                    let targetGender;
+                    if (target === 'concept') {
+                        targetGender = conceptWord.gender;
+                    } else if (target === 'object') {
+                        targetGender = objectWord.gender;
+                    } else {
+                        targetGender = 'м'; // fallback
+                    }
+                    
+                    // Склоняем краткое прилагательное по роду
+                    if (targetGender === 'м') {
+                        return base; // изоморфен
+                    } else if (targetGender === 'ж') {
+                        // Заменяем последний 'ен' на 'на'
+                        return base.replace(/ен$/, 'на'); // изоморфна
+                    } else if (targetGender === 'с') {
+                        // Заменяем последний 'ен' на 'но'
+                        return base.replace(/ен$/, 'но'); // изоморфно
+                    }
+                    return base;
+                } else if (type === 'статич_прил') {
+                    // Формат: {статич_прил:база:target:падеж}
+                    // Статичные прилагательные, которые нужно склонять по роду target
+                    const adjBase = parts[1]; // база прилагательного, например "квантово-релятивистск"
+                    const target = parts[2]; // 'concept' или 'object'
+                    const caseForm = parts[3] || 'им'; // падеж
+                    
+                    let targetGender;
+                    if (target === 'concept') {
+                        targetGender = conceptWord.gender;
+                    } else if (target === 'object') {
+                        targetGender = objectWord.gender;
+                    } else {
+                        targetGender = 'м'; // fallback
+                    }
+                    
+                    return declineStaticAdjective(adjBase, targetGender, caseForm);
+                }
+                
+                return match;
+            });
+            
+            // Добавляем союз следствия
+            if (sentenceIndex >= 2 && totalSentences >= 3 && Math.random() > 0.5) {
+                const conjunction = random(consequenceConjunctions);
+                sentence = conjunction + ' ' + sentence.charAt(0).toLowerCase() + sentence.slice(1);
+            } else {
+                sentence = sentence.charAt(0).toUpperCase() + sentence.slice(1);
+            }
+            
+            return sentence;
+        }
+
+        function generateAuthor() {
+            const nameStyle = random(['russian', 'western', 'exotic']);
+            const name = random(authors.firstNames[nameStyle]);
+            
+            let surname;
+            if (nameStyle === 'russian') {
+                surname = Math.random() > 0.5 ? random(authors.lastNames.scientific) : random(authors.lastNames.neutral);
+            } else if (nameStyle === 'western') {
+                surname = random(authors.lastNames.western);
+            } else {
+                surname = random(authors.lastNames.exotic);
+            }
+            
+            const hasAcademicTitle = Math.random() > 0.3;
+            const title = hasAcademicTitle ? random(authors.titles.academic) : random(authors.titles.position);
+            
+            let institutionList;
+            const mainTheme = selectedThemes.length > 0 ? selectedThemes[0] : 'quantum';
+            if (mainTheme === 'quantum') {
+                institutionList = authors.institutions.quantum;
+            } else if (mainTheme === 'bioenergy') {
+                institutionList = authors.institutions.energy;
+            } else if (mainTheme === 'cosmic') {
+                institutionList = authors.institutions.cosmic;
+            } else if (mainTheme === 'success') {
+                institutionList = authors.institutions.consciousness;
+            } else {
+                institutionList = authors.institutions.holistic;
+            }
+            
+            const position = random(authors.positions);
+            const institution = random(institutionList);
+            
+            // Опциональная ассоциация
+            const hasAssociation = Math.random() > 0.6;
+            const association = hasAssociation ? random(authors.associations) : null;
+            
+            const sourceType = random(['journal', 'book', 'conference']);
+            let source;
+            const year = random(authors.years);
+            
+            if (sourceType === 'journal') {
+                const journal = random(authors.sources.journals);
+                const volume = Math.floor(Math.random() * 30) + 1;
+                const issue = Math.floor(Math.random() * 4) + 1;
+                source = `${journal}, ${year}, т. ${volume}, № ${issue}`;
+            } else if (sourceType === 'book') {
+                const book = random(authors.sources.books);
+                const publisher = random(['М.: Амрита', 'СПб.: Весь', 'М.: София', 'London: Hay House']);
+                const page = random(authors.pages);
+                source = `"${book}", ${publisher}, ${year}, стр. ${page}`;
+            } else {
+                const conference = random(authors.sources.conferences);
+                source = `${conference}, ${year}`;
+            }
+            
+            let credentials = title;
+            if (hasAssociation) {
+                credentials += `, ${position} ${institution}, ${association}`;
+            } else {
+                credentials += `, ${position} ${institution}`;
+            }
+            
+            return {
+                name: `${name} ${surname}`,
+                credentials: credentials,
+                source: source
+            };
+        }
+
+        function addStatistics(text, level) {
+            if (level >= 2 && Math.random() > 0.5) {
+                const statType = Math.random();
+                let addon;
+                
+                if (statType < 0.3) {
+                    // Проценты
+                    const percent = random(extras.numbers);
+                    const variants = [
+                        ` Исследования ${percent}% учёных подтверждают данный эффект.`,
+                        ` Экспериментально доказано с точностью ${percent}%.`,
+                        ` Эффективность методики составляет ${percent}%.`
+                    ];
+                    addon = random(variants);
+                } else if (statType < 0.5) {
+                    // p-значения
+                    const p = Math.floor(Math.random() * 9) + 1;
+                    addon = ` Статистическая значимость составляет p < 0.0${p}.`;
+                } else if (statType < 0.7) {
+                    // Частоты
+                    const freq = random(extras.numbers);
+                    const variants = [
+                        ` Оптимальная частота воздействия: ${freq} Гц.`,
+                        ` Резонансная частота системы: ${freq} Гц.`,
+                        ` Измеренная вибрация: ${freq} Гц.`
+                    ];
+                    addon = random(variants);
+                } else if (statType < 0.85) {
+                    // Размерности и числа
+                    const num = random(extras.numbers);
+                    const variants = [
+                        ` Критическое значение параметра: ${num}.`,
+                        ` Коэффициент корреляции: ${num > 10 ? (num/100).toFixed(3) : num.toFixed(2)}.`,
+                        ` Фрактальная размерность: ${(Math.random() * 2 + 1).toFixed(3)}.`
+                    ];
+                    addon = random(variants);
+                } else {
+                    // Временные масштабы
+                    const variants = [
+                        ` Период полураспада эффекта: ${Math.floor(Math.random() * 72 + 1)} часов.`,
+                        ` Время релаксации системы: ${Math.floor(Math.random() * 30 + 1)} минут.`,
+                        ` Характерная длительность процесса: ${Math.floor(Math.random() * 10 + 1)} дней.`
+                    ];
+                    addon = random(variants);
+                }
+                
+                return text + addon;
+            }
+            return text;
+        }
+
+        function generate() {
+            let text;
+            const usedTemplates = [];
+            
+            if (currentMode === 'single') {
+                text = generateSentence(usedTemplates, 0, 1);
+                text = addStatistics(text, currentLevel);
+            } else {
+                const sentences = [];
+                const numSentences = 3 + Math.floor(Math.random() * 2);
+                for (let i = 0; i < numSentences; i++) {
+                    sentences.push(generateSentence(usedTemplates, i, numSentences));
+                }
+                text = sentences.join(' ');
+                text = addStatistics(text, currentLevel);
+            }
+            
+            const author = generateAuthor();
+            
+            const quoteText = document.getElementById('quoteText');
+            quoteText.textContent = text;
+            quoteText.classList.remove('animate');
+            void quoteText.offsetWidth;
+            quoteText.classList.add('animate');
+            
+            document.getElementById('authorName').textContent = author.name;
+            document.getElementById('authorCredentials').textContent = author.credentials;
+            document.getElementById('authorSource').textContent = author.source;
+            document.getElementById('authorBox').style.display = 'block';
+        }
+
+        function copyToClipboard() {
+            const text = document.getElementById('quoteText').textContent;
+            const author = document.getElementById('authorName').textContent;
+            const fullText = `"${text}"\n\n— ${author}`;
+            
+            navigator.clipboard.writeText(fullText).then(() => {
+                const notification = document.getElementById('notification');
+                notification.classList.add('show');
+                setTimeout(() => {
+                    notification.classList.remove('show');
+                }, 2000);
+            });
+        }
+
+        // Инициализация
+        document.addEventListener('DOMContentLoaded', function() {
+            updateLevelLabel();
+            
+            document.getElementById('pseudoLevel').addEventListener('input', function(e) {
+                currentLevel = parseInt(e.target.value);
+                updateLevelLabel();
+            });
+
+            // Обработка чекбоксов тем
+            document.querySelectorAll('input[name="theme"]').forEach(checkbox => {
+                checkbox.addEventListener('change', function() {
+                    selectedThemes = Array.from(document.querySelectorAll('input[name="theme"]:checked'))
+                        .map(cb => cb.value);
+                });
+            });
+
+            document.querySelectorAll('.mode-btn').forEach(btn => {
+                btn.addEventListener('click', function() {
+                    document.querySelectorAll('.mode-btn').forEach(b => b.classList.remove('active'));
+                    this.classList.add('active');
+                    currentMode = this.dataset.mode;
+                });
+            });
+        });
+
+        function updateLevelLabel() {
+            const labels = {
+                1: 'Почти научное',
+                2: 'Умеренное',
+                3: 'Классическое',
+                4: 'Абсурдное',
+                5: 'Чистый бред'
+            };
+            document.getElementById('levelLabel').textContent = labels[currentLevel];
+        }
+    </script>
+</body>
+</html>
