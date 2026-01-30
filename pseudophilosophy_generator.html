@@ -1,0 +1,1773 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Генератор Квантовой Мудрости</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        @keyframes starFloat {
+            0%, 100% { 
+                transform: translateY(0) scale(1);
+                opacity: 0.8;
+            }
+            50% { 
+                transform: translateY(-20px) scale(1.2);
+                opacity: 1;
+            }
+        }
+
+        @keyframes particleMove {
+            0% {
+                transform: translate(0, 0);
+                opacity: 0;
+            }
+            50% {
+                opacity: 1;
+            }
+            100% {
+                transform: translate(var(--tx), var(--ty));
+                opacity: 0;
+            }
+        }
+
+        @keyframes glow {
+            0%, 100% {
+                filter: drop-shadow(0 0 8px rgba(138, 43, 226, 0.8));
+            }
+            50% {
+                filter: drop-shadow(0 0 20px rgba(138, 43, 226, 1));
+            }
+        }
+
+        body {
+            font-family: 'Georgia', serif;
+            background: radial-gradient(ellipse at top, #1a0033 0%, #0a0015 50%, #000000 100%);
+            min-height: 100vh;
+            padding: 20px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            position: relative;
+            overflow-x: hidden;
+        }
+
+        body::before {
+            content: '';
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 2px;
+            height: 2px;
+            background: transparent;
+            box-shadow: 
+                200px 150px white, 400px 300px white, 600px 100px white, 
+                800px 400px white, 100px 500px white, 950px 200px white,
+                300px 450px white, 700px 550px white, 500px 250px white,
+                150px 350px white, 850px 150px white, 450px 500px white,
+                250px 200px white, 550px 350px white, 750px 450px white,
+                350px 100px white, 650px 500px white, 900px 300px white,
+                50px 400px white, 1000px 100px white, 800px 550px white,
+                180px 120px rgba(255,255,255,0.5), 380px 280px rgba(255,255,255,0.5),
+                580px 80px rgba(255,255,255,0.5), 780px 380px rgba(255,255,255,0.5),
+                80px 480px rgba(255,255,255,0.5), 930px 180px rgba(255,255,255,0.5),
+                280px 430px rgba(255,255,255,0.5), 680px 530px rgba(255,255,255,0.5),
+                480px 230px rgba(255,255,255,0.5), 130px 330px rgba(255,255,255,0.5),
+                830px 130px rgba(255,255,255,0.5), 430px 480px rgba(255,255,255,0.5),
+                230px 180px rgba(255,255,255,0.5), 530px 330px rgba(255,255,255,0.5),
+                730px 430px rgba(255,255,255,0.5), 330px 80px rgba(255,255,255,0.5),
+                120px 250px rgba(255,255,255,0.8), 520px 150px rgba(255,255,255,0.8),
+                720px 350px rgba(255,255,255,0.8), 320px 450px rgba(255,255,255,0.8),
+                620px 250px rgba(255,255,255,0.8), 920px 350px rgba(255,255,255,0.8),
+                90px 90px rgba(255,255,255,0.3), 290px 290px rgba(255,255,255,0.3),
+                490px 190px rgba(255,255,255,0.3), 690px 390px rgba(255,255,255,0.3),
+                890px 490px rgba(255,255,255,0.3), 160px 460px rgba(255,255,255,0.3),
+                360px 360px rgba(255,255,255,0.3), 560px 460px rgba(255,255,255,0.3),
+                760px 260px rgba(255,255,255,0.3), 960px 160px rgba(255,255,255,0.3);
+            animation: starFloat 20s ease-in-out infinite;
+            pointer-events: none;
+            z-index: 1;
+        }
+        
+        body::after {
+            content: '';
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 1px;
+            height: 1px;
+            background: transparent;
+            box-shadow: 
+                220px 170px white, 420px 320px white, 620px 120px white,
+                820px 420px white, 120px 520px white, 970px 220px white,
+                320px 470px white, 720px 570px white, 520px 270px white,
+                170px 370px white, 870px 170px white, 470px 520px white,
+                270px 220px white, 570px 370px white, 770px 470px white,
+                370px 120px white, 670px 520px white, 920px 320px white,
+                70px 420px white, 1020px 120px white, 820px 570px white,
+                200px 140px rgba(255,255,255,0.4), 400px 300px rgba(255,255,255,0.4),
+                600px 100px rgba(255,255,255,0.4), 800px 400px rgba(255,255,255,0.4),
+                100px 500px rgba(255,255,255,0.4), 950px 200px rgba(255,255,255,0.4),
+                210px 310px rgba(255,255,255,0.6), 510px 210px rgba(255,255,255,0.6),
+                710px 410px rgba(255,255,255,0.6), 910px 510px rgba(255,255,255,0.6);
+            animation: starFloat 15s ease-in-out infinite reverse;
+            pointer-events: none;
+            z-index: 1;
+        }
+
+        .container {
+            background: rgba(15, 0, 40, 0.85);
+            border: 2px solid rgba(138, 43, 226, 0.5);
+            border-radius: 20px;
+            box-shadow: 
+                0 0 60px rgba(138, 43, 226, 0.4),
+                inset 0 0 40px rgba(138, 43, 226, 0.1);
+            max-width: 900px;
+            width: 100%;
+            padding: 40px;
+            position: relative;
+            z-index: 2;
+            backdrop-filter: blur(10px);
+        }
+
+        .container::before {
+            content: '';
+            position: absolute;
+            top: -2px;
+            left: -2px;
+            right: -2px;
+            bottom: -2px;
+            background: linear-gradient(45deg, 
+                transparent 40%,
+                rgba(138, 43, 226, 0.3) 50%,
+                transparent 60%);
+            background-size: 200% 200%;
+            border-radius: 20px;
+            z-index: -1;
+            animation: glow 3s ease-in-out infinite;
+        }
+
+        h1 {
+            text-align: center;
+            background: linear-gradient(90deg, #00ffff, #ff00ff, #00ffff);
+            background-size: 200% auto;
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            font-size: 2.5em;
+            margin-bottom: 10px;
+            text-shadow: 0 0 20px rgba(138, 43, 226, 0.8);
+            animation: glow 2s ease-in-out infinite;
+            filter: drop-shadow(0 0 10px rgba(138, 43, 226, 0.8));
+        }
+
+        .subtitle {
+            text-align: center;
+            color: #a78bfa;
+            font-style: italic;
+            margin-bottom: 30px;
+            text-shadow: 0 0 10px rgba(167, 139, 250, 0.5);
+        }
+
+        .controls {
+            display: grid;
+            gap: 20px;
+            margin-bottom: 30px;
+        }
+
+        .control-group {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+
+        label {
+            font-weight: bold;
+            color: #a78bfa;
+            font-size: 0.95em;
+            text-shadow: 0 0 10px rgba(167, 139, 250, 0.5);
+        }
+
+        .slider-container {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+        }
+
+        input[type="range"] {
+            flex: 1;
+            height: 8px;
+            border-radius: 5px;
+            background: linear-gradient(to right, #4ade80, #fbbf24, #f87171);
+            outline: none;
+            -webkit-appearance: none;
+            box-shadow: 0 0 10px rgba(138, 43, 226, 0.3);
+        }
+
+        input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, #8b5cf6, #ec4899);
+            cursor: pointer;
+            box-shadow: 0 0 15px rgba(138, 43, 226, 0.8);
+        }
+
+        input[type="range"]::-moz-range-thumb {
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, #8b5cf6, #ec4899);
+            cursor: pointer;
+            box-shadow: 0 0 15px rgba(138, 43, 226, 0.8);
+            border: none;
+        }
+
+        .level-label {
+            min-width: 150px;
+            text-align: right;
+            color: #00ffff;
+            font-weight: bold;
+            text-shadow: 0 0 10px rgba(0, 255, 255, 0.8);
+        }
+
+        select {
+            padding: 10px 15px;
+            border: 2px solid rgba(138, 43, 226, 0.5);
+            border-radius: 8px;
+            font-size: 1em;
+            background: rgba(30, 0, 60, 0.6);
+            color: #a78bfa;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+
+        select:hover {
+            border-color: #8b5cf6;
+            box-shadow: 0 0 15px rgba(138, 43, 226, 0.5);
+        }
+
+        select:focus {
+            outline: none;
+            border-color: #8b5cf6;
+            box-shadow: 0 0 20px rgba(138, 43, 226, 0.8);
+        }
+
+        .mode-switch {
+            display: flex;
+            gap: 10px;
+            margin-top: 10px;
+        }
+
+        .mode-btn {
+            flex: 1;
+            padding: 10px;
+            border: 2px solid rgba(138, 43, 226, 0.5);
+            border-radius: 8px;
+            background: rgba(30, 0, 60, 0.4);
+            color: #a78bfa;
+            cursor: pointer;
+            transition: all 0.3s;
+            font-size: 0.95em;
+        }
+
+        .mode-btn.active {
+            background: linear-gradient(135deg, rgba(138, 43, 226, 0.6), rgba(236, 72, 153, 0.6));
+            color: #ffffff;
+            border-color: #8b5cf6;
+            box-shadow: 0 0 20px rgba(138, 43, 226, 0.8);
+        }
+
+        .mode-btn:hover {
+            border-color: #8b5cf6;
+            box-shadow: 0 0 15px rgba(138, 43, 226, 0.5);
+        }
+
+        .theme-checkboxes {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 10px;
+            margin-top: 10px;
+        }
+
+        .checkbox-label {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            cursor: pointer;
+            padding: 8px 12px;
+            border: 2px solid rgba(138, 43, 226, 0.5);
+            border-radius: 8px;
+            background: rgba(30, 0, 60, 0.4);
+            transition: all 0.3s;
+        }
+
+        .checkbox-label:hover {
+            border-color: #8b5cf6;
+            background: rgba(138, 43, 226, 0.2);
+            box-shadow: 0 0 15px rgba(138, 43, 226, 0.3);
+        }
+
+        .checkbox-label input[type="checkbox"] {
+            width: 18px;
+            height: 18px;
+            cursor: pointer;
+            accent-color: #8b5cf6;
+        }
+
+        .checkbox-label input[type="checkbox"]:checked + span {
+            font-weight: bold;
+            color: #00ffff;
+            text-shadow: 0 0 10px rgba(0, 255, 255, 0.8);
+        }
+
+        .checkbox-label span {
+            font-size: 0.95em;
+            color: #a78bfa;
+        }
+
+        .quote-box {
+            background: linear-gradient(135deg, 
+                rgba(30, 0, 60, 0.8) 0%, 
+                rgba(60, 0, 120, 0.6) 100%);
+            border: 2px solid rgba(138, 43, 226, 0.6);
+            border-radius: 15px;
+            padding: 40px;
+            margin: 30px 0;
+            min-height: 200px;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            position: relative;
+            box-shadow: 
+                0 0 30px rgba(138, 43, 226, 0.4),
+                inset 0 0 60px rgba(138, 43, 226, 0.1);
+        }
+
+        .quote-box::before {
+            content: '"';
+            font-size: 80px;
+            color: rgba(138, 43, 226, 0.3);
+            position: absolute;
+            top: 10px;
+            left: 20px;
+            font-family: Georgia, serif;
+            text-shadow: 0 0 20px rgba(138, 43, 226, 0.5);
+        }
+
+        .quote-text {
+            font-size: 1.3em;
+            line-height: 1.6;
+            color: #e0d0ff;
+            text-align: center;
+            position: relative;
+            z-index: 1;
+            text-shadow: 0 0 10px rgba(138, 43, 226, 0.3);
+        }
+
+        .author-box {
+            margin-top: 20px;
+            text-align: right;
+            font-style: italic;
+            color: #a78bfa;
+        }
+
+        .author-name {
+            font-weight: bold;
+            color: #00ffff;
+            text-shadow: 0 0 10px rgba(0, 255, 255, 0.6);
+        }
+
+        .generate-btn {
+            width: 100%;
+            padding: 18px;
+            font-size: 1.3em;
+            background: linear-gradient(135deg, 
+                rgba(138, 43, 226, 0.8) 0%, 
+                rgba(236, 72, 153, 0.8) 100%);
+            color: white;
+            border: 2px solid rgba(138, 43, 226, 0.8);
+            border-radius: 12px;
+            cursor: pointer;
+            font-weight: bold;
+            transition: all 0.3s;
+            box-shadow: 
+                0 0 20px rgba(138, 43, 226, 0.6),
+                0 4px 15px rgba(138, 43, 226, 0.4);
+            position: relative;
+            overflow: hidden;
+        }
+
+        .generate-btn::before {
+            content: '';
+            position: absolute;
+            top: -50%;
+            left: -50%;
+            width: 200%;
+            height: 200%;
+            background: linear-gradient(
+                45deg,
+                transparent 30%,
+                rgba(255, 255, 255, 0.3) 50%,
+                transparent 70%
+            );
+            transform: rotate(45deg);
+            animation: shimmer 3s infinite;
+        }
+
+        @keyframes shimmer {
+            0% { transform: translateX(-100%) translateY(-100%) rotate(45deg); }
+            100% { transform: translateX(100%) translateY(100%) rotate(45deg); }
+        }
+
+        .generate-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 
+                0 0 30px rgba(138, 43, 226, 0.8),
+                0 6px 20px rgba(138, 43, 226, 0.6);
+        }
+
+        .generate-btn:active {
+            transform: translateY(0);
+        }
+
+        .copy-btn {
+            margin-top: 15px;
+            padding: 10px 20px;
+            background: linear-gradient(135deg, 
+                rgba(16, 185, 129, 0.8),
+                rgba(5, 150, 105, 0.8));
+            color: white;
+            border: 2px solid rgba(16, 185, 129, 0.6);
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 0.95em;
+            transition: all 0.3s;
+            display: block;
+            margin-left: auto;
+            margin-right: auto;
+            box-shadow: 0 0 15px rgba(16, 185, 129, 0.4);
+        }
+
+        .copy-btn:hover {
+            background: linear-gradient(135deg, 
+                rgba(5, 150, 105, 0.9),
+                rgba(4, 120, 87, 0.9));
+            box-shadow: 0 0 25px rgba(16, 185, 129, 0.6);
+            transform: translateY(-2px);
+        }
+
+        .copied-notification {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            background: linear-gradient(135deg, 
+                rgba(16, 185, 129, 0.95),
+                rgba(5, 150, 105, 0.95));
+            color: white;
+            padding: 15px 25px;
+            border-radius: 8px;
+            border: 2px solid rgba(16, 185, 129, 0.8);
+            box-shadow: 0 0 25px rgba(16, 185, 129, 0.6);
+            opacity: 0;
+            transition: opacity 0.3s;
+            z-index: 1000;
+        }
+
+        .copied-notification.show {
+            opacity: 1;
+        }
+
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+                transform: translateY(10px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .quote-text.animate {
+            animation: fadeIn 0.5s ease-out;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>⚛️ Генератор Квантовой Мудрости ⚛️</h1>
+        <p class="subtitle">Синергетический инструмент для манифестации трансцендентного знания</p>
+
+        <div class="controls">
+            <div class="control-group">
+                <label>Уровень псевдонаучности:</label>
+                <div class="slider-container">
+                    <input type="range" id="pseudoLevel" min="1" max="5" value="3">
+                    <span class="level-label" id="levelLabel">Классическое</span>
+                </div>
+            </div>
+
+            <div class="control-group">
+                <label>Тематические пресеты (можно выбрать несколько):</label>
+                <div class="theme-checkboxes">
+                    <label class="checkbox-label">
+                        <input type="checkbox" name="theme" value="existential" checked>
+                        <span>Экзистенциальная онтология</span>
+                    </label>
+                    <label class="checkbox-label">
+                        <input type="checkbox" name="theme" value="phenomenology">
+                        <span>Феноменология сознания</span>
+                    </label>
+                    <label class="checkbox-label">
+                        <input type="checkbox" name="theme" value="dialectic">
+                        <span>Диалектическая метафизика</span>
+                    </label>
+                    <label class="checkbox-label">
+                        <input type="checkbox" name="theme" value="hermeneutic">
+                        <span>Постмодернистская герменевтика</span>
+                    </label>
+                    <label class="checkbox-label">
+                        <input type="checkbox" name="theme" value="transcendental">
+                        <span>Трансцендентальная эстетика</span>
+                    </label>
+                </div>
+            </div>
+
+            <div class="control-group">
+                <label>Формат:</label>
+                <div class="mode-switch">
+                    <button class="mode-btn active" data-mode="single">Одно высказывание</button>
+                    <button class="mode-btn" data-mode="article">Академический абзац</button>
+                </div>
+            </div>
+        </div>
+
+        <button class="generate-btn" onclick="generate()">✨ Получить Просветление ✨</button>
+
+        <div class="quote-box">
+            <div class="quote-text" id="quoteText">
+                Нажмите кнопку, чтобы получить квантовое озарение...
+            </div>
+            <div class="author-box" id="authorBox" style="display: none;">
+                <div class="author-name" id="authorName"></div>
+                <div id="authorCredentials"></div>
+                <div id="authorSource"></div>
+            </div>
+        </div>
+
+        <button class="copy-btn" onclick="copyToClipboard()">📋 Копировать мудрость</button>
+    </div>
+
+    <div class="copied-notification" id="notification">Скопировано в буфер обмена!</div>
+
+    <script>
+        // ====== МОРФОЛОГИЧЕСКАЯ СИСТЕМА ======
+        
+        // Типы склонения существительных (упрощённая версия по Зализняку)
+        const declensionTypes = {
+            // Мужской род
+            m1: { // на твёрдый согласный: стол, дом
+                endings: {
+                    им: '', род: 'а', дат: 'у', вин: '', тв: 'ом', пр: 'е'
+                }
+            },
+            m2: { // на -й: герой, случай
+                endings: {
+                    им: 'й', род: 'я', дат: 'ю', вин: 'й', тв: 'ем', пр: 'е'
+                }
+            },
+            m3: { // на мягкий: путь, день
+                endings: {
+                    им: 'ь', род: 'я', дат: 'ю', вин: 'ь', тв: 'ём', пр: 'е'
+                }
+            },
+            // Женский род
+            f1: { // на -а: вода, земля
+                endings: {
+                    им: 'а', род: 'ы', дат: 'е', вин: 'у', тв: 'ой', пр: 'е'
+                },
+                softEndings: {
+                    им: 'я', род: 'и', дат: 'е', вин: 'ю', тв: 'ей', пр: 'е'
+                }
+            },
+            f2: { // на -ия: энергия, суперпозиция
+                endings: {
+                    им: 'ия', род: 'ии', дат: 'ии', вин: 'ию', тв: 'ией', пр: 'ии'
+                }
+            },
+            f3: { // на -ь: ночь, тень
+                endings: {
+                    им: 'ь', род: 'и', дат: 'и', вин: 'ь', тв: 'ью', пр: 'и'
+                }
+            },
+            // Средний род
+            n1: { // на -о/-е: окно, поле
+                endings: {
+                    им: 'о', род: 'а', дат: 'у', вин: 'о', тв: 'ом', пр: 'е'
+                },
+                softEndings: {
+                    им: 'е', род: 'я', дат: 'ю', вин: 'е', тв: 'ем', пр: 'е'
+                }
+            },
+            n2: { // на -ие: знание, состояние
+                endings: {
+                    им: 'ие', род: 'ия', дат: 'ию', вин: 'ие', тв: 'ием', пр: 'ии'
+                }
+            }
+        };
+
+        // Типы склонения прилагательных
+        const adjectiveDeclensions = {
+            hard: { // твёрдый: новый
+                м: { им: 'ый', род: 'ого', дат: 'ому', вин: 'ый', тв: 'ым', пр: 'ом' },
+                ж: { им: 'ая', род: 'ой', дат: 'ой', вин: 'ую', тв: 'ой', пр: 'ой' },
+                с: { им: 'ое', род: 'ого', дат: 'ому', вин: 'ое', тв: 'ым', пр: 'ом' }
+            },
+            soft: { // мягкий: синий
+                м: { им: 'ий', род: 'его', дат: 'ему', вин: 'ий', тв: 'им', пр: 'ем' },
+                ж: { им: 'яя', род: 'ей', дат: 'ей', вин: 'юю', тв: 'ей', пр: 'ей' },
+                с: { им: 'ее', род: 'его', дат: 'ему', вин: 'ее', тв: 'им', пр: 'ем' }
+            }
+        };
+
+        // Словарь слов с морфологической информацией
+        const lexicon = {
+            nouns: {
+                existential: [
+                    { base: 'экзистенц', type: 'f2', gender: 'ж' },
+                    { base: 'аутентичност', type: 'f3', gender: 'ж' },
+                    { base: 'заброшенност', type: 'f3', gender: 'ж' },
+                    { base: 'страх', type: 'm1', gender: 'м' },
+                    { base: 'ничт', type: 'n1', gender: 'с' },
+                    { base: 'абсурд', type: 'm1', gender: 'м' },
+                    { base: 'бросок', type: 'm1', gender: 'м' },
+                    { base: 'проект', type: 'm1', gender: 'м' },
+                    { base: 'присутств', type: 'n2', gender: 'с' },
+                    { base: 'вот-быт', type: 'n2', gender: 'с' },
+                    { base: 'само-быт', type: 'n2', gender: 'с' },
+                    { base: 'разомкнутост', type: 'f3', gender: 'ж' },
+                    { base: 'временност', type: 'f3', gender: 'ж' },
+                    { base: 'конечност', type: 'f3', gender: 'ж' },
+                    { base: 'решимост', type: 'f3', gender: 'ж' },
+                    { base: 'свобод', type: 'f1', gender: 'ж' },
+                    { base: 'ответственност', type: 'f3', gender: 'ж' },
+                    { base: 'выбор', type: 'm1', gender: 'м' },
+                    { base: 'смысл', type: 'm1', gender: 'м' },
+                    { base: 'бытийствован', type: 'n2', gender: 'с' },
+                    { base: 'раскрыт', type: 'n2', gender: 'с' },
+                    { base: 'просвет', type: 'm1', gender: 'м' },
+                    { base: 'горизонт', type: 'm1', gender: 'м' },
+                    { base: 'смерт', type: 'f3', gender: 'ж' },
+                    { base: 'тревог', type: 'f1', gender: 'ж' }
+                ],
+                phenomenology: [
+                    { base: 'интенциональност', type: 'f3', gender: 'ж' },
+                    { base: 'переживан', type: 'n2', gender: 'с' },
+                    { base: 'данност', type: 'f3', gender: 'ж' },
+                    { base: 'созерцан', type: 'n2', gender: 'с' },
+                    { base: 'воспри', type: 'n2', gender: 'с' },
+                    { base: 'эпох', type: 'f1', gender: 'ж' },
+                    { base: 'редукц', type: 'f2', gender: 'ж' },
+                    { base: 'ноэм', type: 'f1', gender: 'ж' },
+                    { base: 'ноэз', type: 'm1', gender: 'м' },
+                    { base: 'конституирован', type: 'n2', gender: 'с' },
+                    { base: 'интуиц', type: 'f2', gender: 'ж' },
+                    { base: 'сознан', type: 'n2', gender: 'с' },
+                    { base: 'само-сознан', type: 'n2', gender: 'с' },
+                    { base: 'рефлекс', type: 'f2', gender: 'ж' },
+                    { base: 'очевидност', type: 'f3', gender: 'ж' },
+                    { base: 'самоданност', type: 'f3', gender: 'ж' },
+                    { base: 'поток', type: 'm1', gender: 'м' },
+                    { base: 'акт', type: 'm1', gender: 'м' },
+                    { base: 'содержан', type: 'n2', gender: 'с' },
+                    { base: 'схватыван', type: 'n2', gender: 'с' }
+                ],
+                dialectic: [
+                    { base: 'противоречи', type: 'n2', gender: 'с' },
+                    { base: 'синтез', type: 'm1', gender: 'м' },
+                    { base: 'тез', type: 'm1', gender: 'м' },
+                    { base: 'антитез', type: 'm1', gender: 'м' },
+                    { base: 'отрицан', type: 'n2', gender: 'с' },
+                    { base: 'снят', type: 'n2', gender: 'с' },
+                    { base: 'становлен', type: 'n2', gender: 'с' },
+                    { base: 'развит', type: 'n2', gender: 'с' },
+                    { base: 'опосредован', type: 'n2', gender: 'с' },
+                    { base: 'переход', type: 'm1', gender: 'м' },
+                    { base: 'скачок', type: 'm1', gender: 'м' },
+                    { base: 'качеств', type: 'n1', gender: 'с' },
+                    { base: 'количеств', type: 'n1', gender: 'с' },
+                    { base: 'сущност', type: 'f3', gender: 'ж' },
+                    { base: 'явлен', type: 'n2', gender: 'с' },
+                    { base: 'форм', type: 'f1', gender: 'ж' },
+                    { base: 'содержан', type: 'n2', gender: 'с' },
+                    { base: 'единств', type: 'n1', gender: 'с' },
+                    { base: 'целостност', type: 'f3', gender: 'ж' },
+                    { base: 'тотальност', type: 'f3', gender: 'ж' },
+                    { base: 'движен', type: 'n2', gender: 'с' }
+                ],
+                hermeneutic: [
+                    { base: 'интерпретац', type: 'f2', gender: 'ж' },
+                    { base: 'понимн', type: 'n2', gender: 'с' },
+                    { base: 'текст', type: 'm1', gender: 'м' },
+                    { base: 'дискурс', type: 'm1', gender: 'м' },
+                    { base: 'контекст', type: 'm1', gender: 'м' },
+                    { base: 'след', type: 'f1', gender: 'ж' },
+                    { base: 'деконструкц', type: 'f2', gender: 'ж' },
+                    { base: 'означающ', type: 'n2', gender: 'с' },
+                    { base: 'означаем', type: 'n2', gender: 'с' },
+                    { base: 'различ', type: 'n2', gender: 'с' },
+                    { base: 'отсроч', type: 'f1', gender: 'ж' },
+                    { base: 'зазор', type: 'm1', gender: 'м' },
+                    { base: 'разрыв', type: 'm1', gender: 'м' },
+                    { base: 'письм', type: 'n1', gender: 'с' },
+                    { base: 'рассеиван', type: 'n2', gender: 'с' },
+                    { base: 'плюральност', type: 'f3', gender: 'ж' },
+                    { base: 'симулякр', type: 'm1', gender: 'м' },
+                    { base: 'нарратив', type: 'm1', gender: 'м' },
+                    { base: 'метанарратив', type: 'm1', gender: 'м' },
+                    { base: 'ризом', type: 'f1', gender: 'ж' },
+                    { base: 'номадизм', type: 'm1', gender: 'м' },
+                    { base: 'лабиринт', type: 'm1', gender: 'м' },
+                    { base: 'парадокс', type: 'm1', gender: 'м' }
+                ],
+                transcendental: [
+                    { base: 'априор', type: 'n2', gender: 'с' },
+                    { base: 'апостериор', type: 'n2', gender: 'с' },
+                    { base: 'категор', type: 'f2', gender: 'ж' },
+                    { base: 'рассудок', type: 'm1', gender: 'м' },
+                    { base: 'разум', type: 'm1', gender: 'м' },
+                    { base: 'чувственност', type: 'f3', gender: 'ж' },
+                    { base: 'созерцан', type: 'n2', gender: 'с' },
+                    { base: 'схем', type: 'f1', gender: 'ж' },
+                    { base: 'способност', type: 'f3', gender: 'ж' },
+                    { base: 'синтез', type: 'm1', gender: 'м' },
+                    { base: 'единств', type: 'n1', gender: 'с' },
+                    { base: 'многообраз', type: 'n2', gender: 'с' },
+                    { base: 'вещь-в-себ', type: 'f3', gender: 'ж' },
+                    { base: 'феномен', type: 'm1', gender: 'м' },
+                    { base: 'ноумен', type: 'm1', gender: 'м' },
+                    { base: 'императив', type: 'm1', gender: 'м' },
+                    { base: 'максим', type: 'f1', gender: 'ж' },
+                    { base: 'идея', type: 'f1', gender: 'ж' },
+                    { base: 'идеал', type: 'm1', gender: 'м' },
+                    { base: 'субстанц', type: 'f2', gender: 'ж' },
+                    { base: 'акциденц', type: 'f2', gender: 'ж' },
+                    { base: 'атрибут', type: 'm1', gender: 'м' },
+                    { base: 'модус', type: 'm1', gender: 'м' },
+                    { base: 'воображен', type: 'n2', gender: 'с' },
+                    { base: 'представлен', type: 'n2', gender: 'с' }
+                ]
+            },
+            adjectives: {
+                existential: [
+                    { base: 'экзистенциальн', type: 'hard' },
+                    { base: 'онтологическ', type: 'soft' },
+                    { base: 'подлинн', type: 'hard' },
+                    { base: 'неподлинн', type: 'hard' },
+                    { base: 'заброшенн', type: 'hard' },
+                    { base: 'бытийн', type: 'hard' },
+                    { base: 'временн', type: 'hard' },
+                    { base: 'конечн', type: 'hard' },
+                    { base: 'абсурдн', type: 'hard' },
+                    { base: 'трагическ', type: 'soft' },
+                    { base: 'аутентичн', type: 'hard' },
+                    { base: 'герменевтическ', type: 'soft' },
+                    { base: 'историческ', type: 'soft' }
+                ],
+                phenomenology: [
+                    { base: 'феноменологическ', type: 'soft' },
+                    { base: 'интенциональн', type: 'hard' },
+                    { base: 'трансцендентальн', type: 'hard' },
+                    { base: 'конституирующ', type: 'soft' },
+                    { base: 'редуктивн', type: 'hard' },
+                    { base: 'эйдетическ', type: 'soft' },
+                    { base: 'созерцательн', type: 'hard' },
+                    { base: 'рефлексивн', type: 'hard' },
+                    { base: 'имманентн', type: 'hard' },
+                    { base: 'очевидн', type: 'hard' }
+                ],
+                dialectic: [
+                    { base: 'диалектическ', type: 'soft' },
+                    { base: 'синтетическ', type: 'soft' },
+                    { base: 'противоречив', type: 'hard' },
+                    { base: 'опосредованн', type: 'hard' },
+                    { base: 'негативн', type: 'hard' },
+                    { base: 'тотализирующ', type: 'soft' },
+                    { base: 'спекулятивн', type: 'hard' },
+                    { base: 'абсолютн', type: 'hard' },
+                    { base: 'релятивн', type: 'hard' },
+                    { base: 'имманентн', type: 'hard' }
+                ],
+                hermeneutic: [
+                    { base: 'постмодернистск', type: 'soft' },
+                    { base: 'деконструктивн', type: 'hard' },
+                    { base: 'интерпретативн', type: 'hard' },
+                    { base: 'дискурсивн', type: 'hard' },
+                    { base: 'текстуальн', type: 'hard' },
+                    { base: 'плюральн', type: 'hard' },
+                    { base: 'ризоматическ', type: 'soft' },
+                    { base: 'номадическ', type: 'soft' },
+                    { base: 'лабиринтн', type: 'hard' },
+                    { base: 'парадоксальн', type: 'hard' },
+                    { base: 'метафорическ', type: 'soft' },
+                    { base: 'семиотическ', type: 'soft' }
+                ],
+                transcendental: [
+                    { base: 'трансцендентальн', type: 'hard' },
+                    { base: 'априорн', type: 'hard' },
+                    { base: 'апостериорн', type: 'hard' },
+                    { base: 'категориальн', type: 'hard' },
+                    { base: 'синтетическ', type: 'soft' },
+                    { base: 'аналитическ', type: 'soft' },
+                    { base: 'чувственн', type: 'hard' },
+                    { base: 'рассудочн', type: 'hard' },
+                    { base: 'умопостигаем', type: 'hard' },
+                    { base: 'феноменальн', type: 'hard' }
+                ]
+            }
+        };
+
+        // Функция склонения существительного
+        function declineNoun(wordData, caseForm) {
+            const { base, type, gender, soft } = wordData;
+            
+            // Специальные слова с неправильным склонением
+            const irregulars = {
+                'пут': { // путь - разносклоняемое
+                    им: 'ь', род: 'и', дат: 'и', вин: 'ь', тв: 'ём', пр: 'и'
+                },
+                'матер': { // материя
+                    им: 'ия', род: 'ии', дат: 'ии', вин: 'ию', тв: 'ией', пр: 'ии'
+                }
+            };
+            
+            // Проверка на неправильные слова
+            if (irregulars[base]) {
+                return base + irregulars[base][caseForm];
+            }
+            
+            const declension = declensionTypes[type];
+            
+            if (!declension) return base;
+            
+            const endings = (soft && declension.softEndings) ? declension.softEndings : declension.endings;
+            let ending = endings[caseForm] || endings.им;
+            
+            // ======= РАСШИРЕННАЯ ОБРАБОТКА БЕГЛЫХ ГЛАСНЫХ =======
+            let workingBase = base;
+            
+            // Словарь слов с беглыми гласными (основа ИМ → основа косвенных падежей)
+            const fleetingVowelDict = {
+                // Мужской род на -ец
+                'отец': 'отц',
+                'конец': 'конц',
+                'дворец': 'дворц',
+                'огурец': 'огурц',
+                'творец': 'творц',
+                'немец': 'немц',
+                'месяц': 'месяц', // исключение - не выпадает
+                
+                // Мужской род на -ок/-ек
+                'поток': 'поток',  // не выпадает
+                'урок': 'урок',    // не выпадает
+                'кусок': 'куск',
+                'замок': 'замк',
+                'подарок': 'подарк',
+                'узел': 'узл',
+                'огонь': 'огн',
+                'день': 'дн',
+                'пень': 'пн',
+                'лень': 'лен', // исключение - не выпадает
+                'тень': 'тен', // исключение - не выпадает
+                'цел': 'цел', // цель - исключение, не выпадает
+                
+                // Слова с о/е в середине
+                'сон': 'сн',
+                'лев': 'льв',
+                'лёд': 'льд',
+                'рот': 'рт',
+                'кокон': 'кокон', // не выпадает
+                'центр': 'центр', // не выпадает
+                'узор': 'узор', // не выпадает
+                'блок': 'блок', // не выпадает
+            };
+            
+            // Проверяем словарь беглых гласных
+            if (caseForm !== 'им' && caseForm !== 'вин' && fleetingVowelDict[base]) {
+                workingBase = fleetingVowelDict[base];
+            } else if (caseForm !== 'им' && caseForm !== 'вин') {
+                // Автоматическое определение беглых гласных по паттернам
+                
+                // 1. Слова на -ец (кроме исключений)
+                if (/ец$/.test(workingBase) && !['месяц', 'отец', 'боец'].includes(workingBase)) {
+                    workingBase = workingBase.replace(/ец$/, 'ц');
+                }
+                // Специально для слов типа "отец"
+                else if (workingBase === 'отец') {
+                    workingBase = 'отц';
+                }
+                
+                // 2. Слова на -ок с беглым о (кусок → куск)
+                else if (/([бвгджзклмнпрстфхцчшщ])ок$/.test(workingBase)) {
+                    // Но не для слов: урок, поток, восток, итог и подобных
+                    if (!['урок', 'поток', 'восток', 'исток', 'восток', 'каток'].includes(workingBase)) {
+                        workingBase = workingBase.replace(/([бвгджзклмнпрстфхцчшщ])ок$/, '$1к');
+                    }
+                }
+                
+                // 3. Слова на -ел с беглым е (узел → узл)
+                else if (/([бвгджзклмнпрстфхцчшщ])ел$/.test(workingBase)) {
+                    if (!['котел', 'козел'].includes(workingBase)) {
+                        workingBase = workingBase.replace(/([бвгджзклмнпрстфхцчшщ])ел$/, '$1л');
+                    }
+                }
+                
+                // 4. Слова на -ень (день → дн)
+                else if (/ень$/.test(workingBase)) {
+                    // Исключения: лень, тень, пень
+                    if (!['лень', 'тень', 'камень', 'ремень', 'пень'].includes(workingBase)) {
+                        workingBase = workingBase.replace(/ень$/, 'н');
+                    }
+                }
+                
+                // 5. Односложные слова с о/е (сон → сн, лёд → льд)
+                else if (/^[бвгджзклмнпрстфхцчшщ][оеё][нмлрт]$/.test(workingBase)) {
+                    // сон, лев, лёд, рот
+                    if (['сон'].includes(workingBase)) {
+                        workingBase = workingBase.replace(/о([нмлрт])$/, '$1');
+                    } else if (workingBase === 'лев') {
+                        workingBase = 'льв';
+                    } else if (workingBase === 'лёд') {
+                        workingBase = 'льд';
+                    } else if (workingBase === 'рот') {
+                        workingBase = 'рт';
+                    }
+                }
+            }
+            
+            // Для женского рода на -а после к,г,х,ш,ж,ч,щ: род.пад = и (не ы)
+            if (type === 'f1' && !soft) {
+                const lastChar = workingBase.charAt(workingBase.length - 1);
+                if ('кгхшжчщ'.includes(lastChar)) {
+                    if (caseForm === 'род' && ending === 'ы') {
+                        ending = 'и';
+                    }
+                    if (caseForm === 'тв') {
+                        // После шипящих и ц: ей (не ой)
+                        if ('шжчщц'.includes(lastChar)) {
+                            ending = 'ей';
+                        } else {
+                            ending = 'ой';
+                        }
+                    }
+                }
+            }
+            
+            return workingBase + ending;
+        }
+
+        // Функция склонения прилагательного
+        function declineAdjective(wordData, gender, caseForm) {
+            const { base, type } = wordData;
+            const declension = adjectiveDeclensions[type];
+            
+            if (!declension || !declension[gender]) return base + 'ый';
+            
+            let ending = declension[gender][caseForm] || declension[gender].им;
+            
+            // Для основ на к, г, х, ш, ж, ч, щ применяем особые правила
+            const lastChar = base.charAt(base.length - 1);
+            const velar = 'кгх'.includes(lastChar); // заднеязычные
+            const sibilant = 'шжчщ'.includes(lastChar); // шипящие
+            
+            if (type === 'soft') {
+                // Мягкое склонение с корректировкой для к,г,х и шипящих
+                if (gender === 'м') {
+                    if (velar || sibilant) {
+                        // к,г,х,ш,ж,ч,щ + ий → ий (корректно)
+                        // но род: его, дат: ему, тв: им
+                    }
+                } else if (gender === 'ж') {
+                    if (velar || sibilant) {
+                        // Для этих согласных: ая/ую вместо яя/юю
+                        const replacements = {
+                            'яя': 'ая',
+                            'юю': 'ую',
+                            'ей': 'ой' // для род/дат/пр после шипящих
+                        };
+                        if (replacements[ending]) {
+                            ending = replacements[ending];
+                        }
+                    }
+                } else if (gender === 'с') {
+                    if (velar || sibilant) {
+                        // ое вместо ее
+                        if (ending === 'ее') ending = 'ое';
+                    }
+                }
+            }
+            
+            return base + ending;
+        }
+
+        // Функция склонения dimension (прилагательное + существительное)
+        function declineDimension(dimData, caseForm) {
+            const { word, adj, base, type, gender, soft } = dimData;
+            
+            // Определяем тип склонения прилагательного по окончанию
+            let adjType = 'hard';
+            if (adj.endsWith('ий') || adj.endsWith('яя') || adj.endsWith('ее')) {
+                adjType = 'soft';
+            }
+            
+            // Склоняем прилагательное
+            const adjWord = { base: word, type: adjType };
+            const adjDeclined = declineAdjective(adjWord, gender, caseForm);
+            
+            // Склоняем существительное
+            const nounWord = { base, type, gender, soft };
+            const nounDeclined = declineNoun(nounWord, caseForm);
+            
+            return adjDeclined + ' ' + nounDeclined;
+        }
+
+        // Функция склонения статичного прилагательного по роду существительного
+        function declineStaticAdjective(adjBase, nounGender, caseForm) {
+            // Определяем тип склонения по окончанию базы
+            let adjType = 'hard';
+            const lastTwo = adjBase.slice(-2);
+            
+            // Проверяем на мягкое склонение
+            if (adjBase.endsWith('ическ') || adjBase.endsWith('енн') || 
+                adjBase.endsWith('ельн') || adjBase.endsWith('ческ')) {
+                adjType = 'soft';
+            }
+            
+            const adjWord = { base: adjBase, type: adjType };
+            return declineAdjective(adjWord, nounGender, caseForm);
+        }
+
+        // ====== ШАБЛОНЫ ПРЕДЛОЖЕНИЙ ======
+        
+        const templates = {
+            1: [
+                // Базовые причинно-следственные
+                'Исследования показывают, что {adj:concept:им} {concept:им} влияет на {object:вин} через механизм {process}.',
+                'При взаимодействии {concept:род} и {object:род} наблюдается {adj:м:им} эффект.',
+                'Анализ {adj:concept:род} {concept:род} демонстрирует корреляцию с {object:тв}.',
+                '{adj:concept:им} {concept:им} создаёт условия для трансформации {object:род}.',
+                'Философская рефлексия подтверждает влияние {concept:род} на структуру {object:род}.',
+                'Наблюдаемый феномен {concept:род} коррелирует с изменением {object:род}.',
+                'Концептуальный анализ выявил зависимость {object:род} от {adj:concept:род} {concept:род}.',
+                'При достижении критического уровня {concept:род} активируется {adj:м:им} механизм.',
+                'Изучение {adj:concept:род} {concept:род} позволяет прогнозировать динамику {object:род}.',
+                'В условиях {adj:concept:род} {process} происходит модификация {object:род}.',
+                
+                // Условные конструкции
+                'Если {concept:им} превышает пороговое значение, {object:им} подвергается трансформации.',
+                'В случае синхронизации {concept:род} с {object:тв} возникает {adj:м:им} резонанс.',
+                'При соблюдении определённых условий {concept:им} может модулировать {object:вин}.',
+                
+                // Сравнительные конструкции
+                'Подобно тому, как {concept:им} регулирует {process}, {object:им} определяет динамику системы.',
+                'В отличие от классических моделей, {adj:concept:им} {concept:им} демонстрирует нелинейную зависимость от {object:род}.',
+                'Аналогично процессам {process}, {concept:им} воздействует на {object:вин}.',
+                
+                // Временные конструкции
+                'После активации {concept:род} наблюдается изменение параметров {object:род}.',
+                'В течение периода {process} {concept:им} постепенно изменяет {object:вин}.',
+                'До момента стабилизации {concept:род} {object:им} находится в переходном состоянии.'
+            ],
+            '1_question': [
+                'Не свидетельствует ли это о влиянии {concept:род} на {object:вин}?',
+                'Может ли {adj:concept:им} {concept:им} объяснить феномен {object:род}?',
+                'Не является ли {concept:им} определяющим фактором для {object:род}?'
+            ],
+            2: [
+                // Базовые философские утверждения
+                '{adj:concept:им} {concept:им} способен раскрыть {object:вин} при правильном {process}.',
+                'Конвергенция {concept:род} с {object:тв} открывает доступ к {adj:м:дат} потенциалу.',
+                'Гармонизация {adj:concept:род} {concept:род} приводит к резонансу с {object:тв}.',
+                'Актуализация {concept:род} через {adj:concept:вин} {process} усиливает {object:вин}.',
+                'Достигая состояния {process}, {concept:им} интегрируется с {object:тв}.',
+                'Практика {process} позволяет настроить {concept:вин} на уровень {object:род}.',
+                'Трансформация {concept:род} создаёт условия для проявления {object:род}.',
+                'Согласно современным концепциям, {concept:им} детерминирует {object:вин}.',
+                'Смысловой обмен между {concept:тв} и {object:тв} обеспечивает {adj:м:вин} баланс.',
+                'В процессе {process} происходит выравнивание {concept:род} и {object:род}.',
+                'Установление связи между {concept:тв} и {object:тв} требует {adj:ж:род} настройки.',
+                'При правильной работе с {concept:тв} открывается путь к {object:дат}.',
+                
+                // Причинно-следственные с "благодаря", "поскольку"
+                'Благодаря {adj:concept:дат} {concept:дат} происходит актуализация {object:род}.',
+                'Поскольку {concept:им} резонирует с {object:тв}, возникает эффект {process}.',
+                'Вследствие {process} {concept:им} начинает влиять на {object:вин}.',
+                
+                // Конструкции с целью
+                'Для достижения {process} необходимо синхронизировать {concept:вин} с {object:тв}.',
+                'С целью актуализации {object:род} философы работают с {concept:тв}.',
+                
+                // Конструкции с перечислением
+                '{concept:им} не только усиливает {object:вин}, но и создаёт условия для {process}.',
+                'Как {concept:им}, так и {object:им} участвуют в процессе {process}.'
+            ],
+            '2_question': [
+                'Не открывает ли {concept:им} путь к {adj:object:дат} {object:дат}?',
+                'Может ли практика {process} усилить связь между {concept:тв} и {object:тв}?',
+                'Разве не очевидно, что {concept:им} влияет на {object:вин}?'
+            ],
+            3: [
+                // Базовые феноменологические утверждения
+                'Феноменологическая природа {concept:род} позволяет сознанию влиять на {object:вин}.',
+                '{adj:concept:им} {concept:им} находится в состоянии интенциональной направленности на {object:тв}.',
+                'Редукция {concept:род} создаёт {adj:object:вин} {object:вин}.',
+                'На трансцендентальном уровне {concept:им} и {object:им} образуют единую структуру.',
+                'Конституирование {concept:род} позволяет {object:дат} существовать в различных модусах.',
+                'Феномен интенциональности связывает {concept:вин} с {object:тв} непосредственно.',
+                'Сознание, обращаясь к {adj:concept:тв} полю, конституирует {object:вин}.',
+                'Эйдетическая интуиция {concept:род} определяет структуру {object:род}.',
+                
+                // Условные конструкции с феноменологической спецификой
+                'Если субъект фокусируется на {concept:пр}, ноэтическая структура {object:род} мгновенно раскрывается.',
+                'В случае достижения эйдетической ясности {concept:род} с {object:тв} возникает непосредственная связь.',
+                'При условии сохранения интенциональности {concept:им} может мгновенно влиять на {object:вин}.',
+                'Когда {concept:им} достигает критической очевидности, {object:им} переходит в иной модус.',
+                
+                // Сравнительные конструкции
+                'Подобно тому, как восприятие проявляет ноэтико-ноэматическую корреляцию, {concept:им} демонстрирует интенциональные свойства в {object:пр}.',
+                'В отличие от натуралистической установки, где {concept:им} детерминирован, феноменологический {object:им} конституирован.',
+                'Аналогично принципу очевидности Гуссерля, {concept:им} и {object:им} взаимодополняют друг друга.',
+                
+                // Герменевтическая парадигма
+                'Герменевтический круг устанавливает связь между {concept:тв} и {object:тв}.',
+                'Каждая часть {concept:род} содержит смысл целостности {object:род}.',
+                'В горизонте понимания {concept:им} отражается в {object:пр}.',
+                
+                // Семиотическая теория
+                'Семиотическая структура {concept:род} кодирует параметры {object:род}.',
+                '{concept:им} передаёт смыслы {object:дат} через интерпретативные каналы.',
+                'Плюральность {concept:род} определяет степень открытости {object:род}.',
+                
+                // Экзистенциальные модели
+                'Философ, обращаясь к {concept:пр}, изменяет состояние {object:род}.',
+                'Эффект понимания распространяется на {concept:вин} через {adj:м:вин} резонанс.',
+                'В многомерном пространстве смыслов {concept:им} резонирует с {object:тв}.',
+                'Экзистенциальная глубина {concept:род} синхронизируется с {object:тв}.',
+                'Онтологические уровни {concept:род} и {object:род} образуют единый горизонт.',
+                'Принцип заброшенности проявляется в соотношении {concept:род} и {object:род}.',
+                
+                // Онтологические структуры
+                'Онтологическая структура {concept:род} содержит матрицу {object:род}.',
+                'Через бытийное раскрытие {concept:им} влияет на формирование {object:род}.',
+                'Поскольку {concept:им} обладает онтологическими свойствами, {object:им} наследует его структуру.'
+            ],
+            '3_question': [
+                'Не является ли {concept:им} феноменологическим проявлением {object:род}?',
+                'Может ли субъект конституировать {object:вин} через редукцию?',
+                'Разве {adj:concept:им} {concept:им} не направлен интенционально на {object:тв}?',
+                'Не свидетельствует ли редукция {concept:род} о влиянии сознания на {object:вин}?',
+                'Если {concept:им} находится в модусе конституирования, разве {object:им} не должен также раскрываться?',
+                'Не подтверждает ли герменевтический круг связь между {concept:тв} и {object:тв}?',
+                'Может ли семиотическая структура {concept:род} определять параметры {object:род}?'
+            ],
+            4: [
+                // Базовые конструкции с латынью
+                '{adj:concept:им} {concept:им} трансцендирует {object:вин} через {латынь}.',
+                'Согласно {латынь}, {concept:им} эмергентно проявляется в {object:пр}.',
+                'Онтологический {concept:им} экстраполируется на {object:вин} посредством {латынь}.',
+                
+                // Условные конструкции высокой сложности
+                'Если {concept:им} достигает точки апории, то, согласно {латынь}, {object:им} претерпевает качественный переход в {измерение:пр}.',
+                'В случае, когда диалектическая динамика {concept:род} создаёт противоречие, {object:им} рекурсивно снимается.',
+                'При условии, что {concept:им} экзистирует на уровне {число}, резонанс с {object:тв} становится неизбежным.',
+                
+                // Сравнительные конструкции с философской лексикой
+                'Подобно тому, как диалектические противоречия снимаются в синтезе, {concept:им} генерирует смысловые паттерны в {object:пр}.',
+                'В отличие от догматических систем, где траектория детерминирована, {adj:concept:им} {concept:им} демонстрирует апоретическую динамику относительно {object:род}.',
+                'Аналогично процессу {process}, протекающему {латынь}, {concept:им} экспоненциально амплифицирует {object:вин}.',
+                
+                // Теория противоречий и апорий
+                'Парадигмальный сдвиг {concept:род} инициирует смысловой скачок {object:род} в {измерение:пр}.',
+                'Диалектическая динамика {concept:род} создаёт точку противоречия в континууме {object:род}.',
+                'При достижении критической массы {concept:род} происходит качественный переход {object:род}.',
+                '{concept:им}, достигая апории, рекурсивно модифицирует {object:вин}.',
+                'В семантическом пространстве {concept:род} формируется парадокс {object:род}.',
+                'Герменевтическая траектория {concept:род} пересекается с горизонтом {object:род}.',
+                
+                // Вложенные причинно-следственные цепочки
+                'Поскольку диалектический процесс {concept:род} генерирует противоречивую структуру, а {object:им}, в свою очередь, резонирует на уровне {число}, возникает каскадное снятие.',
+                'Благодаря тому, что онтологическое поле {concept:род} резонирует с матрицей {object:род}, система переходит в режим {латынь}.',
+                
+                // Апории и парадоксы
+                'Диалектический процесс {concept:род} генерирует противоречивую структуру {object:род}.',
+                'Апоретические моменты {concept:род} самоснимаются в {adj:м:вин} паттерн {object:род}.',
+                'Герменевтическая глубина {concept:род} соответствует степени сложности {object:род}.',
+                'Рекурсивная природа {concept:род} проявляется на всех уровнях {object:род}.',
+                
+                // Уровни и резонансы
+                '{concept:им} экзистирует на уровне {число}, резонируя с {adj:object:тв} {object:тв}.',
+                'Концептуальный анализ {concept:род} выявляет модусы {число} в структуре {object:род}.',
+                
+                // Онтология и смыслы
+                'Онтологическое поле {concept:род} резонирует с {adj:ж:тв} матрицей {object:род}.',
+                'В результате {process} {concept:им} интерферирует с {object:тв} на уровне {измерение:род}.',
+                
+                // Семиотика с временными конструкциями
+                'После того как семиотическая плотность {concept:род} превышает пороговое значение, степень неопределённости {object:род} экспоненциально возрастает.',
+                '{concept:им} кодирует смыслы в {число}-мерном пространстве значений {object:род}.',
+                
+                // Интерпретация и деконструкция
+                'Деконструктивная волна {concept:род} распространяется через поле {object:род} без редукции.',
+                'Постмодернистский отклик {concept:род} генерирует интерпретации высших порядков в {object:пр}.'
+            ],
+            '4_question': [
+                'Не достиг ли {concept:им} точки апории в континууме {object:род}?',
+                'Может ли {adj:concept:им} {concept:им} трансцендировать {object:вин}?',
+                'Разве не очевидна диалектическая природа {concept:род} в контексте {object:род}?',
+                'Не является ли противоречивая структура {concept:род} парадоксом для {object:род}?',
+                'Если {concept:им} демонстрирует рекурсивные свойства, не генерирует ли он апоретические паттерны в {object:пр}?',
+                'Не свидетельствует ли резонанс на уровне {число} об онтологической связи между {concept:тв} и {object:тв}?',
+                'Может ли диалектическая динамика {concept:род} привести к каскадному снятию {object:род}?',
+                'Разве деконструктивная волна {concept:род} не распространяется через {object:вин} {латынь}?'
+            ],
+            5: [
+                // Трансцендентальная философия - базовые
+                '{adj:ж:им} категория {concept:род} экспоненциально амплифицирует {adj:object:вин} {object:вин}.',
+                'Трансцендентальное единство апперцепции {concept:род} спонтанно синтезируется в многообразии {object:род}.',
+                'Схематизм {concept:род} опосредуется через категориальный синтез {object:род}.',
+                'Априорные формы {concept:род} конституируют феноменальное поле {object:род}.',
+                'Трансцендентальная дедукция {concept:род} стремится к ноуменальной точке в пространстве {object:род}.',
+                
+                // Условные конструкции с философскими кванторами
+                'Если и только если категориальный синтез {concept:род} коммутирует с априорной формой, то спектр {object:род} дискретен в замкнутой области.',
+                'При условии, что функториальное отображение {concept:род} сохраняет структуру смыслов, категория {object:род} локально декартово замкнута.',
+                'В случае, когда мера понимания на {concept:пр} герменевтически адекватна, почти всюду в пространстве {object:род} интерпретация гарантирована.',
+                'Для любого ε > 0 существует такое δ, что если расстояние между {concept:тв} и {object:тв} меньше δ, то {adj:ж:им} онтологическая инвариантность сохраняется.',
+                
+                // Сложные вложенные конструкции
+                'Поскольку диалектическое отображение {concept:род} на {object:вин} индуцирует смысловую структуру, а онтологическая кривизна, в свою очередь, определяет траектории, система демонстрирует глобальную противоречивость.',
+                'Благодаря тому, что естественная трансформация связывает {concept:вин} с дуальным объектом {object:род}, а функтор при этом коммутирует с пределами, диаграмма коммутирует в смысле категориальной онтологии.',
+                
+                // Сравнительные конструкции с глубокой философией
+                'Подобно тому, как герменевтический круг устанавливает равенство части и целого, {concept:им} демонстрирует смысловое перемешивание в пространстве {object:род}.',
+                'Аналогично процессу феноменологической редукции, происходящему при эпохе, {concept:им} достигает трансцендентального уровня при абсолютной рефлексии в {object:пр}.',
+                'В отличие от догматических систем, где все элементы детерминированы, {adj:concept:им} {concept:им} проявляет апоретическую структуру относительно {object:род}.',
+                
+                // Онтология и категории
+                '{concept:им} категориально {кратк_прил:изоморфен:concept} {object:дат} в трансцендентальном пространстве {измерение:род}.',
+                'Диалектическое отображение {concept:род} на {object:вин} индуцирует {adj:ж:вин} структуру.',
+                '{adj:ж:им} инвариантность {concept:род} сохраняется при снятии в пространстве {object:род}.',
+                'Смысловая группа {concept:род} нетривиальна в односвязном {object:пр}.',
+                'Онтологическая кривизна {concept:род} определяет траектории в {object:пр}.',
+                
+                // Феноменология и герменевтика
+                '{статич_прил:трансцендентально-феноменологическ:concept:им} {concept:им} осциллирует между {number}% {object:род} и абсолютной редукцией.',
+                '{adj:ж:им} плотность смысла {concept:род} детерминирует герменевтическую траекторию {object:род}.',
+                'Рекурсивность {concept:род} проявляется в перемешивании семантического потока {object:род}.',
+                '{concept:им} демонстрирует интенциональность на критическом уровне {object:род}.',
+                'Феноменологическая редукция {concept:род} происходит ниже порога естественной установки {object:род}.',
+                'Герменевтическая теорема связывает {concept:вин} с интерпретациями {object:род}.',
+                
+                // Категориальный анализ с условиями
+                '{concept:им}, будучи категорией системы, экстремизирует функционал смысла {object:род}.',
+                'Оператор понимания {concept:род} действует в трансцендентальном пространстве {object:род}.',
+                'Спектр категорий {concept:род} дискретен в ограниченном {object:пр}.',
+                'Если априорные формы {concept:род} вырождены, то в базисе {object:род} возникает дополнительная симметрия.',
+                
+                // Диалектика и категории
+                'Функториальное отображение {concept:род} коммутирует со снятиями в категории {object:род}.',
+                'Естественная трансформация связывает {concept:вин} с дуальным объектом {object:род}.',
+                
+                // Герменевтика и вероятность с вложениями
+                'Мера понимания на пространстве {concept:род} герменевтически адекватна относительно {object:род}.',
+                'Условная интерпретация {concept:род} минимизирует семантическое отклонение от {object:род}.',
+                'В силу того, что категориальная система порождена {concept:тв}, смысловой процесс в {object:пр} оказывается конституируемым.'
+            ],
+            '5_question': [
+                'Не является ли {concept:им} {статич_прил:категориальн:concept:тв} {object:дат}?',
+                'Может ли онтологическая инвариантность {concept:род} быть нарушена в трансцендентальном поле {object:род}?',
+                'Разве {adj:concept:им} {concept:им} не экстремизирует функционал смысла?',
+                'Не коммутирует ли оператор понимания {concept:род} с категориальным синтезом {object:род}?',
+                'Если спектр {concept:род} дискретен, не означает ли это, что пространство {object:род} ограничено?',
+                'Не индуцирует ли диалектическое отображение {concept:род} онтологическую структуру на многообразии {object:род}?',
+                'Разве смысловая группа {concept:род} не изоморфна группе категорий {object:род}?',
+                'Может ли апоретическая структура {concept:род} спонтанно нарушить категориальную инвариантность {object:род}?',
+                'Не является ли герменевтическая адекватность на {concept:пр} необходимым условием конституирования {object:род}?'
+            ]
+        };
+
+        // Союзы следствия
+        const consequenceConjunctions = [
+            'Поэтому',
+            'Следовательно',
+            'Таким образом',
+            'В результате',
+            'Отсюда следует, что',
+            'Из этого вытекает, что',
+            'Это означает, что'
+        ];
+
+        // Дополнительные элементы
+        const extras = {
+            processes: [
+                'интенциональности', 'редукции', 'конституирования', 'актуализации', 
+                'снятия', 'интеграции', 'трансформации', 'раскрытия', 
+                'рефлексии', 'опосредования', 'различения', 'интерпретации',
+                'деконструкции', 'апории', 'самоорганизации', 'рекурсии',
+                'итерации', 'экзистирования', 'бытийствования', 'трансцендирования'
+            ],
+            latin: [
+                'ex nihilo', 'per se', 'a priori', 'sui generis', 'in potentia', 
+                'ab initio', 'ad infinitum', 'in situ', 'tabula rasa', 'deus ex machina', 
+                'modus operandi', 'sine qua non', 'per aspera ad astra', 'ceteris paribus',
+                'mutatis mutandis', 'post hoc', 'ipso facto', 'vice versa', 'de facto',
+                'quantum satis', 'quid pro quo', 'status quo', 'ad absurdum'
+            ],
+            dimensions: [
+                { word: 'онтологическ', adj: 'ом', base: 'измерен', type: 'n2', gender: 'с' },
+                { word: 'трансцендентальн', adj: 'ый', base: 'план', type: 'm1', gender: 'м' },
+                { word: 'феноменальн', adj: 'ое', base: 'пол', type: 'n1', gender: 'с', soft: true },
+                { word: 'ноуменальн', adj: 'ое', base: 'пространств', type: 'n1', gender: 'с' },
+                { word: 'экзистенциальн', adj: 'ая', base: 'сфер', type: 'f1', gender: 'ж' },
+                { word: 'герменевтическ', adj: 'ий', base: 'уровень', type: 'm1', gender: 'м' },
+                { word: 'семантическ', adj: 'ий', base: 'континуум', type: 'm1', gender: 'м' },
+                { word: 'диалектическ', adj: 'ое', base: 'пространств', type: 'n1', gender: 'с' },
+                { word: 'категориальн', adj: 'ый', base: 'план', type: 'm1', gender: 'м' },
+                { word: 'апоретическ', adj: 'ая', base: 'точк', type: 'f1', gender: 'ж' },
+                { word: 'интенциональн', adj: 'ый', base: 'слой', type: 'm1', gender: 'м' },
+                { word: 'трансцендентн', adj: 'ое', base: 'пол', type: 'n1', gender: 'с', soft: true }
+            ],
+            numbers: [
+                432, 528, 963, 741, 639, 94.7, 87.3, 99.2, 13.8, 42.0, 
+                108, 144, 369, 7.83, 11.11, 22.22, 33.33, 1.618, 3.14159,
+                137, 273, 666, 777, 888, 21, 12, 9, 5, 8, 13
+            ]
+        };
+
+        // Генератор авторов
+        const authors = {
+            firstNames: {
+                russian: ['Владимир', 'Александр', 'Сергей', 'Михаил', 'Николай', 'Алексей', 'Дмитрий', 'Андрей', 'Евгений', 'Виктор', 'Борис', 'Иван'],
+                western: ['Мартин', 'Жак', 'Жиль', 'Мишель', 'Эммануэль', 'Юрген', 'Ричард', 'Жан', 'Поль', 'Славой'],
+                exotic: ['Бо', 'Сунь', 'Чжуан', 'Лао', 'Конфуций', 'Нагарджуна']
+            },
+            lastNames: {
+                scientific: ['Онтологов', 'Экзистенциалов', 'Феноменологов', 'Герменевтов', 'Диалектиков', 'Категориалов', 'Трансценденталов', 'Семиотов'],
+                western: ['Хайдеггер', 'Деррида', 'Делёз', 'Фуко', 'Левинас', 'Хабермас', 'Рорти', 'Сартр', 'Бадью', 'Жижек'],
+                neutral: ['Соколов', 'Орлов', 'Волков', 'Медведев', 'Смирнов', 'Кузнецов'],
+                exotic: ['Цзы', 'Цзюань', 'Дао', 'Чань', 'Дзен']
+            },
+            titles: {
+                academic: ['д.филос.н.', 'к.филос.н.', 'д.культурол.н.', 'PhD', 'DSc', 'к.филол.н.', 'д.социол.н.'],
+                position: ['профессор', 'доцент', 'академик', 'член-корреспондент']
+            },
+            institutions: {
+                existential: ['Института экзистенциальной онтологии', 'Центра феноменологии Dasein', 'Лаборатории бытийного мышления', 'Института онто-герменевтики', 'Центра экзистенциальной аналитики'],
+                phenomenology: ['Международной академии феноменологических наук', 'Центра трансцендентальной феноменологии', 'Института интенционального анализа', 'Академии эйдетических исследований'],
+                hermeneutic: ['Центра деконструктивистских исследований', 'Института постмодернистской философии', 'НИИ герменевтики', 'Лаборатории семиотического анализа'],
+                dialectic: ['Института диалектической философии', 'Центра негативной диалектики', 'Института спекулятивного идеализма', 'Академии критической теории'],
+                transcendental: ['Института трансцендентальной философии', 'Центра категориального анализа', 'Академии критического разума', 'Института априорных форм']
+            },
+            positions: ['директор', 'руководитель', 'главный исследователь', 'ведущий философ', 'президент', 'основатель', 'заведующий кафедрой'],
+            associations: [
+                'Ассоциации феноменологических практик',
+                'Международного общества экзистенциальной философии',
+                'Союза герменевтов',
+                'Федерации диалектических исследований',
+                'Гильдии постмодернистов',
+                'Общества изучения онтологии',
+                'Международной ассоциации трансцендентальной эстетики',
+                'Совета по категориальному анализу'
+            ],
+            sources: {
+                journals: [
+                    'Журнал трансцендентальной философии',
+                    'Вестник феноменологии',
+                    'Journal of Continental Philosophy',
+                    'Международный журнал герменевтики',
+                    'Existential Studies Quarterly',
+                    'Annals of Dialectical Research',
+                    'Phenomenology Review'
+                ],
+                books: [
+                    'Бытие и время',
+                    'Феноменология духа',
+                    'Различение и повторение',
+                    'Критика чистого разума',
+                    'Логико-философский трактат',
+                    'Тотальность и бесконечное',
+                    'Деконструкция метафизики',
+                    'Философия как строгая наука',
+                    'Диалектика просвещения'
+                ],
+                conferences: [
+                    'Международная конференция по феноменологии',
+                    'Симпозиум "Философия и экзистенция"',
+                    'Конгресс континентальной философии',
+                    'Форум "Новая онтология"',
+                    'Конференция по герменевтике',
+                    'Симпозиум трансцендентальной эстетики'
+                ]
+            },
+            years: [2015, 2016, 2017, 2018, 2019, 2020, 2021, 2022, 2023, 2024],
+            pages: Array.from({length: 50}, (_, i) => 23 + i * 7)
+        };
+
+        // ====== ОСНОВНЫЕ ФУНКЦИИ ГЕНЕРАЦИИ ======
+        
+        let currentMode = 'single';
+        let selectedThemes = ['existential']; // Массив выбранных тем
+        let currentLevel = 3;
+
+        function random(arr) {
+            return arr[Math.floor(Math.random() * arr.length)];
+        }
+
+        function getRandomTheme() {
+            if (selectedThemes.length === 0) {
+                // Если ничего не выбрано, используем все темы
+                const allThemes = ['existential', 'phenomenology', 'dialectic', 'hermeneutic', 'transcendental'];
+                return allThemes[Math.floor(Math.random() * allThemes.length)];
+            }
+            return selectedThemes[Math.floor(Math.random() * selectedThemes.length)];
+        }
+
+        function generateSentence(usedTemplates = [], sentenceIndex = 0, totalSentences = 1) {
+            // Выбираем тип предложения
+            const isQuestion = (sentenceIndex === totalSentences - 1) && Math.random() > 0.7;
+            const levelTemplates = isQuestion && templates[currentLevel + '_question'] 
+                ? templates[currentLevel + '_question'] 
+                : templates[currentLevel];
+            
+            // Выбираем шаблон
+            let availableTemplates = levelTemplates.filter(t => !usedTemplates.includes(t));
+            if (availableTemplates.length === 0) {
+                availableTemplates = levelTemplates;
+            }
+            
+            const template = random(availableTemplates);
+            usedTemplates.push(template);
+            
+            // Выбираем concept и object
+            const conceptTheme = getRandomTheme();
+            const objectTheme = getRandomTheme();
+            
+            const conceptWord = random(lexicon.nouns[conceptTheme]);
+            const objectWord = random(lexicon.nouns[objectTheme]);
+            
+            // Заменяем в шаблоне
+            let sentence = template;
+            
+            sentence = sentence.replace(/\{([^}]+)\}/g, (match, content) => {
+                const parts = content.split(':');
+                const type = parts[0];
+                
+                if (type === 'adj') {
+                    // Формат: {adj:concept:род} или {adj:object:вин} или {adj:ж:вин} (явный род)
+                    const target = parts[1]; // 'concept', 'object', или явный род ('м', 'ж', 'с')
+                    const caseForm = parts[2] || 'им'; // падеж
+                    
+                    let targetGender;
+                    if (target === 'concept') {
+                        targetGender = conceptWord.gender;
+                    } else if (target === 'object') {
+                        targetGender = objectWord.gender;
+                    } else if (['м', 'ж', 'с'].includes(target)) {
+                        // Явное указание рода
+                        targetGender = target;
+                    } else {
+                        targetGender = conceptWord.gender; // fallback
+                    }
+                    
+                    const adjTheme = getRandomTheme();
+                    const adjWord = random(lexicon.adjectives[adjTheme]);
+                    
+                    return declineAdjective(adjWord, targetGender, caseForm);
+                } else if (type === 'concept') {
+                    const caseForm = parts[1] || 'им';
+                    return declineNoun(conceptWord, caseForm);
+                } else if (type === 'object') {
+                    const caseForm = parts[1] || 'им';
+                    return declineNoun(objectWord, caseForm);
+                } else if (type === 'process') {
+                    return random(extras.processes);
+                } else if (type === 'латынь') {
+                    return random(extras.latin);
+                } else if (type === 'измерение') {
+                    const caseForm = parts[1] || 'им'; // падеж для измерения
+                    const dim = random(extras.dimensions);
+                    return declineDimension(dim, caseForm);
+                } else if (type === 'число' || type === 'number') {
+                    return random(extras.numbers);
+                } else if (type === 'кратк_прил') {
+                    // Формат: {кратк_прил:база:target}
+                    // Краткие прилагательные согласуются по роду
+                    const base = parts[1]; // база прилагательного, например "изоморфен"
+                    const target = parts[2]; // 'concept' или 'object'
+                    
+                    let targetGender;
+                    if (target === 'concept') {
+                        targetGender = conceptWord.gender;
+                    } else if (target === 'object') {
+                        targetGender = objectWord.gender;
+                    } else {
+                        targetGender = 'м'; // fallback
+                    }
+                    
+                    // Склоняем краткое прилагательное по роду
+                    if (targetGender === 'м') {
+                        return base; // изоморфен
+                    } else if (targetGender === 'ж') {
+                        // Заменяем последний 'ен' на 'на'
+                        return base.replace(/ен$/, 'на'); // изоморфна
+                    } else if (targetGender === 'с') {
+                        // Заменяем последний 'ен' на 'но'
+                        return base.replace(/ен$/, 'но'); // изоморфно
+                    }
+                    return base;
+                } else if (type === 'статич_прил') {
+                    // Формат: {статич_прил:база:target:падеж}
+                    // Статичные прилагательные, которые нужно склонять по роду target
+                    const adjBase = parts[1]; // база прилагательного, например "квантово-релятивистск"
+                    const target = parts[2]; // 'concept' или 'object'
+                    const caseForm = parts[3] || 'им'; // падеж
+                    
+                    let targetGender;
+                    if (target === 'concept') {
+                        targetGender = conceptWord.gender;
+                    } else if (target === 'object') {
+                        targetGender = objectWord.gender;
+                    } else {
+                        targetGender = 'м'; // fallback
+                    }
+                    
+                    return declineStaticAdjective(adjBase, targetGender, caseForm);
+                }
+                
+                return match;
+            });
+            
+            // Добавляем союз следствия
+            if (sentenceIndex >= 2 && totalSentences >= 3 && Math.random() > 0.5) {
+                const conjunction = random(consequenceConjunctions);
+                sentence = conjunction + ' ' + sentence.charAt(0).toLowerCase() + sentence.slice(1);
+            } else {
+                sentence = sentence.charAt(0).toUpperCase() + sentence.slice(1);
+            }
+            
+            return sentence;
+        }
+
+        function generateAuthor() {
+            const nameStyle = random(['russian', 'western', 'exotic']);
+            const name = random(authors.firstNames[nameStyle]);
+            
+            let surname;
+            if (nameStyle === 'russian') {
+                surname = Math.random() > 0.5 ? random(authors.lastNames.scientific) : random(authors.lastNames.neutral);
+            } else if (nameStyle === 'western') {
+                surname = random(authors.lastNames.western);
+            } else {
+                surname = random(authors.lastNames.exotic);
+            }
+            
+            const hasAcademicTitle = Math.random() > 0.3;
+            const title = hasAcademicTitle ? random(authors.titles.academic) : random(authors.titles.position);
+            
+            let institutionList;
+            const mainTheme = selectedThemes.length > 0 ? selectedThemes[0] : 'existential';
+            if (mainTheme === 'existential') {
+                institutionList = authors.institutions.existential;
+            } else if (mainTheme === 'hermeneutic') {
+                institutionList = authors.institutions.hermeneutic;
+            } else if (mainTheme === 'dialectic') {
+                institutionList = authors.institutions.dialectic;
+            } else if (mainTheme === 'phenomenology') {
+                institutionList = authors.institutions.phenomenology;
+            } else {
+                institutionList = authors.institutions.transcendental;
+            }
+            
+            const position = random(authors.positions);
+            const institution = random(institutionList);
+            
+            // Опциональная ассоциация
+            const hasAssociation = Math.random() > 0.6;
+            const association = hasAssociation ? random(authors.associations) : null;
+            
+            const sourceType = random(['journal', 'book', 'conference']);
+            let source;
+            const year = random(authors.years);
+            
+            if (sourceType === 'journal') {
+                const journal = random(authors.sources.journals);
+                const volume = Math.floor(Math.random() * 30) + 1;
+                const issue = Math.floor(Math.random() * 4) + 1;
+                source = `${journal}, ${year}, т. ${volume}, № ${issue}`;
+            } else if (sourceType === 'book') {
+                const book = random(authors.sources.books);
+                const publisher = random(['М.: Амрита', 'СПб.: Весь', 'М.: София', 'London: Hay House']);
+                const page = random(authors.pages);
+                source = `"${book}", ${publisher}, ${year}, стр. ${page}`;
+            } else {
+                const conference = random(authors.sources.conferences);
+                source = `${conference}, ${year}`;
+            }
+            
+            let credentials = title;
+            if (hasAssociation) {
+                credentials += `, ${position} ${institution}, ${association}`;
+            } else {
+                credentials += `, ${position} ${institution}`;
+            }
+            
+            return {
+                name: `${name} ${surname}`,
+                credentials: credentials,
+                source: source
+            };
+        }
+
+        function addStatistics(text, level) {
+            if (level >= 2 && Math.random() > 0.5) {
+                const statType = Math.random();
+                let addon;
+                
+                if (statType < 0.3) {
+                    // Проценты
+                    const percent = random(extras.numbers);
+                    const variants = [
+                        ` Философские исследования ${percent}% мыслителей подтверждают данную концепцию.`,
+                        ` Герменевтически доказано с точностью ${percent}%.`,
+                        ` Валидность интерпретации составляет ${percent}%.`
+                    ];
+                    addon = random(variants);
+                } else if (statType < 0.5) {
+                    // Уровни значимости
+                    const p = Math.floor(Math.random() * 9) + 1;
+                    addon = ` Онтологическая значимость составляет уровень ${p}.`;
+                } else if (statType < 0.7) {
+                    // Категориальные уровни
+                    const level = random(extras.numbers);
+                    const variants = [
+                        ` Оптимальный уровень рефлексии: ${level}-й порядок.`,
+                        ` Трансцендентальный уровень системы: ${level}.`,
+                        ` Измеренная интенциональность: ${level}-го порядка.`
+                    ];
+                    addon = random(variants);
+                } else if (statType < 0.85) {
+                    // Размерности и числа
+                    const num = random(extras.numbers);
+                    const variants = [
+                        ` Критическое значение параметра: ${num}.`,
+                        ` Коэффициент корреляции: ${num > 10 ? (num/100).toFixed(3) : num.toFixed(2)}.`,
+                        ` Герменевтическая размерность: ${(Math.random() * 2 + 1).toFixed(3)}.`
+                    ];
+                    addon = random(variants);
+                } else {
+                    // Временные масштабы
+                    const variants = [
+                        ` Период актуализации эффекта: ${Math.floor(Math.random() * 72 + 1)} часов экзистенциального времени.`,
+                        ` Время феноменологической редукции: ${Math.floor(Math.random() * 30 + 1)} минут.`,
+                        ` Характерная длительность процесса: ${Math.floor(Math.random() * 10 + 1)} дней рефлексии.`
+                    ];
+                    addon = random(variants);
+                }
+                
+                return text + addon;
+            }
+            return text;
+        }
+
+        function generate() {
+            let text;
+            const usedTemplates = [];
+            
+            if (currentMode === 'single') {
+                text = generateSentence(usedTemplates, 0, 1);
+                text = addStatistics(text, currentLevel);
+            } else {
+                const sentences = [];
+                const numSentences = 3 + Math.floor(Math.random() * 2);
+                for (let i = 0; i < numSentences; i++) {
+                    sentences.push(generateSentence(usedTemplates, i, numSentences));
+                }
+                text = sentences.join(' ');
+                text = addStatistics(text, currentLevel);
+            }
+            
+            const author = generateAuthor();
+            
+            const quoteText = document.getElementById('quoteText');
+            quoteText.textContent = text;
+            quoteText.classList.remove('animate');
+            void quoteText.offsetWidth;
+            quoteText.classList.add('animate');
+            
+            document.getElementById('authorName').textContent = author.name;
+            document.getElementById('authorCredentials').textContent = author.credentials;
+            document.getElementById('authorSource').textContent = author.source;
+            document.getElementById('authorBox').style.display = 'block';
+        }
+
+        function copyToClipboard() {
+            const text = document.getElementById('quoteText').textContent;
+            const author = document.getElementById('authorName').textContent;
+            const fullText = `"${text}"\n\n— ${author}`;
+            
+            navigator.clipboard.writeText(fullText).then(() => {
+                const notification = document.getElementById('notification');
+                notification.classList.add('show');
+                setTimeout(() => {
+                    notification.classList.remove('show');
+                }, 2000);
+            });
+        }
+
+        // Инициализация
+        document.addEventListener('DOMContentLoaded', function() {
+            updateLevelLabel();
+            
+            document.getElementById('pseudoLevel').addEventListener('input', function(e) {
+                currentLevel = parseInt(e.target.value);
+                updateLevelLabel();
+            });
+
+            // Обработка чекбоксов тем
+            document.querySelectorAll('input[name="theme"]').forEach(checkbox => {
+                checkbox.addEventListener('change', function() {
+                    selectedThemes = Array.from(document.querySelectorAll('input[name="theme"]:checked'))
+                        .map(cb => cb.value);
+                });
+            });
+
+            document.querySelectorAll('.mode-btn').forEach(btn => {
+                btn.addEventListener('click', function() {
+                    document.querySelectorAll('.mode-btn').forEach(b => b.classList.remove('active'));
+                    this.classList.add('active');
+                    currentMode = this.dataset.mode;
+                });
+            });
+        });
+
+        function updateLevelLabel() {
+            const labels = {
+                1: 'Почти научное',
+                2: 'Умеренное',
+                3: 'Классическое',
+                4: 'Абсурдное',
+                5: 'Чистый бред'
+            };
+            document.getElementById('levelLabel').textContent = labels[currentLevel];
+        }
+    </script>
+</body>
+</html>
