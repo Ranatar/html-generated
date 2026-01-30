@@ -1,0 +1,1740 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Полноценный генератор русских предложений</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+        .container {
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 40px;
+        }
+        h1 {
+            color: #667eea;
+            margin-bottom: 10px;
+            text-align: center;
+            font-size: 2em;
+        }
+        .subtitle {
+            text-align: center;
+            color: #666;
+            margin-bottom: 30px;
+            font-size: 0.9em;
+        }
+        .sentence-display {
+            background: #f8f9fa;
+            border-left: 5px solid #667eea;
+            padding: 25px;
+            margin: 30px 0;
+            border-radius: 10px;
+            min-height: 120px;
+        }
+        .sentence-text {
+            font-size: 1.3em;
+            line-height: 1.8;
+            color: #333;
+        }
+        .controls {
+            display: flex;
+            gap: 15px;
+            flex-wrap: wrap;
+            justify-content: center;
+            margin-bottom: 30px;
+        }
+        button {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            padding: 15px 30px;
+            border-radius: 10px;
+            font-size: 1em;
+            cursor: pointer;
+            transition: transform 0.2s, box-shadow 0.2s;
+            font-weight: 600;
+        }
+        button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(102, 126, 234, 0.4);
+        }
+        .info-panel {
+            background: #e8f4f8;
+            border-radius: 10px;
+            padding: 20px;
+            margin-top: 20px;
+        }
+        .info-panel h3 {
+            color: #667eea;
+            margin-bottom: 15px;
+            font-size: 1.1em;
+        }
+        .grammar-info {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 15px;
+            font-size: 0.9em;
+        }
+        .grammar-item {
+            background: white;
+            padding: 12px;
+            border-radius: 5px;
+        }
+        .grammar-item strong {
+            color: #764ba2;
+        }
+        .stats {
+            margin-top: 20px;
+            padding: 20px;
+            background: #f0f0f0;
+            border-radius: 10px;
+            font-size: 0.9em;
+            line-height: 1.8;
+        }
+        .complexity-selector {
+            display: flex;
+            gap: 10px;
+            justify-content: center;
+            margin-bottom: 20px;
+            flex-wrap: wrap;
+        }
+        .complexity-btn {
+            padding: 8px 20px;
+            font-size: 0.9em;
+        }
+        .complexity-btn.active {
+            background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🎲 Полноценный генератор русских предложений</h1>
+        <p class="subtitle">С причастиями, деепричастиями и всеми грамматическими категориями</p>
+        
+        <div class="complexity-selector">
+            <button class="complexity-btn active" onclick="setMode('template')">Шаблонный режим</button>
+            <button class="complexity-btn" onclick="setMode('compositional')">Композиционный режим</button>
+        </div>
+        
+        <div class="complexity-selector" id="templateComplexity">
+            <button class="complexity-btn active" onclick="setComplexity('simple')">Простые</button>
+            <button class="complexity-btn" onclick="setComplexity('medium')">Средние</button>
+            <button class="complexity-btn" onclick="setComplexity('complex')">Сложные</button>
+            <button class="complexity-btn" onclick="setComplexity('all')">Все типы</button>
+        </div>
+        
+        <div class="complexity-selector" id="composLevel" style="display: none;">
+            <button class="complexity-btn" onclick="setComposComplexity(1)">Уровень 1</button>
+            <button class="complexity-btn" onclick="setComposComplexity(2)">Уровень 2</button>
+            <button class="complexity-btn" onclick="setComposComplexity(3)">Уровень 3</button>
+            <button class="complexity-btn" onclick="setComposComplexity(4)">Уровень 4</button>
+            <button class="complexity-btn active" onclick="setComposComplexity(5)">Уровень 5</button>
+        </div>
+        
+        <div class="controls">
+            <button onclick="generateSentence()">Новое предложение</button>
+            <button onclick="generateMultiple(5)">5 предложений</button>
+            <button onclick="generateMultiple(10)">10 предложений</button>
+            <button onclick="showStats()">Статистика</button>
+        </div>
+        
+        <div class="sentence-display">
+            <div class="sentence-text" id="sentenceOutput">
+                Нажмите кнопку для генерации предложения
+            </div>
+        </div>
+        
+        <div class="info-panel" id="infoPanel" style="display: none;">
+            <h3>Морфологический анализ</h3>
+            <div class="grammar-info" id="grammarInfo"></div>
+        </div>
+        
+        <div class="stats" id="statsOutput" style="display: none;"></div>
+    </div>
+
+    <script>
+        let currentComplexity = 'all';
+        
+        // ========== УТИЛИТЫ ==========
+        function randomChoice(arr) {
+            return arr[Math.floor(Math.random() * arr.length)];
+        }
+        function capitalize(str) {
+            return str.charAt(0).toUpperCase() + str.slice(1);
+        }
+        function chance(probability) {
+            return Math.random() < probability;
+        }
+        
+        // ========== ТАБЛИЦЫ ОКОНЧАНИЙ СУЩЕСТВИТЕЛЬНЫХ ==========
+        const NOUN_ENDINGS = {
+            1: { // твёрдая основа (книга)
+                SG: { NOM: 'а', GEN: 'ы', DAT: 'е', ACC: 'у', INS: 'ой', PRE: 'е' },
+                PL: { NOM: 'ы', GEN: '', DAT: 'ам', ACC: 'ы', INS: 'ами', PRE: 'ах' }
+            },
+            '1sh': { // после шипящих и ц (кошка, душа)
+                SG: { NOM: 'а', GEN: 'и', DAT: 'е', ACC: 'у', INS: 'ой', PRE: 'е' },
+                PL: { NOM: 'и', GEN: '', DAT: 'ам', ACC: 'и', INS: 'ами', PRE: 'ах' }
+            },
+            '1s': { // мягкая основа (земля)
+                SG: { NOM: 'я', GEN: 'и', DAT: 'е', ACC: 'ю', INS: 'ей', PRE: 'е' },
+                PL: { NOM: 'и', GEN: 'ь', DAT: 'ям', ACC: 'и', INS: 'ями', PRE: 'ях' }
+            },
+            '1ia': { // на -ия (линия)
+                SG: { NOM: 'я', GEN: 'ии', DAT: 'ии', ACC: 'ю', INS: 'ией', PRE: 'ии' },
+                PL: { NOM: 'ии', GEN: 'ий', DAT: 'иям', ACC: 'ии', INS: 'иями', PRE: 'иях' }
+            },
+            2: { // муж.род твёрдая (дом, стол)
+                SG: { NOM: '', GEN: 'а', DAT: 'у', ACC: '', INS: 'ом', PRE: 'е' },
+                PL: { NOM: 'ы', GEN: 'ов', DAT: 'ам', ACC: 'ы', INS: 'ами', PRE: 'ах' }
+            },
+            '2sh': { // муж.род после шипящих (нож, меч)
+                SG: { NOM: '', GEN: 'а', DAT: 'у', ACC: '', INS: 'ом', PRE: 'е' },
+                PL: { NOM: 'и', GEN: 'ей', DAT: 'ам', ACC: 'и', INS: 'ами', PRE: 'ах' }
+            },
+            '2s': { // муж.род мягкая на -ь (конь, зверь)
+                SG: { NOM: 'ь', GEN: 'я', DAT: 'ю', ACC: 'ь', INS: 'ём', PRE: 'е' },
+                PL: { NOM: 'и', GEN: 'ей', DAT: 'ям', ACC: 'и', INS: 'ями', PRE: 'ях' }
+            },
+            '2j': { // на -й (герой)
+                SG: { NOM: 'й', GEN: 'я', DAT: 'ю', ACC: 'й', INS: 'ем', PRE: 'е' },
+                PL: { NOM: 'и', GEN: 'ев', DAT: 'ям', ACC: 'и', INS: 'ями', PRE: 'ях' }
+            },
+            '2sp': { // путь (особое)
+                SG: { NOM: 'ь', GEN: 'и', DAT: 'и', ACC: 'ь', INS: 'ём', PRE: 'и' },
+                PL: { NOM: 'и', GEN: 'ей', DAT: 'ям', ACC: 'и', INS: 'ями', PRE: 'ях' }
+            },
+            '2ya': { // друг→друзья, брат→братья (особое с -ья)
+                SG: { NOM: '', GEN: 'а', DAT: 'у', ACC: '', INS: 'ом', PRE: 'е' },
+                PL: { NOM: 'я', GEN: 'ей', DAT: 'ям', ACC: 'ей', INS: 'ями', PRE: 'ях' }
+            },
+            '2n': { // ср.род твёрдое (окно, село)
+                SG: { NOM: 'о', GEN: 'а', DAT: 'у', ACC: 'о', INS: 'ом', PRE: 'е' },
+                PL: { NOM: 'а', GEN: '', DAT: 'ам', ACC: 'а', INS: 'ами', PRE: 'ах' }
+            },
+            '2nsh': { // ср.род после шипящих (плечо)
+                SG: { NOM: 'о', GEN: 'а', DAT: 'у', ACC: 'о', INS: 'ом', PRE: 'е' },
+                PL: { NOM: 'и', GEN: 'ей', DAT: 'ам', ACC: 'и', INS: 'ами', PRE: 'ах' }
+            },
+            '2ns': { // ср.род мягкое (поле, море)
+                SG: { NOM: 'е', GEN: 'я', DAT: 'ю', ACC: 'е', INS: 'ем', PRE: 'е' },
+                PL: { NOM: 'я', GEN: 'ей', DAT: 'ям', ACC: 'я', INS: 'ями', PRE: 'ях' }
+            },
+            '2nie': { // ср.род на -ие (здание)
+                SG: { NOM: 'е', GEN: 'я', DAT: 'ю', ACC: 'е', INS: 'ем', PRE: 'и' },
+                PL: { NOM: 'я', GEN: 'й', DAT: 'ям', ACC: 'я', INS: 'ями', PRE: 'ях' }
+            },
+            'mya': { // на -мя (время, имя)
+                SG: { NOM: 'я', GEN: 'ени', DAT: 'ени', ACC: 'я', INS: 'енем', PRE: 'ени' },
+                PL: { NOM: 'ена', GEN: 'ён', DAT: 'енам', ACC: 'ена', INS: 'енами', PRE: 'енах' }
+            },
+            3: { // 3 склонение (ночь, тень)
+                SG: { NOM: 'ь', GEN: 'и', DAT: 'и', ACC: 'ь', INS: 'ью', PRE: 'и' },
+                PL: { NOM: 'и', GEN: 'ей', DAT: 'ям', ACC: 'и', INS: 'ями', PRE: 'ях' }
+            },
+            '3sp': { // мать, дочь (особое)
+                SG: { NOM: 'ь', GEN: 'ери', DAT: 'ери', ACC: 'ь', INS: 'ерью', PRE: 'ери' },
+                PL: { NOM: 'ери', GEN: 'ерей', DAT: 'ерям', ACC: 'ерей', INS: 'ерями', PRE: 'ерях' }
+            }
+        };
+        
+        // ========== ТАБЛИЦЫ ОКОНЧАНИЙ ПРИЛАГАТЕЛЬНЫХ ==========
+        const ADJ_ENDINGS = {
+            hard: {
+                M: { 
+                    SG: { NOM: 'ый', GEN: 'ого', DAT: 'ому', ACC_INAN: 'ый', ACC_ANIM: 'ого', INS: 'ым', PRE: 'ом' },
+                    PL: { NOM: 'ые', GEN: 'ых', DAT: 'ым', ACC_INAN: 'ые', ACC_ANIM: 'ых', INS: 'ыми', PRE: 'ых' }
+                },
+                F: { 
+                    SG: { NOM: 'ая', GEN: 'ой', DAT: 'ой', ACC: 'ую', INS: 'ой', PRE: 'ой' },
+                    PL: { NOM: 'ые', GEN: 'ых', DAT: 'ым', ACC: 'ые', INS: 'ыми', PRE: 'ых' }
+                },
+                N: { 
+                    SG: { NOM: 'ое', GEN: 'ого', DAT: 'ому', ACC: 'ое', INS: 'ым', PRE: 'ом' },
+                    PL: { NOM: 'ые', GEN: 'ых', DAT: 'ым', ACC: 'ые', INS: 'ыми', PRE: 'ых' }
+                }
+            },
+            sibilant: { // после шипящих (ж, ш, ч, щ) - большой, хороший
+                M: { 
+                    SG: { NOM: 'ой', GEN: 'ого', DAT: 'ому', ACC_INAN: 'ой', ACC_ANIM: 'ого', INS: 'им', PRE: 'ом' },
+                    PL: { NOM: 'ие', GEN: 'их', DAT: 'им', ACC_INAN: 'ие', ACC_ANIM: 'их', INS: 'ими', PRE: 'их' }
+                },
+                F: { 
+                    SG: { NOM: 'ая', GEN: 'ой', DAT: 'ой', ACC: 'ую', INS: 'ой', PRE: 'ой' },
+                    PL: { NOM: 'ие', GEN: 'их', DAT: 'им', ACC: 'ие', INS: 'ими', PRE: 'их' }
+                },
+                N: { 
+                    SG: { NOM: 'ое', GEN: 'ого', DAT: 'ому', ACC: 'ое', INS: 'им', PRE: 'ом' },
+                    PL: { NOM: 'ие', GEN: 'их', DAT: 'им', ACC: 'ие', INS: 'ими', PRE: 'их' }
+                }
+            },
+            soft: {
+                M: { 
+                    SG: { NOM: 'ий', GEN: 'его', DAT: 'ему', ACC_INAN: 'ий', ACC_ANIM: 'его', INS: 'им', PRE: 'ем' },
+                    PL: { NOM: 'ие', GEN: 'их', DAT: 'им', ACC_INAN: 'ие', ACC_ANIM: 'их', INS: 'ими', PRE: 'их' }
+                },
+                F: { 
+                    SG: { NOM: 'яя', GEN: 'ей', DAT: 'ей', ACC: 'юю', INS: 'ей', PRE: 'ей' },
+                    PL: { NOM: 'ие', GEN: 'их', DAT: 'им', ACC: 'ие', INS: 'ими', PRE: 'их' }
+                },
+                N: { 
+                    SG: { NOM: 'ее', GEN: 'его', DAT: 'ему', ACC: 'ее', INS: 'им', PRE: 'ем' },
+                    PL: { NOM: 'ие', GEN: 'их', DAT: 'им', ACC: 'ие', INS: 'ими', PRE: 'их' }
+                }
+            }
+        };
+        
+        // ========== ТАБЛИЦЫ ОКОНЧАНИЙ ПРИЧАСТИЙ ==========
+        const PARTICIPLE_ENDINGS = {
+            // Действительные причастия настоящего времени (-ущ/-ющ, -ащ/-ящ)
+            ACT_PRES: {
+                M: { 
+                    SG: { NOM: 'ий', GEN: 'его', DAT: 'ему', ACC_INAN: 'ий', ACC_ANIM: 'его', INS: 'им', PRE: 'ем' },
+                    PL: { NOM: 'ие', GEN: 'их', DAT: 'им', ACC_INAN: 'ие', ACC_ANIM: 'их', INS: 'ими', PRE: 'их' }
+                },
+                F: { 
+                    SG: { NOM: 'ая', GEN: 'ей', DAT: 'ей', ACC: 'ую', INS: 'ей', PRE: 'ей' },
+                    PL: { NOM: 'ие', GEN: 'их', DAT: 'им', ACC: 'ие', INS: 'ими', PRE: 'их' }
+                },
+                N: { 
+                    SG: { NOM: 'ее', GEN: 'его', DAT: 'ему', ACC: 'ее', INS: 'им', PRE: 'ем' },
+                    PL: { NOM: 'ие', GEN: 'их', DAT: 'им', ACC: 'ие', INS: 'ими', PRE: 'их' }
+                }
+            },
+            // Действительные причастия прошедшего времени (-вш, -ш)
+            ACT_PAST: {
+                M: { 
+                    SG: { NOM: 'ий', GEN: 'его', DAT: 'ему', ACC_INAN: 'ий', ACC_ANIM: 'его', INS: 'им', PRE: 'ем' },
+                    PL: { NOM: 'ие', GEN: 'их', DAT: 'им', ACC_INAN: 'ие', ACC_ANIM: 'их', INS: 'ими', PRE: 'их' }
+                },
+                F: { 
+                    SG: { NOM: 'ая', GEN: 'ей', DAT: 'ей', ACC: 'ую', INS: 'ей', PRE: 'ей' },
+                    PL: { NOM: 'ие', GEN: 'их', DAT: 'им', ACC: 'ие', INS: 'ими', PRE: 'их' }
+                },
+                N: { 
+                    SG: { NOM: 'ее', GEN: 'его', DAT: 'ему', ACC: 'ее', INS: 'им', PRE: 'ем' },
+                    PL: { NOM: 'ие', GEN: 'их', DAT: 'им', ACC: 'ие', INS: 'ими', PRE: 'их' }
+                }
+            },
+            // Страдательные причастия настоящего времени (-ем, -им)
+            PASS_PRES: {
+                M: { 
+                    SG: { NOM: 'ый', GEN: 'ого', DAT: 'ому', ACC_INAN: 'ый', ACC_ANIM: 'ого', INS: 'ым', PRE: 'ом' },
+                    PL: { NOM: 'ые', GEN: 'ых', DAT: 'ым', ACC_INAN: 'ые', ACC_ANIM: 'ых', INS: 'ыми', PRE: 'ых' }
+                },
+                F: { 
+                    SG: { NOM: 'ая', GEN: 'ой', DAT: 'ой', ACC: 'ую', INS: 'ой', PRE: 'ой' },
+                    PL: { NOM: 'ые', GEN: 'ых', DAT: 'ым', ACC: 'ые', INS: 'ыми', PRE: 'ых' }
+                },
+                N: { 
+                    SG: { NOM: 'ое', GEN: 'ого', DAT: 'ому', ACC: 'ое', INS: 'ым', PRE: 'ом' },
+                    PL: { NOM: 'ые', GEN: 'ых', DAT: 'ым', ACC: 'ые', INS: 'ыми', PRE: 'ых' }
+                }
+            },
+            // Страдательные причастия прошедшего времени (-нн, -т)
+            PASS_PAST: {
+                M: { 
+                    SG: { NOM: 'ый', GEN: 'ого', DAT: 'ому', ACC_INAN: 'ый', ACC_ANIM: 'ого', INS: 'ым', PRE: 'ом' },
+                    PL: { NOM: 'ые', GEN: 'ых', DAT: 'ым', ACC_INAN: 'ые', ACC_ANIM: 'ых', INS: 'ыми', PRE: 'ых' }
+                },
+                F: { 
+                    SG: { NOM: 'ая', GEN: 'ой', DAT: 'ой', ACC: 'ую', INS: 'ой', PRE: 'ой' },
+                    PL: { NOM: 'ые', GEN: 'ых', DAT: 'ым', ACC: 'ые', INS: 'ыми', PRE: 'ых' }
+                },
+                N: { 
+                    SG: { NOM: 'ое', GEN: 'ого', DAT: 'ому', ACC: 'ое', INS: 'ым', PRE: 'ом' },
+                    PL: { NOM: 'ые', GEN: 'ых', DAT: 'ым', ACC: 'ые', INS: 'ыми', PRE: 'ых' }
+                }
+            }
+        };
+        
+        // ========== ОКОНЧАНИЯ ГЛАГОЛОВ ==========
+        const VERB_ENDINGS = {
+            1: { PRES: { SG: ['ю', 'ешь', 'ет'], PL: ['ем', 'ете', 'ют'] } },
+            2: { PRES: { SG: ['ю', 'ишь', 'ит'], PL: ['им', 'ите', 'ят'] } },
+            PAST: { SG: { M: 'л', F: 'ла', N: 'ло' }, PL: 'ли' },
+            IMPER: { SG: 'и', PL: 'ите' } // упрощённо
+        };
+        
+        // ========== СЛОВАРЬ СУЩЕСТВИТЕЛЬНЫХ (С ПРАВИЛЬНЫМИ ОСНОВАМИ) ==========
+        const NOUNS = [
+            // Природа и космос
+            {lemma:'звезда',stem:'звезд',decl:1,gender:'F',anim:false,semantic:'nature'},
+            {lemma:'луна',stem:'лун',decl:1,gender:'F',anim:false,semantic:'nature'},
+            {lemma:'земля',stem:'земл',decl:'1s',gender:'F',anim:false,semantic:'nature'},
+            {lemma:'река',stem:'рек',decl:1,gender:'F',anim:false,semantic:'nature'},
+            {lemma:'гора',stem:'гор',decl:1,gender:'F',anim:false,semantic:'nature'},
+            {lemma:'море',stem:'мор',decl:'2ns',gender:'N',anim:false,semantic:'nature'},
+            {lemma:'поле',stem:'пол',decl:'2ns',gender:'N',anim:false,semantic:'nature'},
+            {lemma:'лес',stem:'лес',decl:2,gender:'M',anim:false,semantic:'nature'},
+            {lemma:'дерево',stem:'дерев',decl:'2n',gender:'N',anim:false,semantic:'nature'},
+            {lemma:'небо',stem:'неб',nomPlStem:'небес',decl:'2n',gender:'N',anim:false,semantic:'nature'},
+            {lemma:'солнце',stem:'солнц',decl:'2ns',gender:'N',anim:false,semantic:'nature'},
+            {lemma:'ветер',stem:'ветер',oblStem:'ветр',decl:2,gender:'M',anim:false,semantic:'nature'},
+            {lemma:'огонь',stem:'огон',oblStem:'огн',decl:'2s',gender:'M',anim:false,semantic:'nature'},
+            {lemma:'вода',stem:'вод',decl:1,gender:'F',anim:false,semantic:'nature'},
+            {lemma:'камень',stem:'камен',oblStem:'камн',decl:'2s',gender:'M',anim:false,semantic:'nature'},
+            
+            // Люди и отношения
+            {lemma:'человек',stem:'человек',nomPlStem:'люд',decl:2,gender:'M',anim:true,semantic:'person'},
+            {lemma:'друг',stem:'друг',nomPlStem:'друзь',oblPlStem:'друз',decl:'2ya',gender:'M',anim:true,semantic:'person'},
+            {lemma:'брат',stem:'брат',nomPlStem:'брать',oblPlStem:'брат',decl:'2ya',gender:'M',anim:true,semantic:'person'},
+            {lemma:'сестра',stem:'сестр',decl:1,gender:'F',anim:true,semantic:'person'},
+            {lemma:'мать',stem:'мат',decl:'3sp',gender:'F',anim:true,semantic:'person'},
+            {lemma:'дочь',stem:'доч',decl:'3sp',gender:'F',anim:true,semantic:'person'},
+            {lemma:'отец',stem:'отец',oblStem:'отц',decl:2,gender:'M',anim:true,semantic:'person'},
+            {lemma:'сын',stem:'сын',nomPlStem:'сыновь',oblPlStem:'сынов',decl:'2ya',gender:'M',anim:true,semantic:'person'},
+            {lemma:'учитель',stem:'учител',decl:'2s',gender:'M',anim:true,semantic:'person'},
+            {lemma:'писатель',stem:'писател',decl:'2s',gender:'M',anim:true,semantic:'person'},
+            {lemma:'художник',stem:'художник',decl:2,gender:'M',anim:true,semantic:'person'},
+            {lemma:'воин',stem:'воин',decl:2,gender:'M',anim:true,semantic:'person'},
+            {lemma:'герой',stem:'геро',decl:'2j',gender:'M',anim:true,semantic:'person'},
+            {lemma:'царь',stem:'цар',decl:'2s',gender:'M',anim:true,semantic:'person'},
+            {lemma:'князь',stem:'княз',decl:'2s',gender:'M',anim:true,semantic:'person'},
+            {lemma:'мудрец',stem:'мудрец',oblStem:'мудрец',decl:2,gender:'M',anim:true,semantic:'person'},
+            {lemma:'странник',stem:'странник',decl:2,gender:'M',anim:true,semantic:'person'},
+            
+            // Животные
+            {lemma:'конь',stem:'кон',decl:'2s',gender:'M',anim:true,semantic:'animal'},
+            {lemma:'птица',stem:'птиц',decl:1,gender:'F',anim:true,semantic:'animal'},
+            {lemma:'кошка',stem:'кошк',decl:'1sh',gender:'F',anim:true,semantic:'animal'},
+            {lemma:'зверь',stem:'звер',decl:'2s',gender:'M',anim:true,semantic:'animal'},
+            {lemma:'волк',stem:'волк',decl:2,gender:'M',anim:true,semantic:'animal'},
+            {lemma:'медведь',stem:'медвед',decl:'2s',gender:'M',anim:true,semantic:'animal'},
+            {lemma:'ворон',stem:'ворон',decl:2,gender:'M',anim:true,semantic:'animal'},
+            {lemma:'орёл',stem:'орёл',oblStem:'орл',decl:2,gender:'M',anim:true,semantic:'animal'},
+            
+            // Постройки и места
+            {lemma:'дом',stem:'дом',decl:2,gender:'M',anim:false,semantic:'place'},
+            {lemma:'город',stem:'город',decl:2,gender:'M',anim:false,semantic:'place'},
+            {lemma:'село',stem:'сел',decl:'2n',gender:'N',anim:false,semantic:'place'},
+            {lemma:'храм',stem:'храм',decl:2,gender:'M',anim:false,semantic:'place'},
+            {lemma:'башня',stem:'башн',decl:'1s',gender:'F',anim:false,semantic:'place'},
+            {lemma:'крепость',stem:'крепост',decl:3,gender:'F',anim:false,semantic:'place'},
+            {lemma:'стена',stem:'стен',decl:1,gender:'F',anim:false,semantic:'place'},
+            {lemma:'путь',stem:'пут',decl:'2sp',gender:'M',anim:false,semantic:'place'},
+            {lemma:'дорога',stem:'дорог',decl:1,gender:'F',anim:false,semantic:'place'},
+            
+            // Предметы
+            {lemma:'книга',stem:'книг',decl:1,gender:'F',anim:false,semantic:'object'},
+            {lemma:'меч',stem:'меч',decl:2,gender:'M',anim:false,semantic:'object'},
+            {lemma:'щит',stem:'щит',decl:2,gender:'M',anim:false,semantic:'object'},
+            {lemma:'стол',stem:'стол',decl:2,gender:'M',anim:false,semantic:'object'},
+            {lemma:'окно',stem:'окн',decl:'2n',gender:'N',anim:false,semantic:'object'},
+            {lemma:'зеркало',stem:'зеркал',decl:'2n',gender:'N',anim:false,semantic:'object'},
+            {lemma:'чаша',stem:'чаш',decl:'1sh',gender:'F',anim:false,semantic:'object'},
+            {lemma:'корона',stem:'корон',decl:1,gender:'F',anim:false,semantic:'object'},
+            
+            // Абстрактное
+            {lemma:'мысль',stem:'мысл',decl:3,gender:'F',anim:false,semantic:'abstract'},
+            {lemma:'душа',stem:'душ',decl:'1sh',gender:'F',anim:false,semantic:'abstract'},
+            {lemma:'любовь',stem:'любов',decl:3,gender:'F',anim:false,semantic:'abstract'},
+            {lemma:'мудрость',stem:'мудрост',decl:3,gender:'F',anim:false,semantic:'abstract'},
+            {lemma:'радость',stem:'радост',decl:3,gender:'F',anim:false,semantic:'abstract'},
+            {lemma:'печаль',stem:'печал',decl:3,gender:'F',anim:false,semantic:'abstract'},
+            {lemma:'жизнь',stem:'жизн',decl:3,gender:'F',anim:false,semantic:'abstract'},
+            {lemma:'смерть',stem:'смерт',decl:3,gender:'F',anim:false,semantic:'abstract'},
+            {lemma:'власть',stem:'власт',decl:3,gender:'F',anim:false,semantic:'abstract'},
+            {lemma:'честь',stem:'чест',decl:3,gender:'F',anim:false,semantic:'abstract'},
+            {lemma:'слава',stem:'слав',decl:1,gender:'F',anim:false,semantic:'abstract'},
+            {lemma:'правда',stem:'правд',decl:1,gender:'F',anim:false,semantic:'abstract'},
+            {lemma:'мечта',stem:'мечт',decl:1,gender:'F',anim:false,semantic:'abstract'},
+            {lemma:'тайна',stem:'тайн',decl:1,gender:'F',anim:false,semantic:'abstract'},
+            {lemma:'судьба',stem:'судьб',decl:1,gender:'F',anim:false,semantic:'abstract'},
+            {lemma:'война',stem:'войн',decl:1,gender:'F',anim:false,semantic:'abstract'},
+            {lemma:'победа',stem:'побед',decl:1,gender:'F',anim:false,semantic:'abstract'},
+            {lemma:'слово',stem:'слов',decl:'2n',gender:'N',anim:false,semantic:'abstract'},
+            {lemma:'дело',stem:'дел',decl:'2n',gender:'N',anim:false,semantic:'abstract'},
+            {lemma:'зло',stem:'зл',decl:'2n',gender:'N',anim:false,semantic:'abstract'},
+            {lemma:'добро',stem:'добр',decl:'2n',gender:'N',anim:false,semantic:'abstract'},
+            {lemma:'чудо',stem:'чуд',nomPlStem:'чудес',decl:'2n',gender:'N',anim:false,semantic:'abstract'},
+            
+            // Время
+            {lemma:'день',stem:'ден',oblStem:'дн',decl:'2s',gender:'M',anim:false,semantic:'time'},
+            {lemma:'ночь',stem:'ноч',decl:3,gender:'F',anim:false,semantic:'time'},
+            {lemma:'время',stem:'врем',decl:'mya',gender:'N',anim:false,semantic:'time'},
+            {lemma:'час',stem:'час',decl:2,gender:'M',anim:false,semantic:'time'},
+            {lemma:'год',stem:'год',decl:2,gender:'M',anim:false,semantic:'time'},
+            {lemma:'век',stem:'век',decl:2,gender:'M',anim:false,semantic:'time'},
+            
+            // Части тела и органы чувств
+            {lemma:'рука',stem:'рук',decl:1,gender:'F',anim:false,semantic:'body'},
+            {lemma:'нога',stem:'ног',decl:1,gender:'F',anim:false,semantic:'body'},
+            {lemma:'голова',stem:'голов',decl:1,gender:'F',anim:false,semantic:'body'},
+            {lemma:'глаз',stem:'глаз',decl:2,gender:'M',anim:false,semantic:'body'},
+            {lemma:'сердце',stem:'сердц',decl:'2ns',gender:'N',anim:false,semantic:'body'},
+            {lemma:'кровь',stem:'кров',decl:3,gender:'F',anim:false,semantic:'body'}
+        ];
+        const ADJECTIVES = [
+            // Размер и форма
+            {lemma:'большой',stem:'больш',type:'sibilant',semantic:'size'},
+            {lemma:'малый',stem:'мал',type:'hard',semantic:'size'},
+            {lemma:'высокий',stem:'высок',type:'hard',semantic:'size'},
+            {lemma:'низкий',stem:'низк',type:'hard',semantic:'size'},
+            {lemma:'широкий',stem:'широк',type:'hard',semantic:'size'},
+            {lemma:'узкий',stem:'узк',type:'hard',semantic:'size'},
+            {lemma:'длинный',stem:'длинн',type:'hard',semantic:'size'},
+            {lemma:'короткий',stem:'коротк',type:'hard',semantic:'size'},
+            
+            // Цвет
+            {lemma:'белый',stem:'бел',type:'hard',semantic:'color'},
+            {lemma:'чёрный',stem:'чёрн',type:'hard',semantic:'color'},
+            {lemma:'красный',stem:'красн',type:'hard',semantic:'color'},
+            {lemma:'синий',stem:'син',type:'soft',semantic:'color'},
+            {lemma:'зелёный',stem:'зелён',type:'hard',semantic:'color'},
+            {lemma:'золотой',stem:'золот',type:'hard',semantic:'color'},
+            {lemma:'серебряный',stem:'серебрян',type:'hard',semantic:'color'},
+            
+            // Качество
+            {lemma:'добрый',stem:'добр',type:'hard',semantic:'quality'},
+            {lemma:'злой',stem:'зл',type:'hard',semantic:'quality'},
+            {lemma:'мудрый',stem:'мудр',type:'hard',semantic:'quality'},
+            {lemma:'сильный',stem:'сильн',type:'hard',semantic:'quality'},
+            {lemma:'слабый',stem:'слаб',type:'hard',semantic:'quality'},
+            {lemma:'смелый',stem:'смел',type:'hard',semantic:'quality'},
+            {lemma:'трусливый',stem:'труслив',type:'hard',semantic:'quality'},
+            {lemma:'гордый',stem:'горд',type:'hard',semantic:'quality'},
+            {lemma:'скромный',stem:'скромн',type:'hard',semantic:'quality'},
+            {lemma:'благородный',stem:'благородн',type:'hard',semantic:'quality'},
+            
+            // Красота
+            {lemma:'красивый',stem:'красив',type:'hard',semantic:'beauty'},
+            {lemma:'прекрасный',stem:'прекрасн',type:'hard',semantic:'beauty'},
+            {lemma:'великолепный',stem:'великолепн',type:'hard',semantic:'beauty'},
+            {lemma:'чудесный',stem:'чудесн',type:'hard',semantic:'beauty'},
+            
+            // Состояние
+            {lemma:'старый',stem:'стар',type:'hard',semantic:'state'},
+            {lemma:'новый',stem:'нов',type:'hard',semantic:'state'},
+            {lemma:'древний',stem:'древн',type:'soft',semantic:'state'},
+            {lemma:'молодой',stem:'молод',type:'hard',semantic:'state'},
+            {lemma:'живой',stem:'жив',type:'sibilant',semantic:'state'},
+            {lemma:'мёртвый',stem:'мёртв',type:'hard',semantic:'state'},
+            
+            // Свет и тьма
+            {lemma:'светлый',stem:'светл',type:'hard',semantic:'light'},
+            {lemma:'тёмный',stem:'тёмн',type:'hard',semantic:'light'},
+            {lemma:'яркий',stem:'ярк',type:'hard',semantic:'light'},
+            {lemma:'тусклый',stem:'тускл',type:'hard',semantic:'light'},
+            
+            // Температура и ощущение
+            {lemma:'холодный',stem:'холодн',type:'hard',semantic:'temperature'},
+            {lemma:'тёплый',stem:'тёпл',type:'hard',semantic:'temperature'},
+            {lemma:'горячий',stem:'горяч',type:'soft',semantic:'temperature'},
+            
+            // Характер
+            {lemma:'верный',stem:'верн',type:'hard',semantic:'character'},
+            {lemma:'честный',stem:'честн',type:'hard',semantic:'character'},
+            {lemma:'жестокий',stem:'жесток',type:'hard',semantic:'character'},
+            {lemma:'добродетельный',stem:'добродетельн',type:'hard',semantic:'character'},
+            {lemma:'коварный',stem:'коварн',type:'hard',semantic:'character'},
+            
+            // Скорость
+            {lemma:'быстрый',stem:'быстр',type:'hard',semantic:'speed'},
+            {lemma:'медленный',stem:'медленн',type:'hard',semantic:'speed'},
+            
+            // Другое
+            {lemma:'вечный',stem:'вечн',type:'hard',semantic:'other'},
+            {lemma:'тайный',stem:'тайн',type:'hard',semantic:'other'},
+            {lemma:'священный',stem:'священн',type:'hard',semantic:'other'},
+            {lemma:'грозный',stem:'грозн',type:'hard',semantic:'other'},
+            {lemma:'могучий',stem:'могуч',type:'soft',semantic:'other'},
+            {lemma:'дальний',stem:'дальн',type:'soft',semantic:'other'}
+        ];
+        const VERBS = [
+            // Движение
+            {lemma:'идти',infStem:'ид',presStem:'ид',pastStem:'ш',conj:1,aspect:'impf',trans:false,semantic:'motion'},
+            {lemma:'бежать',infStem:'бежа',presStem:'бег',pastStem:'бежа',conj:1,aspect:'impf',trans:false,semantic:'motion'},
+            {lemma:'лететь',infStem:'лете',presStem:'лет',pastStem:'лете',conj:2,aspect:'impf',trans:false,semantic:'motion'},
+            {lemma:'плыть',infStem:'плы',presStem:'плыв',pastStem:'плы',conj:1,aspect:'impf',trans:false,semantic:'motion'},
+            {lemma:'ходить',infStem:'ходи',presStem:'ход',pastStem:'ходи',conj:2,aspect:'impf',trans:false,semantic:'motion'},
+            {lemma:'стоять',infStem:'стоя',presStem:'сто',pastStem:'стоя',conj:2,aspect:'impf',trans:false,semantic:'motion'},
+            {lemma:'сидеть',infStem:'сиде',presStem:'сид',pastStem:'сиде',conj:2,aspect:'impf',trans:false,semantic:'motion'},
+            {lemma:'лежать',infStem:'лежа',presStem:'леж',pastStem:'лежа',conj:2,aspect:'impf',trans:false,semantic:'motion'},
+            
+            // Действия
+            {lemma:'делать',infStem:'дела',presStem:'дела',pastStem:'дела',conj:1,aspect:'impf',trans:true,semantic:'action'},
+            {lemma:'сделать',infStem:'сдела',presStem:'сдела',pastStem:'сдела',conj:1,aspect:'pf',trans:true,semantic:'action'},
+            {lemma:'брать',infStem:'бра',presStem:'бер',pastStem:'бра',conj:1,aspect:'impf',trans:true,semantic:'action'},
+            {lemma:'взять',infStem:'взя',presStem:'возьм',pastStem:'взя',conj:1,aspect:'pf',trans:true,semantic:'action'},
+            {lemma:'давать',infStem:'дава',presStem:'да',pastStem:'дава',conj:1,aspect:'impf',trans:true,semantic:'action'},
+            {lemma:'дать',infStem:'да',presStem:'дад',pastStem:'да',conj:1,aspect:'pf',trans:true,semantic:'action'},
+            {lemma:'ждать',infStem:'жда',presStem:'жд',pastStem:'жда',conj:1,aspect:'impf',trans:true,semantic:'action'},
+            {lemma:'искать',infStem:'иска',presStem:'ищ',pastStem:'иска',conj:1,aspect:'impf',trans:true,semantic:'action'},
+            {lemma:'найти',infStem:'найт',presStem:'найд',pastStem:'наш',conj:1,aspect:'pf',trans:true,semantic:'action'},
+            {lemma:'держать',infStem:'держа',inf:'держать',presStem:'держ',pastStem:'держа',conj:2,aspect:'impf',trans:true,semantic:'action'},
+            {lemma:'нести',infStem:'нест',inf:'нести',presStem:'нес',pastStem:'нёс',conj:1,aspect:'impf',trans:true,semantic:'action'},
+            {lemma:'вести',infStem:'вест',inf:'вести',presStem:'вед',pastStem:'вёл',conj:1,aspect:'impf',trans:true,semantic:'action'},
+            {lemma:'строить',infStem:'строи',presStem:'стро',pastStem:'строи',conj:2,aspect:'impf',trans:true,semantic:'action'},
+            {lemma:'построить',infStem:'построи',presStem:'постро',pastStem:'построи',conj:2,aspect:'pf',trans:true,semantic:'action'},
+            
+            // Восприятие
+            {lemma:'видеть',infStem:'виде',presStem:'вид',pastStem:'виде',conj:2,aspect:'impf',trans:true,semantic:'perception'},
+            {lemma:'увидеть',infStem:'увиде',presStem:'увид',pastStem:'увиде',conj:2,aspect:'pf',trans:true,semantic:'perception'},
+            {lemma:'смотреть',infStem:'смотре',presStem:'смотр',pastStem:'смотре',conj:2,aspect:'impf',trans:true,semantic:'perception'},
+            {lemma:'слышать',infStem:'слыша',presStem:'слыш',pastStem:'слыша',conj:2,aspect:'impf',trans:true,semantic:'perception'},
+            {lemma:'услышать',infStem:'услыша',presStem:'услыш',pastStem:'услыша',conj:2,aspect:'pf',trans:true,semantic:'perception'},
+            {lemma:'чувствовать',infStem:'чувствова',presStem:'чувству',pastStem:'чувствова',conj:1,aspect:'impf',trans:true,semantic:'perception'},
+            
+            // Речь и мышление
+            {lemma:'говорить',infStem:'говори',presStem:'говор',pastStem:'говори',conj:2,aspect:'impf',trans:false,semantic:'speech'},
+            {lemma:'сказать',infStem:'сказа',presStem:'скаж',pastStem:'сказа',conj:1,aspect:'pf',trans:true,semantic:'speech'},
+            {lemma:'думать',infStem:'дума',presStem:'дума',pastStem:'дума',conj:1,aspect:'impf',trans:false,semantic:'thought'},
+            {lemma:'мыслить',infStem:'мысли',presStem:'мысл',pastStem:'мысли',conj:2,aspect:'impf',trans:false,semantic:'thought'},
+            {lemma:'знать',infStem:'зна',presStem:'зна',pastStem:'зна',conj:1,aspect:'impf',trans:true,semantic:'thought'},
+            {lemma:'узнать',infStem:'узна',presStem:'узна',pastStem:'узна',conj:1,aspect:'pf',trans:true,semantic:'thought'},
+            {lemma:'понимать',infStem:'понима',presStem:'понима',pastStem:'понима',conj:1,aspect:'impf',trans:true,semantic:'thought'},
+            {lemma:'понять',infStem:'поня',presStem:'пойм',pastStem:'поня',conj:1,aspect:'pf',trans:true,semantic:'thought'},
+            
+            // Чтение и письмо
+            {lemma:'читать',infStem:'чита',presStem:'чита',pastStem:'чита',conj:1,aspect:'impf',trans:true,semantic:'literacy'},
+            {lemma:'прочитать',infStem:'прочита',presStem:'прочита',pastStem:'прочита',conj:1,aspect:'pf',trans:true,semantic:'literacy'},
+            {lemma:'писать',infStem:'писа',presStem:'пиш',pastStem:'писа',conj:1,aspect:'impf',trans:true,semantic:'literacy'},
+            {lemma:'написать',infStem:'написа',presStem:'напиш',pastStem:'написа',conj:1,aspect:'pf',trans:true,semantic:'literacy'},
+            
+            // Эмоции
+            {lemma:'любить',infStem:'люби',presStem:'любл',pastStem:'люби',conj:2,aspect:'impf',trans:true,semantic:'emotion'},
+            {lemma:'ненавидеть',infStem:'ненавиде',presStem:'ненавид',pastStem:'ненавиде',conj:2,aspect:'impf',trans:true,semantic:'emotion'},
+            {lemma:'радоваться',infStem:'радова',presStem:'раду',pastStem:'радова',conj:1,aspect:'impf',trans:false,refl:true,semantic:'emotion'},
+            {lemma:'грустить',infStem:'грусти',presStem:'груст',pastStem:'грусти',conj:2,aspect:'impf',trans:false,semantic:'emotion'},
+            {lemma:'бояться',infStem:'боя',presStem:'бо',pastStem:'боя',conj:2,aspect:'impf',trans:false,refl:true,semantic:'emotion'},
+            
+            // Состояние
+            {lemma:'жить',infStem:'жи',presStem:'жив',pastStem:'жи',conj:1,aspect:'impf',trans:false,semantic:'state'},
+            {lemma:'умирать',infStem:'умира',presStem:'умира',pastStem:'умира',conj:1,aspect:'impf',trans:false,semantic:'state'},
+            {lemma:'умереть',infStem:'умере',presStem:'умр',pastStem:'умер',conj:1,aspect:'pf',trans:false,semantic:'state'},
+            {lemma:'спать',infStem:'спа',presStem:'сп',pastStem:'спа',conj:2,aspect:'impf',trans:false,semantic:'state'},
+            {lemma:'просыпаться',infStem:'просыпа',presStem:'просыпа',pastStem:'просыпа',conj:1,aspect:'impf',trans:false,refl:true,semantic:'state'},
+            
+            // Битва
+            {lemma:'бороться',infStem:'боро',presStem:'бор',pastStem:'боро',conj:1,aspect:'impf',trans:false,refl:true,semantic:'battle'},
+            {lemma:'побеждать',infStem:'побежда',presStem:'побежда',pastStem:'побежда',conj:1,aspect:'impf',trans:true,semantic:'battle'},
+            {lemma:'победить',infStem:'победи',presStem:'побед',pastStem:'победи',conj:2,aspect:'pf',trans:true,semantic:'battle'},
+            {lemma:'сражаться',infStem:'сража',presStem:'сража',pastStem:'сража',conj:1,aspect:'impf',trans:false,refl:true,semantic:'battle'},
+            
+            // Создание
+            {lemma:'создавать',infStem:'создава',presStem:'созда',pastStem:'создава',conj:1,aspect:'impf',trans:true,semantic:'creation'},
+            {lemma:'создать',infStem:'созда',presStem:'создад',pastStem:'созда',conj:1,aspect:'pf',trans:true,semantic:'creation'},
+            {lemma:'творить',infStem:'твори',presStem:'твор',pastStem:'твори',conj:2,aspect:'impf',trans:true,semantic:'creation'},
+            
+            // Играть
+            {lemma:'играть',infStem:'игра',presStem:'игра',pastStem:'игра',conj:1,aspect:'impf',trans:false,semantic:'play'},
+            {lemma:'петь',infStem:'пе',presStem:'по',pastStem:'пе',conj:1,aspect:'impf',trans:true,semantic:'play'}
+        ];
+        const ADVERBS = {
+            manner: ['медленно','быстро','тихо','громко','красиво','легко','трудно','сильно','внезапно','осторожно'],
+            place: ['здесь','там','везде','далеко','близко','высоко','низко','слева','справа'],
+            time: ['сегодня','вчера','завтра','всегда','никогда','часто','редко','теперь','тогда','рано','поздно'],
+            degree: ['очень','весьма','слишком','совершенно']
+        };
+        
+        // ========== ПРЕДЛОГИ ==========
+        const PREPOSITIONS = {
+            GEN: ['без','у','от','до','из','около','для','после'],
+            DAT: ['к','по'],
+            ACC: ['в','на','за','под','через'],
+            INS: ['с','за','над','перед','между'],
+            PRE: ['в','на','о','при']
+        };
+        
+        // Функция выбора правильной формы предлога
+        function adjustPreposition(prep, nextWord) {
+            if (!nextWord) return prep;
+            const firstChar = nextWord.charAt(0).toLowerCase();
+            const firstTwo = nextWord.substring(0, 2).toLowerCase();
+            
+            // в → во (перед многими словами на в-, мн-)
+            if (prep === 'в') {
+                if (firstChar === 'в' || firstTwo === 'мн') {
+                    return 'во';
+                }
+            }
+            // с → со (перед словами на с-, з-, мн-, л-, льв-, вс-)
+            if (prep === 'с') {
+                if (firstChar === 'с' || firstChar === 'з' || 
+                    firstTwo === 'мн' || firstTwo === 'вс' || 
+                    nextWord.substring(0, 3) === 'льв') {
+                    return 'со';
+                }
+            }
+            // к → ко (перед словами на к- или мн-)
+            if (prep === 'к') {
+                if (firstTwo === 'мн' || nextWord === 'мне' || nextWord.substring(0, 3) === 'всем' || nextWord.substring(0, 3) === 'всей') {
+                    return 'ко';
+                }
+            }
+            // о → об (перед гласными)
+            if (prep === 'о') {
+                if ('аеёиоуыэюя'.includes(firstChar)) {
+                    return 'об';
+                }
+            }
+            
+            return prep;
+        }
+        
+        // ========== СОЮЗЫ ==========
+        const CONJUNCTIONS = {
+            coord: ['и','а','но','или','зато'],
+            subord: ['что','чтобы','когда','если','хотя','потому что','как']
+        };
+        
+        // ========== ЧАСТИЦЫ ==========
+        const PARTICLES = ['не','ни','бы','ли','же','ведь','даже','лишь','только','уже','ещё'];
+        
+        // ========== ЧИСЛИТЕЛЬНЫЕ ==========
+        const NUMERALS = [
+            {
+                lemma: 'один',
+                cardinal: true,
+                M: { NOM: 'один', GEN: 'одного', DAT: 'одному', ACC_INAN: 'один', ACC_ANIM: 'одного', INS: 'одним', PRE: 'одном' },
+                F: { NOM: 'одна', GEN: 'одной', DAT: 'одной', ACC: 'одну', INS: 'одной', PRE: 'одной' },
+                N: { NOM: 'одно', GEN: 'одного', DAT: 'одному', ACC: 'одно', INS: 'одним', PRE: 'одном' },
+                nounCase: 'NOM',
+                nounNumber: 'SG'
+            },
+            {
+                lemma: 'два',
+                cardinal: true,
+                M: { NOM: 'два', GEN: 'двух', DAT: 'двум', ACC_INAN: 'два', ACC_ANIM: 'двух', INS: 'двумя', PRE: 'двух' },
+                F: { NOM: 'две', GEN: 'двух', DAT: 'двум', ACC_INAN: 'две', ACC_ANIM: 'двух', INS: 'двумя', PRE: 'двух' },
+                N: { NOM: 'два', GEN: 'двух', DAT: 'двум', ACC: 'два', INS: 'двумя', PRE: 'двух' },
+                nounCase: 'GEN',
+                nounNumber: 'SG'
+            },
+            {
+                lemma: 'три',
+                cardinal: true,
+                forms: { NOM: 'три', GEN: 'трёх', DAT: 'трём', ACC_INAN: 'три', ACC_ANIM: 'трёх', INS: 'тремя', PRE: 'трёх' },
+                nounCase: 'GEN',
+                nounNumber: 'SG'
+            },
+            {
+                lemma: 'четыре',
+                cardinal: true,
+                forms: { NOM: 'четыре', GEN: 'четырёх', DAT: 'четырём', ACC_INAN: 'четыре', ACC_ANIM: 'четырёх', INS: 'четырьмя', PRE: 'четырёх' },
+                nounCase: 'GEN',
+                nounNumber: 'SG'
+            },
+            {
+                lemma: 'пять',
+                cardinal: true,
+                forms: { NOM: 'пять', GEN: 'пяти', DAT: 'пяти', ACC_INAN: 'пять', ACC_ANIM: 'пять', INS: 'пятью', PRE: 'пяти' },
+                nounCase: 'GEN',
+                nounNumber: 'PL'
+            },
+            {
+                lemma: 'десять',
+                cardinal: true,
+                forms: { NOM: 'десять', GEN: 'десяти', DAT: 'десяти', ACC_INAN: 'десять', ACC_ANIM: 'десять', INS: 'десятью', PRE: 'десяти' },
+                nounCase: 'GEN',
+                nounNumber: 'PL'
+            }
+        ];
+        
+        // ========== ФУНКЦИИ СКЛОНЕНИЯ СУЩЕСТВИТЕЛЬНЫХ ==========
+        
+        // Функция применения орфографических правил
+        function applyOrthography(stem, ending) {
+            if (!ending) return stem + ending;
+            
+            const lastChar = stem.charAt(stem.length - 1);
+            let adjustedEnding = ending;
+            
+            // После г, к, х, ж, ш, ч, щ: 'ы' → 'и', 'я' → 'а'
+            if ('гкхжшчщ'.includes(lastChar)) {
+                adjustedEnding = adjustedEnding.replace(/^ы/, 'и').replace(/^я/, 'а');
+            }
+            
+            // После ц: 'я' → 'а' (но 'ы' остается 'ы' если безударное)
+            if (lastChar === 'ц') {
+                adjustedEnding = adjustedEnding.replace(/^я/, 'а');
+            }
+            
+            return stem + adjustedEnding;
+        }
+        
+        function declineNoun(noun, caseKey, number) {
+            const endings = NOUN_ENDINGS[noun.decl];
+            if (!endings) return noun.lemma;
+            
+            let stem = noun.stem;
+            
+            // Беглые гласные в косвенных падежах (кроме именительного)
+            if (noun.oblStem && caseKey !== 'NOM') {
+                stem = noun.oblStem;
+            }
+            
+            // Особые основы для именительного единственного (любовь, мать)
+            if (caseKey === 'NOM' && number === 'SG' && noun.nomSgStem) {
+                stem = noun.nomSgStem;
+            }
+            
+            // Чередования во множественном числе (друг-друзья, брат-братья)
+            if (number === 'PL') {
+                if (noun.nomPlStem && caseKey === 'NOM') {
+                    return noun.nomPlStem + endings[number][caseKey];
+                }
+                if (noun.oblPlStem && caseKey !== 'NOM') {
+                    stem = noun.oblPlStem;
+                }
+            }
+            
+            const ending = endings[number][caseKey];
+            
+            // Винительный падеж одушевлённых = родительный
+            if (caseKey === 'ACC' && noun.anim) {
+                const genEnding = endings[number]['GEN'];
+                return applyOrthography(stem, genEnding);
+            }
+            
+            return applyOrthography(stem, ending);
+        }
+        
+        // ========== ФУНКЦИИ СКЛОНЕНИЯ ПРИЛАГАТЕЛЬНЫХ ==========
+        function declineAdjective(adj, gender, caseKey, number, anim) {
+            const type = adj.type || 'hard';
+            const endings = ADJ_ENDINGS[type];
+            
+            if (number === 'PL') {
+                // Для множественного числа род не важен, используем мужской род как базу
+                const plEndings = endings.M.PL;
+                if (caseKey === 'ACC') {
+                    return applyOrthography(adj.stem, anim ? plEndings.ACC_ANIM : plEndings.ACC_INAN);
+                }
+                return applyOrthography(adj.stem, plEndings[caseKey]);
+            }
+            
+            // Единственное число - согласование по роду
+            const genderEndings = endings[gender].SG;
+            
+            if (caseKey === 'ACC') {
+                // Для винительного падежа учитываем одушевлённость
+                if (gender === 'M') {
+                    return applyOrthography(adj.stem, anim ? genderEndings.ACC_ANIM : genderEndings.ACC_INAN);
+                }
+                // Для женского и среднего рода одушевлённость не влияет на окончание
+                return applyOrthography(adj.stem, genderEndings.ACC);
+            }
+            
+            return applyOrthography(adj.stem, genderEndings[caseKey]);
+        }
+        
+        // ========== ФУНКЦИИ СПРЯЖЕНИЯ ГЛАГОЛОВ ==========
+        function conjugateVerb(verb, person, number, tense, gender) {
+            if (tense === 'PAST') {
+                // Прошедшее время согласуется по роду в единственном числе
+                if (number === 'SG') {
+                    const pastEnding = VERB_ENDINGS.PAST.SG[gender || 'M'];
+                    const form = verb.pastStem + pastEnding;
+                    return addReflexive(form, verb.refl);
+                } else {
+                    const form = verb.pastStem + VERB_ENDINGS.PAST.PL;
+                    return addReflexive(form, verb.refl);
+                }
+            }
+            
+            if (tense === 'FUT') {
+                // Будущее время
+                if (verb.aspect === 'pf') {
+                    // Совершенный вид: простая форма (используем основу настоящего)
+                    const endings = getVerbEndings(verb, number);
+                    const personIndex = person - 1;
+                    const form = verb.presStem + endings[personIndex];
+                    return addReflexive(form, verb.refl);
+                } else {
+                    // Несовершенный вид: сложная форма (буду + инфинитив)
+                    const budu = ['буду', 'будешь', 'будет'];
+                    const budem = ['будем', 'будете', 'будут'];
+                    const futForm = number === 'SG' ? budu[person - 1] : budem[person - 1];
+                    // Используем поле inf, если есть, иначе строим по умолчанию
+                    const infinitive = verb.inf || (verb.infStem + 'ть');
+                    return futForm + ' ' + infinitive;
+                }
+            }
+            
+            // Настоящее время (только для несовершенного вида)
+            if (tense === 'PRES' && verb.aspect === 'impf') {
+                const endings = getVerbEndings(verb, number);
+                const personIndex = person - 1;
+                const form = verb.presStem + endings[personIndex];
+                return addReflexive(form, verb.refl);
+            }
+            
+            // Совершенный вид не имеет настоящего времени, используем будущее
+            if (tense === 'PRES' && verb.aspect === 'pf') {
+                return conjugateVerb(verb, person, number, 'FUT', gender);
+            }
+            
+            return verb.lemma;
+        }
+        
+        // Функция выбора правильных окончаний в зависимости от основы глагола
+        function getVerbEndings(verb, number) {
+            const lastChar = verb.presStem.charAt(verb.presStem.length - 1);
+            const isVowel = 'аеёиоуыэюя'.includes(lastChar);
+            
+            if (verb.conj === 1) {
+                // I спряжение
+                if (number === 'SG') {
+                    return isVowel ? ['ю', 'ешь', 'ет'] : ['у', 'ешь', 'ет'];
+                } else {
+                    return isVowel ? ['ем', 'ете', 'ют'] : ['ем', 'ете', 'ут'];
+                }
+            } else {
+                // II спряжение
+                const isSibilant = 'жшчщ'.includes(lastChar);
+                if (number === 'SG') {
+                    return isVowel ? ['ю', 'ишь', 'ит'] : ['у', 'ишь', 'ит'];
+                } else {
+                    if (isSibilant) {
+                        return ['им', 'ите', 'ат']; // после шипящих -ат
+                    } else {
+                        return isVowel ? ['им', 'ите', 'ят'] : ['им', 'ите', 'ят'];
+                    }
+                }
+            }
+        }
+        
+        function addReflexive(form, isRefl) {
+            if (!isRefl) return form;
+            const lastChar = form.charAt(form.length - 1);
+            return 'аеёиоуыэюя'.includes(lastChar) ? form + 'сь' : form + 'ся';
+        }
+        
+        // ========== ПРИЧАСТИЯ ==========
+        function makeParticiple(verb, type) {
+            let stem = '';
+            let suffix = '';
+            
+            if (type === 'ACT_PRES') { 
+                // Действительные причастия настоящего времени
+                // От основы настоящего времени 3 л. мн.ч.
+                // Нужно спрягать глагол в 3 л. мн.ч. и взять основу
+                const form3pl = conjugateVerb(verb, 3, 'PL', 'PRES', 'M');
+                
+                // Убираем возвратную частицу если есть
+                let cleanForm = form3pl;
+                if (verb.refl) {
+                    cleanForm = cleanForm.replace(/ся$/, '').replace(/сь$/, '');
+                }
+                
+                // Отсекаем окончание 3 л. мн.ч.: -ут/-ют для I спр., -ат/-ят для II спр.
+                if (cleanForm.endsWith('ут') || cleanForm.endsWith('ют')) {
+                    stem = cleanForm.slice(0, -2);
+                    const isVowel = 'аеёиоуыэюя'.includes(stem.charAt(stem.length - 1));
+                    suffix = isVowel ? 'ющ' : 'ущ';
+                } else if (cleanForm.endsWith('ат') || cleanForm.endsWith('ят')) {
+                    stem = cleanForm.slice(0, -2);
+                    // II спряжение всегда использует суффикс 'ящ'
+                    suffix = 'ящ';
+                } else {
+                    // Fallback к старому методу
+                    stem = verb.presStem;
+                    if (verb.conj === 1) {
+                        // I спряжение: после гласных 'ющ', после согласных 'ущ'
+                        const lastChar = stem.charAt(stem.length - 1);
+                        const isVowel = 'аеёиоуыэюя'.includes(lastChar);
+                        suffix = isVowel ? 'ющ' : 'ущ';
+                    } else {
+                        // II спряжение: всегда 'ящ'
+                        suffix = 'ящ';
+                    }
+                }
+                
+            } else if (type === 'ACT_PAST') { 
+                // Действительные причастия прошедшего времени
+                // От основы прошедшего времени
+                stem = verb.pastStem;
+                
+                // Проверяем окончание основы
+                const lastChar = stem.charAt(stem.length - 1);
+                if (lastChar === 'а' || lastChar === 'я' || lastChar === 'е') {
+                    suffix = 'вш'; // после гласных
+                } else {
+                    suffix = 'ш'; // после согласных
+                }
+                
+            } else if (type === 'PASS_PRES') { 
+                // Страдательные причастия настоящего времени
+                // Только для переходных глаголов несовершенного вида
+                if (!verb.trans || verb.aspect === 'pf') return null;
+                
+                stem = verb.presStem;
+                
+                // I спряжение: -ем
+                // II спряжение: -им
+                if (verb.conj === 1) {
+                    suffix = 'ем';
+                } else {
+                    suffix = 'им';
+                }
+                
+            } else if (type === 'PASS_PAST') { 
+                // Страдательные причастия прошедшего времени
+                // Только для переходных глаголов совершенного вида
+                if (!verb.trans || verb.aspect === 'impf') return null;
+                
+                stem = verb.pastStem;
+                
+                // Основные суффиксы: -нн, -енн, -т
+                // Упрощённо используем -нн для большинства глаголов
+                const lastChar = stem.charAt(stem.length - 1);
+                if (lastChar === 'а' || lastChar === 'я') {
+                    // убираем гласную и добавляем -нн
+                    stem = stem.slice(0, -1);
+                    suffix = 'нн';
+                } else {
+                    suffix = 'енн';
+                }
+            }
+            
+            return { 
+                stem: stem + suffix, 
+                type: type,
+                isParticiple: true 
+            };
+        }
+        
+        // Склонение причастий (согласование по роду, числу, падежу)
+        function declineParticiple(participle, gender, caseKey, number, anim) {
+            const endings = PARTICIPLE_ENDINGS[participle.type];
+            if (!endings) return applyOrthography(participle.stem, 'ий'); // по умолчанию
+            
+            if (number === 'PL') {
+                const plEndings = endings.M.PL; // для множественного числа род не важен
+                if (caseKey === 'ACC') {
+                    return applyOrthography(participle.stem, anim ? plEndings.ACC_ANIM : plEndings.ACC_INAN);
+                }
+                return applyOrthography(participle.stem, plEndings[caseKey]);
+            }
+            
+            // Единственное число - согласование по роду
+            const genderEndings = endings[gender].SG;
+            
+            if (caseKey === 'ACC') {
+                // Для винительного падежа учитываем одушевлённость
+                if (gender === 'M') {
+                    return applyOrthography(participle.stem, anim ? genderEndings.ACC_ANIM : genderEndings.ACC_INAN);
+                }
+                // Для женского и среднего рода одушевлённость не влияет на окончание
+                return applyOrthography(participle.stem, genderEndings.ACC);
+            }
+            
+            return applyOrthography(participle.stem, genderEndings[caseKey]);
+        }
+        
+        // ========== ДЕЕПРИЧАСТИЯ ==========
+        function makeGerund(verb) {
+            // Возвратные глаголы
+            if (verb.refl) {
+                if (verb.aspect === 'impf') {
+                    // Образуем от 3 л. мн.ч.
+                    const form3pl = conjugateVerb(verb, 3, 'PL', 'PRES', 'M');
+                    let cleanForm = form3pl.replace(/ся$/, '').replace(/сь$/, '');
+                    
+                    if (cleanForm.endsWith('ут') || cleanForm.endsWith('ют')) {
+                        // I спряжение
+                        return cleanForm.slice(0, -2) + 'ясь';
+                    } else if (cleanForm.endsWith('ат') || cleanForm.endsWith('ят')) {
+                        // II спряжение - всегда 'ясь'
+                        return cleanForm.slice(0, -2) + 'ясь';
+                    }
+                    return verb.presStem + 'ясь';
+                } else {
+                    return verb.pastStem + 'вшись';
+                }
+            }
+            
+            if (verb.aspect === 'impf') {
+                // Деепричастия несовершенного вида
+                // От 3 л. мн.ч. настоящего времени
+                const form3pl = conjugateVerb(verb, 3, 'PL', 'PRES', 'M');
+                
+                // Отсекаем окончание -ут/-ют или -ат/-ят
+                if (form3pl.endsWith('ут') || form3pl.endsWith('ют')) {
+                    // I спряжение
+                    const stem = form3pl.slice(0, -2);
+                    const lastChar = stem.charAt(stem.length - 1);
+                    const isVowel = 'аеёиоуыэюя'.includes(lastChar);
+                    return stem + (isVowel ? 'я' : 'а');
+                } else if (form3pl.endsWith('ат') || form3pl.endsWith('ят')) {
+                    // II спряжение - всегда 'я'
+                    const stem = form3pl.slice(0, -2);
+                    return stem + 'я';
+                }
+                
+                // Fallback
+                let stem = verb.presStem;
+                if (verb.conj === 1) {
+                    const lastChar = stem.charAt(stem.length - 1);
+                    const isVowel = 'аеёиоуыэюя'.includes(lastChar);
+                    return stem + (isVowel ? 'я' : 'а');
+                } else {
+                    // II спряжение - всегда 'я'
+                    return stem + 'я';
+                }
+                
+            } else {
+                // Деепричастия совершенного вида
+                // От основы прошедшего времени + -в/-вши
+                let stem = verb.pastStem;
+                const lastChar = stem.charAt(stem.length - 1);
+                
+                // Если основа заканчивается на гласную - используем -в
+                if ('аяеёиоуыэюя'.includes(lastChar)) {
+                    return stem + 'в';
+                }
+                
+                // Если основа заканчивается на согласную
+                // Для некоторых глаголов используется суффикс -ши
+                // Например: принести → принёсши (архаичная форма)
+                // Упрощённо используем -ши для согласных
+                return stem + 'ши';
+            }
+        }
+        
+        // ========== СКЛОНЕНИЕ ЧИСЛИТЕЛЬНЫХ ==========
+        function declineNumeral(numeral, caseKey, gender, anim) {
+            if (numeral.lemma === 'один') {
+                const forms = numeral[gender];
+                if (caseKey === 'ACC') {
+                    return anim ? forms.ACC_ANIM : forms.ACC_INAN;
+                }
+                return forms[caseKey];
+            } else if (numeral.M && numeral.F) {
+                // два, две
+                const forms = numeral[gender];
+                if (caseKey === 'ACC') {
+                    return anim ? forms.ACC_ANIM : forms.ACC_INAN;
+                }
+                return forms[caseKey];
+            } else {
+                // три, четыре, пять и т.д.
+                if (caseKey === 'ACC' && (numeral.forms.ACC_INAN || numeral.forms.ACC_ANIM)) {
+                    return anim ? numeral.forms.ACC_ANIM : numeral.forms.ACC_INAN;
+                }
+                return numeral.forms[caseKey] || numeral.forms.ACC;
+            }
+        }
+        
+        // Согласование существительного с числительным
+        function nounWithNumeral(numeral, noun, caseKey) {
+            // В именительном и винительном падежах особые правила
+            if (caseKey === 'NOM' || (caseKey === 'ACC' && !noun.anim)) {
+                return declineNoun(noun, numeral.nounCase, numeral.nounNumber);
+            }
+            // В остальных падежах - согласование по падежу во множественном числе
+            return declineNoun(noun, caseKey, 'PL');
+        }
+        
+        
+        // ========== ШАБЛОНЫ ПРЕДЛОЖЕНИЙ ==========
+        const SENTENCE_PATTERNS = {
+            simple: [
+                // Простое (настоящее)
+                {
+                    name: 'Простое настоящее',
+                    generate: () => {
+                        const noun = randomChoice(NOUNS);
+                        const verb = randomChoice(VERBS.filter(v => v.aspect === 'impf' && !v.refl));
+                        const nounForm = declineNoun(noun, 'NOM', 'SG');
+                        const verbForm = conjugateVerb(verb, 3, 'SG', 'PRES', noun.gender);
+                        return {
+                            text: capitalize(nounForm) + ' ' + verbForm + '.',
+                            info: [{label:'Подлежащее',value:nounForm},{label:'Сказуемое',value:verbForm+' (наст.)'}]
+                        };
+                    }
+                },
+                // Простое (прошедшее)
+                {
+                    name: 'Простое прошедшее',
+                    generate: () => {
+                        const noun = randomChoice(NOUNS);
+                        const verb = randomChoice(VERBS.filter(v => !v.refl));
+                        const nounForm = declineNoun(noun, 'NOM', 'SG');
+                        const verbForm = conjugateVerb(verb, 3, 'SG', 'PAST', noun.gender);
+                        return {
+                            text: capitalize(nounForm) + ' ' + verbForm + '.',
+                            info: [{label:'Подлежащее',value:nounForm+' ('+noun.gender+')'},{label:'Сказуемое',value:verbForm+' (прош.)'}]
+                        };
+                    }
+                },
+                // Простое (будущее)
+                {
+                    name: 'Простое будущее',
+                    generate: () => {
+                        const noun = randomChoice(NOUNS);
+                        const verb = randomChoice(VERBS.filter(v => !v.refl));
+                        const nounForm = declineNoun(noun, 'NOM', 'SG');
+                        const verbForm = conjugateVerb(verb, 3, 'SG', 'FUT', noun.gender);
+                        return {
+                            text: capitalize(nounForm) + ' ' + verbForm + '.',
+                            info: [{label:'Подлежащее',value:nounForm},{label:'Сказуемое',value:verbForm+' (буд.)'}]
+                        };
+                    }
+                },
+                // С определением
+                {
+                    name: 'С определением',
+                    generate: () => {
+                        const noun = randomChoice(NOUNS);
+                        const adj = randomChoice(ADJECTIVES);
+                        const verb = randomChoice(VERBS.filter(v => !v.refl));
+                        const tense = randomChoice(['PRES', 'PAST', 'FUT']);
+                        const adjForm = declineAdjective(adj, noun.gender, 'NOM', 'SG', noun.anim);
+                        const nounForm = declineNoun(noun, 'NOM', 'SG');
+                        const verbForm = conjugateVerb(verb, 3, 'SG', tense, noun.gender);
+                        return {
+                            text: capitalize(adjForm) + ' ' + nounForm + ' ' + verbForm + '.',
+                            info: [{label:'Определение',value:adjForm},{label:'Подлежащее',value:nounForm},{label:'Сказуемое',value:verbForm}]
+                        };
+                    }
+                },
+                // С обстоятельством
+                {
+                    name: 'С обстоятельством',
+                    generate: () => {
+                        const noun = randomChoice(NOUNS);
+                        const verb = randomChoice(VERBS.filter(v => !v.refl));
+                        const adv = randomChoice(Object.values(ADVERBS).flat());
+                        const tense = randomChoice(['PRES', 'PAST', 'FUT']);
+                        const nounForm = declineNoun(noun, 'NOM', 'SG');
+                        const verbForm = conjugateVerb(verb, 3, 'SG', tense, noun.gender);
+                        return {
+                            text: capitalize(nounForm) + ' ' + verbForm + ' ' + adv + '.',
+                            info: [{label:'Подлежащее',value:nounForm},{label:'Сказуемое',value:verbForm},{label:'Обстоятельство',value:adv}]
+                        };
+                    }
+                },
+                // С числительным
+                {
+                    name: 'С числительным',
+                    generate: () => {
+                        const numeral = randomChoice(NUMERALS);
+                        const noun = randomChoice(NOUNS);
+                        const verb = randomChoice(VERBS.filter(v => v.aspect === 'impf' && !v.refl));
+                        
+                        const numeralForm = declineNumeral(numeral, 'NOM', noun.gender, noun.anim);
+                        
+                        // Прилагательное (опционально, 50% вероятность)
+                        let adjForm = '';
+                        if (chance(0.5)) {
+                            const adj = randomChoice(ADJECTIVES);
+                            // Согласование прилагательного с числительным
+                            if (numeral.lemma === 'один') {
+                                adjForm = declineAdjective(adj, noun.gender, 'NOM', 'SG', noun.anim) + ' ';
+                            } else if (numeral.nounNumber === 'SG') {
+                                // Для 2, 3, 4
+                                if (noun.anim) {
+                                    // одушевлённое - родительный мн.ч.
+                                    adjForm = declineAdjective(adj, noun.gender, 'GEN', 'PL', noun.anim) + ' ';
+                                } else {
+                                    // неодушевлённое - именительный мн.ч.
+                                    adjForm = declineAdjective(adj, noun.gender, 'NOM', 'PL', noun.anim) + ' ';
+                                }
+                            } else {
+                                // Для 5+ - родительный мн.ч.
+                                adjForm = declineAdjective(adj, noun.gender, 'GEN', 'PL', noun.anim) + ' ';
+                            }
+                        }
+                        
+                        const nounForm = nounWithNumeral(numeral, noun, 'NOM');
+                        
+                        // Глагол согласуется в числе: один - ед.ч., остальные - мн.ч.
+                        const verbNumber = (numeral.lemma === 'один') ? 'SG' : 'PL';
+                        const verbForm = conjugateVerb(verb, 3, verbNumber, 'PRES', noun.gender);
+                        
+                        return {
+                            text: capitalize(numeralForm) + ' ' + adjForm + nounForm + ' ' + verbForm + '.',
+                            info: [{label:'Числительное',value:numeralForm},{label:'Прилагательное',value:adjForm||'—'},{label:'Существительное',value:nounForm},{label:'Глагол',value:verbForm}]
+                        };
+                    }
+                }
+            ],
+            
+            medium: [
+                // С дополнением
+                {
+                    name: 'С дополнением',
+                    generate: () => {
+                        const subj = randomChoice(NOUNS.filter(n => n.anim));
+                        const obj = randomChoice(NOUNS);
+                        const verb = randomChoice(VERBS.filter(v => v.trans && !v.refl));
+                        const tense = randomChoice(['PRES', 'PAST', 'FUT']);
+                        const subjForm = declineNoun(subj, 'NOM', 'SG');
+                        const verbForm = conjugateVerb(verb, 3, 'SG', tense, subj.gender);
+                        const objForm = declineNoun(obj, 'ACC', 'SG');
+                        return {
+                            text: capitalize(subjForm) + ' ' + verbForm + ' ' + objForm + '.',
+                            info: [{label:'Подлежащее',value:subjForm},{label:'Сказуемое',value:verbForm},{label:'Дополнение',value:objForm}]
+                        };
+                    }
+                },
+                // С предложным оборотом
+                {
+                    name: 'С предложным оборотом',
+                    generate: () => {
+                        const caseKey = randomChoice(['GEN','DAT','ACC','INS','PRE']);
+                        const prep = randomChoice(PREPOSITIONS[caseKey]);
+                        const noun1 = randomChoice(NOUNS);
+                        const noun2 = randomChoice(NOUNS);
+                        const verb = randomChoice(VERBS.filter(v => !v.refl));
+                        const tense = randomChoice(['PRES', 'PAST', 'FUT']);
+                        const noun1Form = declineNoun(noun1, caseKey, 'SG');
+                        const noun2Form = declineNoun(noun2, 'NOM', 'SG');
+                        const verbForm = conjugateVerb(verb, 3, 'SG', tense, noun2.gender);
+                        const adjustedPrep = adjustPreposition(prep, noun1Form);
+                        return {
+                            text: capitalize(adjustedPrep) + ' ' + noun1Form + ' ' + noun2Form + ' ' + verbForm + '.',
+                            info: [{label:'Предлог',value:adjustedPrep},{label:'Дополнение',value:noun1Form},{label:'Подлежащее',value:noun2Form},{label:'Сказуемое',value:verbForm}]
+                        };
+                    }
+                },
+                // С причастным оборотом
+                {
+                    name: 'С причастным оборотом',
+                    generate: () => {
+                        const noun = randomChoice(NOUNS.filter(n => n.anim));
+                        const verb1 = randomChoice(VERBS.filter(v => !v.refl && v.aspect === 'impf'));
+                        const verb2 = randomChoice(VERBS.filter(v => !v.refl));
+                        const participle = makeParticiple(verb1, 'ACT_PRES');
+                        if (!participle) return SENTENCE_PATTERNS.medium[0].generate();
+                        
+                        const obj = randomChoice(NOUNS);
+                        const tense = randomChoice(['PRES', 'PAST']);
+                        
+                        const nounForm = declineNoun(noun, 'NOM', 'SG');
+                        const partForm = declineParticiple(participle, noun.gender, 'NOM', 'SG', noun.anim);
+                        const objForm = declineNoun(obj, 'ACC', 'SG');
+                        const verbForm = conjugateVerb(verb2, 3, 'SG', tense, noun.gender);
+                        
+                        return {
+                            text: capitalize(nounForm) + ', ' + partForm + ' ' + objForm + ', ' + verbForm + '.',
+                            info: [{label:'Подлежащее',value:nounForm},{label:'Причастие',value:partForm},{label:'Дополнение',value:objForm},{label:'Сказуемое',value:verbForm}]
+                        };
+                    }
+                },
+                // С деепричастным оборотом
+                {
+                    name: 'С деепричастным оборотом',
+                    generate: () => {
+                        const noun = randomChoice(NOUNS.filter(n => n.anim));
+                        const verb1 = randomChoice(VERBS.filter(v => v.aspect === 'impf' && !v.refl));
+                        const verb2 = randomChoice(VERBS.filter(v => !v.refl));
+                        const gerund = makeGerund(verb1);
+                        const obj = randomChoice(NOUNS);
+                        const tense = randomChoice(['PRES', 'PAST']);
+                        
+                        const nounForm = declineNoun(noun, 'NOM', 'SG');
+                        const objForm = declineNoun(obj, 'ACC', 'SG');
+                        const verbForm = conjugateVerb(verb2, 3, 'SG', tense, noun.gender);
+                        
+                        return {
+                            text: capitalize(nounForm) + ', ' + gerund + ' ' + objForm + ', ' + verbForm + '.',
+                            info: [{label:'Подлежащее',value:nounForm},{label:'Деепричастие',value:gerund},{label:'Дополнение',value:objForm},{label:'Сказуемое',value:verbForm}]
+                        };
+                    }
+                }
+            ],
+            
+            complex: [
+                // Сложносочинённое
+                {
+                    name: 'Сложносочинённое',
+                    generate: () => {
+                        const conj = randomChoice(CONJUNCTIONS.coord);
+                        const noun1 = randomChoice(NOUNS);
+                        const noun2 = randomChoice(NOUNS);
+                        const verb1 = randomChoice(VERBS.filter(v => !v.refl));
+                        const verb2 = randomChoice(VERBS.filter(v => !v.refl));
+                        const tense = randomChoice(['PRES', 'PAST', 'FUT']);
+                        
+                        const noun1Form = declineNoun(noun1, 'NOM', 'SG');
+                        const verb1Form = conjugateVerb(verb1, 3, 'SG', tense, noun1.gender);
+                        const noun2Form = declineNoun(noun2, 'NOM', 'SG');
+                        const verb2Form = conjugateVerb(verb2, 3, 'SG', tense, noun2.gender);
+                        
+                        return {
+                            text: capitalize(noun1Form) + ' ' + verb1Form + ', ' + conj + ' ' + noun2Form + ' ' + verb2Form + '.',
+                            info: [{label:'Тип',value:'Сложносочинённое'},{label:'Союз',value:conj},{label:'Время',value:tense}]
+                        };
+                    }
+                },
+                // Сложноподчинённое
+                {
+                    name: 'Сложноподчинённое',
+                    generate: () => {
+                        const conj = randomChoice(CONJUNCTIONS.subord);
+                        const noun1 = randomChoice(NOUNS);
+                        const noun2 = randomChoice(NOUNS);
+                        const verb1 = randomChoice(VERBS.filter(v => !v.refl));
+                        const verb2 = randomChoice(VERBS.filter(v => !v.refl));
+                        
+                        const mainTense = randomChoice(['PRES', 'PAST', 'FUT']);
+                        let suborTense = mainTense;
+                        
+                        if (mainTense === 'PRES' || mainTense === 'FUT') {
+                            suborTense = randomChoice(['PRES', 'PAST', 'FUT']);
+                        } else {
+                            suborTense = randomChoice(['PAST', 'FUT']);
+                        }
+                        
+                        const noun1Form = declineNoun(noun1, 'NOM', 'SG');
+                        const verb1Form = conjugateVerb(verb1, 3, 'SG', mainTense, noun1.gender);
+                        const noun2Form = declineNoun(noun2, 'NOM', 'SG');
+                        const verb2Form = conjugateVerb(verb2, 3, 'SG', suborTense, noun2.gender);
+                        
+                        return {
+                            text: capitalize(noun1Form) + ' ' + verb1Form + ', ' + conj + ' ' + noun2Form + ' ' + verb2Form + '.',
+                            info: [{label:'Тип',value:'Сложноподчинённое'},{label:'Главное',value:mainTense},{label:'Придаточное',value:suborTense}]
+                        };
+                    }
+                },
+                // Комбинированное
+                {
+                    name: 'С причастным и деепричастным оборотами',
+                    generate: () => {
+                        const noun = randomChoice(NOUNS.filter(n => n.anim));
+                        const verb1 = randomChoice(VERBS.filter(v => !v.refl && v.aspect === 'impf'));
+                        const verb2 = randomChoice(VERBS.filter(v => !v.refl && v.aspect === 'impf'));
+                        const verb3 = randomChoice(VERBS.filter(v => !v.refl));
+                        
+                        const participle = makeParticiple(verb1, 'ACT_PRES');
+                        if (!participle) return SENTENCE_PATTERNS.complex[0].generate();
+                        const gerund = makeGerund(verb2);
+                        
+                        const obj1 = randomChoice(NOUNS);
+                        const obj2 = randomChoice(NOUNS);
+                        
+                        const nounForm = declineNoun(noun, 'NOM', 'SG');
+                        const partForm = declineParticiple(participle, noun.gender, 'NOM', 'SG', noun.anim);
+                        const obj1Form = declineNoun(obj1, 'ACC', 'SG');
+                        const obj2Form = declineNoun(obj2, 'ACC', 'SG');
+                        const verbForm = conjugateVerb(verb3, 3, 'SG', 'PAST', noun.gender);
+                        
+                        return {
+                            text: capitalize(nounForm) + ', ' + partForm + ' ' + obj1Form + ', ' + gerund + ' ' + obj2Form + ', ' + verbForm + '.',
+                            info: [{label:'Подлежащее',value:nounForm},{label:'Причастие',value:partForm},{label:'Деепричастие',value:gerund},{label:'Сказуемое',value:verbForm}]
+                        };
+                    }
+                }
+            ]
+        };
+        
+        // ========== КОМПОЗИЦИОННАЯ СИСТЕМА ГЕНЕРАЦИИ ==========
+        let generationMode = 'template';
+        let composComplexity = 5;
+        
+        function generateNounPhrase(caseKey, number, level) {
+            const noun = randomChoice(NOUNS);
+            let nounText = declineNoun(noun, caseKey, number);
+            const context = { raw: noun, gender: noun.gender, case: caseKey, number: number, anim: noun.anim };
+            
+            let text = '';
+            let hasNumeral = false;
+            let numeral = null;
+            let verbNumber = number; // По умолчанию - как передано
+            
+            // Числительное (20% вероятность)
+            if (chance(0.2)) {
+                hasNumeral = true;
+                numeral = randomChoice(NUMERALS);
+                const numeralForm = declineNumeral(numeral, caseKey, noun.gender, noun.anim);
+                text += numeralForm + ' ';
+                nounText = (caseKey === 'NOM' || (caseKey === 'ACC' && !noun.anim)) 
+                    ? declineNoun(noun, numeral.nounCase, numeral.nounNumber)
+                    : declineNoun(noun, caseKey, 'PL');
+                
+                // Определяем число для глагола
+                verbNumber = (numeral.lemma === 'один') ? 'SG' : 'PL';
+            }
+            
+            // Прилагательное (50% вероятность)
+            if (chance(0.5)) {
+                const adj = randomChoice(ADJECTIVES);
+                let adjForm;
+                
+                if (hasNumeral) {
+                    // При числительных прилагательное согласуется особо:
+                    // - с "один": согласуется с существительным (ед.ч., по роду)
+                    // - с "два/две, три, четыре": 
+                    //     * неодушевлённые: им.п. мн.ч. (в им./вин.)
+                    //     * одушевлённые: род.п. мн.ч. (в им./вин.)
+                    // - с "пять" и больше: род.п. мн.ч. (в им./вин.)
+                    if (numeral.lemma === 'один') {
+                        adjForm = declineAdjective(adj, noun.gender, caseKey, 'SG', noun.anim);
+                    } else if (caseKey === 'NOM' || (caseKey === 'ACC' && !noun.anim)) {
+                        // В именительном и винительном неодушевленном
+                        if (numeral.nounNumber === 'SG') {
+                            // два/две, три, четыре
+                            if (noun.anim) {
+                                // одушевлённое - родительный мн.ч.
+                                adjForm = declineAdjective(adj, noun.gender, 'GEN', 'PL', noun.anim);
+                            } else {
+                                // неодушевлённое - именительный мн.ч.
+                                adjForm = declineAdjective(adj, noun.gender, 'NOM', 'PL', noun.anim);
+                            }
+                        } else {
+                            // пять+ - родительный мн.ч.
+                            adjForm = declineAdjective(adj, noun.gender, 'GEN', 'PL', noun.anim);
+                        }
+                    } else {
+                        // В косвенных падежах - согласование с числительным во мн.ч.
+                        adjForm = declineAdjective(adj, noun.gender, caseKey, 'PL', noun.anim);
+                    }
+                } else {
+                    adjForm = declineAdjective(adj, noun.gender, caseKey, number, noun.anim);
+                }
+                text += adjForm + ' ';
+            }
+            
+            text += nounText;
+            
+            // Причастный оборот (30% вероятность на уровне 3+)
+            if (level >= 3 && chance(0.3)) {
+                const verb = randomChoice(VERBS.filter(v => !v.refl && v.aspect === 'impf' && v.trans));
+                const participle = makeParticiple(verb, 'ACT_PRES');
+                if (participle) {
+                    const obj = randomChoice(NOUNS);
+                    let partForm;
+                    
+                    if (hasNumeral) {
+                        // Причастие согласуется так же, как прилагательное при числительных
+                        if (numeral.lemma === 'один') {
+                            partForm = declineParticiple(participle, noun.gender, caseKey, 'SG', noun.anim);
+                        } else if (caseKey === 'NOM' || (caseKey === 'ACC' && !noun.anim)) {
+                            // В именительном и винительном неодушевленном
+                            if (numeral.nounNumber === 'SG') {
+                                // два/две, три, четыре
+                                if (noun.anim) {
+                                    // одушевлённое - родительный мн.ч.
+                                    partForm = declineParticiple(participle, noun.gender, 'GEN', 'PL', noun.anim);
+                                } else {
+                                    // неодушевлённое - именительный мн.ч.
+                                    partForm = declineParticiple(participle, noun.gender, 'NOM', 'PL', noun.anim);
+                                }
+                            } else {
+                                // пять+ - родительный мн.ч.
+                                partForm = declineParticiple(participle, noun.gender, 'GEN', 'PL', noun.anim);
+                            }
+                        } else {
+                            // В косвенных падежах - согласование во мн.ч.
+                            partForm = declineParticiple(participle, noun.gender, caseKey, 'PL', noun.anim);
+                        }
+                    } else {
+                        partForm = declineParticiple(participle, noun.gender, caseKey, number, noun.anim);
+                    }
+                    
+                    const objForm = declineNoun(obj, 'ACC', 'SG');
+                    text += ', ' + partForm + ' ' + objForm;
+                }
+            }
+            return { text: text.trim(), noun: noun, verbNumber: verbNumber };
+        }
+        
+        function generateVerbPhrase(subject, level) {
+            const tense = randomChoice(['PRES', 'PAST', 'FUT']);
+            let verb = randomChoice(VERBS);
+            if (tense === 'PRES' && verb.aspect === 'pf') {
+                verb = randomChoice(VERBS.filter(v => v.aspect === 'impf'));
+            }
+            // Используем verbNumber из subject (учитывает числительные)
+            const verbNumber = subject.verbNumber || 'SG';
+            const verbText = conjugateVerb(verb, 3, verbNumber, tense, subject.noun.gender);
+            let text = '';
+            // Деепричастный оборот (30% вероятность на уровне 4+)
+            if (level >= 4 && chance(0.3)) {
+                const gerundVerb = randomChoice(VERBS.filter(v => v.aspect === 'impf' && !v.refl));
+                const gerund = makeGerund(gerundVerb);
+                const obj = randomChoice(NOUNS);
+                const objForm = declineNoun(obj, 'ACC', 'SG');
+                text += gerund + ' ' + objForm + ', ';
+            }
+            text += verbText;
+            // Наречие (40% вероятность)
+            if (chance(0.4)) {
+                const adv = randomChoice(Object.values(ADVERBS).flat());
+                text += ' ' + adv;
+            }
+            return { text: text.trim(), verb: verb, tense: tense };
+        }
+        
+        function composeSentence(level) {
+            const info = [];
+            const subject = generateNounPhrase('NOM', 'SG', level);
+            info.push({label: 'Подлежащее', value: subject.text});
+            const verb = generateVerbPhrase(subject, level);
+            info.push({label: 'Сказуемое', value: verb.text + ' (' + verb.tense + ')'});
+            let text = capitalize(subject.text) + ' ' + verb.text;
+            // Дополнение (на уровне 2+, если глагол переходный)
+            if (level >= 2 && chance(0.6) && verb.verb.trans) {
+                const object = generateNounPhrase('ACC', 'SG', level);
+                text += ' ' + object.text;
+                info.push({label: 'Дополнение', value: object.text});
+            }
+            // Предложный оборот (на уровне 3+)
+            if (level >= 3 && chance(0.4)) {
+                const caseKey = randomChoice(['GEN', 'DAT', 'ACC', 'INS', 'PRE']);
+                const prep = randomChoice(PREPOSITIONS[caseKey]);
+                const prepPhrase = generateNounPhrase(caseKey, 'SG', level);
+                const adjustedPrep = adjustPreposition(prep, prepPhrase.text.split(' ')[0]);
+                text += ' ' + adjustedPrep + ' ' + prepPhrase.text;
+                info.push({label: 'Предложный оборот', value: adjustedPrep + ' ' + prepPhrase.text});
+            }
+            // Сложное предложение (на уровне 4+)
+            if (level >= 4 && chance(0.3)) {
+                const conj = randomChoice([...CONJUNCTIONS.coord, ...CONJUNCTIONS.subord]);
+                const subject2 = generateNounPhrase('NOM', 'SG', level);
+                const verb2 = generateVerbPhrase(subject2, level);
+                text += ', ' + conj + ' ' + subject2.text + ' ' + verb2.text;
+                info.push({label: 'Сложное', value: 'союз: ' + conj});
+            }
+            return { text: text + '.', info: info };
+        }
+        
+        // ========== ФУНКЦИИ ГЕНЕРАЦИИ ==========
+        function setMode(mode) {
+            generationMode = mode;
+            const allBtns = document.querySelectorAll('.complexity-selector:first-child .complexity-btn');
+            allBtns.forEach(b => b.classList.remove('active'));
+            event.target.classList.add('active');
+            if (mode === 'template') {
+                document.getElementById('templateComplexity').style.display = 'flex';
+                document.getElementById('composLevel').style.display = 'none';
+            } else {
+                document.getElementById('templateComplexity').style.display = 'none';
+                document.getElementById('composLevel').style.display = 'flex';
+            }
+        }
+        
+        function setComposComplexity(level) {
+            composComplexity = level;
+            const btns = document.querySelectorAll('#composLevel .complexity-btn');
+            btns.forEach(b => b.classList.remove('active'));
+            event.target.classList.add('active');
+        }
+        
+        function setComplexity(level) {
+            currentComplexity = level;
+            const btns = document.querySelectorAll('#templateComplexity .complexity-btn');
+            btns.forEach(btn => btn.classList.remove('active'));
+            event.target.classList.add('active');
+        }
+        
+        function getPatterns() {
+            if (currentComplexity === 'all') {
+                return [...SENTENCE_PATTERNS.simple, ...SENTENCE_PATTERNS.medium, ...SENTENCE_PATTERNS.complex];
+            }
+            return SENTENCE_PATTERNS[currentComplexity] || SENTENCE_PATTERNS.simple;
+        }
+        
+        function generateSentence() {
+            let result;
+            
+            if (generationMode === 'compositional') {
+                result = composeSentence(composComplexity);
+            } else {
+                const patterns = getPatterns();
+                const pattern = randomChoice(patterns);
+                result = pattern.generate();
+            }
+            
+            document.getElementById('sentenceOutput').textContent = result.text;
+            
+            const infoPanel = document.getElementById('infoPanel');
+            const grammarInfo = document.getElementById('grammarInfo');
+            
+            infoPanel.style.display = 'block';
+            grammarInfo.innerHTML = result.info.map(item => 
+                `<div class="grammar-item"><strong>${item.label}:</strong> ${item.value}</div>`
+            ).join('');
+            
+            document.getElementById('statsOutput').style.display = 'none';
+        }
+        
+        function generateMultiple(count) {
+            let sentences = [];
+            for (let i = 0; i < count; i++) {
+                let result;
+                if (generationMode === 'compositional') {
+                    result = composeSentence(composComplexity);
+                } else {
+                    const patterns = getPatterns();
+                    const pattern = randomChoice(patterns);
+                    result = pattern.generate();
+                }
+                sentences.push(result.text);
+            }
+            
+            document.getElementById('sentenceOutput').innerHTML = sentences.join('<br><br>');
+            document.getElementById('infoPanel').style.display = 'none';
+            document.getElementById('statsOutput').style.display = 'none';
+        }
+        
+        function showStats() {
+            const stats = `
+                <strong>📊 Полная статистика системы:</strong><br><br>
+                
+                <strong>Расширенные словари:</strong><br>
+                • Существительных: ${NOUNS.length} (с семантическими тегами)<br>
+                • Прилагательных: ${ADJECTIVES.length} (с семантическими тегами)<br>
+                • Глаголов: ${VERBS.length} (с семантическими тегами)<br>
+                • Числительных: ${NUMERALS.length}<br>
+                • Наречий: ${Object.values(ADVERBS).flat().length}<br>
+                • Предлогов: ${Object.values(PREPOSITIONS).flat().length}<br>
+                • Союзов: ${CONJUNCTIONS.coord.length + CONJUNCTIONS.subord.length}<br><br>
+                
+                <strong>Два режима генерации:</strong><br><br>
+                
+                <strong>1. Шаблонный режим (классический):</strong><br>
+                • Простые: ${SENTENCE_PATTERNS.simple.length} шаблонов<br>
+                • Средние: ${SENTENCE_PATTERNS.medium.length} шаблонов<br>
+                • Сложные: ${SENTENCE_PATTERNS.complex.length} шаблонов<br>
+                • Фиксированные структуры предложений<br>
+                • Предсказуемые комбинации<br><br>
+                
+                <strong>2. Композиционный режим (новый):</strong><br>
+                • 5 уровней сложности<br>
+                • Вероятностное добавление модификаторов<br>
+                • Прилагательные (50% вероятность)<br>
+                • Числительные (20% вероятность)<br>
+                • Причастные обороты (30% на уровне 3+)<br>
+                • Наречия (40% вероятность)<br>
+                • Деепричастные обороты (30% на уровне 4+)<br>
+                • Сложные предложения (30% на уровне 4+)<br>
+                • Предложные обороты (40% на уровне 3+)<br><br>
+                
+                <strong>Грамматика:</strong><br>
+                • Времена: 3 (настоящее, прошедшее, будущее)<br>
+                • Виды: 2 (совершенный, несовершенный)<br>
+                • Будущее простое (сов.в.) и сложное (несов.в.)<br>
+                • Согласование глаголов по роду в прошедшем<br>
+                • Причастия: 4 типа<br>
+                • Деепричастия: 2 типа<br>
+                • Числительные с полным согласованием<br><br>
+                
+                <strong>Теоретическое разнообразие:</strong><br>
+                С учётом всех модификаторов и комбинаций, система может генерировать
+                миллионы уникальных грамматически правильных предложений!
+            `;
+            
+            document.getElementById('statsOutput').innerHTML = stats;
+            document.getElementById('statsOutput').style.display = 'block';
+            document.getElementById('infoPanel').style.display = 'none';
+        }
+        
+        window.onload = () => generateSentence();
+    </script>
+</body>
+</html>
