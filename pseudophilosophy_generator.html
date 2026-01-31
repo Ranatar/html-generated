@@ -585,6 +585,11 @@
                 м: { им: 'ий', род: 'его', дат: 'ему', вин: 'ий', тв: 'им', пр: 'ем' },
                 ж: { им: 'яя', род: 'ей', дат: 'ей', вин: 'юю', тв: 'ей', пр: 'ей' },
                 с: { им: 'ее', род: 'его', дат: 'ему', вин: 'ее', тв: 'им', пр: 'ем' }
+            },
+            long: { // полный (то же что и hard): новый
+                м: { им: 'ый', род: 'ого', дат: 'ому', вин: 'ый', тв: 'ым', пр: 'ом' },
+                ж: { им: 'ая', род: 'ой', дат: 'ой', вин: 'ую', тв: 'ой', пр: 'ой' },
+                с: { им: 'ое', род: 'ого', дат: 'ому', вин: 'ое', тв: 'ым', пр: 'ом' }
             }
         };
 
@@ -1132,6 +1137,35 @@
             
             const adjWord = { base: adjBase, type: adjType };
             return declineAdjective(adjWord, nounGender, caseForm);
+        }
+
+        // Функция создания краткой формы прилагательного
+        function getShortAdjectiveForm(adjBase, gender) {
+            // Краткие формы прилагательных
+            // Для большинства прилагательных: м - нулевое, ж - а, с - о, мн - ы
+            
+            // Особые случаи
+            const specialForms = {
+                'изоморфен': { м: 'изоморфен', ж: 'изоморфна', с: 'изоморфно' },
+                'гомоморфен': { м: 'гомоморфен', ж: 'гомоморфна', с: 'гомоморфно' },
+                'эквивалентен': { м: 'эквивалентен', ж: 'эквивалентна', с: 'эквивалентно' },
+                'идентичен': { м: 'идентичен', ж: 'идентична', с: 'идентично' },
+                'тождествен': { м: 'тождествен', ж: 'тождественна', с: 'тождественно' }
+            };
+            
+            if (specialForms[adjBase]) {
+                return specialForms[adjBase][gender] || specialForms[adjBase]['м'];
+            }
+            
+            // Общая логика для прилагательных на -ный, -ий, -ой
+            if (adjBase.endsWith('н') || adjBase.endsWith('ен')) {
+                // прилагательное уже в краткой форме м.р.
+                const endings = { м: '', ж: 'а', с: 'о' };
+                return adjBase + (endings[gender] || '');
+            }
+            
+            // Fallback
+            return adjBase;
         }
 
         // ====== ШАБЛОНЫ ПРЕДЛОЖЕНИЙ ======
@@ -1782,30 +1816,162 @@
         const rhetoricPatterns = {
             parallelism: {
                 pattern: '{concept:им} {verb1} {object:вин}, {concept:им} {verb2} {object:вин}',
-                weight: 1,
+                weight: 2,
                 minLevel: 4,
-                themes: ['dialectic', 'hermeneutic']
+                themes: ['dialectic', 'hermeneutic'],
+                requiresMultipleVerbs: true
             },
             
             chiasm: {
                 pattern: '{concept:им} {verb1} {object:вин}, {object:им} {verb2} {concept:вин}',
-                weight: 1,
+                weight: 2,
                 minLevel: 4,
-                themes: ['dialectic']
+                themes: ['dialectic', 'structuralism'],
+                requiresMultipleVerbs: true
+            },
+            
+            antithesis: {
+                pattern: '{concept:им} не {verb1} {object1:вин}, а {verb2} {object2:вин}',
+                weight: 2,
+                minLevel: 3,
+                themes: ['dialectic', 'existential'],
+                requiresMultipleVerbs: true,
+                requiresMultipleObjects: true
             },
             
             gradation: {
-                pattern: '{concept:им} не просто {verb1} {object:вин}, но и {verb2}, и даже {verb3}',
+                pattern: '{concept:им} не просто {verb1} {object:вин}, но и {verb2} его, и даже {verb3}',
                 weight: 1,
                 minLevel: 4,
                 requiresMultipleVerbs: true
             },
             
             tricolon: {
-                pattern: '{concept:им} {verb1} {obj1:вин}, {verb2} {obj2:вин} и {verb3} {obj3:вин}',
+                pattern: '{concept:им} {verb1} {object1:вин}, {verb2} {object2:вин} и {verb3} {object3:вин}',
                 weight: 1,
                 minLevel: 5,
-                requiresMultipleObjects: true
+                requiresMultipleObjects: true,
+                requiresMultipleVerbs: true
+            },
+            
+            anaphora: {
+                pattern: '{concept:им} {verb1} {object:вин}. {concept:им} {verb2} {измерение:вин}. {concept:им} {verb3} саму основу {process:род}',
+                weight: 1,
+                minLevel: 4,
+                themes: ['phenomenology', 'existential'],
+                requiresMultipleVerbs: true,
+                isMultiSentence: true
+            },
+            
+            epiphora: {
+                pattern: '{concept:им} {verb1} через {process:вин}. {object:им} {verb2} через {process:вин}. Само бытие раскрывается через {process:вин}',
+                weight: 1,
+                minLevel: 4,
+                themes: ['existential', 'phenomenology'],
+                requiresMultipleVerbs: true,
+                isMultiSentence: true
+            },
+            
+            polysyndeton: {
+                pattern: '{concept:им} и {verb1}, и {verb2}, и {verb3} {object:вин}',
+                weight: 1,
+                minLevel: 3,
+                requiresMultipleVerbs: true
+            },
+            
+            asyndeton: {
+                pattern: '{concept:им} {verb1} {object:вин}, {verb2} {измерение:вин}, {verb3} саму структуру {process:род}',
+                weight: 2,
+                minLevel: 3,
+                requiresMultipleVerbs: true
+            },
+            
+            anadiplosis: {
+                pattern: '{concept:им} {verb1} {object:вин}. {object:им}, в свою очередь, {verb2} {process:вин}',
+                weight: 2,
+                minLevel: 4,
+                themes: ['dialectic', 'hermeneutic'],
+                requiresMultipleVerbs: true,
+                isMultiSentence: true
+            },
+            
+            symploce: {
+                pattern: 'Если {concept:им} {verb1} {object:вин}, то {измерение:им} трансформируется. Если {concept:им} {verb2} {process:вин}, то {измерение:им} деконструируется',
+                weight: 1,
+                minLevel: 5,
+                themes: ['transcendental', 'phenomenology'],
+                requiresMultipleVerbs: true,
+                isMultiSentence: true
+            },
+            
+            hendiadys: {
+                pattern: '{concept:им} — это {adj:concept:им} {verb} и {process:им} {object:род}',
+                weight: 1,
+                minLevel: 3,
+                themes: ['phenomenology', 'existential']
+            },
+            
+            // Специфичные для диалектики
+            dialectical_triad: {
+                pattern: 'Тезис: {concept:им} {verb1} {object:вин}. Антитезис: {object:им} {verb2} {concept:вин}. Синтез: оба {verb3} в {измерение:пр}',
+                weight: 2,
+                minLevel: 4,
+                themes: ['dialectic'],
+                requiresMultipleVerbs: true,
+                isMultiSentence: true
+            },
+            
+            // Специфичные для феноменологии
+            phenomenological_reduction: {
+                pattern: 'Когда {concept:им} {verb1} {object:вин}, происходит редукция. Когда происходит редукция, {object:им} {verb2} в чистом виде. Таким образом, {concept:им} конституирует сущность {object:род}',
+                weight: 1,
+                minLevel: 4,
+                themes: ['phenomenology'],
+                requiresMultipleVerbs: true,
+                isMultiSentence: true
+            },
+            
+            // Специфичные для герменевтики
+            hermeneutic_circle: {
+                pattern: '{concept:им} интерпретирует {object:вин}, {object:им} интерпретирует {concept:вин}, и оба растворяются в герменевтическом круге {process:род}',
+                weight: 2,
+                minLevel: 3,
+                themes: ['hermeneutic']
+            },
+            
+            // Специфичные для структурализма
+            structural_opposition: {
+                pattern: '{concept:им} противопоставлен {object:дат} не содержательно, а структурно: {concept:им} {verb1}, {object:им} {verb2}, и между ними — пустота означающего',
+                weight: 2,
+                minLevel: 4,
+                themes: ['structuralism'],
+                requiresMultipleVerbs: true
+            },
+            
+            // Специфичные для психоанализа
+            psychoanalytic_split: {
+                pattern: '{concept:им} расщепляется: сознательно {он} {verb1} {object:вин}, бессознательно — {verb2} его, символически — {verb3}',
+                weight: 1,
+                minLevel: 4,
+                themes: ['psychoanalysis'],
+                requiresMultipleVerbs: true
+            },
+            
+            // Специфичные для виталистской философии
+            vitalist_flow: {
+                pattern: '{concept:им} не просто {verb1} {object:вин} — {он} течёт через него, становится им, длится в нём как чистая {adj:ж:им} длительность',
+                weight: 1,
+                minLevel: 3,
+                themes: ['vitalism']
+            },
+            
+            // Специфичные для экзистенциализма
+            existential_dasein: {
+                pattern: 'Dasein {concept:род} таково, что {он} всегда уже {verb1} в {object:пр}, всегда уже {verb2} к {process:дат}, всегда уже заброшен в {измерение:вин}',
+                weight: 1,
+                minLevel: 4,
+                themes: ['existential'],
+                requiresMultipleVerbs: true
             }
         };
 
@@ -1940,31 +2106,52 @@
         // Склонение процессов (отглагольные существительные на -ие, средний род)
         function declineProcess(process, caseForm) {
             // Процессы в extras.processes в родительном падеже
-            // Два типа:
+            // Три типа:
             // 1. Ж.р. на -ия: рефлексия → рефлексии (род.п.)
             // 2. Ср.р. на -ие/-ание/-ение: конституирование → конституирования (род.п.)
+            // 3. Ж.р. на -ость: настроенность → настроенности (род.п.)
             
-            let base, gender;
+            let base, gender, type;
             
             // Определяем тип по окончанию родительного падежа
-            if (process.endsWith('ии')) {
+            if (process.endsWith('и') && !process.endsWith('ии') && !process.endsWith('ия')) {
+                // Женский род на -ость (род.п. на -и)
+                // настроенности → основа "настроенност"
+                gender = 'ж';
+                type = 'ость';
+                base = process.slice(0, -1); // убираем "и"
+            } else if (process.endsWith('ии')) {
                 // Женский род на -ия (род.п. на -ии)
                 // рефлексии → основа "рефлекс"
                 gender = 'ж';
+                type = 'ия';
                 base = process.slice(0, -2); // убираем "ии"
             } else if (process.endsWith('ия')) {
                 // Средний род на -ие/-ание/-ение (род.п. на -ия)
                 // конституирования → основа "конституирован"
                 gender = 'с';
+                type = 'ие';
                 base = process.slice(0, -2); // убираем "ия"
             } else {
                 // Fallback
                 gender = 'с';
+                type = 'ие';
                 base = process.slice(0, -1);
             }
             
-            // Склоняем в зависимости от рода
-            if (gender === 'ж') {
+            // Склоняем в зависимости от типа
+            if (type === 'ость') {
+                // Женский род на -ость: настроенность, заброшенность
+                const endings = {
+                    им: 'ь',
+                    род: 'и',
+                    дат: 'и',
+                    вин: 'ь',
+                    тв: 'ью',
+                    пр: 'и'
+                };
+                return base + (endings[caseForm] || 'ь');
+            } else if (type === 'ия') {
                 // Женский род на -ия: рефлексия, актуализация, деконструкция
                 const endings = {
                     им: 'ия',
@@ -2095,6 +2282,43 @@
                     const caseForm = parts[2] || 'им';
                     const gender = additionalContext.objectGender || 'м';
                     return declineParticiple(participleForm, gender, caseForm);
+                    
+                } else if (type === 'статич_прил') {
+                    // Обработка статических прилагательных: {статич_прил:base:target:case}
+                    const adjBase = parts[1];
+                    const target = parts[2];
+                    const caseForm = parts[3] || 'им';
+                    
+                    let targetGender;
+                    if (target === 'concept') {
+                        targetGender = words.concept ? words.concept.gender : 'м';
+                    } else if (target === 'object') {
+                        targetGender = words.object ? words.object.gender : 'м';
+                    } else if (['м', 'ж', 'с'].includes(target)) {
+                        targetGender = target;
+                    } else {
+                        targetGender = 'м';
+                    }
+                    
+                    return declineStaticAdjective(adjBase, targetGender, caseForm);
+                    
+                } else if (type === 'кратк_прил') {
+                    // Обработка кратких прилагательных: {кратк_прил:base:target}
+                    const adjBase = parts[1];
+                    const target = parts[2];
+                    
+                    let targetGender;
+                    if (target === 'concept') {
+                        targetGender = words.concept ? words.concept.gender : 'м';
+                    } else if (target === 'object') {
+                        targetGender = words.object ? words.object.gender : 'м';
+                    } else if (['м', 'ж', 'с'].includes(target)) {
+                        targetGender = target;
+                    } else {
+                        targetGender = 'м';
+                    }
+                    
+                    return getShortAdjectiveForm(adjBase, targetGender);
                 }
                 
                 return match;
@@ -2180,32 +2404,51 @@
             // ГИБРИДНЫЙ РЕЖИМ - СТРАТЕГИЧЕСКОЕ ЧЕРЕДОВАНИЕ
             // Для абзацев из 5 предложений:
             // 1-е: legacy (сильный старт с разнообразием)
-            // 2-3: modular (философская насыщенность)
+            // 2-3: modular (философская насыщенность) или rhetoric (высокий уровень)
             // 4-е: legacy (возвращение к разнообразию)
             // 5-е: legacy или modular (финал)
             
             let useModular = false;
+            let useRhetoric = false;
+            
+            // Риторические паттерны используются только на высоких уровнях
+            const rhetoricChance = currentLevel >= 4 ? 0.25 : (currentLevel >= 3 ? 0.15 : 0);
             
             if (totalSentences >= 4) {
                 // Детерминированное чередование для абзацев
                 if (sentenceIndex === 0) {
                     useModular = false; // Первое - всегда шаблон
                 } else if (sentenceIndex === 1 || sentenceIndex === 2) {
-                    useModular = true; // 2-е и 3-е - модульные
+                    // 2-е и 3-е - модульные или риторические
+                    if (Math.random() < rhetoricChance) {
+                        useRhetoric = true;
+                    } else {
+                        useModular = true;
+                    }
                 } else if (sentenceIndex === 3) {
                     useModular = false; // 4-е - шаблон
                 } else {
-                    // Последнее - с небольшой вероятностью
-                    useModular = Math.random() < 0.3;
+                    // Последнее - с небольшой вероятностью риторическое
+                    if (Math.random() < rhetoricChance * 0.5) {
+                        useRhetoric = true;
+                    } else {
+                        useModular = Math.random() < 0.3;
+                    }
                 }
             } else {
                 // Для коротких текстов используем вероятности
-                let modularProbability = 0.4; // Меньше модульных в целом
-                if (currentLevel >= 5) modularProbability = 0.5;
-                useModular = Math.random() < modularProbability;
+                if (Math.random() < rhetoricChance) {
+                    useRhetoric = true;
+                } else {
+                    let modularProbability = 0.4; // Меньше модульных в целом
+                    if (currentLevel >= 5) modularProbability = 0.5;
+                    useModular = Math.random() < modularProbability;
+                }
             }
             
-            if (useModular) {
+            if (useRhetoric) {
+                return generateRhetoricalSentence(sentenceIndex, totalSentences, usedConcepts);
+            } else if (useModular) {
                 return generateModularSentence(sentenceIndex, totalSentences, isQuestion, usedConcepts);
             } else {
                 return generateSentenceLegacy(usedTemplates, sentenceIndex, totalSentences, isQuestion);
@@ -2250,6 +2493,22 @@
             
             // SUBJECT (теперь можем передать verb для паттернов с requiresVerb)
             const subjectModule = selectModule(syntaxModules.subjects, currentLevel, conceptTheme);
+            
+            // Для subordinate subjects используем ОТДЕЛЬНЫЙ глагол, чтобы избежать повторений
+            let subjectVerb = predicateModule.verb;
+            if (subjectModule.requiresVerb) {
+                // Выбираем альтернативный глагол для придаточного предложения
+                const alternativePredicates = Object.values(syntaxModules.predicates)
+                    .flat()
+                    .filter(p => (!p.minLevel || p.minLevel <= currentLevel) && 
+                                 (!p.themes || p.themes.some(t => selectedThemes.includes(t))));
+                
+                if (alternativePredicates.length > 0) {
+                    const altPredicate = random(alternativePredicates);
+                    subjectVerb = altPredicate.verb;
+                }
+            }
+            
             // Если паттерн нуждается в правильном падеже, заменяем :case} на :конкретный_падеж}
             let subjectPattern = subjectModule.pattern;
             if (subjectModule.needsCase) {
@@ -2265,7 +2524,7 @@
             components.subject = fillPattern(subjectPattern, { 
                 concept: conceptWord, 
                 object: objectWord 
-            }, { verb: predicateModule.verb, objectGender: conceptWord.gender });
+            }, { verb: subjectVerb, objectGender: conceptWord.gender });
             
             // OBJECT (также передаем verb и склоняем причастия)
             const objectModule = selectModule(syntaxModules.objects, currentLevel, objectTheme);
@@ -2318,6 +2577,122 @@
                 // Для второго предложения иногда добавляем математические обороты
                 const mathPhrase = random(introductoryPhrases.mathematical);
                 sentence = mathPhrase + ' ' + sentence.charAt(0).toLowerCase() + sentence.slice(1);
+            }
+            
+            return sentence;
+        }
+
+        function generateRhetoricalSentence(sentenceIndex, totalSentences, usedConcepts = []) {
+            // Фильтруем риторические паттерны по уровню и темам
+            const availablePatterns = Object.entries(rhetoricPatterns).filter(([name, pattern]) => {
+                // Проверяем уровень
+                if (pattern.minLevel && pattern.minLevel > currentLevel) return false;
+                
+                // Проверяем темы (если указаны)
+                if (pattern.themes && pattern.themes.length > 0) {
+                    if (!pattern.themes.some(t => selectedThemes.includes(t))) return false;
+                }
+                
+                return true;
+            });
+            
+            if (availablePatterns.length === 0) {
+                // Fallback на обычную модульную генерацию
+                return generateModularSentence(sentenceIndex, totalSentences, false, usedConcepts);
+            }
+            
+            // Взвешенный выбор паттерна
+            const patternEntry = weightedRandom(availablePatterns.map(([name, p]) => ({ name, ...p })));
+            const pattern = patternEntry.pattern;
+            
+            // Выбираем темы
+            const conceptTheme = getRandomTheme();
+            const objectTheme = getRandomTheme();
+            
+            // Выбираем концепты
+            const conceptWord = random(lexicon.nouns[conceptTheme]);
+            let objectWord = random(lexicon.nouns[objectTheme]);
+            
+            // Для паттернов с несколькими объектами
+            let object2Word, object3Word;
+            if (patternEntry.requiresMultipleObjects) {
+                object2Word = random(lexicon.nouns[getRandomTheme()]);
+                object3Word = random(lexicon.nouns[getRandomTheme()]);
+            }
+            
+            // Для паттернов с несколькими глаголами выбираем их
+            let verbs = [];
+            if (patternEntry.requiresMultipleVerbs) {
+                const allPredicates = Object.values(syntaxModules.predicates)
+                    .flat()
+                    .filter(p => (!p.minLevel || p.minLevel <= currentLevel) && 
+                                 (!p.themes || p.themes.some(t => selectedThemes.includes(t))));
+                
+                // Выбираем 3 разных глагола
+                const selectedPredicates = [];
+                for (let i = 0; i < 3 && allPredicates.length > 0; i++) {
+                    const idx = Math.floor(Math.random() * allPredicates.length);
+                    selectedPredicates.push(allPredicates[idx]);
+                    allPredicates.splice(idx, 1); // Удаляем, чтобы не повторялись
+                }
+                
+                verbs = selectedPredicates.map(p => p.verb);
+            }
+            
+            // Создаём контекст для подстановки
+            const context = {
+                verb: verbs[0] || '',
+                verb1: verbs[0] || '',
+                verb2: verbs[1] || verbs[0] || '',
+                verb3: verbs[2] || verbs[1] || verbs[0] || ''
+            };
+            
+            // Заполняем паттерн
+            let sentence = pattern;
+            
+            // Заменяем verb1, verb2, verb3 на реальные глаголы
+            sentence = sentence.replace(/\{verb1\}/g, verbs[0] || '');
+            sentence = sentence.replace(/\{verb2\}/g, verbs[1] || verbs[0] || '');
+            sentence = sentence.replace(/\{verb3\}/g, verbs[2] || verbs[1] || '');
+            sentence = sentence.replace(/\{verb\}/g, verbs[0] || '');
+            
+            // Заменяем object1, object2, object3
+            sentence = sentence.replace(/\{object1:([^}]+)\}/g, (match, caseForm) => {
+                return declineNoun(objectWord, caseForm);
+            });
+            
+            sentence = sentence.replace(/\{object2:([^}]+)\}/g, (match, caseForm) => {
+                return declineNoun(object2Word || objectWord, caseForm);
+            });
+            
+            sentence = sentence.replace(/\{object3:([^}]+)\}/g, (match, caseForm) => {
+                return declineNoun(object3Word || object2Word || objectWord, caseForm);
+            });
+            
+            // Заполняем остальные маркеры
+            sentence = fillPattern(sentence, {
+                concept: conceptWord,
+                object: objectWord
+            }, context);
+            
+            // Обработка многопредложных паттернов
+            if (patternEntry.isMultiSentence) {
+                // Каждое предложение начинается с заглавной буквы
+                sentence = sentence.split('. ').map((s, i) => {
+                    s = s.trim();
+                    if (s.length > 0 && i > 0) {
+                        return s.charAt(0).toUpperCase() + s.slice(1);
+                    }
+                    return s;
+                }).join('. ');
+            }
+            
+            // Первая буква заглавная
+            sentence = sentence.charAt(0).toUpperCase() + sentence.slice(1);
+            
+            // Добавляем точку если нет
+            if (!sentence.endsWith('.') && !sentence.endsWith('?') && !sentence.endsWith('!')) {
+                sentence += '.';
             }
             
             return sentence;
