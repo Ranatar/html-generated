@@ -11,31 +11,16 @@
             box-sizing: border-box;
         }
 
-        @keyframes starFloat {
-            0%, 100% { 
-                transform: translateY(0) scale(1);
-                opacity: 0.8;
-            }
-            50% { 
-                transform: translateY(-20px) scale(1.2);
-                opacity: 1;
-            }
+        #starsCanvas {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            z-index: 1;
         }
-
-        @keyframes particleMove {
-            0% {
-                transform: translate(0, 0);
-                opacity: 0;
-            }
-            50% {
-                opacity: 1;
-            }
-            100% {
-                transform: translate(var(--tx), var(--ty));
-                opacity: 0;
-            }
-        }
-
+        
         @keyframes glow {
             0%, 100% {
                 filter: drop-shadow(0 0 8px rgba(138, 43, 226, 0.8));
@@ -2448,6 +2433,171 @@
             };
             document.getElementById('levelLabel').textContent = labels[currentLevel];
         }
+
+        class Star {
+            constructor(canvas) {
+                this.x = Math.random() * canvas.width;
+                this.y = Math.random() * canvas.height;
+                this.size = Math.random() > 0.9 ? 2.5 : (Math.random() > 0.7 ? 2 : 1);
+                
+                // Тип движения
+                const motionTypes = ['float', 'orbit', 'drift', 'pulse'];
+                this.motionType = motionTypes[Math.floor(Math.random() * motionTypes.length)];
+                
+                // Параметры движения
+                this.startX = this.x;
+                this.startY = this.y;
+                this.driftX = (Math.random() - 0.5) * 150;
+                this.driftY = (Math.random() - 0.5) * 150;
+                this.driftScale = 0.7 + Math.random() * 0.6;
+                this.orbitRadius = 15 + Math.random() * 35;
+                
+                // Длительность (в миллисекундах)
+                this.motionDuration = this.motionType === 'pulse' ? 
+                    (3 + Math.random() * 4) * 1000 : 
+                    (15 + Math.random() * 25) * 1000;
+                this.motionDelay = Math.random() * 10000;
+                
+                // Мерцание
+                this.opacityMin = 0.4 + Math.random() * 0.3;
+                this.opacityMax = 0.8 + Math.random() * 0.2;
+                this.opacityMid = (this.opacityMin + this.opacityMax) / 2;
+                this.twinkleDuration = (2 + Math.random() * 5) * 1000;
+                this.twinkleDelay = Math.random() * 5000;
+                
+                this.layer = Math.floor(Math.random() * 3) + 1;
+                this.startTime = Date.now();
+            }
+            
+            getMotionProgress(time) {
+                const elapsed = (time - this.startTime - this.motionDelay) % this.motionDuration;
+                if (elapsed < 0) return 0;
+                return elapsed / this.motionDuration;
+            }
+            
+            getTwinkleProgress(time) {
+                const elapsed = (time - this.startTime - this.twinkleDelay) % this.twinkleDuration;
+                if (elapsed < 0) return 0;
+                return elapsed / this.twinkleDuration;
+            }
+            
+            update(time) {
+                const progress = this.getMotionProgress(time);
+                const twinkleProgress = this.getTwinkleProgress(time);
+                
+                // Вычисляем opacity (мерцание)
+                const twinklePhase = Math.sin(twinkleProgress * Math.PI * 2);
+                this.opacity = this.opacityMin + (this.opacityMax - this.opacityMin) * (twinklePhase * 0.5 + 0.5);
+                
+                // Вычисляем позицию и scale в зависимости от типа движения
+                switch(this.motionType) {
+                    case 'float':
+                        const floatPhase = Math.sin(progress * Math.PI * 2);
+                        this.currentX = this.startX;
+                        this.currentY = this.startY + floatPhase * -30;
+                        this.currentSize = this.size * (1 + floatPhase * 0.3);
+                        
+                        // Более сложное мерцание для float
+                        if (progress < 0.25) {
+                            this.opacity = this.opacityMin + (this.opacityMax - this.opacityMin) * (progress * 4);
+                        } else if (progress < 0.5) {
+                            this.opacity = this.opacityMid;
+                        } else if (progress < 0.75) {
+                            this.opacity = this.opacityMax;
+                        } else {
+                            this.opacity = this.opacityMax - (this.opacityMax - this.opacityMin) * ((progress - 0.75) * 4);
+                        }
+                        break;
+                        
+                    case 'orbit':
+                        const angle = progress * Math.PI * 2;
+                        this.currentX = this.startX + Math.cos(angle) * this.orbitRadius;
+                        this.currentY = this.startY + Math.sin(angle) * this.orbitRadius;
+                        this.currentSize = this.size;
+                        break;
+                        
+                    case 'drift':
+                        const driftPhase = Math.sin(progress * Math.PI * 2);
+                        const driftAmount = driftPhase * 0.5 + 0.5; // 0 to 1
+                        this.currentX = this.startX + this.driftX * driftAmount;
+                        this.currentY = this.startY + this.driftY * driftAmount;
+                        this.currentSize = this.size * (1 + (this.driftScale - 1) * driftAmount);
+                        break;
+                        
+                    case 'pulse':
+                        const pulsePhase = Math.sin(progress * Math.PI * 2);
+                        const pulseAmount = pulsePhase * 0.5 + 0.5;
+                        this.currentX = this.startX;
+                        this.currentY = this.startY;
+                        this.currentSize = this.size * (0.8 + 0.6 * pulseAmount);
+                        this.opacity = this.opacityMin + (this.opacityMax - this.opacityMin) * pulseAmount;
+                        break;
+                }
+            }
+            
+            draw(ctx) {
+                ctx.save();
+                ctx.globalAlpha = this.opacity;
+                ctx.shadowBlur = 3;
+                ctx.shadowColor = 'rgba(255, 255, 255, 0.8)';
+                ctx.fillStyle = 'white';
+                ctx.beginPath();
+                ctx.arc(this.currentX, this.currentY, this.currentSize / 2, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.restore();
+            }
+        }
+
+        function initStarfield() {
+            const canvas = document.createElement('canvas');
+            canvas.id = 'starCanvas';
+            // Применяем стили сразу inline
+            canvas.style.cssText = 'position: fixed; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; z-index: 1;';
+            document.body.insertBefore(canvas, document.body.firstChild);
+            
+            const ctx = canvas.getContext('2d');
+            
+            function resize() {
+                canvas.width = window.innerWidth;
+                canvas.height = window.innerHeight;
+            }
+            resize();
+            
+            const stars = [];
+            const starCount = 200;
+            
+            for (let i = 0; i < starCount; i++) {
+                stars.push(new Star(canvas));
+            }
+            
+            stars.sort((a, b) => a.layer - b.layer);
+            
+            function animate() {
+                ctx.clearRect(0, 0, canvas.width, canvas.height);
+                
+                const time = Date.now();
+                
+                for (const star of stars) {
+                    star.update(time);
+                    star.draw(ctx);
+                }
+                
+                requestAnimationFrame(animate);
+            }
+            
+            animate();
+            
+            window.addEventListener('resize', () => {
+                resize();
+                stars.length = 0;
+                for (let i = 0; i < starCount; i++) {
+                    stars.push(new Star(canvas));
+                }
+                stars.sort((a, b) => a.layer - b.layer);
+            });
+        }
+
+        initStarfield();
     </script>
 </body>
 </html>
