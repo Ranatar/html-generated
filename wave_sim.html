@@ -305,15 +305,29 @@
       z-index: 0;
     }
 
-    #canvas {
+    .canvas-wrapper {
       position: relative;
-      z-index: 1;
+      display: inline-block;
       cursor: crosshair;
+    }
+
+    #canvas {
+      display: block;
+      z-index: 1;
       border-radius: 8px;
       box-shadow:
         0 0 0 1px rgba(56,189,248,0.12),
         0 0 40px rgba(0,0,0,0.6),
         0 0 80px rgba(56,189,248,0.04);
+    }
+
+    #overlay {
+      position: absolute;
+      top: 0;
+      left: 0;
+      pointer-events: none;
+      z-index: 2;
+      border-radius: 8px;
     }
 
     /* ─── Status bar ─── */
@@ -436,7 +450,10 @@
 
     <!-- ═══════════ CANVAS ═══════════ -->
     <main class="main">
-      <canvas id="canvas"></canvas>
+      <div class="canvas-wrapper">
+        <canvas id="canvas"></canvas>
+        <canvas id="overlay"></canvas>
+      </div>
       <div class="status">
         <span id="toolHint">Нажимайте на поле для размещения источника</span>
         <span class="fps" id="fpsDisp">FPS: --</span>
@@ -534,8 +551,13 @@
       let renderer = null;
 
       const canvas = document.getElementById('canvas');
+      const overlay = document.getElementById('overlay');
       canvas.width  = GW;
       canvas.height = GH;
+      overlay.width = GW;
+      overlay.height = GH;
+      
+      const overlayCtx = overlay.getContext('2d');
 
       // ═══ WebGL Renderer ═══
       function WebGLRenderer(canvas){
@@ -547,6 +569,9 @@
         });
         
         if(!gl) throw new Error('WebGL context failed');
+
+        // Set Y-flip globally so (0,0) is top-left like Canvas2D
+        gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, true);
 
         // Extensions
         gl.getExtension('OES_texture_float');
@@ -604,12 +629,18 @@
             
             vec3 color = vec3(0.0);
             
-            if(obstacle > 0.75){
-              // Wall
-              color = vec3(0.76, 0.78, 0.82);
-            } else if(obstacle > 0.25){
-              // Absorber
-              color = vec3(0.15, 0.39, 0.16);
+            // obstacle: 0/255=0.0, 1/255≈0.004, 2/255≈0.008
+            // Multiply back to get original values
+            float obsValue = obstacle * 255.0;
+            
+            if(obsValue > 0.5){
+              if(obsValue > 1.5){
+                // Absorber (value=2) - RGB(38, 100, 42)
+                color = vec3(38.0/255.0, 100.0/255.0, 42.0/255.0);
+              } else {
+                // Wall (value=1) - RGB(195, 200, 210)
+                color = vec3(195.0/255.0, 200.0/255.0, 210.0/255.0);
+              }
             } else {
               // Wave visualization
               if(val > 0.0){
@@ -658,11 +689,18 @@
           void main(){
             float obstacle = texture2D(u_obs, v_texCoord).r;
             
-            if(obstacle > 0.75){
-              gl_FragColor = vec4(0.76, 0.78, 0.82, 1.0);
-              return;
-            } else if(obstacle > 0.25){
-              gl_FragColor = vec4(0.15, 0.39, 0.16, 1.0);
+            // obstacle: 0/255=0.0, 1/255≈0.004, 2/255≈0.008
+            // Multiply back to get original values
+            float obsValue = obstacle * 255.0;
+            
+            if(obsValue > 0.5){
+              if(obsValue > 1.5){
+                // Absorber (value=2) - RGB(38, 100, 42)
+                gl_FragColor = vec4(38.0/255.0, 100.0/255.0, 42.0/255.0, 1.0);
+              } else {
+                // Wall (value=1) - RGB(195, 200, 210)
+                gl_FragColor = vec4(195.0/255.0, 200.0/255.0, 210.0/255.0, 1.0);
+              }
               return;
             }
             
@@ -715,11 +753,18 @@
           void main(){
             float obstacle = texture2D(u_obs, v_texCoord).r;
             
-            if(obstacle > 0.75){
-              gl_FragColor = vec4(0.76, 0.78, 0.82, 1.0);
-              return;
-            } else if(obstacle > 0.25){
-              gl_FragColor = vec4(0.15, 0.39, 0.16, 1.0);
+            // obstacle: 0/255=0.0, 1/255≈0.004, 2/255≈0.008
+            // Multiply back to get original values
+            float obsValue = obstacle * 255.0;
+            
+            if(obsValue > 0.5){
+              if(obsValue > 1.5){
+                // Absorber (value=2) - RGB(38, 100, 42)
+                gl_FragColor = vec4(38.0/255.0, 100.0/255.0, 42.0/255.0, 1.0);
+              } else {
+                // Wall (value=1) - RGB(195, 200, 210)
+                gl_FragColor = vec4(195.0/255.0, 200.0/255.0, 210.0/255.0, 1.0);
+              }
               return;
             }
             
@@ -836,6 +881,10 @@
 
         this.renderSources = function(ctx){
           // Sources rendered via 2D overlay
+          if(sources.length > 0 && simTime % 120 === 0) {
+            console.log(`Rendering ${sources.length} sources on overlay (${overlay.width}×${overlay.height}, CSS: ${overlay.style.width}×${overlay.style.height})`);
+            console.log(`First source at (${sources[0].x}, ${sources[0].y})`);
+          }
           for(let s = 0; s < sources.length; s++){
             const src = sources[s];
             const col = SRC_COLORS[s % SRC_COLORS.length];
@@ -1024,8 +1073,12 @@
         const aw = main.clientWidth - 40;
         const ah = main.clientHeight - 60;
         const sc = Math.min(aw / GW, ah / GH, 1.6);
-        canvas.style.width = (GW * sc) + 'px';
-        canvas.style.height = (GH * sc) + 'px';
+        const w = (GW * sc) + 'px';
+        const h = (GH * sc) + 'px';
+        canvas.style.width = w;
+        canvas.style.height = h;
+        overlay.style.width = w;
+        overlay.style.height = h;
       }
 
       // ╔══════════════════════════════════════╗
@@ -1130,9 +1183,9 @@
 
         renderer.render();
         
-        // Source markers (2D overlay)
-        const ctx = canvas.getContext('2d', { willReadFrequently: false });
-        renderer.renderSources(ctx);
+        // Clear and draw source markers on overlay
+        overlayCtx.clearRect(0, 0, GW, GH);
+        renderer.renderSources(overlayCtx);
       }
 
       // ╔══════════════════════════════════════╗
@@ -1217,6 +1270,8 @@
       function addSource(x, y){
         if(obs[y*GW+x]!==0) return;
         if(sources.some(s => Math.abs(s.x-x)<5 && Math.abs(s.y-y)<5)) return;
+
+        console.log(`Adding source at (${x}, ${y}) on grid ${GW}×${GH}`);
 
         const f = S.srcFreq;
         sources.push({
