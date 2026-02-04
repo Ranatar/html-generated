@@ -1,0 +1,1659 @@
+<!DOCTYPE html>
+<html lang="ru">
+  <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Симулятор интерференции волн (WebGL)</title>
+    <style>
+    @import url('https://fonts.googleapis.com/css2?family=Rajdhani:wght@400;500;600;700&family=Share+Tech+Mono&display=swap');
+
+    :root {
+      --bg: #06091a;
+      --bg2: #0c1020;
+      --bg3: #121830;
+      --border: rgba(80,130,220,0.18);
+      --border-hi: rgba(80,130,220,0.4);
+      --accent: #38bdf8;
+      --accent-dim: rgba(56,189,248,0.15);
+      --accent2: #a78bfa;
+      --text: #cbd5e1;
+      --text-dim: #546e85;
+      --text-hi: #f1f5f9;
+      --wall-color: #c8ced6;
+      --absorb-color: #2d7a3a;
+      --danger: #fb7185;
+      --success: #4ade80;
+    }
+
+    * { margin:0; padding:0; box-sizing:border-box; }
+    html, body { height:100%; overflow:hidden; background: var(--bg); }
+    body {
+      display: flex;
+      color: var(--text);
+      font-family: 'Rajdhani', 'Segoe UI', sans-serif;
+      font-size: 13px;
+      letter-spacing: 0.2px;
+    }
+
+    /* ─── Sidebar ─── */
+    .sidebar {
+      width: 240px;
+      background: var(--bg2);
+      border-right: 1px solid var(--border);
+      height: 100vh;
+      overflow-y: auto;
+      display: flex;
+      flex-direction: column;
+      padding: 10px 10px 20px;
+      gap: 6px;
+      flex-shrink: 0;
+    }
+    .sidebar::-webkit-scrollbar { width: 5px; }
+    .sidebar::-webkit-scrollbar-track { background: transparent; }
+    .sidebar::-webkit-scrollbar-thumb { background: #1e2a44; border-radius: 3px; }
+
+    .hdr { padding: 6px 2px 2px; }
+    .hdr h1 {
+      font-size: 18px;
+      font-weight: 700;
+      color: var(--text-hi);
+      letter-spacing: 0.5px;
+      display: flex; align-items: center; gap: 8px;
+    }
+    .hdr h1 .logo {
+      width: 24px; height: 24px;
+      background: linear-gradient(135deg, var(--accent), var(--accent2));
+      border-radius: 6px;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 14px;
+    }
+    .hdr p { font-size: 11px; color: var(--text-dim); margin-left: 32px; margin-top: 1px; font-weight: 400; }
+
+    /* ─── Backend indicator ─── */
+    .backend-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      padding: 2px 6px;
+      border-radius: 4px;
+      font-size: 9px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      margin-left: 32px;
+      margin-top: 3px;
+    }
+    .backend-badge.webgl {
+      background: rgba(74,222,128,0.15);
+      color: var(--success);
+      border: 1px solid rgba(74,222,128,0.3);
+    }
+    .backend-badge.canvas2d {
+      background: rgba(251,113,133,0.15);
+      color: var(--danger);
+      border: 1px solid rgba(251,113,133,0.3);
+    }
+    .backend-badge .dot {
+      width: 5px;
+      height: 5px;
+      border-radius: 50%;
+      background: currentColor;
+      animation: pulse 2s ease-in-out infinite;
+    }
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.4; }
+    }
+
+    /* ─── Panels ─── */
+    .panel {
+      background: var(--bg3);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 10px 11px;
+      backdrop-filter: blur(2px);
+    }
+    .panel-title {
+      font-size: 10px;
+      font-weight: 600;
+      color: var(--accent);
+      text-transform: uppercase;
+      letter-spacing: 1.2px;
+      margin-bottom: 8px;
+      font-family: 'Share Tech Mono', monospace;
+    }
+
+    /* ─── Tool Buttons ─── */
+    .tool-row { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 5px; }
+    .tool-row.five { grid-template-columns: 1fr 1fr 1fr 1fr 1fr; }
+    .tbtn {
+      background: var(--bg);
+      border: 1px solid var(--border);
+      color: var(--text-dim);
+      padding: 8px 3px;
+      border-radius: 7px;
+      cursor: pointer;
+      font-size: 11px;
+      text-align: center;
+      font-family: 'Rajdhani', sans-serif;
+      font-weight: 500;
+      transition: all 0.15s;
+      line-height: 1.3;
+    }
+    .tbtn:hover { border-color: var(--border-hi); color: var(--text); background: rgba(56,189,248,0.06); }
+    .tbtn.active {
+      background: var(--accent-dim);
+      border-color: var(--accent);
+      color: var(--accent);
+      font-weight: 600;
+      box-shadow: 0 0 10px rgba(56,189,248,0.12);
+    }
+    .tbtn .t-icon { font-size: 17px; display: block; margin-bottom: 1px; }
+
+    /* ─── Sliders ─── */
+    .sl-wrap { margin-bottom: 7px; }
+    .sl-wrap:last-child { margin-bottom: 0; }
+    .sl-head { display: flex; justify-content: space-between; margin-bottom: 3px; font-weight: 500; }
+    .sl-head .v { color: var(--accent); font-family: 'Share Tech Mono', monospace; font-size: 12px; }
+    input[type="range"] {
+      -webkit-appearance: none;
+      width: 100%; height: 4px;
+      background: #1a2238;
+      border-radius: 2px;
+      outline: none;
+    }
+    input[type="range"]::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      width: 15px; height: 15px;
+      border-radius: 50%;
+      background: var(--accent);
+      cursor: pointer;
+      box-shadow: 0 0 8px rgba(56,189,248,0.4);
+      transition: box-shadow 0.15s;
+    }
+    input[type="range"]:hover::-webkit-slider-thumb { box-shadow: 0 0 14px rgba(56,189,248,0.6); }
+    input[type="range"]::-moz-range-thumb {
+      width: 15px; height: 15px;
+      border-radius: 50%;
+      background: var(--accent);
+      cursor: pointer;
+      border: none;
+      box-shadow: 0 0 8px rgba(56,189,248,0.4);
+    }
+
+    /* ─── Toggle groups ─── */
+    .tgl-row { display: flex; gap: 3px; }
+    .tgl {
+      flex: 1; text-align: center;
+      padding: 5px 2px;
+      border-radius: 6px;
+      border: 1px solid var(--border);
+      background: var(--bg);
+      color: var(--text-dim);
+      cursor: pointer;
+      font-size: 11px;
+      font-weight: 500;
+      transition: all 0.12s;
+      user-select: none;
+    }
+    .tgl:hover { border-color: var(--border-hi); color: var(--text); }
+    .tgl.active { background: var(--accent-dim); border-color: var(--accent); color: var(--accent); font-weight: 600; }
+
+    /* ─── View toggles ─── */
+    .view-row { display: flex; gap: 3px; }
+    .vbtn {
+      flex: 1; text-align: center;
+      padding: 6px 3px;
+      border-radius: 7px;
+      border: 1px solid var(--border);
+      background: var(--bg);
+      color: var(--text-dim);
+      cursor: pointer;
+      font-size: 11px;
+      font-weight: 600;
+      transition: all 0.15s;
+    }
+    .vbtn:hover { border-color: var(--border-hi); }
+    .vbtn.active { background: var(--accent-dim); border-color: var(--accent); color: var(--accent); box-shadow: 0 0 8px rgba(56,189,248,0.1); }
+
+    /* ─── Buttons ─── */
+    .btn-row { display: flex; gap: 4px; flex-wrap: wrap; }
+    .btn {
+      background: var(--bg);
+      border: 1px solid var(--border);
+      color: var(--text);
+      padding: 5px 9px;
+      border-radius: 6px;
+      cursor: pointer;
+      font-size: 11px;
+      font-family: 'Rajdhani', sans-serif;
+      font-weight: 500;
+      transition: all 0.12s;
+      flex: 1 1 auto;
+      text-align: center;
+    }
+    .btn:hover { border-color: var(--border-hi); color: var(--accent); }
+    .btn.danger:hover { border-color: var(--danger); color: var(--danger); }
+
+    /* ─── Source list ─── */
+    .src-item {
+      display: flex;
+      flex-direction: column;
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 7px;
+      margin-bottom: 4px;
+      overflow: hidden;
+      transition: border-color 0.15s;
+    }
+    .src-item:last-child { margin-bottom: 0; }
+    .src-item:hover { border-color: var(--border-hi); }
+    .src-item.inactive { opacity: 0.42; }
+    .src-row { display: flex; align-items: center; gap: 6px; padding: 5px 7px; }
+    .src-dot {
+      width: 9px; height: 9px;
+      border-radius: 50%;
+      flex-shrink: 0;
+      box-shadow: 0 0 6px currentColor;
+    }
+    .src-info { flex: 1; min-width: 0; }
+    .src-name { font-size: 12px; font-weight: 600; color: var(--text-hi); }
+    .src-desc { font-size: 10px; color: var(--text-dim); font-family: 'Share Tech Mono', monospace; }
+    .src-btns { display: flex; gap: 2px; }
+    .src-btns button {
+      background: none;
+      border: 1px solid var(--border);
+      color: var(--text-dim);
+      width: 22px; height: 22px;
+      border-radius: 5px;
+      cursor: pointer;
+      font-size: 11px;
+      display: flex; align-items: center; justify-content: center;
+      transition: all 0.1s;
+    }
+    .src-btns button:hover { border-color: var(--accent); color: var(--accent); }
+    .src-btns .del:hover { border-color: var(--danger); color: var(--danger); }
+
+    /* ─── Source edit panel ─── */
+    .src-edit {
+      border-top: 1px solid var(--border);
+      padding: 7px 7px 8px;
+      background: rgba(18,24,48,0.7);
+    }
+    .src-edit .sl-wrap { margin-bottom: 6px; }
+    .src-edit .sl-wrap:last-child { margin-bottom: 0; }
+
+    /* ─── Canvas area ─── */
+    .main {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      background: var(--bg);
+      position: relative;
+      overflow: hidden;
+    }
+    .main::before {
+      content: '';
+      position: absolute; inset: 0;
+      background-image:
+        linear-gradient(rgba(56,189,248,0.03) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(56,189,248,0.03) 1px, transparent 1px);
+      background-size: 40px 40px;
+      pointer-events: none;
+      z-index: 0;
+    }
+
+    #canvas {
+      position: relative;
+      z-index: 1;
+      cursor: crosshair;
+      border-radius: 8px;
+      box-shadow:
+        0 0 0 1px rgba(56,189,248,0.12),
+        0 0 40px rgba(0,0,0,0.6),
+        0 0 80px rgba(56,189,248,0.04);
+    }
+
+    /* ─── Status bar ─── */
+    .status {
+      position: absolute;
+      bottom: 12px;
+      left: 50%; transform: translateX(-50%);
+      z-index: 2;
+      display: flex; gap: 24px;
+      background: rgba(12,16,32,0.82);
+      border: 1px solid var(--border);
+      padding: 5px 18px;
+      border-radius: 20px;
+      font-size: 11px;
+      backdrop-filter: blur(8px);
+      white-space: nowrap;
+    }
+    .status span { color: var(--text-dim); font-weight: 500; }
+    .status .fps { color: var(--accent); font-family: 'Share Tech Mono', monospace; }
+
+    /* ─── Hint ─── */
+    .hint {
+      font-size: 10px;
+      color: var(--text-dim);
+      margin-top: 5px;
+      font-style: italic;
+      line-height: 1.4;
+    }
+
+    .empty-msg { color: var(--text-dim); font-size: 11px; font-style: italic; }
+    .sidebar { scrollbar-gutter: stable; }
+    </style>
+  </head>
+  <body>
+
+    <!-- ═══════════ SIDEBAR ═══════════ -->
+    <aside class="sidebar">
+
+      <div class="hdr">
+        <h1><span class="logo">〜</span> Волновой симулятор</h1>
+        <p>интерференция · дифракция · отражение</p>
+        <div class="backend-badge" id="backendBadge">
+          <span class="dot"></span>
+          <span id="backendText">Определение...</span>
+        </div>
+      </div>
+
+      <!-- Tools -->
+      <div class="panel">
+        <div class="panel-title">Инструменты</div>
+        <div class="tool-row five">
+          <div class="tbtn active" data-tool="source"><span class="t-icon">⊕</span>Ист.</div>
+          <div class="tbtn" data-tool="wall"><span class="t-icon">▬</span>Стенка</div>
+          <div class="tbtn" data-tool="absorber"><span class="t-icon">◻</span>Погл.</div>
+          <div class="tbtn" data-tool="slit"><span class="t-icon">⎍</span>Щель</div>
+          <div class="tbtn" data-tool="eraser"><span class="t-icon">✕</span>Ластик</div>
+        </div>
+      </div>
+
+      <!-- Dynamic props -->
+      <div class="panel" id="propsPanel"></div>
+
+      <!-- Visualization -->
+      <div class="panel">
+        <div class="panel-title">Визуализация</div>
+        <div class="view-row">
+          <div class="vbtn active" data-view="wave">🔴🔵 Волна</div>
+          <div class="vbtn" data-view="energy">🌡 Энергия</div>
+          <div class="vbtn" data-view="pattern">✦ Картина</div>
+        </div>
+        <div class="sl-wrap" style="margin-top:8px">
+          <div class="sl-head"><span>Яркость</span><span class="v" id="csVal">150</span></div>
+          <input type="range" id="colorScale" min="30" max="500" value="150">
+        </div>
+      </div>
+
+      <!-- Physics settings -->
+      <div class="panel">
+        <div class="panel-title">Параметры волны</div>
+        <div class="sl-wrap">
+          <div class="sl-head"><span>Скорость c</span><span class="v" id="wsVal">0.50</span></div>
+          <input type="range" id="waveSpeed" min="10" max="68" value="50">
+        </div>
+        <div class="sl-wrap">
+          <div class="sl-head"><span>Затухание α</span><span class="v" id="dampVal">0.999</span></div>
+          <input type="range" id="damping" min="980" max="1000" value="999">
+        </div>
+        <div class="sl-wrap">
+          <div class="sl-head"><span>Шагов/кадр</span><span class="v" id="spfVal">2</span></div>
+          <input type="range" id="stepsPerFrame" min="1" max="5" value="2">
+        </div>
+      </div>
+
+      <!-- Presets -->
+      <div class="panel">
+        <div class="panel-title">Пресеты</div>
+        <div class="btn-row">
+          <div class="btn" onclick="presetDoubleSlit()">🔬 2 щели</div>
+          <div class="btn" onclick="presetMultiSrc()">⊕⊕ Много</div>
+          <div class="btn" onclick="presetCircular()">⭕ Экран</div>
+        </div>
+      </div>
+
+      <!-- Actions -->
+      <div class="panel">
+        <div class="btn-row">
+          <div class="btn" onclick="resetSim()">↺ Волны</div>
+          <div class="btn" onclick="clearObs()">✕ Препятств.</div>
+          <div class="btn danger" onclick="clearAll()">✕ Всё</div>
+        </div>
+      </div>
+
+      <!-- Sources -->
+      <div class="panel">
+        <div class="panel-title">Источники <span id="srcCnt" style="color:var(--text-dim);font-weight:400;letter-spacing:0">0</span></div>
+        <div id="srcList"><div class="empty-msg">Нет источников</div></div>
+      </div>
+
+    </aside>
+
+    <!-- ═══════════ CANVAS ═══════════ -->
+    <main class="main">
+      <canvas id="canvas"></canvas>
+      <div class="status">
+        <span id="toolHint">Нажимайте на поле для размещения источника</span>
+        <span class="fps" id="fpsDisp">FPS: --</span>
+      </div>
+    </main>
+
+    <!-- ═══════════ SCRIPT ═══════════ -->
+    <script>
+      (function(){
+      'use strict';
+
+      // ╔══════════════════════════════════════╗
+      // ║  WEBGL DETECTION                     ║
+      // ╚══════════════════════════════════════╝
+      function detectWebGL(){
+        try {
+          const canvas = document.createElement('canvas');
+          const gl = canvas.getContext('webgl') || canvas.getContext('experimental-webgl');
+          if(!gl) return false;
+          
+          // Check for float texture support (critical for simulation)
+          const ext = gl.getExtension('OES_texture_float');
+          if(!ext) return false;
+          
+          // Check for linear filtering on float textures
+          const extLinear = gl.getExtension('OES_texture_float_linear');
+          
+          return { gl: true, floatTexture: true, floatLinear: !!extLinear };
+        } catch(e){
+          return false;
+        }
+      }
+
+      const webglSupport = detectWebGL();
+      const USE_WEBGL = !!webglSupport;
+
+      // Update UI badge
+      const badge = document.getElementById('backendBadge');
+      const badgeText = document.getElementById('backendText');
+      if(USE_WEBGL){
+        badge.classList.add('webgl');
+        badgeText.textContent = 'WebGL GPU';
+      } else {
+        badge.classList.add('canvas2d');
+        badgeText.textContent = 'Canvas 2D';
+      }
+
+      // ╔══════════════════════════════════════╗
+      // ║  CONSTANTS                           ║
+      // ╚══════════════════════════════════════╝
+      const GW = USE_WEBGL ? 600 : 450;  // Larger grid for WebGL
+      const GH = USE_WEBGL ? 600 : 450;
+      const N = GW * GH;
+      const BORDER = 28;
+      const SRC_COLORS = ['#f472b6','#38bdf8','#4ade80','#fb923c','#a78bfa','#fbbf24','#f87171','#67e8f9'];
+
+      // ╔══════════════════════════════════════╗
+      // ║  STATE                               ║
+      // ╚══════════════════════════════════════╝
+      let curr = new Float32Array(N);
+      let prev = new Float32Array(N);
+      let nxt  = new Float32Array(N);
+      let obs  = new Uint8Array(N);
+      let bDamp= new Float32Array(N);
+      let patBuf= new Float32Array(N);
+      let sources = [];
+      let simTime = 0;
+      let editSrcId = null;
+      let srcIdCounter = 0;
+
+      const S = {
+        waveSpeed:      0.50,
+        damping:        0.999,
+        stepsPerFrame:  2,
+        colorScale:     150,
+        viewMode:       'wave',
+        tool:           'source',
+        brushSize:      4,
+        srcFreq:        1.5,
+        srcAmp:         3.0,
+        srcType:        'continuous',
+        srcBurst:       5,
+        slitOrient:     'v',
+        slitGap:        12,
+        slitType:       'single',
+        slitSpacing:    45,
+        slitThick:      5,
+      };
+
+      const HEAT = new Uint8Array(768);
+
+      // ╔══════════════════════════════════════╗
+      // ║  RENDERER ABSTRACTION                ║
+      // ╚══════════════════════════════════════╝
+      let renderer = null;
+
+      const canvas = document.getElementById('canvas');
+      canvas.width  = GW;
+      canvas.height = GH;
+
+      // ═══ WebGL Renderer ═══
+      function WebGLRenderer(canvas){
+        const gl = canvas.getContext('webgl', {
+          alpha: false,
+          antialias: false,
+          depth: false,
+          preserveDrawingBuffer: false
+        });
+        
+        if(!gl) throw new Error('WebGL context failed');
+
+        // Extensions
+        gl.getExtension('OES_texture_float');
+        const floatLinear = gl.getExtension('OES_texture_float_linear');
+
+        // Compile shader
+        function compileShader(type, source){
+          const shader = gl.createShader(type);
+          gl.shaderSource(shader, source);
+          gl.compileShader(shader);
+          if(!gl.getShaderParameter(shader, gl.COMPILE_STATUS)){
+            console.error('Shader compile error:', gl.getShaderInfoLog(shader));
+            gl.deleteShader(shader);
+            return null;
+          }
+          return shader;
+        }
+
+        // Create program
+        function createProgram(vertSource, fragSource){
+          const vert = compileShader(gl.VERTEX_SHADER, vertSource);
+          const frag = compileShader(gl.FRAGMENT_SHADER, fragSource);
+          const prog = gl.createProgram();
+          gl.attachShader(prog, vert);
+          gl.attachShader(prog, frag);
+          gl.linkProgram(prog);
+          if(!gl.getProgramParameter(prog, gl.LINK_STATUS)){
+            console.error('Program link error:', gl.getProgramInfoLog(prog));
+            return null;
+          }
+          return prog;
+        }
+
+        // Vertex shader (fullscreen quad)
+        const vertexShader = `
+          attribute vec2 a_position;
+          varying vec2 v_texCoord;
+          void main(){
+            v_texCoord = a_position * 0.5 + 0.5;
+            gl_Position = vec4(a_position, 0.0, 1.0);
+          }
+        `;
+
+        // Fragment shader for wave rendering
+        const waveFragShader = `
+          precision highp float;
+          uniform sampler2D u_wave;
+          uniform sampler2D u_obs;
+          uniform float u_colorScale;
+          varying vec2 v_texCoord;
+
+          void main(){
+            float val = texture2D(u_wave, v_texCoord).r * u_colorScale;
+            float obstacle = texture2D(u_obs, v_texCoord).r;
+            
+            vec3 color = vec3(0.0);
+            
+            if(obstacle > 0.75){
+              // Wall
+              color = vec3(0.76, 0.78, 0.82);
+            } else if(obstacle > 0.25){
+              // Absorber
+              color = vec3(0.15, 0.39, 0.16);
+            } else {
+              // Wave visualization
+              if(val > 0.0){
+                float c = min(val, 255.0) / 255.0;
+                color = vec3(c, c * 0.22, 0.0);
+              } else {
+                float c = min(-val, 255.0) / 255.0;
+                color = vec3(0.0, c * 0.22, c);
+              }
+            }
+            
+            gl_FragColor = vec4(color, 1.0);
+          }
+        `;
+
+        // Fragment shader for energy rendering
+        const energyFragShader = `
+          precision highp float;
+          uniform sampler2D u_wave;
+          uniform sampler2D u_wavePrev;
+          uniform sampler2D u_obs;
+          uniform float u_colorScale;
+          uniform float u_waveSpeed;
+          uniform vec2 u_resolution;
+          varying vec2 v_texCoord;
+
+          // Heatmap function
+          vec3 heatmap(float t){
+            if(t < 0.16){
+              float s = t / 0.16;
+              return vec3(0.0, 0.0, 0.16 + 0.84 * s);
+            } else if(t < 0.35){
+              float s = (t - 0.16) / 0.19;
+              return vec3(0.0, s, 1.0);
+            } else if(t < 0.55){
+              float s = (t - 0.35) / 0.20;
+              return vec3(s, 1.0, 1.0 - s);
+            } else if(t < 0.75){
+              float s = (t - 0.55) / 0.20;
+              return vec3(1.0, 1.0, s);
+            } else {
+              return vec3(1.0);
+            }
+          }
+
+          void main(){
+            float obstacle = texture2D(u_obs, v_texCoord).r;
+            
+            if(obstacle > 0.75){
+              gl_FragColor = vec4(0.76, 0.78, 0.82, 1.0);
+              return;
+            } else if(obstacle > 0.25){
+              gl_FragColor = vec4(0.15, 0.39, 0.16, 1.0);
+              return;
+            }
+            
+            vec2 texel = 1.0 / u_resolution;
+            float curr = texture2D(u_wave, v_texCoord).r;
+            float prev = texture2D(u_wavePrev, v_texCoord).r;
+            float right = texture2D(u_wave, v_texCoord + vec2(texel.x, 0.0)).r;
+            float left = texture2D(u_wave, v_texCoord - vec2(texel.x, 0.0)).r;
+            float up = texture2D(u_wave, v_texCoord + vec2(0.0, texel.y)).r;
+            float down = texture2D(u_wave, v_texCoord - vec2(0.0, texel.y)).r;
+            
+            float vel = curr - prev;
+            float gx = right - left;
+            float gy = up - down;
+            float c2 = u_waveSpeed * u_waveSpeed;
+            
+            float energy = (vel * vel + 0.25 * c2 * (gx * gx + gy * gy)) * u_colorScale * u_colorScale * 0.04;
+            float t = min(energy / 255.0, 1.0);
+            
+            gl_FragColor = vec4(heatmap(t), 1.0);
+          }
+        `;
+
+        // Fragment shader for pattern rendering
+        const patternFragShader = `
+          precision highp float;
+          uniform sampler2D u_pattern;
+          uniform sampler2D u_obs;
+          uniform float u_colorScale;
+          varying vec2 v_texCoord;
+
+          vec3 heatmap(float t){
+            if(t < 0.16){
+              float s = t / 0.16;
+              return vec3(0.0, 0.0, 0.16 + 0.84 * s);
+            } else if(t < 0.35){
+              float s = (t - 0.16) / 0.19;
+              return vec3(0.0, s, 1.0);
+            } else if(t < 0.55){
+              float s = (t - 0.35) / 0.20;
+              return vec3(s, 1.0, 1.0 - s);
+            } else if(t < 0.75){
+              float s = (t - 0.55) / 0.20;
+              return vec3(1.0, 1.0, s);
+            } else {
+              return vec3(1.0);
+            }
+          }
+
+          void main(){
+            float obstacle = texture2D(u_obs, v_texCoord).r;
+            
+            if(obstacle > 0.75){
+              gl_FragColor = vec4(0.76, 0.78, 0.82, 1.0);
+              return;
+            } else if(obstacle > 0.25){
+              gl_FragColor = vec4(0.15, 0.39, 0.16, 1.0);
+              return;
+            }
+            
+            float val = texture2D(u_pattern, v_texCoord).r * u_colorScale;
+            float t = min(val / 255.0, 1.0);
+            
+            gl_FragColor = vec4(heatmap(t), 1.0);
+          }
+        `;
+
+        // Create programs
+        const waveProgram = createProgram(vertexShader, waveFragShader);
+        const energyProgram = createProgram(vertexShader, energyFragShader);
+        const patternProgram = createProgram(vertexShader, patternFragShader);
+
+        // Fullscreen quad
+        const quadBuffer = gl.createBuffer();
+        gl.bindBuffer(gl.ARRAY_BUFFER, quadBuffer);
+        gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([
+          -1, -1,  1, -1,  -1, 1,
+          -1, 1,   1, -1,   1, 1
+        ]), gl.STATIC_DRAW);
+
+        // Create textures
+        function createTexture(data, format){
+          const tex = gl.createTexture();
+          gl.bindTexture(gl.TEXTURE_2D, tex);
+          gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+          gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+          gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
+          gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
+          
+          if(format === 'float'){
+            gl.texImage2D(gl.TEXTURE_2D, 0, gl.LUMINANCE, GW, GH, 0, gl.LUMINANCE, gl.FLOAT, data);
+          } else {
+            gl.texImage2D(gl.TEXTURE_2D, 0, gl.LUMINANCE, GW, GH, 0, gl.LUMINANCE, gl.UNSIGNED_BYTE, data);
+          }
+          
+          return tex;
+        }
+
+        const texWave = createTexture(curr, 'float');
+        const texWavePrev = createTexture(prev, 'float');
+        const texObs = createTexture(obs, 'ubyte');
+        const texPattern = createTexture(patBuf, 'float');
+
+        // Render function
+        this.render = function(){
+          // Update textures
+          gl.bindTexture(gl.TEXTURE_2D, texWave);
+          gl.texSubImage2D(gl.TEXTURE_2D, 0, 0, 0, GW, GH, gl.LUMINANCE, gl.FLOAT, curr);
+          
+          gl.bindTexture(gl.TEXTURE_2D, texWavePrev);
+          gl.texSubImage2D(gl.TEXTURE_2D, 0, 0, 0, GW, GH, gl.LUMINANCE, gl.FLOAT, prev);
+          
+          gl.bindTexture(gl.TEXTURE_2D, texObs);
+          gl.texSubImage2D(gl.TEXTURE_2D, 0, 0, 0, GW, GH, gl.LUMINANCE, gl.UNSIGNED_BYTE, obs);
+
+          // Select program based on view mode
+          let program;
+          if(S.viewMode === 'wave'){
+            program = waveProgram;
+            gl.useProgram(program);
+            gl.uniform1i(gl.getUniformLocation(program, 'u_wave'), 0);
+            gl.uniform1i(gl.getUniformLocation(program, 'u_obs'), 1);
+            gl.uniform1f(gl.getUniformLocation(program, 'u_colorScale'), S.colorScale);
+            
+            gl.activeTexture(gl.TEXTURE0);
+            gl.bindTexture(gl.TEXTURE_2D, texWave);
+            gl.activeTexture(gl.TEXTURE1);
+            gl.bindTexture(gl.TEXTURE_2D, texObs);
+          } else if(S.viewMode === 'energy'){
+            program = energyProgram;
+            gl.useProgram(program);
+            gl.uniform1i(gl.getUniformLocation(program, 'u_wave'), 0);
+            gl.uniform1i(gl.getUniformLocation(program, 'u_wavePrev'), 1);
+            gl.uniform1i(gl.getUniformLocation(program, 'u_obs'), 2);
+            gl.uniform1f(gl.getUniformLocation(program, 'u_colorScale'), S.colorScale);
+            gl.uniform1f(gl.getUniformLocation(program, 'u_waveSpeed'), S.waveSpeed);
+            gl.uniform2f(gl.getUniformLocation(program, 'u_resolution'), GW, GH);
+            
+            gl.activeTexture(gl.TEXTURE0);
+            gl.bindTexture(gl.TEXTURE_2D, texWave);
+            gl.activeTexture(gl.TEXTURE1);
+            gl.bindTexture(gl.TEXTURE_2D, texWavePrev);
+            gl.activeTexture(gl.TEXTURE2);
+            gl.bindTexture(gl.TEXTURE_2D, texObs);
+          } else {
+            // pattern
+            gl.bindTexture(gl.TEXTURE_2D, texPattern);
+            gl.texSubImage2D(gl.TEXTURE_2D, 0, 0, 0, GW, GH, gl.LUMINANCE, gl.FLOAT, patBuf);
+            
+            program = patternProgram;
+            gl.useProgram(program);
+            gl.uniform1i(gl.getUniformLocation(program, 'u_pattern'), 0);
+            gl.uniform1i(gl.getUniformLocation(program, 'u_obs'), 1);
+            gl.uniform1f(gl.getUniformLocation(program, 'u_colorScale'), S.colorScale);
+            
+            gl.activeTexture(gl.TEXTURE0);
+            gl.bindTexture(gl.TEXTURE_2D, texPattern);
+            gl.activeTexture(gl.TEXTURE1);
+            gl.bindTexture(gl.TEXTURE_2D, texObs);
+          }
+
+          // Draw
+          gl.bindBuffer(gl.ARRAY_BUFFER, quadBuffer);
+          const posLoc = gl.getAttribLocation(program, 'a_position');
+          gl.enableVertexAttribArray(posLoc);
+          gl.vertexAttribPointer(posLoc, 2, gl.FLOAT, false, 0, 0);
+          
+          gl.viewport(0, 0, GW, GH);
+          gl.drawArrays(gl.TRIANGLES, 0, 6);
+        };
+
+        this.renderSources = function(ctx){
+          // Sources rendered via 2D overlay
+          for(let s = 0; s < sources.length; s++){
+            const src = sources[s];
+            const col = SRC_COLORS[s % SRC_COLORS.length];
+            const alpha = src.active ? 1 : 0.3;
+            ctx.save();
+
+            const phase = simTime * 0.07 + s * 1.6;
+            const p1 = (Math.sin(phase)*0.5+0.5);
+            const pr = 5 + 11*p1;
+            ctx.globalAlpha = alpha * (1-p1) * 0.55;
+            ctx.beginPath();
+            ctx.arc(src.x, src.y, pr, 0, Math.PI*2);
+            ctx.strokeStyle = col;
+            ctx.lineWidth = 1.2;
+            ctx.stroke();
+
+            ctx.globalAlpha = alpha;
+            ctx.beginPath();
+            ctx.arc(src.x, src.y, 3, 0, Math.PI*2);
+            ctx.fillStyle = col;
+            ctx.fill();
+            ctx.strokeStyle = '#fff';
+            ctx.lineWidth = 1.2;
+            ctx.stroke();
+
+            ctx.restore();
+          }
+        };
+      }
+
+      // ═══ Canvas2D Renderer ═══
+      function Canvas2DRenderer(canvas){
+        const ctx = canvas.getContext('2d');
+        const imgData = ctx.createImageData(GW, GH);
+
+        this.render = function(){
+          const d = imgData.data;
+          const cs = S.colorScale;
+
+          switch(S.viewMode){
+            case 'wave':    renderWave(d,cs);    break;
+            case 'energy':  renderEnergy(d,cs);  break;
+            case 'pattern': renderPattern(d,cs); break;
+          }
+
+          // Obstacles overlay
+          for(let i = 0; i < N; i++){
+            if(!obs[i]) continue;
+            const p = i<<2;
+            if(obs[i]===1){ d[p]=195; d[p+1]=200; d[p+2]=210; d[p+3]=255; }
+            else          { d[p]=38;  d[p+1]=100; d[p+2]=42;  d[p+3]=230; }
+          }
+
+          ctx.putImageData(imgData, 0, 0);
+        };
+
+        this.renderSources = function(ctx){
+          for(let s = 0; s < sources.length; s++){
+            const src = sources[s];
+            const col = SRC_COLORS[s % SRC_COLORS.length];
+            const alpha = src.active ? 1 : 0.3;
+            ctx.save();
+
+            const phase = simTime * 0.07 + s * 1.6;
+            const p1 = (Math.sin(phase)*0.5+0.5);
+            const pr = 5 + 11*p1;
+            ctx.globalAlpha = alpha * (1-p1) * 0.55;
+            ctx.beginPath();
+            ctx.arc(src.x, src.y, pr, 0, Math.PI*2);
+            ctx.strokeStyle = col;
+            ctx.lineWidth = 1.2;
+            ctx.stroke();
+
+            ctx.globalAlpha = alpha;
+            ctx.beginPath();
+            ctx.arc(src.x, src.y, 3, 0, Math.PI*2);
+            ctx.fillStyle = col;
+            ctx.fill();
+            ctx.strokeStyle = '#fff';
+            ctx.lineWidth = 1.2;
+            ctx.stroke();
+
+            ctx.restore();
+          }
+        };
+
+        function renderWave(d, cs){
+          for(let i = 0; i < N; i++){
+            const p = i<<2;
+            const v = curr[i] * cs;
+            if(v > 0){
+              const c = v > 255 ? 255 : v|0;
+              d[p]=c; d[p+1]=(c*0.22)|0; d[p+2]=0;
+            } else if(v < 0){
+              const c = -v > 255 ? 255 : (-v)|0;
+              d[p]=0; d[p+1]=(c*0.22)|0; d[p+2]=c;
+            } else {
+              d[p]=0; d[p+1]=0; d[p+2]=0;
+            }
+            d[p+3] = 255;
+          }
+        }
+
+        function renderEnergy(d, cs){
+          const csq = cs * cs * 0.04;
+          const c2 = S.waveSpeed * S.waveSpeed;
+          for(let y = 0; y < GH; y++){
+            for(let x = 0; x < GW; x++){
+              const i = y*GW+x;
+              const p = i<<2;
+              let e = 0;
+              if(y>0 && y<GH-1 && x>0 && x<GW-1){
+                const vel = curr[i]-prev[i];
+                const gx = curr[i+1]-curr[i-1];
+                const gy = curr[i+GW]-curr[i-GW];
+                e = (vel*vel + 0.25*c2*(gx*gx+gy*gy)) * csq;
+              }
+              const ei = (e>255?255:e)|0;
+              const h = ei*3;
+              d[p]=HEAT[h]; d[p+1]=HEAT[h+1]; d[p+2]=HEAT[h+2]; d[p+3]=255;
+            }
+          }
+        }
+
+        function renderPattern(d, cs){
+          const decay = 0.9984;
+          for(let i = 0; i < N; i++){
+            const a = Math.abs(curr[i]);
+            if(a > patBuf[i]) patBuf[i] = a; else patBuf[i] *= decay;
+            const p = i<<2;
+            const vi = (patBuf[i]*cs > 255 ? 255 : patBuf[i]*cs)|0;
+            const h = vi*3;
+            d[p]=HEAT[h]; d[p+1]=HEAT[h+1]; d[p+2]=HEAT[h+2]; d[p+3]=255;
+          }
+        }
+      }
+
+      // ╔══════════════════════════════════════╗
+      // ║  INIT                                ║
+      // ╚══════════════════════════════════════╝
+      function init(){
+        // Heatmap LUT
+        for(let i = 0; i < 256; i++){
+          const t = i / 255;
+          let r,g,b;
+          if     (t < 0.16){ const s=t/0.16;        r=0;  g=0;  b=Math.round(40+215*s); }
+          else if(t < 0.35){ const s=(t-0.16)/0.19;  r=0;  g=Math.round(255*s); b=255; }
+          else if(t < 0.55){ const s=(t-0.35)/0.20;  r=Math.round(255*s); g=255; b=Math.round(255*(1-s)); }
+          else if(t < 0.75){ const s=(t-0.55)/0.20;  r=255; g=255; b=Math.round(255*s); }
+          else             { const s=(t-0.75)/0.25;  r=255; g=255; b=255; }
+          HEAT[i*3]=r; HEAT[i*3+1]=g; HEAT[i*3+2]=b;
+        }
+
+        // Boundary damping
+        for(let y = 0; y < GH; y++)
+          for(let x = 0; x < GW; x++){
+            const d = Math.min(x, GW-1-x, y, GH-1-y);
+            const t = d < BORDER ? d / BORDER : 1;
+            bDamp[y * GW + x] = t * t;
+          }
+
+        // Initialize renderer
+        if(USE_WEBGL){
+          try {
+            renderer = new WebGLRenderer(canvas);
+            console.log('✓ WebGL renderer initialized');
+          } catch(e){
+            console.warn('WebGL init failed, falling back to Canvas2D:', e);
+            renderer = new Canvas2DRenderer(canvas);
+          }
+        } else {
+          renderer = new Canvas2DRenderer(canvas);
+          console.log('✓ Canvas2D renderer initialized');
+        }
+
+        resizeCanvas();
+        window.addEventListener('resize', resizeCanvas);
+        bindEvents();
+        renderProps();
+        renderSrcList();
+        requestAnimationFrame(loop);
+      }
+
+      function resizeCanvas(){
+        const main = document.querySelector('.main');
+        const aw = main.clientWidth - 40;
+        const ah = main.clientHeight - 60;
+        const sc = Math.min(aw / GW, ah / GH, 1.6);
+        canvas.style.width = (GW * sc) + 'px';
+        canvas.style.height = (GH * sc) + 'px';
+      }
+
+      // ╔══════════════════════════════════════╗
+      // ║  SIMULATION STEP                     ║
+      // ╚══════════════════════════════════════╝
+      function simStep(){
+        const c2 = S.waveSpeed * S.waveSpeed;
+        const gd = S.damping;
+
+        for(let y = 1; y < GH-1; y++){
+          const base = y * GW;
+          for(let x = 1; x < GW-1; x++){
+            const i = base + x;
+            if(obs[i] === 1){ nxt[i] = 0; continue; }
+
+            const lap = curr[i-1] + curr[i+1] + curr[i-GW] + curr[i+GW] - 4*curr[i];
+            let v = 2*curr[i] - prev[i] + c2 * lap;
+            v *= gd * bDamp[i];
+            
+            if(obs[i] === 2){
+              const vel = curr[i] - prev[i];
+              v = v * 0.35 - vel * 0.45;
+            }
+            
+            nxt[i] = v;
+          }
+        }
+
+        // Zero edges
+        for(let x = 0; x < GW; x++){ nxt[x]=0; nxt[(GH-1)*GW+x]=0; }
+        for(let y = 0; y < GH; y++){ nxt[y*GW]=0; nxt[y*GW+GW-1]=0; }
+
+        // Source forcing
+        for(let s = 0; s < sources.length; s++){
+          const src = sources[s];
+          if(!src.active) continue;
+          const val = srcVal(src);
+          if(val === 0) continue;
+
+          const sx = src.x, sy = src.y;
+          for(let dy = -1; dy <= 1; dy++){
+            for(let dx = -1; dx <= 1; dx++){
+              const nx = sx+dx, ny = sy+dy;
+              if(nx<1||nx>=GW-1||ny<1||ny>=GH-1) continue;
+              const ni = ny*GW+nx;
+              if(obs[ni]!==0) continue;
+              const ad = Math.abs(dx)+Math.abs(dy);
+              const w = ad===0 ? 1 : ad===1 ? 0.42 : 0.18;
+              nxt[ni] = val * w;
+            }
+          }
+        }
+
+        // Rotate
+        const tmp = prev; prev = curr; curr = nxt; nxt = tmp;
+        
+        // Ensure walls are zeroed
+        for(let i = 0; i < N; i++){
+          if(obs[i] === 1){
+            curr[i] = 0;
+            prev[i] = 0;
+            nxt[i] = 0;
+          }
+        }
+        
+        simTime++;
+      }
+
+      function srcVal(src){
+        const dt = simTime - src.startTime;
+        switch(src.type){
+          case 'continuous':
+            return src.amp * Math.sin(src.omega * simTime + src.phase);
+          case 'pulse':
+            if(dt >= 0 && dt < 8) return src.amp * 7 * Math.exp(-(dt-2.5)*(dt-2.5)/2.2);
+            return 0;
+          case 'burst': {
+            const dur = Math.round(src.burstCycles * 60 / src.freq);
+            if(dt >= 0 && dt < dur){
+              const env = Math.sin(Math.PI * dt / dur);
+              return src.amp * Math.sin(src.omega * simTime + src.phase) * env;
+            }
+            return 0;
+          }
+        }
+        return 0;
+      }
+
+      // ╔══════════════════════════════════════╗
+      // ║  RENDER                              ║
+      // ╚══════════════════════════════════════╝
+      function render(){
+        // Pattern accumulation for WebGL (shaders are read-only)
+        if(USE_WEBGL && S.viewMode === 'pattern'){
+          const decay = 0.9984;
+          for(let i = 0; i < N; i++){
+            const a = Math.abs(curr[i]);
+            if(a > patBuf[i]) patBuf[i] = a;
+            else patBuf[i] *= decay;
+          }
+        }
+
+        renderer.render();
+        
+        // Source markers (2D overlay)
+        const ctx = canvas.getContext('2d', { willReadFrequently: false });
+        renderer.renderSources(ctx);
+      }
+
+      // ╔══════════════════════════════════════╗
+      // ║  MAIN LOOP                           ║
+      // ╚══════════════════════════════════════╝
+      let _frames=0, _lastT=performance.now();
+      function loop(t){
+        for(let s = 0; s < S.stepsPerFrame; s++) simStep();
+        render();
+        _frames++;
+        if(t - _lastT >= 1000){
+          document.getElementById('fpsDisp').textContent = 'FPS: ' + _frames;
+          _frames=0; _lastT=t;
+        }
+        requestAnimationFrame(loop);
+      }
+
+      // ╔══════════════════════════════════════╗
+      // ║  MOUSE / TOUCH                       ║
+      // ╚══════════════════════════════════════╝
+      let mDown = false, lastMouse = null;
+
+      function getPos(ev){
+        const r = canvas.getBoundingClientRect();
+        const cx = (ev.clientX ?? ev.pageX) - r.left;
+        const cy = (ev.clientY ?? ev.pageY) - r.top;
+        return { x: Math.floor(cx / r.width * GW), y: Math.floor(cy / r.height * GH) };
+      }
+      function inB(p){ return p.x>=0 && p.x<GW && p.y>=0 && p.y<GH; }
+
+      canvas.addEventListener('mousedown', e=>{ e.preventDefault(); mDown=true; const p=getPos(e); if(inB(p)) handleClick(p); lastMouse=p; });
+      canvas.addEventListener('mousemove', e=>{ if(!mDown) return; e.preventDefault(); const p=getPos(e); if(!inB(p)) return; if(S.tool==='wall'||S.tool==='absorber'||S.tool==='eraser'){ if(lastMouse) paintLine(lastMouse,p); else paintCircle(p.x,p.y); } lastMouse=p; });
+      canvas.addEventListener('mouseup', ()=>{ mDown=false; lastMouse=null; });
+      canvas.addEventListener('mouseleave',()=>{ mDown=false; lastMouse=null; });
+
+      canvas.addEventListener('touchstart', e=>{ e.preventDefault(); mDown=true; const p=getPos(e.touches[0]); if(inB(p)) handleClick(p); lastMouse=p; },{ passive:false });
+      canvas.addEventListener('touchmove', e=>{ e.preventDefault(); if(!mDown) return; const p=getPos(e.touches[0]); if(!inB(p)) return; if(S.tool==='wall'||S.tool==='absorber'||S.tool==='eraser'){ if(lastMouse) paintLine(lastMouse,p); else paintCircle(p.x,p.y); } lastMouse=p; },{ passive:false });
+      canvas.addEventListener('touchend', ()=>{ mDown=false; lastMouse=null; });
+
+      function handleClick(p){
+        switch(S.tool){
+          case 'source': addSource(p.x, p.y); break;
+          case 'slit':   addSlit(p.x, p.y);   break;
+          default:       paintCircle(p.x, p.y);
+        }
+      }
+
+      // ╔══════════════════════════════════════╗
+      // ║  DRAW OBSTACLES                      ║
+      // ╚══════════════════════════════════════╝
+      function paintCircle(cx, cy){
+        const r = S.brushSize;
+        const type = S.tool==='wall'?1 : S.tool==='absorber'?2 : 0;
+        const r2 = r*r;
+        for(let dy=-r; dy<=r; dy++)
+          for(let dx=-r; dx<=r; dx++){
+            if(dx*dx+dy*dy > r2) continue;
+            const nx=cx+dx, ny=cy+dy;
+            if(nx<0||nx>=GW||ny<0||ny>=GH) continue;
+            const idx = ny*GW+nx;
+            obs[idx] = type;
+            if(type === 1){
+              curr[idx] = 0;
+              prev[idx] = 0;
+              nxt[idx] = 0;
+            }
+          }
+      }
+
+      function paintLine(a,b){
+        const dx=b.x-a.x, dy=b.y-a.y;
+        const steps = Math.max(Math.abs(dx), Math.abs(dy), 1);
+        for(let i=0; i<=steps; i++){
+          const t=i/steps;
+          paintCircle(Math.round(a.x+dx*t), Math.round(a.y+dy*t));
+        }
+      }
+
+      // ╔══════════════════════════════════════╗
+      // ║  SOURCES                             ║
+      // ╚══════════════════════════════════════╝
+      function addSource(x, y){
+        if(obs[y*GW+x]!==0) return;
+        if(sources.some(s => Math.abs(s.x-x)<5 && Math.abs(s.y-y)<5)) return;
+
+        const f = S.srcFreq;
+        sources.push({
+          x, y, idx: y*GW+x,
+          freq: f,
+          omega: 2*Math.PI*f / 60,
+          amp: S.srcAmp,
+          phase: 0,
+          type: S.srcType,
+          burstCycles: S.srcBurst,
+          startTime: simTime,
+          active: true,
+          id: ++srcIdCounter
+        });
+        renderSrcList();
+      }
+
+      function removeSource(id){
+        sources = sources.filter(s => s.id !== id);
+        if(editSrcId === id) editSrcId = null;
+        renderSrcList();
+      }
+
+      function toggleSource(id){
+        const s = sources.find(s => s.id===id);
+        if(!s) return;
+        s.active = !s.active;
+        if(s.active && (s.type==='pulse'||s.type==='burst')) s.startTime = simTime;
+        renderSrcList();
+      }
+
+      function fireSource(id){
+        const s = sources.find(s => s.id===id);
+        if(!s) return;
+        s.startTime = simTime;
+        s.active = true;
+        renderSrcList();
+      }
+
+      function editSource(id){
+        editSrcId = editSrcId===id ? null : id;
+        renderSrcList();
+      }
+
+      function setSrcFreq(id, v){
+        const s = sources.find(s=>s.id===id);
+        if(!s) return;
+        s.freq = v/10;
+        s.omega = 2*Math.PI*s.freq/60;
+        document.getElementById('ef'+id).textContent = s.freq.toFixed(1);
+      }
+
+      function setSrcAmp(id, v){
+        const s = sources.find(s=>s.id===id);
+        if(s) s.amp = v/10;
+        document.getElementById('ea'+id).textContent = (v/10).toFixed(1);
+      }
+
+      // ╔══════════════════════════════════════╗
+      // ║  SLIT                                ║
+      // ╚══════════════════════════════════════╝
+      function addSlit(cx, cy){
+        const o = S.slitOrient;
+        const gap = S.slitGap;
+        const th = S.slitThick;
+        const type = S.slitType;
+        const sp = S.slitSpacing;
+
+        if(o === 'v'){
+          const startX = cx - (th>>1);
+          for(let t=0; t<th; t++){
+            const x = startX+t;
+            if(x<0||x>=GW) continue;
+            for(let y=0; y<GH; y++){
+              const idx = y*GW+x;
+              obs[idx]=1;
+              curr[idx]=0; prev[idx]=0; nxt[idx]=0;
+            }
+          }
+          cutGap(startX, cy, 'v', gap, th);
+          if(type==='double'){
+            cutGap(startX, cy-sp, 'v', gap, th);
+            cutGap(startX, cy+sp, 'v', gap, th);
+          }
+        } else {
+          const startY = cy - (th>>1);
+          for(let t=0; t<th; t++){
+            const y = startY+t;
+            if(y<0||y>=GH) continue;
+            for(let x=0; x<GW; x++){
+              const idx = y*GW+x;
+              obs[idx]=1;
+              curr[idx]=0; prev[idx]=0; nxt[idx]=0;
+            }
+          }
+          cutGap(cx, startY, 'h', gap, th);
+          if(type==='double'){
+            cutGap(cx-sp, startY, 'h', gap, th);
+            cutGap(cx+sp, startY, 'h', gap, th);
+          }
+        }
+      }
+
+      function cutGap(startX, cy_or_startY, orient, gap, th){
+        const half = gap>>1;
+        if(orient==='v'){
+          for(let t=0; t<th; t++){
+            const x = startX+t;
+            if(x<0||x>=GW) continue;
+            for(let dy=-half; dy<=half; dy++){
+              const y = cy_or_startY+dy;
+              if(y>=0 && y<GH) obs[y*GW+x]=0;
+            }
+          }
+        } else {
+          const startY = cy_or_startY;
+          for(let t=0; t<th; t++){
+            const y = startY+t;
+            if(y<0||y>=GH) continue;
+            for(let dx=-half; dx<=half; dx++){
+              const x = startX+dx;
+              if(x>=0 && x<GW) obs[y*GW+x]=0;
+            }
+          }
+        }
+      }
+
+      // ╔══════════════════════════════════════╗
+      // ║  PRESETS                             ║
+      // ╚══════════════════════════════════════╝
+      function presetDoubleSlit(){
+        clearAll();
+        S.slitOrient='v'; S.slitType='double'; S.slitGap=12; S.slitSpacing=45; S.slitThick=5;
+        addSlit(GW>>1, GH>>1);
+        S.srcFreq=2; S.srcAmp=3; S.srcType='continuous';
+        addSource(55, GH>>1);
+        S.slitType='single';
+        renderProps(); renderSrcList();
+      }
+
+      function presetMultiSrc(){
+        clearAll();
+        S.srcType='continuous'; S.srcAmp=2.2;
+        const cx=GW>>1, cy=GH>>1, r=110;
+        const freqs = [1.8, 2.2, 1.8, 2.2];
+        for(let i=0; i<4; i++){
+          const a = (i/4)*Math.PI*2;
+          S.srcFreq = freqs[i];
+          addSource(Math.round(cx+r*Math.cos(a)), Math.round(cy+r*Math.sin(a)));
+          sources[sources.length-1].phase = (i/4)*Math.PI*2;
+        }
+        renderProps(); renderSrcList();
+      }
+
+      function presetCircular(){
+        clearAll();
+        const cx=GW>>1, cy=GH>>1, r=105;
+        for(let a=0; a<Math.PI*2; a+=0.04){
+          if(a>1.35 && a<1.75) continue;
+          const x=Math.round(cx+r*Math.cos(a)), y=Math.round(cy+r*Math.sin(a));
+          for(let d=-2; d<=2; d++){
+            const ny = y+d;
+            if(x>=0&&x<GW&&ny>=0&&ny<GH){
+              const idx = ny*GW+x;
+              obs[idx]=1;
+              curr[idx]=0; prev[idx]=0; nxt[idx]=0;
+            }
+          }
+        }
+        S.srcFreq=2.2; S.srcAmp=3.5; S.srcType='continuous';
+        addSource(cx, cy);
+        renderProps(); renderSrcList();
+      }
+
+      // ╔══════════════════════════════════════╗
+      // ║  RESET                               ║
+      // ╚══════════════════════════════════════╝
+      function resetSim(){
+        curr.fill(0); prev.fill(0); nxt.fill(0); patBuf.fill(0);
+        sources.forEach(s=>{ s.startTime=simTime; });
+      }
+
+      function clearObs(){ obs.fill(0); }
+
+      function clearAll(){
+        resetSim(); clearObs();
+        sources=[]; editSrcId=null;
+        renderSrcList();
+      }
+
+      // ╔══════════════════════════════════════╗
+      // ║  UI — EVENTS                         ║
+      // ╚══════════════════════════════════════╝
+      function bindEvents(){
+        document.querySelectorAll('.tbtn').forEach(btn=>{
+          btn.addEventListener('click',()=>{
+            document.querySelectorAll('.tbtn').forEach(b=>b.classList.remove('active'));
+            btn.classList.add('active');
+            S.tool = btn.dataset.tool;
+            renderProps();
+            updateHint();
+          });
+        });
+
+        document.querySelectorAll('.vbtn').forEach(btn=>{
+          btn.addEventListener('click',()=>{
+            document.querySelectorAll('.vbtn').forEach(b=>b.classList.remove('active'));
+            btn.classList.add('active');
+            S.viewMode = btn.dataset.view;
+            if(S.viewMode !== 'pattern') patBuf.fill(0);
+          });
+        });
+
+        bindGSlider('waveSpeed', v=>{ S.waveSpeed=v/100; }, 'wsVal', v=>(v/100).toFixed(2));
+        bindGSlider('damping', v=>{ S.damping=v/1000; }, 'dampVal', v=>(v/1000).toFixed(3));
+        bindGSlider('stepsPerFrame',v=>{ S.stepsPerFrame=v; },'spfVal', v=>v);
+        bindGSlider('colorScale', v=>{ S.colorScale=v; }, 'csVal', v=>v);
+      }
+
+      function bindGSlider(id, setter, valId, fmt){
+        const el = document.getElementById(id);
+        const vl = document.getElementById(valId);
+        if(!el||!vl) return;
+        el.addEventListener('input',()=>{ setter(+el.value); vl.textContent=fmt(+el.value); });
+      }
+
+      const HINTS = {
+        source: 'Нажимайте на поле для размещения источника',
+        wall: 'Зажимайте и тянутесь для стенки (отражающей)',
+        absorber: 'Зажимайте и тянутесь для поглотителя',
+        slit: 'Нажимайте для размещения щели',
+        eraser: 'Зажимайте и тянутесь для стирания'
+      };
+      function updateHint(){ document.getElementById('toolHint').textContent = HINTS[S.tool]; }
+
+      // ╔══════════════════════════════════════╗
+      // ║  UI — PROPERTIES PANEL               ║
+      // ╚══════════════════════════════════════╝
+      function renderProps(){
+        const el = document.getElementById('propsPanel');
+        let h = '<div class="panel-title">Свойства</div>';
+
+        switch(S.tool){
+          case 'source':
+            h += `
+              <div class="sl-wrap">
+                <div class="sl-head"><span>Частота</span><span class="v" id="sfVal">${S.srcFreq.toFixed(1)}</span></div>
+                <input type="range" id="srcFreqSl" min="1" max="100" value="${(S.srcFreq*10)|0}">
+              </div>
+              <div class="sl-wrap">
+                <div class="sl-head"><span>Амплитуда</span><span class="v" id="saVal">${S.srcAmp.toFixed(1)}</span></div>
+                <input type="range" id="srcAmpSl" min="1" max="60" value="${(S.srcAmp*10)|0}">
+              </div>
+              <div class="sl-wrap">
+                <div class="sl-head"><span>Тип</span></div>
+                <div class="tgl-row">
+                  <div class="tgl ${S.srcType==='continuous'?'active':''}" data-srctype="continuous">Непрерывн.</div>
+                  <div class="tgl ${S.srcType==='pulse'?'active':''}" data-srctype="pulse">Импульс</div>
+                  <div class="tgl ${S.srcType==='burst'?'active':''}" data-srctype="burst">Вспышка</div>
+                </div>
+              </div>
+              ${S.srcType==='burst'?`
+              <div class="sl-wrap">
+                <div class="sl-head"><span>Циклов вспышки</span><span class="v" id="bcVal">${S.srcBurst}</span></div>
+                <input type="range" id="srcBurstSl" min="1" max="20" value="${S.srcBurst}">
+              </div>`:''}
+              <div class="hint">Нажимайте на поле для размещения. Источники нельзя ставить на препятствия и друг на друга.</div>`;
+            break;
+
+          case 'wall':
+          case 'absorber':
+            h += `
+              <div class="sl-wrap">
+                <div class="sl-head"><span>Кисть</span><span class="v" id="bsVal">${S.brushSize}</span></div>
+                <input type="range" id="brushSl" min="1" max="25" value="${S.brushSize}">
+              </div>
+              <div class="hint">${S.tool==='wall'
+                ? 'Стенка — полностью отражает волны (с инверсией фазы)'
+                : 'Поглотитель — гасит волны без отражения'}</div>`;
+            break;
+
+          case 'slit':
+            h += `
+              <div class="sl-wrap">
+                <div class="sl-head"><span>Ориентация</span></div>
+                <div class="tgl-row">
+                  <div class="tgl ${S.slitOrient==='v'?'active':''}" data-orient="v">Вертикальная</div>
+                  <div class="tgl ${S.slitOrient==='h'?'active':''}" data-orient="h">Горизонт.</div>
+                </div>
+              </div>
+              <div class="sl-wrap">
+                <div class="sl-head"><span>Щель</span></div>
+                <div class="tgl-row">
+                  <div class="tgl ${S.slitType==='single'?'active':''}" data-slittype="single">Одинарная</div>
+                  <div class="tgl ${S.slitType==='double'?'active':''}" data-slittype="double">Двойная</div>
+                </div>
+              </div>
+              <div class="sl-wrap">
+                <div class="sl-head"><span>Ширина щели</span><span class="v" id="sgVal">${S.slitGap}</span></div>
+                <input type="range" id="slitGapSl" min="3" max="50" value="${S.slitGap}">
+              </div>
+              ${S.slitType==='double'?`
+              <div class="sl-wrap">
+                <div class="sl-head"><span>Расстояние между щелями</span><span class="v" id="ssVal">${S.slitSpacing}</span></div>
+                <input type="range" id="slitSpSl" min="15" max="160" value="${S.slitSpacing}">
+              </div>`:``}
+              <div class="sl-wrap">
+                <div class="sl-head"><span>Толщина стенки</span><span class="v" id="stVal">${S.slitThick}</span></div>
+                <input type="range" id="slitThSl" min="2" max="15" value="${S.slitThick}">
+              </div>
+              <div class="hint">Щель создаётся полностью поперёк поля. Положение щели — место клика.</div>`;
+            break;
+
+          case 'eraser':
+            h += `
+              <div class="sl-wrap">
+                <div class="sl-head"><span>Размер</span><span class="v" id="bsVal">${S.brushSize}</span></div>
+                <input type="range" id="brushSl" min="1" max="30" value="${S.brushSize}">
+              </div>
+              <div class="hint">Стирает только препятствия. Источники удаляются через список.</div>`;
+            break;
+        }
+
+        el.innerHTML = h;
+        bindPropSliders();
+        bindPropToggles();
+      }
+
+      function bindPropSliders(){
+        const map = {
+          srcFreqSl: (v)=>{ S.srcFreq=v/10; return (v/10).toFixed(1); },
+          srcAmpSl: (v)=>{ S.srcAmp=v/10; return (v/10).toFixed(1); },
+          srcBurstSl: (v)=>{ S.srcBurst=v; return ''+v; },
+          brushSl: (v)=>{ S.brushSize=v; return ''+v; },
+          slitGapSl: (v)=>{ S.slitGap=v; return ''+v; },
+          slitSpSl: (v)=>{ S.slitSpacing=v; return ''+v; },
+          slitThSl: (v)=>{ S.slitThick=v; return ''+v; },
+        };
+        const valIds = { srcFreqSl:'sfVal', srcAmpSl:'saVal', srcBurstSl:'bcVal', brushSl:'bsVal', slitGapSl:'sgVal', slitSpSl:'ssVal', slitThSl:'stVal' };
+        for(const [id, fn] of Object.entries(map)){
+          const el = document.getElementById(id);
+          const vl = document.getElementById(valIds[id]);
+          if(!el||!vl) continue;
+          el.addEventListener('input', ()=>{ vl.textContent = fn(+el.value); });
+        }
+      }
+
+      function bindPropToggles(){
+        document.querySelectorAll('[data-srctype]').forEach(el=>{
+          el.addEventListener('click',()=>{
+            document.querySelectorAll('[data-srctype]').forEach(e=>e.classList.remove('active'));
+            el.classList.add('active');
+            S.srcType = el.dataset.srctype;
+            renderProps();
+          });
+        });
+
+        document.querySelectorAll('[data-orient]').forEach(el=>{
+          el.addEventListener('click',()=>{
+            document.querySelectorAll('[data-orient]').forEach(e=>e.classList.remove('active'));
+            el.classList.add('active');
+            S.slitOrient = el.dataset.orient;
+          });
+        });
+
+        document.querySelectorAll('[data-slittype]').forEach(el=>{
+          el.addEventListener('click',()=>{
+            document.querySelectorAll('[data-slittype]').forEach(e=>e.classList.remove('active'));
+            el.classList.add('active');
+            S.slitType = el.dataset.slittype;
+            renderProps();
+          });
+        });
+      }
+
+      // ╔══════════════════════════════════════╗
+      // ║  UI — SOURCE LIST                    ║
+      // ╚══════════════════════════════════════╝
+      function renderSrcList(){
+        const el = document.getElementById('srcList');
+        document.getElementById('srcCnt').textContent = sources.length;
+        if(!sources.length){ el.innerHTML='<div class="empty-msg">Нет источников</div>'; return; }
+
+        el.innerHTML = sources.map((src,i)=>{
+          const col = SRC_COLORS[i % SRC_COLORS.length];
+          const name = src.type==='continuous'?'непрерывный':src.type==='pulse'?'импульс':'вспышка';
+          const isEd = editSrcId===src.id;
+          return `<div class="src-item ${src.active?'':'inactive'}">
+            <div class="src-row">
+              <div class="src-dot" style="background:${col};color:${col}"></div>
+              <div class="src-info">
+                <div class="src-name">#${i+1} — ${name}</div>
+                <div class="src-desc">${src.freq.toFixed(1)} Гц · А=${src.amp.toFixed(1)} · (${src.x},${src.y})</div>
+              </div>
+              <div class="src-btns">
+                <button onclick="editSource(${src.id})" title="Редактировать">${isEd?'▲':'▼'}</button>
+                ${(src.type==='pulse'||src.type==='burst')?`<button onclick="fireSource(${src.id})" title="Запустить">▶</button>`:``}
+                <button onclick="toggleSource(${src.id})" title="${src.active?'Пауза':'Возобновить'}">${src.active?'⏸':'▷'}</button>
+                <button class="del" onclick="removeSource(${src.id})" title="Удалить">✕</button>
+              </div>
+            </div>
+            ${isEd?`<div class="src-edit">
+              <div class="sl-wrap">
+                <div class="sl-head"><span>Частота</span><span class="v" id="ef${src.id}">${src.freq.toFixed(1)}</span></div>
+                <input type="range" min="1" max="100" value="${(src.freq*10)|0}" oninput="setSrcFreq(${src.id},+this.value)">
+              </div>
+              <div class="sl-wrap">
+                <div class="sl-head"><span>Амплитуда</span><span class="v" id="ea${src.id}">${src.amp.toFixed(1)}</span></div>
+                <input type="range" min="1" max="60" value="${(src.amp*10)|0}" oninput="setSrcAmp(${src.id},+this.value)">
+              </div>
+            </div>`:``}
+          </div>`;
+        }).join('');
+      }
+
+      // ╔══════════════════════════════════════╗
+      // ║  EXPOSE GLOBALS                      ║
+      // ╚══════════════════════════════════════╝
+      window.presetDoubleSlit = presetDoubleSlit;
+      window.presetMultiSrc = presetMultiSrc;
+      window.presetCircular = presetCircular;
+      window.resetSim = resetSim;
+      window.clearObs = clearObs;
+      window.clearAll = clearAll;
+      window.removeSource = removeSource;
+      window.toggleSource = toggleSource;
+      window.fireSource = fireSource;
+      window.editSource = editSource;
+      window.setSrcFreq = setSrcFreq;
+      window.setSrcAmp = setSrcAmp;
+
+      // ╔══════════════════════════════════════╗
+      // ║  GO                                  ║
+      // ╚══════════════════════════════════════╝
+      init();
+
+      })();
+    </script>
+  </body>
+</html>
