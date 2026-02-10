@@ -1,0 +1,800 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>Falling Life - Тетрис × Game of Life</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        body {
+            font-family: 'Courier New', monospace;
+            background: linear-gradient(135deg, #0a0a0a 0%, #1a1a2e 100%);
+            color: #00ff88;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            padding: 10px;
+            overflow: hidden;
+        }
+
+        .game-container {
+            background: rgba(0, 0, 0, 0.7);
+            border: 3px solid #00ff88;
+            border-radius: 10px;
+            padding: 15px;
+            box-shadow: 0 0 30px rgba(0, 255, 136, 0.3);
+            max-width: 600px;
+            width: 100%;
+        }
+
+        h1 {
+            text-align: center;
+            margin-bottom: 5px;
+            font-size: 1.5em;
+            text-shadow: 0 0 10px #00ff88;
+        }
+
+        .subtitle {
+            text-align: center;
+            color: #88ffaa;
+            margin-bottom: 15px;
+            font-size: 0.75em;
+        }
+
+        .game-wrapper {
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+            align-items: center;
+        }
+
+        .canvas-container {
+            position: relative;
+            display: flex;
+            justify-content: center;
+        }
+
+        canvas {
+            border: 2px solid #00ff88;
+            background: #050510;
+            display: block;
+            box-shadow: 0 0 20px rgba(0, 255, 136, 0.2);
+            max-width: 100%;
+            height: auto;
+        }
+
+        .stats-row {
+            display: flex;
+            gap: 10px;
+            width: 100%;
+            flex-wrap: wrap;
+        }
+
+        .info-panel {
+            background: rgba(0, 20, 10, 0.8);
+            border: 2px solid #00ff88;
+            border-radius: 8px;
+            padding: 10px;
+            flex: 1;
+            min-width: 150px;
+        }
+
+        .info-panel h3 {
+            margin-bottom: 8px;
+            color: #00ffff;
+            font-size: 0.9em;
+            text-align: center;
+        }
+
+        .stat {
+            display: flex;
+            justify-content: space-between;
+            margin: 5px 0;
+            font-size: 0.85em;
+        }
+
+        .stat-label {
+            color: #88ffaa;
+        }
+
+        .stat-value {
+            color: #00ff88;
+            font-weight: bold;
+        }
+
+        .mobile-controls {
+            width: 100%;
+            max-width: 400px;
+        }
+
+        .control-row {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 10px;
+            justify-content: center;
+        }
+
+        .control-btn {
+            background: linear-gradient(135deg, #00ff88 0%, #00cc66 100%);
+            border: 2px solid #00ff88;
+            border-radius: 8px;
+            color: #0a0a0a;
+            font-size: 1.2em;
+            font-weight: bold;
+            padding: 15px;
+            cursor: pointer;
+            touch-action: manipulation;
+            user-select: none;
+            transition: all 0.1s;
+            flex: 1;
+            min-width: 60px;
+            font-family: 'Courier New', monospace;
+            box-shadow: 0 4px 0 #008844;
+        }
+
+        .control-btn:active {
+            transform: translateY(2px);
+            box-shadow: 0 2px 0 #008844;
+        }
+
+        .control-btn.rotate {
+            background: linear-gradient(135deg, #00ffff 0%, #00cccc 100%);
+            border-color: #00ffff;
+            box-shadow: 0 4px 0 #008888;
+        }
+
+        .control-btn.rotate:active {
+            box-shadow: 0 2px 0 #008888;
+        }
+
+        .control-btn.drop {
+            background: linear-gradient(135deg, #ff00ff 0%, #cc00cc 100%);
+            border-color: #ff00ff;
+            box-shadow: 0 4px 0 #880088;
+        }
+
+        .control-btn.drop:active {
+            box-shadow: 0 2px 0 #880088;
+        }
+
+        .control-btn.pause {
+            background: linear-gradient(135deg, #ffff00 0%, #cccc00 100%);
+            border-color: #ffff00;
+            box-shadow: 0 4px 0 #888800;
+            flex: 0.5;
+        }
+
+        .control-btn.pause:active {
+            box-shadow: 0 2px 0 #888800;
+        }
+
+        .game-over {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: rgba(0, 0, 0, 0.98);
+            border: 3px solid #ff0088;
+            border-radius: 10px;
+            padding: 20px;
+            text-align: center;
+            box-shadow: 0 0 40px rgba(255, 0, 136, 0.5);
+            z-index: 100;
+            min-width: 250px;
+        }
+
+        .game-over h2 {
+            color: #ff0088;
+            font-size: 1.5em;
+            margin-bottom: 10px;
+            text-shadow: 0 0 15px #ff0088;
+        }
+
+        .game-over p {
+            color: #ffaa88;
+            margin: 8px 0;
+            font-size: 0.95em;
+        }
+
+        .game-over button {
+            margin-top: 15px;
+            padding: 12px 30px;
+            font-size: 1em;
+            font-family: inherit;
+            background: #00ff88;
+            color: #0a0a0a;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-weight: bold;
+            transition: all 0.3s;
+        }
+
+        .game-over button:active {
+            background: #00ffff;
+            box-shadow: 0 0 20px rgba(0, 255, 255, 0.5);
+        }
+
+        .help-text {
+            font-size: 0.75em;
+            color: #88ffaa;
+            text-align: center;
+            margin-top: 10px;
+            line-height: 1.4;
+        }
+
+        @media (min-width: 768px) {
+            .game-container {
+                padding: 30px;
+            }
+            
+            h1 {
+                font-size: 2em;
+            }
+            
+            .subtitle {
+                font-size: 0.9em;
+                margin-bottom: 20px;
+            }
+            
+            .game-wrapper {
+                flex-direction: row;
+                gap: 30px;
+                align-items: flex-start;
+            }
+            
+            .stats-row {
+                flex-direction: column;
+            }
+            
+            .mobile-controls {
+                display: none;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="game-container">
+        <h1>⬢ FALLING LIFE ⬢</h1>
+        <p class="subtitle">Органический синтез Тетриса и Conway's Game of Life</p>
+        <div id="root"></div>
+    </div>
+
+    <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+    <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+
+    <script>
+        const { useState, useEffect, useRef, createElement: e } = React;
+
+        // Константы
+        const COLS = 12;
+        const ROWS = 20;
+        const CELL_SIZE = 20;
+        const TICK_INTERVAL = 600;
+        const GOL_GENERATIONS = Math.floor(ROWS / 2); // Половина высоты поля = 10
+        const GOL_ANIMATION_INTERVAL = 200; // Интервал "бурления" во время падения
+
+        // Тетромино
+        const SHAPES = [
+            [[1,1,1,1]], // I
+            [[1,1],[1,1]], // O
+            [[1,1,1],[0,1,0]], // T
+            [[1,1,1],[1,0,0]], // L
+            [[1,1,1],[0,0,1]], // J
+            [[1,1,0],[0,1,1]], // S
+            [[0,1,1],[1,1,0]], // Z
+        ];
+
+        const COLORS = ['#00ffff', '#ffff00', '#ff00ff', '#ff8800', '#0088ff', '#00ff00', '#ff0000'];
+
+        function FallingLife() {
+            const canvasRef = useRef(null);
+            const [grid, setGrid] = useState(() => Array(ROWS).fill(null).map(() => Array(COLS).fill(0)));
+            const [currentPiece, setCurrentPiece] = useState(null);
+            const [position, setPosition] = useState({ x: 0, y: 0 });
+            const [gameOver, setGameOver] = useState(false);
+            const [score, setScore] = useState(0);
+            const [generation, setGeneration] = useState(0);
+            const [structures, setStructures] = useState({ still: 0, oscillators: 0, chaos: 0 });
+            const [isPaused, setIsPaused] = useState(false);
+            const [piecesPlaced, setPiecesPlaced] = useState(0);
+
+            // Refs для актуальных значений
+            const gridRef = useRef(grid);
+            const currentPieceRef = useRef(currentPiece);
+            const positionRef = useRef(position);
+
+            // Обновляем refs при изменении состояния
+            useEffect(() => { gridRef.current = grid; }, [grid]);
+            useEffect(() => { currentPieceRef.current = currentPiece; }, [currentPiece]);
+            useEffect(() => { positionRef.current = position; }, [position]);
+
+            // Инициализация новой фигуры
+            const spawnPiece = () => {
+                const shapeIndex = Math.floor(Math.random() * SHAPES.length);
+                const shape = SHAPES[shapeIndex];
+                const color = shapeIndex + 1;
+                const x = Math.floor((COLS - shape[0].length) / 2);
+                
+                setCurrentPiece({ shape, color });
+                setPosition({ x, y: 0 });
+                
+                // Проверка game over
+                if (checkCollision({ shape, x, y: 0 }, grid)) {
+                    setGameOver(true);
+                }
+            };
+
+            // Проверка коллизий
+            const checkCollision = (piece, testGrid, pos = position) => {
+                if (!piece) return false;
+                
+                for (let y = 0; y < piece.shape.length; y++) {
+                    for (let x = 0; x < piece.shape[y].length; x++) {
+                        if (piece.shape[y][x]) {
+                            const newX = pos.x + x;
+                            const newY = pos.y + y;
+                            
+                            if (newX < 0 || newX >= COLS || newY >= ROWS) {
+                                return true;
+                            }
+                            if (newY >= 0 && testGrid[newY][newX]) {
+                                return true;
+                            }
+                        }
+                    }
+                }
+                return false;
+            };
+
+            // Слияние фигуры с полем
+            const mergePiece = () => {
+                if (!currentPiece) return grid;
+                
+                const newGrid = grid.map(row => [...row]);
+                for (let y = 0; y < currentPiece.shape.length; y++) {
+                    for (let x = 0; x < currentPiece.shape[y].length; x++) {
+                        if (currentPiece.shape[y][x]) {
+                            const newX = position.x + x;
+                            const newY = position.y + y;
+                            if (newY >= 0) {
+                                newGrid[newY][newX] = currentPiece.color;
+                            }
+                        }
+                    }
+                }
+                return newGrid;
+            };
+
+            // Game of Life: подсчёт соседей
+            const countNeighbors = (grid, x, y) => {
+                let count = 0;
+                for (let dy = -1; dy <= 1; dy++) {
+                    for (let dx = -1; dx <= 1; dx++) {
+                        if (dx === 0 && dy === 0) continue;
+                        const nx = x + dx;
+                        const ny = y + dy;
+                        if (nx >= 0 && nx < COLS && ny >= 0 && ny < ROWS && grid[ny][nx]) {
+                            count++;
+                        }
+                    }
+                }
+                return count;
+            };
+
+            // Game of Life: одно поколение
+            const evolveGeneration = (oldGrid) => {
+                const newGrid = Array(ROWS).fill(null).map(() => Array(COLS).fill(0));
+                
+                for (let y = 0; y < ROWS; y++) {
+                    for (let x = 0; x < COLS; x++) {
+                        const neighbors = countNeighbors(oldGrid, x, y);
+                        const isAlive = oldGrid[y][x] > 0;
+                        
+                        if (isAlive && (neighbors === 2 || neighbors === 3)) {
+                            newGrid[y][x] = oldGrid[y][x]; // Выживает
+                        } else if (!isAlive && neighbors === 3) {
+                            // Рождается - берём цвет от соседей
+                            const colors = [];
+                            for (let dy = -1; dy <= 1; dy++) {
+                                for (let dx = -1; dx <= 1; dx++) {
+                                    const ny = y + dy, nx = x + dx;
+                                    if (ny >= 0 && ny < ROWS && nx >= 0 && nx < COLS && oldGrid[ny][nx]) {
+                                        colors.push(oldGrid[ny][nx]);
+                                    }
+                                }
+                            }
+                            newGrid[y][x] = colors[Math.floor(Math.random() * colors.length)] || 1;
+                        }
+                    }
+                }
+                return newGrid;
+            };
+
+            // Анализ структур (улучшенный)
+            const analyzeStructures = (grid) => {
+                const nextGen = evolveGeneration(grid);
+                const nextGen2 = evolveGeneration(nextGen);
+                
+                let still = 0, oscillators = 0, chaos = 0;
+                let totalAlive = 0;
+                
+                for (let y = 0; y < ROWS; y++) {
+                    for (let x = 0; x < COLS; x++) {
+                        const original = grid[y][x] > 0;
+                        const next1 = nextGen[y][x] > 0;
+                        const next2 = nextGen2[y][x] > 0;
+                        
+                        if (original) totalAlive++;
+                        
+                        if (original && next1 && next2) {
+                            still++;
+                        } else if (original === next2 && original !== next1) {
+                            oscillators++;
+                        } else if (original && (!next1 || !next2)) {
+                            chaos++;
+                        }
+                    }
+                }
+                
+                return { still, oscillators, chaos, totalAlive };
+            };
+
+            // Движение вниз
+            const moveDown = () => {
+                const currentPiece = currentPieceRef.current;
+                const position = positionRef.current;
+                const grid = gridRef.current;
+                
+                if (!currentPiece || isPaused) return;
+                
+                const newPos = { x: position.x, y: position.y + 1 };
+                
+                if (!checkCollision(currentPiece, grid, newPos)) {
+                    setPosition(newPos);
+                } else {
+                    // Фигура приземлилась - добавляем "импульс" эволюции
+                    let newGrid = mergePieceWithGrid(currentPiece, position, grid);
+                    
+                    // Запускаем небольшой импульс эволюции при приземлении (3 поколения)
+                    const LANDING_IMPULSE = 3;
+                    for (let i = 0; i < LANDING_IMPULSE; i++) {
+                        newGrid = evolveGeneration(newGrid);
+                    }
+                    
+                    setGrid(newGrid);
+                    setGeneration(g => g + LANDING_IMPULSE);
+                    setPiecesPlaced(p => p + 1);
+                    
+                    // Анализ и подсчёт очков
+                    const struct = analyzeStructures(newGrid);
+                    setStructures(struct);
+                    
+                    // Очки за структуры
+                    const structurePoints = struct.still * 10 + struct.oscillators * 30 - struct.chaos * 1;
+                    setScore(s => s + Math.max(0, structurePoints) + 5); // Минимум +5 за размещение
+                    
+                    // Улучшенные условия game over - только после нескольких фигур
+                    setPiecesPlaced(p => {
+                        if (p >= 10) {
+                            const totalCells = struct.totalAlive;
+                            const chaosRatio = totalCells > 0 ? struct.chaos / totalCells : 0;
+                            
+                            // Game over если:
+                            // 1. Поле заполнено более чем на 80%
+                            // 2. Хаос составляет более 70% от живых клеток И их много
+                            if (totalCells > COLS * ROWS * 0.8 || 
+                                (chaosRatio > 0.7 && totalCells > 50)) {
+                                setGameOver(true);
+                                return p;
+                            }
+                        }
+                        return p;
+                    });
+                    
+                    spawnPiece();
+                }
+            };
+
+            // Вспомогательная функция для слияния с конкретным grid
+            const mergePieceWithGrid = (piece, pos, grid) => {
+                if (!piece) return grid;
+                
+                const newGrid = grid.map(row => [...row]);
+                for (let y = 0; y < piece.shape.length; y++) {
+                    for (let x = 0; x < piece.shape[y].length; x++) {
+                        if (piece.shape[y][x]) {
+                            const newX = pos.x + x;
+                            const newY = pos.y + y;
+                            if (newY >= 0) {
+                                newGrid[newY][newX] = piece.color;
+                            }
+                        }
+                    }
+                }
+                return newGrid;
+            };
+
+            // Движение влево/вправо
+            const moveHorizontal = (dir) => {
+                const currentPiece = currentPieceRef.current;
+                const position = positionRef.current;
+                const grid = gridRef.current;
+                
+                if (!currentPiece || isPaused) return;
+                
+                const newPos = { x: position.x + dir, y: position.y };
+                if (!checkCollision(currentPiece, grid, newPos)) {
+                    setPosition(newPos);
+                }
+            };
+
+            // Поворот
+            const rotate = () => {
+                const currentPiece = currentPieceRef.current;
+                const grid = gridRef.current;
+                
+                if (!currentPiece || isPaused) return;
+                
+                const rotated = currentPiece.shape[0].map((_, i) =>
+                    currentPiece.shape.map(row => row[i]).reverse()
+                );
+                
+                const newPiece = { ...currentPiece, shape: rotated };
+                if (!checkCollision(newPiece, grid)) {
+                    setCurrentPiece(newPiece);
+                }
+            };
+
+            // Быстрое падение
+            const hardDrop = () => {
+                const currentPiece = currentPieceRef.current;
+                const position = positionRef.current;
+                const grid = gridRef.current;
+                
+                if (!currentPiece || isPaused) return;
+                
+                let newPos = { ...position };
+                while (!checkCollision(currentPiece, grid, { ...newPos, y: newPos.y + 1 })) {
+                    newPos.y++;
+                }
+                setPosition(newPos);
+                setTimeout(moveDown, 50);
+            };
+
+            // Отрисовка
+            useEffect(() => {
+                const canvas = canvasRef.current;
+                if (!canvas) return;
+                
+                const ctx = canvas.getContext('2d');
+                ctx.clearRect(0, 0, canvas.width, canvas.height);
+                
+                // Сетка
+                ctx.strokeStyle = 'rgba(0, 255, 136, 0.1)';
+                ctx.lineWidth = 1;
+                for (let i = 0; i <= COLS; i++) {
+                    ctx.beginPath();
+                    ctx.moveTo(i * CELL_SIZE, 0);
+                    ctx.lineTo(i * CELL_SIZE, ROWS * CELL_SIZE);
+                    ctx.stroke();
+                }
+                for (let i = 0; i <= ROWS; i++) {
+                    ctx.beginPath();
+                    ctx.moveTo(0, i * CELL_SIZE);
+                    ctx.lineTo(COLS * CELL_SIZE, i * CELL_SIZE);
+                    ctx.stroke();
+                }
+                
+                // Поле
+                for (let y = 0; y < ROWS; y++) {
+                    for (let x = 0; x < COLS; x++) {
+                        if (grid[y][x]) {
+                            const color = COLORS[grid[y][x] - 1];
+                            ctx.fillStyle = color;
+                            ctx.globalAlpha = 0.7;
+                            ctx.fillRect(x * CELL_SIZE + 1, y * CELL_SIZE + 1, CELL_SIZE - 2, CELL_SIZE - 2);
+                            
+                            // Свечение
+                            ctx.globalAlpha = 0.3;
+                            ctx.fillRect(x * CELL_SIZE + 3, y * CELL_SIZE + 3, CELL_SIZE - 6, CELL_SIZE - 6);
+                            ctx.globalAlpha = 1;
+                        }
+                    }
+                }
+                
+                // Текущая фигура
+                if (currentPiece) {
+                    const color = COLORS[currentPiece.color - 1];
+                    ctx.fillStyle = color;
+                    ctx.globalAlpha = 0.9;
+                    
+                    for (let y = 0; y < currentPiece.shape.length; y++) {
+                        for (let x = 0; x < currentPiece.shape[y].length; x++) {
+                            if (currentPiece.shape[y][x]) {
+                                const drawX = (position.x + x) * CELL_SIZE;
+                                const drawY = (position.y + y) * CELL_SIZE;
+                                ctx.fillRect(drawX + 1, drawY + 1, CELL_SIZE - 2, CELL_SIZE - 2);
+                                
+                                // Границы
+                                ctx.strokeStyle = color;
+                                ctx.lineWidth = 2;
+                                ctx.strokeRect(drawX + 2, drawY + 2, CELL_SIZE - 4, CELL_SIZE - 4);
+                            }
+                        }
+                    }
+                    ctx.globalAlpha = 1;
+                }
+            }, [grid, currentPiece, position]);
+
+            // Управление клавиатурой
+            useEffect(() => {
+                const handleKeyDown = (e) => {
+                    if (gameOver) return;
+                    
+                    switch(e.key) {
+                        case 'ArrowLeft':
+                            e.preventDefault();
+                            moveHorizontal(-1);
+                            break;
+                        case 'ArrowRight':
+                            e.preventDefault();
+                            moveHorizontal(1);
+                            break;
+                        case 'ArrowDown':
+                            e.preventDefault();
+                            moveDown();
+                            break;
+                        case 'ArrowUp':
+                        case ' ':
+                            e.preventDefault();
+                            rotate();
+                            break;
+                        case 'Enter':
+                            e.preventDefault();
+                            hardDrop();
+                            break;
+                        case 'p':
+                        case 'P':
+                            e.preventDefault();
+                            setIsPaused(p => !p);
+                            break;
+                    }
+                };
+                
+                window.addEventListener('keydown', handleKeyDown);
+                return () => window.removeEventListener('keydown', handleKeyDown);
+            }, [gameOver]);
+
+            // Игровой цикл
+            useEffect(() => {
+                if (gameOver || isPaused) return;
+                
+                const interval = setInterval(moveDown, TICK_INTERVAL);
+                return () => clearInterval(interval);
+            }, [gameOver, isPaused]);
+
+            // Непрерывная эволюция поля (эффект "бурления")
+            useEffect(() => {
+                if (gameOver || isPaused) return;
+                
+                const evolveInterval = setInterval(() => {
+                    setGrid(prevGrid => evolveGeneration(prevGrid));
+                    setGeneration(g => g + 1);
+                }, GOL_ANIMATION_INTERVAL);
+                
+                return () => clearInterval(evolveInterval);
+            }, [gameOver, isPaused]);
+
+            // Инициализация
+            useEffect(() => {
+                spawnPiece();
+            }, []);
+
+            const restart = () => {
+                setGrid(Array(ROWS).fill(null).map(() => Array(COLS).fill(0)));
+                setScore(0);
+                setGeneration(0);
+                setStructures({ still: 0, oscillators: 0, chaos: 0 });
+                setGameOver(false);
+                setIsPaused(false);
+                setPiecesPlaced(0);
+                spawnPiece();
+            };
+
+            return e('div', { className: 'game-wrapper' },
+                e('div', { className: 'canvas-container' },
+                    e('canvas', {
+                        ref: canvasRef,
+                        width: COLS * CELL_SIZE,
+                        height: ROWS * CELL_SIZE
+                    }),
+                    gameOver && e('div', { className: 'game-over' },
+                        e('h2', null, '⚠ СИСТЕМА ДЕСТАБИЛИЗИРОВАНА ⚠'),
+                        e('p', null, 'Хаос поглотил экосистему'),
+                        e('p', null, 'Финальный счёт: ', e('strong', null, score)),
+                        e('p', null, 'Поколений: ' + generation),
+                        e('p', null, 'Фигур размещено: ' + piecesPlaced),
+                        e('button', { onClick: restart }, '↻ ПЕРЕЗАПУСК')
+                    )
+                ),
+                e('div', { className: 'stats-row' },
+                    e('div', { className: 'info-panel' },
+                        e('h3', null, '⚡ СТАТУС'),
+                        e('div', { className: 'stat' },
+                            e('span', { className: 'stat-label' }, 'Счёт:'),
+                            e('span', { className: 'stat-value' }, score)
+                        ),
+                        e('div', { className: 'stat' },
+                            e('span', { className: 'stat-label' }, 'Поколение:'),
+                            e('span', { className: 'stat-value' }, generation)
+                        ),
+                        e('div', { className: 'stat' },
+                            e('span', { className: 'stat-label' }, 'Фигур:'),
+                            e('span', { className: 'stat-value' }, piecesPlaced)
+                        )
+                    ),
+                    e('div', { className: 'info-panel' },
+                        e('h3', null, '🧬 СТРУКТУРЫ'),
+                        e('div', { className: 'stat' },
+                            e('span', { className: 'stat-label' }, 'Стабильные:'),
+                            e('span', { className: 'stat-value' }, structures.still)
+                        ),
+                        e('div', { className: 'stat' },
+                            e('span', { className: 'stat-label' }, 'Осцилляторы:'),
+                            e('span', { className: 'stat-value' }, structures.oscillators)
+                        ),
+                        e('div', { className: 'stat' },
+                            e('span', { className: 'stat-label' }, 'Хаос:'),
+                            e('span', { 
+                                className: 'stat-value',
+                                style: { color: structures.chaos > 40 ? '#ff0088' : '#00ff88' }
+                            }, structures.chaos)
+                        )
+                    )
+                ),
+                e('div', { className: 'mobile-controls' },
+                    e('div', { className: 'control-row' },
+                        e('button', { className: 'control-btn rotate', onClick: rotate }, '↻'),
+                        e('button', { 
+                            className: 'control-btn pause', 
+                            onClick: () => setIsPaused(p => !p) 
+                        }, isPaused ? '▶' : '❚❚')
+                    ),
+                    e('div', { className: 'control-row' },
+                        e('button', { 
+                            className: 'control-btn', 
+                            onClick: () => moveHorizontal(-1) 
+                        }, '◄'),
+                        e('button', { className: 'control-btn', onClick: moveDown }, '▼'),
+                        e('button', { 
+                            className: 'control-btn', 
+                            onClick: () => moveHorizontal(1) 
+                        }, '►')
+                    ),
+                    e('div', { className: 'control-row' },
+                        e('button', { 
+                            className: 'control-btn drop', 
+                            onClick: hardDrop 
+                        }, '⬇ СБРОС')
+                    ),
+                    e('p', { className: 'help-text' },
+                        'Поле постоянно эволюционирует! Приземление добавляет импульс эволюции',
+                        e('br'),
+                        'Стабильные: +10 | Осцилляторы: +30 | Хаос: -1'
+                    )
+                )
+            );
+        }
+
+        ReactDOM.render(e(FallingLife), document.getElementById('root'));
+    </script>
+</body>
+</html>
