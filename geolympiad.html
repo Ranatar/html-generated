@@ -1199,6 +1199,131 @@ canvas#seismic { width: 100%; height: 50px; display: block; }
   letter-spacing: 1px;
 }
 
+/* ── API KEY PANEL ── */
+.apikey-trigger {
+  position: fixed;
+  bottom: 0;
+  right: 0;
+  width: 18px;
+  height: 18px;
+  cursor: pointer;
+  z-index: 999;
+  opacity: 0;
+  transition: opacity 0.3s;
+}
+.apikey-trigger:hover { opacity: 1; }
+.apikey-trigger::after {
+  content: '';
+  position: absolute;
+  bottom: 4px;
+  right: 4px;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--border);
+  transition: background 0.2s;
+}
+.apikey-trigger.connected::after { background: var(--up); }
+.apikey-trigger.error::after { background: var(--down); }
+
+.apikey-panel {
+  position: fixed;
+  bottom: 0;
+  right: 20px;
+  width: 320px;
+  background: var(--deep);
+  border: 1px solid var(--border);
+  border-bottom: none;
+  z-index: 1000;
+  transform: translateY(100%);
+  transition: transform 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+  box-shadow: 0 -8px 32px rgba(0,0,0,0.6);
+}
+.apikey-panel.open { transform: translateY(0); }
+.apikey-panel-header {
+  padding: 10px 14px;
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.apikey-panel-title {
+  font-family: var(--mono);
+  font-size: 9px;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  color: var(--shale);
+}
+.apikey-panel-close {
+  font-size: 14px;
+  color: var(--shale);
+  cursor: pointer;
+  line-height: 1;
+  transition: color 0.15s;
+}
+.apikey-panel-close:hover { color: var(--limestone); }
+.apikey-panel-body { padding: 14px; }
+.apikey-label {
+  font-family: var(--mono);
+  font-size: 8px;
+  letter-spacing: 1.5px;
+  text-transform: uppercase;
+  color: var(--shale);
+  margin-bottom: 6px;
+  display: block;
+}
+.apikey-input-row { display: flex; gap: 6px; margin-bottom: 8px; }
+.apikey-input {
+  flex: 1;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  color: var(--limestone);
+  font-family: var(--mono);
+  font-size: 10px;
+  padding: 7px 10px;
+  outline: none;
+  transition: border-color 0.15s;
+  min-width: 0;
+}
+.apikey-input:focus { border-color: var(--shale); }
+.apikey-btn {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  color: var(--limestone);
+  font-family: var(--mono);
+  font-size: 9px;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  padding: 7px 10px;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: all 0.15s;
+  flex-shrink: 0;
+}
+.apikey-btn:hover { border-color: var(--shale); }
+.apikey-btn.save { border-color: var(--up); color: var(--up); }
+.apikey-btn.save:hover { background: rgba(0,232,122,0.08); }
+.apikey-status {
+  font-family: var(--mono);
+  font-size: 8px;
+  letter-spacing: 1px;
+  padding: 5px 8px;
+  margin-bottom: 8px;
+  border: 1px solid;
+  display: none;
+}
+.apikey-status.ok { color: var(--up); border-color: var(--up); background: rgba(0,232,122,0.05); display: block; }
+.apikey-status.err { color: var(--down); border-color: var(--down); background: rgba(255,51,85,0.05); display: block; }
+.apikey-status.checking { color: var(--shale); border-color: var(--border); display: block; }
+.apikey-note {
+  font-family: var(--mono);
+  font-size: 8px;
+  color: var(--shale);
+  line-height: 1.6;
+  letter-spacing: 0.3px;
+}
+.apikey-note a { color: var(--shale); text-decoration: underline; }
+
 /* ── PRESS TAB ── */
 .press-wrap {
   display: grid;
@@ -1639,6 +1764,31 @@ canvas#seismic { width: 100%; height: 50px; display: block; }
 </style>
 </head>
 <body>
+
+<!-- API KEY TRIGGER (invisible corner dot) -->
+<div class="apikey-trigger" id="apikeyTrigger" title="" onclick="toggleApiPanel()"></div>
+
+<!-- API KEY PANEL -->
+<div class="apikey-panel" id="apikeyPanel">
+  <div class="apikey-panel-header">
+    <span class="apikey-panel-title">Конфигурация · API</span>
+    <span class="apikey-panel-close" onclick="toggleApiPanel()">✕</span>
+  </div>
+  <div class="apikey-panel-body">
+    <span class="apikey-label">Anthropic API Key</span>
+    <div class="apikey-input-row">
+      <input class="apikey-input" id="apikeyInput" type="password"
+        placeholder="sk-ant-api03-..." autocomplete="off" spellcheck="false"/>
+      <button class="apikey-btn save" onclick="saveApiKey()">СОХРАНИТЬ</button>
+    </div>
+    <div class="apikey-status" id="apikeyStatus"></div>
+    <div class="apikey-note">
+      Ключ используется только в вашем браузере для пресс-конференции.<br>
+      Хранится в <code>localStorage</code>. Не передаётся третьим лицам.<br>
+      Получить ключ: <a href="https://console.anthropic.com" target="_blank">console.anthropic.com</a>
+    </div>
+  </div>
+</div>
 
 <!-- TICKER -->
 <div class="ticker-bar">
@@ -4019,6 +4169,104 @@ setInterval(() => {
   if (el && src) el.textContent = src.textContent;
 }, 1000);
 
+// ── API KEY MANAGEMENT ──
+let apiKeyValue = localStorage.getItem('geo_api_key') || '';
+
+function toggleApiPanel() {
+  const panel = document.getElementById('apikeyPanel');
+  const isOpen = panel.classList.contains('open');
+  if (!isOpen) {
+    // Populate input with saved key (masked)
+    const inp = document.getElementById('apikeyInput');
+    inp.value = apiKeyValue ? apiKeyValue : '';
+    inp.type = 'password';
+    updateApiStatus(apiKeyValue ? 'loaded' : 'empty');
+  }
+  panel.classList.toggle('open');
+}
+
+function updateApiStatus(state, msg) {
+  const el = document.getElementById('apikeyStatus');
+  const trigger = document.getElementById('apikeyTrigger');
+  if (state === 'ok') {
+    el.className = 'apikey-status ok';
+    el.textContent = '✓ ' + (msg || 'Ключ принят. Пресс-конференция активна.');
+    trigger.className = 'apikey-trigger connected';
+  } else if (state === 'err') {
+    el.className = 'apikey-status err';
+    el.textContent = '✗ ' + (msg || 'Ошибка. Проверьте ключ.');
+    trigger.className = 'apikey-trigger error';
+  } else if (state === 'checking') {
+    el.className = 'apikey-status checking';
+    el.textContent = '⟳ Проверка ключа...';
+    trigger.className = 'apikey-trigger';
+  } else if (state === 'loaded') {
+    el.className = 'apikey-status ok';
+    el.textContent = '✓ Сохранённый ключ загружен.';
+    trigger.className = 'apikey-trigger connected';
+  } else {
+    el.className = 'apikey-status';
+    trigger.className = 'apikey-trigger';
+  }
+}
+
+async function saveApiKey() {
+  const inp = document.getElementById('apikeyInput');
+  const key = inp.value.trim();
+  if (!key) {
+    updateApiStatus('err', 'Введите ключ.');
+    return;
+  }
+  if (!key.startsWith('sk-ant-')) {
+    updateApiStatus('err', 'Ключ должен начинаться с sk-ant-');
+    return;
+  }
+  updateApiStatus('checking');
+  // Test key with minimal request
+  try {
+    const resp = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-api-key': key,
+        'anthropic-version': '2023-06-01',
+        'anthropic-dangerous-direct-browser-access': 'true',
+      },
+      body: JSON.stringify({
+        model: 'claude-haiku-4-5-20251001',
+        max_tokens: 10,
+        messages: [{ role: 'user', content: 'ping' }]
+      })
+    });
+    if (resp.ok) {
+      apiKeyValue = key;
+      localStorage.setItem('geo_api_key', key);
+      updateApiStatus('ok', 'Ключ действителен. Пресс-конференция активна.');
+      // Update press ask button
+      const btn = document.getElementById('pressBtn');
+      if (btn) { btn.disabled = false; btn.textContent = 'ЗАДАТЬ ВОПРОС'; }
+    } else {
+      const data = await resp.json();
+      const errMsg = data?.error?.message || `HTTP ${resp.status}`;
+      updateApiStatus('err', errMsg);
+    }
+  } catch (e) {
+    updateApiStatus('err', 'Сеть недоступна или CORS. Попробуйте позже.');
+  }
+}
+
+// Init: if key saved, mark trigger as connected
+(function initApiKey() {
+  if (apiKeyValue) {
+    document.getElementById('apikeyTrigger').className = 'apikey-trigger connected';
+  }
+  // Update press button state
+  const btn = document.getElementById('pressBtn');
+  if (btn && !apiKeyValue) {
+    btn.title = 'Введите API-ключ (нажмите на точку в правом нижнем углу)';
+  }
+})();
+
 // ── PRESS CONFERENCE ──
 const pressQA = {
   indian: [
@@ -4142,6 +4390,30 @@ async function askQuestion() {
   const btn = document.getElementById('pressBtn');
   const q = input.value.trim();
   if (!q) return;
+
+  // Check for API key
+  if (!apiKeyValue) {
+    const feed = document.getElementById('pressQaFeed');
+    const hint = document.createElement('div');
+    hint.className = 'qa-item';
+    hint.innerHTML = `
+      <div class="qa-journalist">
+        <span class="qa-j-badge">СИСТЕМА · ГЕОЛИМПИАДА</span>
+        <div class="qa-question">«${q}»</div>
+      </div>
+      <div class="qa-answer-block gray">
+        <div class="qa-speaker gray">⚙ Конфигурация</div>
+        <div class="qa-answer">Для живых вопросов необходим API-ключ Anthropic.
+          <br><br>Нажмите на <strong style="color:var(--limestone)">маленькую точку в правом нижнем углу экрана</strong>,
+          введите ключ и нажмите «Сохранить». После этого плиты начнут отвечать на ваши вопросы.
+          <br><br><em style="color:var(--shale)">Ключ хранится только в вашем браузере.</em>
+        </div>
+      </div>`;
+    feed.insertBefore(hint, feed.firstChild);
+    input.value = '';
+    return;
+  }
+
   btn.disabled = true;
   btn.textContent = 'ДУМАЕТ...';
   input.value = '';
@@ -4156,7 +4428,6 @@ async function askQuestion() {
   const colorMap = { indian:'lava', eurasian:'ice', pacific:'gold', antarctic:'gray' };
   const color = colorMap[currentPodiumMember];
 
-  // Show pending item
   const feed = document.getElementById('pressQaFeed');
   const pending = document.createElement('div');
   pending.className = 'qa-item';
@@ -4166,7 +4437,7 @@ async function askQuestion() {
       <div class="qa-question">«${q}»</div>
     </div>
     <div class="qa-answer-block ${color}">
-      <div class="qa-speaker ${color}" id="pendingSpeaker">${memberName}</div>
+      <div class="qa-speaker ${color}">${memberName}</div>
       <div class="qa-answer" id="pendingAnswer"><span style="color:var(--shale);font-family:var(--mono);font-size:10px;animation:live-pulse 1s infinite;display:inline-block;">Отвечает...</span></div>
     </div>`;
   feed.insertBefore(pending, feed.firstChild);
@@ -4181,19 +4452,37 @@ async function askQuestion() {
 
     const resp = await fetch('https://api.anthropic.com/v1/messages', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: {
+        'Content-Type': 'application/json',
+        'x-api-key': apiKeyValue,
+        'anthropic-version': '2023-06-01',
+        'anthropic-dangerous-direct-browser-access': 'true',
+      },
       body: JSON.stringify({
-        model: 'claude-sonnet-4-20250514',
-        max_tokens: 1000,
+        model: 'claude-haiku-4-5-20251001',
+        max_tokens: 300,
         system: systemPrompt,
         messages: [{ role: 'user', content: `Журналист спрашивает: "${q}"` }]
       })
     });
+
+    if (!resp.ok) {
+      const errData = await resp.json().catch(() => ({}));
+      if (resp.status === 401) {
+        updateApiStatus('err', 'Ключ недействителен. Обновите в настройках.');
+        apiKeyValue = '';
+        localStorage.removeItem('geo_api_key');
+      }
+      throw new Error(errData?.error?.message || `HTTP ${resp.status}`);
+    }
+
     const data = await resp.json();
     const answer = data.content?.[0]?.text || '...';
     document.getElementById('pendingAnswer').innerHTML = answer;
+
   } catch (e) {
-    document.getElementById('pendingAnswer').innerHTML = '<em style="color:var(--shale)">Связь с плитой потеряна. Мантия не отвечает.</em>';
+    document.getElementById('pendingAnswer').innerHTML =
+      `<em style="color:var(--shale)">Связь с плитой потеряна: ${e.message || 'неизвестная ошибка'}</em>`;
   }
 
   btn.disabled = false;
