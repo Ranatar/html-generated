@@ -1082,14 +1082,17 @@ async function generateSpec() {
       });
 
       if (allSections.length > 0) {
-        const totalBudget = 3600;                               // суммарный лимит символов
-        const budget = Math.floor(totalBudget / allSections.length); // поровну на каждый §
-        const half = Math.floor(budget / 2);
+        const totalBudget = 10000;                                       // суммарный лимит символов
+        const baseBudget = Math.floor(totalBudget / allSections.length); // базовая доля на §
 
         const priorText = allSections
-          .map(text => {
+          .map((text, idx) => {
+            // §3 (idx=2) — глоссарий, §4 (idx=3) — реестр уязвимостей:
+            // справочные разделы, на которые ссылаются все последующие §§ — удваиваем бюджет
+            const sectionBudget = (idx === 2 || idx === 3) ? baseBudget * 2 : baseBudget;
+            const half = Math.floor(sectionBudget / 2);
             // Если § влезает целиком — берём его полностью
-            if (text.length <= budget) return text;
+            if (text.length <= sectionBudget) return text;
             // Иначе сэндвич: начало (заголовок + определения) + конец (клаузы + выводы)
             return text.slice(0, half) + '\n[...]\n' + text.slice(-half);
           })
