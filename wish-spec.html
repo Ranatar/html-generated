@@ -727,6 +727,8 @@ body {
       </div>
       <div style="display:flex;gap:8px;">
         <button class="action-btn" onclick="window.print()">Распечатать</button>
+        <button class="action-btn" onclick="saveHTML()">Сохранить HTML</button>
+        <button class="action-btn" onclick="saveMD()">Сохранить MD</button>
         <button class="action-btn" onclick="resetForm()">Новое Желание</button>
         <button class="action-btn primary" onclick="copyDoc()">Скопировать</button>
       </div>
@@ -1147,6 +1149,201 @@ function copyDoc() {
     .map(i => document.getElementById('docBody'+i)?.innerText || '')
     .join('\n');
   navigator.clipboard.writeText(text).then(() => alert('Документ скопирован в буфер обмена.'));
+}
+
+function getDocFilename(ext) {
+  const wish = document.getElementById('wishInput').value.trim();
+  const slug = wish.substring(0, 40).replace(/[^а-яёa-z0-9\s]/gi, '').trim().replace(/\s+/g, '-');
+  const date = new Date().toISOString().slice(0, 10);
+  return `wishspec-${date}-${slug || 'document'}.${ext}`;
+}
+
+function downloadFile(content, filename, mimeType) {
+  const blob = new Blob([content], { type: mimeType + ';charset=utf-8;' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+}
+
+function saveHTML() {
+  // Собираем все встроенные стили из <head>
+  const styles = Array.from(document.querySelectorAll('style'))
+    .map(s => s.outerHTML).join('\n');
+
+  // Берём весь блок документа (шапка + тела + футер)
+  const docHTML = document.getElementById('docOutput').innerHTML;
+
+  const html = `<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>${document.getElementById('docTitle').textContent}</title>
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700;900&family=IBM+Plex+Mono:wght@300;400;500;600&family=IBM+Plex+Sans:ital,wght@0,300;0,400;0,500;0,600;1,400&display=swap" rel="stylesheet">
+${styles}
+<style>
+  body { background: #f2f0eb; padding: 32px; }
+  #docOutput { max-width: 1100px; margin: 0 auto; }
+</style>
+</head>
+<body>
+<div id="docOutput">
+${docHTML}
+</div>
+</body>
+</html>`;
+
+  downloadFile(html, getDocFilename('html'), 'text/html');
+}
+
+function saveMD() {
+  const lines = [];
+
+  // Заголовок документа из шапки
+  const title = document.getElementById('docTitle').textContent;
+  const subtitle = document.getElementById('docSubtitle').textContent;
+  const docNum = document.getElementById('docNum').textContent;
+  const docDate = document.getElementById('docDate').textContent;
+  const genieType = document.getElementById('docGenieType').textContent;
+  const criticality = document.getElementById('docCriticality').textContent;
+
+  lines.push(`# ${title}`);
+  lines.push(`\n> ${subtitle}`);
+  lines.push(`\n---`);
+  lines.push(`\n| Параметр | Значение |`);
+  lines.push(`|---|---|`);
+  lines.push(`| Документ № | ${docNum} |`);
+  lines.push(`| Дата | ${docDate} |`);
+  lines.push(`| Тип сущности | ${genieType} |`);
+  lines.push(`| Критичность | ${criticality} |`);
+  lines.push(`\n---\n`);
+
+  // Конвертация каждого section-блока из всех docBody
+  for (let i = 1; i <= 5; i++) {
+    const body = document.getElementById('docBody' + i);
+    if (!body) continue;
+    const sections = body.querySelectorAll('.doc-section');
+    sections.forEach(sec => {
+      lines.push(convertSectionToMD(sec));
+    });
+  }
+
+  // Футер
+  lines.push(`\n---`);
+  lines.push(`\n*WishSpec Pro™ Enterprise · Документ сгенерирован системой на основе анализа ИИ*`);
+  lines.push(`\n*Юрисдикция: Все известные и неизвестные плоскости бытия*`);
+
+  downloadFile(lines.join('\n'), getDocFilename('md'), 'text/markdown');
+}
+
+function convertSectionToMD(section) {
+  const parts = [];
+
+  const num = section.querySelector('.section-num')?.textContent?.trim() || '';
+  const title = section.querySelector('.section-title')?.textContent?.trim() || '';
+
+  if (num || title) {
+    parts.push(`## ${num}${num && title ? ' — ' : ''}${title}`);
+  }
+
+  const content = section.querySelector('.doc-content');
+  if (content) {
+    parts.push(nodeToMD(content));
+  }
+
+  // Блок подписей
+  const sigBlock = section.querySelector('.sig-block');
+  if (sigBlock) {
+    parts.push(sigBlockToMD(sigBlock));
+  }
+
+  return parts.join('\n\n');
+}
+
+function nodeToMD(node) {
+  const parts = [];
+  node.childNodes.forEach(child => {
+    if (child.nodeType === Node.TEXT_NODE) {
+      const t = child.textContent.trim();
+      if (t) parts.push(t);
+    } else if (child.nodeType === Node.ELEMENT_NODE) {
+      const tag = child.tagName.toLowerCase();
+      if (tag === 'h4') {
+        parts.push(`\n### ${child.textContent.trim()}`);
+      } else if (tag === 'p') {
+        parts.push(inlineToMD(child));
+      } else if (tag === 'ul') {
+        child.querySelectorAll('li').forEach(li => {
+          parts.push(`- ${inlineToMD(li)}`);
+        });
+      } else if (tag === 'ol') {
+        let n = 1;
+        child.querySelectorAll('li').forEach(li => {
+          parts.push(`${n++}. ${inlineToMD(li)}`);
+        });
+      } else if (tag === 'table') {
+        parts.push(tableToMD(child));
+      } else if (child.classList.contains('callout')) {
+        const label = child.querySelector('.callout-label')?.textContent?.trim() || '';
+        const text = child.innerText.replace(label, '').trim();
+        parts.push(`> **${label}** ${text}`);
+      } else {
+        // Рекурсивно для остального
+        const inner = nodeToMD(child);
+        if (inner.trim()) parts.push(inner);
+      }
+    }
+  });
+  return parts.join('\n\n');
+}
+
+function inlineToMD(el) {
+  let result = '';
+  el.childNodes.forEach(child => {
+    if (child.nodeType === Node.TEXT_NODE) {
+      result += child.textContent;
+    } else if (child.nodeType === Node.ELEMENT_NODE) {
+      const tag = child.tagName.toLowerCase();
+      if (tag === 'strong') result += `**${child.textContent}**`;
+      else if (tag === 'em') result += `*${child.textContent}*`;
+      else if (child.classList.contains('risk')) result += `\`${child.textContent}\``;
+      else result += child.textContent;
+    }
+  });
+  return result.trim();
+}
+
+function tableToMD(table) {
+  const rows = [];
+  const headers = Array.from(table.querySelectorAll('thead th'))
+    .map(th => th.textContent.trim());
+
+  if (headers.length) {
+    rows.push(`| ${headers.join(' | ')} |`);
+    rows.push(`| ${headers.map(() => '---').join(' | ')} |`);
+  }
+
+  table.querySelectorAll('tbody tr').forEach(tr => {
+    const cells = Array.from(tr.querySelectorAll('td'))
+      .map(td => inlineToMD(td).replace(/\|/g, '\\|') || td.textContent.trim().replace(/\|/g, '\\|'));
+    rows.push(`| ${cells.join(' | ')} |`);
+  });
+
+  return rows.join('\n');
+}
+
+function sigBlockToMD(sigBlock) {
+  const parties = Array.from(sigBlock.querySelectorAll('.sig-party')).map(p => {
+    const name = p.querySelector('.sig-party-name')?.textContent?.trim() || '';
+    const role = p.querySelector('.sig-party-role')?.textContent?.trim() || '';
+    return `**${name}** *(${role})*\n\n_________________\n*Подпись / Дата*`;
+  });
+  return parties.join('\n\n---\n\n');
 }
 </script>
 </body>
