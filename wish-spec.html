@@ -1065,16 +1065,32 @@ async function generateSpec() {
 
     stepActive(pass.step);
 
-    // Собираем краткое резюме уже сгенерированных секций для связности документа
+    // Собираем контекст уже сгенерированных секций для связности документа.
+    // Метод «сэндвич»: берём начало (заголовки, определения) + конец (клаузы, выводы)
+    // каждой секции с равным бюджетом — так модель знает и тему раздела, и его итоги.
     let priorContext = '';
     if (i > 0) {
+      const totalBudget = 3600;             // суммарный лимит символов на весь контекст
+      const budget = Math.floor(totalBudget / i); // поровну на каждую готовую секцию
+      const half = Math.floor(budget / 2);
+
       const priorText = [1, 2, 3, 4, 5]
         .slice(0, i)
-        .map(n => document.getElementById('docBody' + n)?.innerText?.trim() || '')
-        .join('\n')
-        .slice(0, 1200);
+        .map(n => {
+          const el = document.getElementById('docBody' + n);
+          if (!el) return '';
+          const text = el.innerText?.trim() || '';
+          if (!text) return '';
+          // Если секция влезает целиком — берём её полностью
+          if (text.length <= budget) return text;
+          // Иначе: начало (заголовок + первые определения) + конец (клаузы + выводы)
+          return text.slice(0, half) + '\n[...]\n' + text.slice(-half);
+        })
+        .filter(Boolean)
+        .join('\n\n---\n\n'); // явный разделитель между секциями
+
       if (priorText) {
-        priorContext = `\n\nКОНТЕКСТ УЖЕ СОСТАВЛЕННЫХ РАЗДЕЛОВ ЭТОГО ДОКУМЕНТА (для обеспечения связности — ссылайся на них, не повторяй):\n"""\n${priorText}\n"""`;
+        priorContext = `\n\nКОНТЕКСТ УЖЕ СОСТАВЛЕННЫХ РАЗДЕЛОВ ЭТОГО ДОКУМЕНТА (ссылайся явно на термины и клаузы по номерам §, не повторяй уже написанное):\n"""\n${priorText}\n"""`;
       }
     }
 
