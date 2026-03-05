@@ -567,6 +567,67 @@ body {
   .topbar, .input-form, .actions-bar, .progress-panel { display: none !important; }
   body { background: white; }
   .doc-header { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  .doc-section { page-break-inside: avoid; }
+  .doc-table   { page-break-inside: avoid; }
+  .callout     { page-break-inside: avoid; }
+  .sig-block   { page-break-inside: avoid; }
+}
+
+@media (max-width: 700px) {
+  /* Topbar */
+  .topbar { padding: 0 16px; font-size: 9px; }
+  .topbar-right { display: none; }
+
+  /* Site header */
+  .site-header {
+    grid-template-columns: 1fr;
+    padding: 20px 20px 18px;
+    gap: 16px;
+  }
+  .brand-name { font-size: 32px; }
+  .header-badges { flex-direction: row; flex-wrap: wrap; align-items: flex-start; }
+
+  /* Main wrap */
+  .main-wrap { padding: 20px 16px; }
+
+  /* Input form */
+  .input-form { padding: 20px 18px; }
+  .form-grid { grid-template-columns: 1fr; gap: 16px; }
+  .form-group.full { grid-column: 1; }
+
+  /* API key block — inline → stacked */
+  .input-form .form-grid[style*="1fr auto"] { grid-template-columns: 1fr; }
+
+  /* Submit row */
+  .submit-row { flex-direction: column; gap: 16px; align-items: stretch; }
+  .submit-note { max-width: 100%; }
+  .submit-btn { justify-content: center; }
+
+  /* Actions bar */
+  .actions-bar { flex-direction: column; gap: 10px; align-items: stretch; }
+  .actions-bar > div:last-child { display: flex; flex-wrap: wrap; gap: 8px; }
+  .action-btn { flex: 1 1 calc(50% - 4px); text-align: center; }
+
+  /* Doc header */
+  .doc-header { padding: 20px 20px 18px; }
+  .doc-title { font-size: 20px; }
+  .doc-meta-grid { grid-template-columns: 1fr 1fr; gap: 12px; }
+
+  /* Doc sections */
+  .doc-section { padding: 20px 18px; }
+
+  /* Tables — horizontal scroll */
+  .doc-table { display: block; overflow-x: auto; -webkit-overflow-scrolling: touch; }
+
+  /* Signature block */
+  .sig-block { grid-template-columns: 1fr; gap: 24px; }
+
+  /* Progress panel */
+  .progress-panel { padding: 16px 18px; }
+
+  /* Doc footer */
+  .doc-footer { flex-direction: column; gap: 12px; padding: 14px 18px; }
+  .doc-footer-right { text-align: left; }
 }
 </style>
 </head>
@@ -675,7 +736,7 @@ body {
       <div class="form-group full">
         <div class="form-label">Дополнительный Контекст</div>
         <div class="form-sublabel">Опционально. Обстоятельства, ограничения, личные красные линии.</div>
-        <input class="form-input" id="contextInput" placeholder="Например: не хочу вредить окружающим, ценю свободу воли других людей, не хочу жить вечно...">
+        <textarea class="form-textarea" id="contextInput" style="height:72px;" placeholder="Например: не хочу вредить окружающим, ценю свободу воли других людей, не хочу жить вечно, хочу сохранить нынешние отношения с близкими..."></textarea>
       </div>
 
       <div class="form-group full">
@@ -844,35 +905,44 @@ async function generateSpec() {
   document.getElementById('docSubtitle').textContent = `«${wish.substring(0,80)}${wish.length>80?'...':''}»`;
   document.getElementById('sessionId').textContent = docNum;
 
-  // Progress animation
+  // Progress helpers
+  const steps = ['step0','step1','step2','step3','step4','step5'];
+
+  function stepActive(idx) {
+    const el = document.getElementById(steps[idx]);
+    el.className = 'progress-step active';
+    el.querySelector('.step-icon').textContent = '⟳';
+  }
+  function stepDone(idx) {
+    const el = document.getElementById(steps[idx]);
+    el.className = 'progress-step done';
+    el.querySelector('.step-icon').textContent = '✓';
+  }
+
+  // Reset all steps
+  steps.forEach(id => {
+    const el = document.getElementById(id);
+    el.className = 'progress-step';
+    el.querySelector('.step-icon').textContent = '◯';
+  });
+
   document.getElementById('progressPanel').classList.add('visible');
   document.getElementById('outputWrap').classList.remove('visible');
 
-  const steps = ['step0','step1','step2','step3','step4','step5'];
-  for (let i = 0; i < steps.length - 1; i++) {
-    await sleep(600 + Math.random()*400);
-    document.getElementById(steps[i]).className = 'progress-step done';
-    document.getElementById(steps[i]).querySelector('.step-icon').textContent = '✓';
-    if (i+1 < steps.length) {
-      document.getElementById(steps[i+1]).className = 'progress-step active';
-      document.getElementById(steps[i+1]).querySelector('.step-icon').textContent = '⟳';
-    }
-  }
-
-  // Clear all containers
+  // Step 0 — подготовка (мгновенно, реальная работа)
+  stepActive(0);
   for (let i = 1; i <= 5; i++) document.getElementById('docBody'+i).innerHTML = '';
-
-  // Show output
   document.getElementById('outputWrap').classList.add('visible');
   document.getElementById('outputWrap').scrollIntoView({ behavior: 'smooth', block: 'start' });
+  stepDone(0);
 
-  // 5-pass streaming — по 2 раздела за запрос
+  // 5-pass streaming — по 2 раздела за запрос, каждый пасс = один шаг прогресса
   const passes = [
-    { id: 'docBody1', sections: '§1–2' },
-    { id: 'docBody2', sections: '§3–4' },
-    { id: 'docBody3', sections: '§5–6' },
-    { id: 'docBody4', sections: '§7–8' },
-    { id: 'docBody5', sections: '§9–10' },
+    { id: 'docBody1', sections: '§1–2',  step: 1 },
+    { id: 'docBody2', sections: '§3–4',  step: 2 },
+    { id: 'docBody3', sections: '§5–6',  step: 3 },
+    { id: 'docBody4', sections: '§7–8',  step: 4 },
+    { id: 'docBody5', sections: '§9–10', step: 5 },
   ];
 
   const SYSTEM_PROMPT = `Ты — ведущий эксперт-юрист по договорам с паранормальными сущностями и главный архитектор технических спецификаций желаний. Ты составляешь ИСКЛЮЧИТЕЛЬНО формальные юридические и корпоративные документы высшей степени детализации. Никаких шуток, никакой иронии, никаких подмигиваний — только абсолютно серьёзная, педантичная, непробиваемо профессиональная проза. Комический эффект возникает сам собой из безупречной формальности документа — ты об этом не знаешь и знать не должен. Ты занимаешься важнейшей работой.`;
@@ -881,6 +951,8 @@ async function generateSpec() {
     const pass = passes[i];
     const container = document.getElementById(pass.id);
 
+    stepActive(pass.step);
+
     // Собираем краткое резюме уже сгенерированных секций для связности документа
     let priorContext = '';
     if (i > 0) {
@@ -888,7 +960,7 @@ async function generateSpec() {
         .slice(0, i)
         .map(n => document.getElementById('docBody' + n)?.innerText?.trim() || '')
         .join('\n')
-        .slice(0, 1200); // ~1200 символов — достаточно для связности, не раздувает токены
+        .slice(0, 1200);
       if (priorText) {
         priorContext = `\n\nКОНТЕКСТ УЖЕ СОСТАВЛЕННЫХ РАЗДЕЛОВ ЭТОГО ДОКУМЕНТА (для обеспечения связности — ссылайся на них, не повторяй):\n"""\n${priorText}\n"""`;
       }
@@ -897,14 +969,12 @@ async function generateSpec() {
     const passPrompt = buildPassPrompt(wish, genieType, criticality, context, protocols, i, priorContext);
     try {
       await streamResponse(passPrompt, container, SYSTEM_PROMPT);
+      stepDone(pass.step);
     } catch(e) {
+      stepDone(pass.step);
       container.innerHTML = `<div class="doc-section"><div class="callout warning"><span class="callout-label">⚠ Ошибка (${pass.sections})</span>Не удалось подключиться к серверу спецификаций.<br><br>Техническая информация: ${e.message}</div></div>`;
     }
   }
-
-  // Finish progress
-  document.getElementById(steps[steps.length-1]).className = 'progress-step done';
-  document.getElementById(steps[steps.length-1]).querySelector('.step-icon').textContent = '✓';
 
   document.getElementById('docFooter').style.display = 'flex';
 
