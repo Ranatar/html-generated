@@ -1,1737 +1,3049 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="ru">
-<head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>PhiloSynth Pro — Система Синтеза Философских Концепций</title>
-<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700;900&family=IBM+Plex+Mono:wght@300;400;500;600&family=IBM+Plex+Sans:ital,wght@0,300;0,400;0,500;0,600;1,400&display=swap" rel="stylesheet">
-<style>
-:root {
-  --white: #fafaf8;
-  --off: #f2f0eb;
-  --paper: #fffef9;
-  --rule: #d8d4cc;
-  --rule-strong: #b0aa9f;
-  --ink: #1a1814;
-  --ink-mid: #4a463e;
-  --ink-dim: #8a8278;
-  --gold: #b8860b;
-  --gold-light: #d4a017;
-  --red: #8b1a1a;
-  --blue-corp: #1a2855;
-  --blue-mid: #2a3f7a;
-  --blue-light: #e8ecf8;
-  --green-check: #1a5c2a;
-  --mono: 'IBM Plex Mono', monospace;
-  --sans: 'IBM Plex Sans', sans-serif;
-  --serif: 'Playfair Display', serif;
-}
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>PhiloSynth Pro — Система Синтеза Философских Концепций</title>
+    <link
+      href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700;900&family=IBM+Plex+Mono:wght@300;400;500;600&family=IBM+Plex+Sans:ital,wght@0,300;0,400;0,500;0,600;1,400&display=swap"
+      rel="stylesheet"
+    />
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/d3/7.8.5/d3.min.js"></script>
+    <style>
+      :root {
+        --white: #fafaf8;
+        --off: #f2f0eb;
+        --paper: #fffef9;
+        --rule: #d8d4cc;
+        --rule-strong: #b0aa9f;
+        --ink: #1a1814;
+        --ink-mid: #4a463e;
+        --ink-dim: #8a8278;
+        --gold: #b8860b;
+        --gold-light: #d4a017;
+        --red: #8b1a1a;
+        --blue-corp: #1a2855;
+        --blue-mid: #2a3f7a;
+        --blue-light: #e8ecf8;
+        --green-check: #1a5c2a;
+        --mono: "IBM Plex Mono", monospace;
+        --sans: "IBM Plex Sans", sans-serif;
+        --serif: "Playfair Display", serif;
+      }
+      * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+      }
+      body {
+        background: var(--off);
+        color: var(--ink);
+        font-family: var(--sans);
+        font-size: 14px;
+        line-height: 1.6;
+        min-height: 100vh;
+      }
+      .topbar {
+        background: var(--blue-corp);
+        color: #fff;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 0 32px;
+        height: 44px;
+        font-family: var(--mono);
+        font-size: 10px;
+        letter-spacing: 1.5px;
+        text-transform: uppercase;
+      }
+      .topbar-left {
+        display: flex;
+        gap: 24px;
+        align-items: center;
+      }
+      .topbar-right {
+        opacity: 0.5;
+        font-size: 9px;
+      }
+      .topbar-badge {
+        background: var(--gold);
+        color: var(--ink);
+        font-weight: 600;
+        padding: 2px 8px;
+        font-size: 8px;
+        letter-spacing: 2px;
+      }
+      .site-header {
+        background: var(--paper);
+        border-bottom: 3px solid var(--blue-corp);
+        padding: 32px 48px 28px;
+        display: grid;
+        grid-template-columns: 1fr auto;
+        gap: 40px;
+        align-items: end;
+      }
+      .brand-name {
+        font-family: var(--serif);
+        font-size: 42px;
+        font-weight: 900;
+        letter-spacing: -1px;
+        line-height: 1;
+        color: var(--blue-corp);
+      }
+      .brand-name span {
+        color: var(--gold);
+      }
+      .brand-tagline {
+        font-family: var(--mono);
+        font-size: 10px;
+        color: var(--ink-dim);
+        letter-spacing: 2px;
+        text-transform: uppercase;
+        margin-top: 8px;
+      }
+      .brand-desc {
+        font-size: 13px;
+        color: var(--ink-mid);
+        margin-top: 10px;
+        max-width: 620px;
+        font-style: italic;
+        line-height: 1.7;
+      }
+      .header-badges {
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+        align-items: flex-end;
+      }
+      .cert-badge {
+        font-family: var(--mono);
+        font-size: 9px;
+        letter-spacing: 1.5px;
+        text-transform: uppercase;
+        border: 1px solid var(--rule-strong);
+        padding: 4px 10px;
+        color: var(--ink-mid);
+      }
+      .cert-badge.gold {
+        border-color: var(--gold);
+        color: var(--gold);
+      }
+      .main-wrap {
+        max-width: 1100px;
+        margin: 0 auto;
+        padding: 36px 32px;
+      }
+      .input-form {
+        background: var(--paper);
+        border: 1px solid var(--rule);
+        border-top: 4px solid var(--gold);
+        padding: 32px 36px;
+        margin-bottom: 28px;
+      }
+      .form-section-title {
+        font-family: var(--mono);
+        font-size: 10px;
+        font-weight: 600;
+        letter-spacing: 3px;
+        text-transform: uppercase;
+        color: var(--ink-dim);
+        border-bottom: 1px solid var(--rule);
+        padding-bottom: 10px;
+        margin-bottom: 24px;
+      }
+      .form-grid {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 20px 32px;
+        margin-bottom: 24px;
+      }
+      .form-group {
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+      }
+      .form-group.full {
+        grid-column: 1/-1;
+      }
+      .form-label {
+        font-family: var(--mono);
+        font-size: 10px;
+        font-weight: 500;
+        letter-spacing: 1.5px;
+        text-transform: uppercase;
+        color: var(--ink-mid);
+      }
+      .form-sublabel {
+        font-size: 11px;
+        color: var(--ink-dim);
+        font-style: italic;
+        margin-top: -3px;
+      }
+      .form-input,
+      .form-select,
+      .form-textarea {
+        border: 1px solid var(--rule-strong);
+        background: var(--white);
+        padding: 10px 14px;
+        font-family: var(--sans);
+        font-size: 14px;
+        color: var(--ink);
+        outline: none;
+        transition: border-color 0.15s;
+        border-radius: 0;
+      }
+      .form-input:focus,
+      .form-select:focus,
+      .form-textarea:focus {
+        border-color: var(--blue-corp);
+        background: var(--paper);
+      }
+      .form-textarea {
+        height: 90px;
+        resize: vertical;
+        font-size: 13px;
+        line-height: 1.6;
+      }
+      .form-select {
+        cursor: pointer;
+        appearance: none;
+        background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M0 0l5 6 5-6z' fill='%238a8278'/%3E%3C/svg%3E");
+        background-repeat: no-repeat;
+        background-position: right 12px center;
+        padding-right: 32px;
+      }
+      .checkboxes-row {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+        margin-bottom: 8px;
+      }
+      .checkbox-item {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        font-size: 11px;
+        color: var(--ink-mid);
+        cursor: pointer;
+        padding: 5px 10px;
+        border: 1px solid var(--rule);
+        transition: all 0.15s;
+        user-select: none;
+      }
+      .checkbox-item input {
+        accent-color: var(--blue-corp);
+        cursor: pointer;
+      }
+      .checkbox-item:has(input:checked) {
+        border-color: var(--blue-corp);
+        background: var(--blue-light);
+        color: var(--blue-corp);
+        font-weight: 500;
+      }
+      .phil-group-label {
+        font-family: var(--mono);
+        font-size: 9px;
+        font-weight: 600;
+        letter-spacing: 2px;
+        text-transform: uppercase;
+        color: var(--ink-dim);
+        margin-top: 10px;
+        margin-bottom: 4px;
+        width: 100%;
+      }
+      .phil-group-label:first-child {
+        margin-top: 0;
+      }
+      .submit-row {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        margin-top: 28px;
+        padding-top: 22px;
+        border-top: 1px solid var(--rule);
+      }
+      .submit-note {
+        font-size: 11px;
+        color: var(--ink-dim);
+        font-style: italic;
+        max-width: 440px;
+        line-height: 1.6;
+      }
+      .submit-btn {
+        background: var(--blue-corp);
+        color: #fff;
+        border: none;
+        padding: 14px 36px;
+        font-family: var(--mono);
+        font-size: 11px;
+        font-weight: 600;
+        letter-spacing: 2.5px;
+        text-transform: uppercase;
+        cursor: pointer;
+        transition: background 0.15s;
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        flex-shrink: 0;
+      }
+      .submit-btn:hover {
+        background: var(--blue-mid);
+      }
+      .submit-btn:disabled {
+        background: var(--rule-strong);
+        cursor: not-allowed;
+      }
+      .submit-btn .spinner {
+        width: 14px;
+        height: 14px;
+        border: 2px solid rgba(255, 255, 255, 0.3);
+        border-top-color: #fff;
+        border-radius: 50%;
+        animation: spin 0.8s linear infinite;
+        display: none;
+      }
+      .submit-btn.loading .spinner {
+        display: block;
+      }
+      @keyframes spin {
+        to {
+          transform: rotate(360deg);
+        }
+      }
+      .progress-panel {
+        background: var(--paper);
+        border: 1px solid var(--rule);
+        border-left: 4px solid var(--blue-corp);
+        padding: 24px 28px;
+        margin-bottom: 28px;
+        display: none;
+      }
+      .progress-panel.visible {
+        display: block;
+      }
+      .progress-title {
+        font-family: var(--mono);
+        font-size: 11px;
+        font-weight: 600;
+        letter-spacing: 2px;
+        text-transform: uppercase;
+        color: var(--blue-corp);
+        margin-bottom: 16px;
+      }
+      .progress-steps {
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+      }
+      .progress-step {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        font-family: var(--mono);
+        font-size: 11px;
+        color: var(--ink-dim);
+        transition: color 0.3s;
+      }
+      .progress-step.done {
+        color: var(--green-check);
+      }
+      .progress-step.active {
+        color: var(--blue-corp);
+        font-weight: 500;
+      }
+      .step-icon {
+        width: 18px;
+        text-align: center;
+        flex-shrink: 0;
+      }
+      .output-wrap {
+        display: none;
+      }
+      .output-wrap.visible {
+        display: block;
+      }
+      .doc-header {
+        background: var(--blue-corp);
+        color: #fff;
+        padding: 36px 48px 32px;
+        position: relative;
+        overflow: hidden;
+      }
+      .doc-header::before {
+        content: "";
+        position: absolute;
+        top: 0;
+        right: 0;
+        bottom: 0;
+        width: 300px;
+        background: linear-gradient(135deg, transparent 40%, rgba(255, 255, 255, 0.04) 100%);
+      }
+      .doc-type {
+        font-family: var(--mono);
+        font-size: 9px;
+        letter-spacing: 3px;
+        text-transform: uppercase;
+        color: rgba(255, 255, 255, 0.5);
+        margin-bottom: 10px;
+      }
+      .doc-title {
+        font-family: var(--serif);
+        font-size: 30px;
+        font-weight: 700;
+        line-height: 1.2;
+        margin-bottom: 8px;
+      }
+      .doc-subtitle {
+        font-size: 13px;
+        color: rgba(255, 255, 255, 0.65);
+        font-style: italic;
+        margin-bottom: 24px;
+      }
+      .doc-meta-grid {
+        display: grid;
+        grid-template-columns: repeat(4, 1fr);
+        gap: 1px;
+        background: rgba(255, 255, 255, 0.1);
+        border-top: 1px solid rgba(255, 255, 255, 0.15);
+        padding-top: 20px;
+      }
+      .doc-meta-item {
+        padding: 0 20px 0 0;
+      }
+      .doc-meta-key {
+        font-family: var(--mono);
+        font-size: 8px;
+        letter-spacing: 2px;
+        text-transform: uppercase;
+        color: rgba(255, 255, 255, 0.4);
+        display: block;
+        margin-bottom: 3px;
+      }
+      .doc-meta-val {
+        font-family: var(--mono);
+        font-size: 12px;
+        color: rgba(255, 255, 255, 0.9);
+        display: block;
+      }
+      .doc-meta-val.gold {
+        color: var(--gold-light);
+      }
+      .doc-body {
+        background: var(--paper);
+        border: 1px solid var(--rule);
+        border-top: none;
+        padding: 0;
+      }
+      .doc-section {
+        border-bottom: 1px solid var(--rule);
+        padding: 32px 48px;
+      }
+      .doc-section:last-child {
+        border-bottom: none;
+      }
+      .section-num {
+        font-family: var(--mono);
+        font-size: 9px;
+        letter-spacing: 2px;
+        text-transform: uppercase;
+        color: var(--ink-dim);
+        margin-bottom: 4px;
+      }
+      .section-title {
+        font-family: var(--serif);
+        font-size: 20px;
+        font-weight: 700;
+        color: var(--blue-corp);
+        margin-bottom: 20px;
+        padding-bottom: 12px;
+        border-bottom: 1px solid var(--rule);
+      }
+      .doc-content {
+        font-size: 13px;
+        line-height: 1.85;
+        color: var(--ink-mid);
+      }
+      .doc-content h4 {
+        font-family: var(--mono);
+        font-size: 10px;
+        font-weight: 600;
+        letter-spacing: 2px;
+        text-transform: uppercase;
+        color: var(--ink);
+        margin: 20px 0 8px;
+      }
+      .doc-content p {
+        margin-bottom: 12px;
+      }
+      .doc-content ul,
+      .doc-content ol {
+        margin: 8px 0 14px 20px;
+        display: flex;
+        flex-direction: column;
+        gap: 5px;
+      }
+      .doc-content li {
+        line-height: 1.7;
+      }
+      .doc-content strong {
+        color: var(--ink);
+        font-weight: 600;
+      }
+      .doc-content em {
+        color: var(--red);
+        font-style: normal;
+        font-weight: 500;
+      }
+      .doc-table {
+        width: 100%;
+        border-collapse: collapse;
+        margin: 14px 0;
+        font-size: 12px;
+      }
+      .doc-table th {
+        background: var(--blue-corp);
+        color: #fff;
+        font-family: var(--mono);
+        font-size: 9px;
+        letter-spacing: 1.5px;
+        text-transform: uppercase;
+        padding: 9px 14px;
+        text-align: left;
+        font-weight: 500;
+      }
+      .doc-table td {
+        padding: 9px 14px;
+        border-bottom: 1px solid var(--rule);
+        vertical-align: top;
+        color: var(--ink-mid);
+        line-height: 1.6;
+      }
+      .doc-table tr:nth-child(even) td {
+        background: var(--off);
+      }
+      .doc-table tr:hover td {
+        background: var(--blue-light);
+      }
+      .callout {
+        border-left: 3px solid;
+        padding: 12px 16px;
+        margin: 16px 0;
+        font-size: 12px;
+        line-height: 1.7;
+      }
+      .callout.warning {
+        border-color: var(--red);
+        background: #fff5f5;
+        color: var(--red);
+      }
+      .callout.note {
+        border-color: var(--blue-corp);
+        background: var(--blue-light);
+        color: var(--blue-corp);
+      }
+      .callout.gold {
+        border-color: var(--gold);
+        background: #fffbee;
+        color: var(--gold);
+      }
+      .callout-label {
+        font-family: var(--mono);
+        font-size: 9px;
+        font-weight: 600;
+        letter-spacing: 2px;
+        text-transform: uppercase;
+        display: block;
+        margin-bottom: 5px;
+      }
+      .sig-block {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 40px;
+        margin-top: 24px;
+      }
+      .sig-party-name {
+        font-family: var(--serif);
+        font-size: 15px;
+        font-weight: 700;
+        color: var(--blue-corp);
+        margin-bottom: 3px;
+      }
+      .sig-party-role {
+        font-family: var(--mono);
+        font-size: 9px;
+        letter-spacing: 1.5px;
+        text-transform: uppercase;
+        color: var(--ink-dim);
+        margin-bottom: 20px;
+      }
+      .sig-line {
+        border-bottom: 1px solid var(--ink);
+        height: 40px;
+        margin-bottom: 4px;
+      }
+      .sig-label {
+        font-family: var(--mono);
+        font-size: 9px;
+        color: var(--ink-dim);
+        letter-spacing: 1px;
+      }
+      .risk {
+        display: inline-block;
+        padding: 1px 8px;
+        font-family: var(--mono);
+        font-size: 9px;
+        font-weight: 600;
+        letter-spacing: 1px;
+        text-transform: uppercase;
+      }
+      .risk.high {
+        background: #fff0f0;
+        color: var(--red);
+        border: 1px solid var(--red);
+      }
+      .risk.medium {
+        background: #fffbee;
+        color: var(--gold);
+        border: 1px solid var(--gold);
+      }
+      .risk.low {
+        background: #f0fff4;
+        color: var(--green-check);
+        border: 1px solid var(--green-check);
+      }
+      .stream-cursor {
+        display: inline-block;
+        width: 2px;
+        height: 14px;
+        background: var(--blue-corp);
+        vertical-align: middle;
+        margin-left: 2px;
+        animation: blink-cursor 0.7s infinite;
+      }
+      @keyframes blink-cursor {
+        0%,
+        100% {
+          opacity: 1;
+        }
+        50% {
+          opacity: 0;
+        }
+      }
+      .doc-footer {
+        background: var(--off);
+        border-top: 1px solid var(--rule);
+        padding: 16px 48px;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+      }
+      .doc-footer-left {
+        font-family: var(--mono);
+        font-size: 9px;
+        color: var(--ink-dim);
+        letter-spacing: 1px;
+        line-height: 1.8;
+      }
+      .doc-footer-right {
+        font-family: var(--mono);
+        font-size: 9px;
+        color: var(--ink-dim);
+        text-align: right;
+        line-height: 1.8;
+      }
+      .validity-stamp {
+        font-family: var(--serif);
+        font-size: 12px;
+        font-weight: 700;
+        color: var(--green-check);
+        border: 1px solid var(--green-check);
+        padding: 4px 14px;
+        transform: rotate(-2deg);
+        display: inline-block;
+      }
+      .actions-bar {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 16px 0;
+        margin-bottom: 8px;
+      }
+      .actions-bar-btns {
+        display: flex;
+        gap: 8px;
+        flex-wrap: wrap;
+      }
+      .action-btn {
+        font-family: var(--mono);
+        font-size: 10px;
+        font-weight: 500;
+        letter-spacing: 1.5px;
+        text-transform: uppercase;
+        background: transparent;
+        border: 1px solid var(--rule-strong);
+        padding: 8px 18px;
+        cursor: pointer;
+        color: var(--ink-mid);
+        transition: all 0.15s;
+      }
+      .action-btn:hover {
+        border-color: var(--blue-corp);
+        color: var(--blue-corp);
+      }
+      .action-btn.primary {
+        background: var(--blue-corp);
+        color: #fff;
+        border-color: var(--blue-corp);
+      }
+      .action-btn.primary:hover {
+        background: var(--blue-mid);
+      }
+      .action-btn.gold-btn {
+        background: var(--gold);
+        color: var(--ink);
+        border-color: var(--gold);
+        font-weight: 600;
+      }
 
-* { margin:0; padding:0; box-sizing:border-box; }
+      /* ── GRAPH MODAL ── */
+      .gm-overlay {
+        display: none;
+        position: fixed;
+        inset: 0;
+        background: rgba(5, 5, 10, 0.92);
+        z-index: 9999;
+        flex-direction: column;
+      }
+      .gm-overlay.visible {
+        display: flex;
+      }
+      .gm-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 10px 24px;
+        background: var(--blue-corp);
+        flex-shrink: 0;
+      }
+      .gm-title {
+        font-family: var(--mono);
+        font-size: 10px;
+        font-weight: 600;
+        letter-spacing: 2.5px;
+        text-transform: uppercase;
+        color: var(--gold);
+      }
+      .gm-actions {
+        display: flex;
+        gap: 8px;
+      }
+      .gm-btn {
+        font-family: var(--mono);
+        font-size: 10px;
+        background: transparent;
+        border: 1px solid rgba(255, 255, 255, 0.3);
+        color: rgba(255, 255, 255, 0.7);
+        padding: 5px 12px;
+        cursor: pointer;
+        letter-spacing: 1px;
+        text-transform: uppercase;
+        transition: all 0.15s;
+      }
+      .gm-btn:hover {
+        border-color: #fff;
+        color: #fff;
+      }
+      .gm-btn.active {
+        background: rgba(255, 255, 255, 0.15);
+        border-color: var(--gold);
+        color: var(--gold);
+      }
+      .gm-btn.close:hover {
+        border-color: var(--red);
+        color: var(--red);
+      }
+      .gm-btn.gold {
+        background: var(--gold);
+        border-color: var(--gold);
+        color: var(--ink);
+        font-weight: 600;
+      }
+      .gm-tabs {
+        display: flex;
+        gap: 4px;
+        margin-right: 16px;
+        border-right: 1px solid rgba(255, 255, 255, 0.15);
+        padding-right: 16px;
+      }
+      .gm-body {
+        flex: 1;
+        position: relative;
+        overflow: hidden;
+      }
+      .gm-body canvas,
+      .gm-body svg {
+        display: block;
+        width: 100%;
+        height: 100%;
+      }
+      .gm-legend {
+        position: absolute;
+        bottom: 16px;
+        left: 16px;
+        background: rgba(0, 0, 0, 0.75);
+        padding: 12px 16px;
+        font-family: var(--mono);
+        font-size: 10px;
+        color: rgba(255, 255, 255, 0.7);
+        line-height: 1.8;
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        pointer-events: none;
+      }
+      .gm-legend-item {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+      }
+      .gm-legend-dot {
+        width: 10px;
+        height: 10px;
+        border-radius: 50%;
+        flex-shrink: 0;
+      }
+      .gm-hint {
+        position: absolute;
+        top: 16px;
+        left: 50%;
+        transform: translateX(-50%);
+        font-family: var(--mono);
+        font-size: 10px;
+        color: rgba(255, 255, 255, 0.3);
+        letter-spacing: 1px;
+        pointer-events: none;
+      }
+      .gm-view {
+        position: absolute;
+        inset: 0;
+        display: none;
+      }
+      .gm-view.active {
+        display: block;
+      }
 
-body {
-  background: var(--off);
-  color: var(--ink);
-  font-family: var(--sans);
-  font-size: 14px;
-  line-height: 1.6;
-  min-height: 100vh;
-}
+      /* D3 2D graph styles */
+      .gm-view svg {
+        background: #0a0a14;
+      }
+      .gm-view .node-circle {
+        cursor: grab;
+        stroke-width: 2;
+      }
+      .gm-view .node-circle:hover {
+        stroke: #fff;
+      }
+      .gm-view .node-label {
+        font-family: "IBM Plex Mono", monospace;
+        font-size: 10px;
+        fill: #c8c0b0;
+        pointer-events: none;
+      }
+      .gm-view .edge-line {
+        stroke-linecap: round;
+      }
 
-/* ── TOP BAR ── */
-.topbar {
-  background: var(--blue-corp);
-  color: #fff;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 0 32px;
-  height: 44px;
-  font-family: var(--mono);
-  font-size: 10px;
-  letter-spacing: 1.5px;
-  text-transform: uppercase;
-}
-.topbar-left { display: flex; gap: 24px; align-items: center; }
-.topbar-right { opacity: 0.5; font-size: 9px; }
-.topbar-badge {
-  background: var(--gold);
-  color: var(--ink);
-  font-weight: 600;
-  padding: 2px 8px;
-  font-size: 8px;
-  letter-spacing: 2px;
-}
+      /* ── RAW MODAL ── */
+      .raw-overlay {
+        display: none;
+        position: fixed;
+        inset: 0;
+        background: rgba(10, 10, 15, 0.75);
+        z-index: 9999;
+        align-items: center;
+        justify-content: center;
+        padding: 32px;
+      }
+      .raw-overlay.visible {
+        display: flex;
+      }
+      .raw-modal {
+        background: var(--ink);
+        border: 1px solid var(--rule-strong);
+        border-top: 3px solid var(--gold);
+        width: 100%;
+        max-width: 900px;
+        max-height: 85vh;
+        display: flex;
+        flex-direction: column;
+      }
+      .raw-modal-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 16px 24px;
+        border-bottom: 1px solid #333;
+        flex-shrink: 0;
+      }
+      .raw-modal-title {
+        font-family: var(--mono);
+        font-size: 10px;
+        font-weight: 600;
+        letter-spacing: 2.5px;
+        text-transform: uppercase;
+        color: var(--gold);
+      }
+      .raw-close {
+        font-family: var(--mono);
+        font-size: 11px;
+        background: transparent;
+        border: 1px solid #444;
+        color: #999;
+        padding: 6px 14px;
+        cursor: pointer;
+        letter-spacing: 1px;
+        text-transform: uppercase;
+        transition: all 0.15s;
+      }
+      .raw-close:hover {
+        border-color: var(--red);
+        color: var(--red);
+      }
+      .raw-modal-body {
+        overflow-y: auto;
+        flex: 1;
+        padding: 24px;
+      }
+      .raw-modal-body pre {
+        font-family: var(--mono);
+        font-size: 11px;
+        line-height: 1.7;
+        color: #c8c0b0;
+        white-space: pre-wrap;
+        word-break: break-all;
+        margin: 0;
+      }
+      .raw-modal-footer {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 12px 24px;
+        border-top: 1px solid #333;
+        flex-shrink: 0;
+      }
+      .raw-info {
+        font-family: var(--mono);
+        font-size: 9px;
+        color: #555;
+        letter-spacing: 1px;
+      }
+      .raw-copy {
+        font-family: var(--mono);
+        font-size: 10px;
+        font-weight: 600;
+        letter-spacing: 1.5px;
+        text-transform: uppercase;
+        background: var(--gold);
+        color: var(--ink);
+        border: none;
+        padding: 8px 20px;
+        cursor: pointer;
+      }
 
-/* ── HEADER ── */
-.site-header {
-  background: var(--paper);
-  border-bottom: 3px solid var(--blue-corp);
-  padding: 32px 48px 28px;
-  display: grid;
-  grid-template-columns: 1fr auto;
-  gap: 40px;
-  align-items: end;
-}
-.brand-name {
-  font-family: var(--serif);
-  font-size: 42px;
-  font-weight: 900;
-  letter-spacing: -1px;
-  line-height: 1;
-  color: var(--blue-corp);
-}
-.brand-name span { color: var(--gold); }
-.brand-tagline {
-  font-family: var(--mono);
-  font-size: 10px;
-  color: var(--ink-dim);
-  letter-spacing: 2px;
-  text-transform: uppercase;
-  margin-top: 8px;
-}
-.brand-desc {
-  font-size: 13px;
-  color: var(--ink-mid);
-  margin-top: 10px;
-  max-width: 620px;
-  font-style: italic;
-  line-height: 1.7;
-}
-.header-badges {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-  align-items: flex-end;
-}
-.cert-badge {
-  font-family: var(--mono);
-  font-size: 9px;
-  letter-spacing: 1.5px;
-  text-transform: uppercase;
-  border: 1px solid var(--rule-strong);
-  padding: 4px 10px;
-  color: var(--ink-mid);
-}
-.cert-badge.gold { border-color: var(--gold); color: var(--gold); }
-
-/* ── MAIN ── */
-.main-wrap { max-width: 1100px; margin: 0 auto; padding: 36px 32px; }
-
-/* ── INPUT FORM ── */
-.input-form {
-  background: var(--paper);
-  border: 1px solid var(--rule);
-  border-top: 4px solid var(--gold);
-  padding: 32px 36px;
-  margin-bottom: 28px;
-}
-.form-section-title {
-  font-family: var(--mono);
-  font-size: 10px;
-  font-weight: 600;
-  letter-spacing: 3px;
-  text-transform: uppercase;
-  color: var(--ink-dim);
-  border-bottom: 1px solid var(--rule);
-  padding-bottom: 10px;
-  margin-bottom: 24px;
-}
-.form-grid {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 20px 32px;
-  margin-bottom: 24px;
-}
-.form-group { display: flex; flex-direction: column; gap: 6px; }
-.form-group.full { grid-column: 1 / -1; }
-.form-label {
-  font-family: var(--mono);
-  font-size: 10px;
-  font-weight: 500;
-  letter-spacing: 1.5px;
-  text-transform: uppercase;
-  color: var(--ink-mid);
-}
-.form-sublabel {
-  font-size: 11px;
-  color: var(--ink-dim);
-  font-style: italic;
-  margin-top: -3px;
-}
-.form-input, .form-select, .form-textarea {
-  border: 1px solid var(--rule-strong);
-  background: var(--white);
-  padding: 10px 14px;
-  font-family: var(--sans);
-  font-size: 14px;
-  color: var(--ink);
-  outline: none;
-  transition: border-color 0.15s;
-  border-radius: 0;
-}
-.form-input:focus, .form-select:focus, .form-textarea:focus {
-  border-color: var(--blue-corp);
-  background: var(--paper);
-}
-.form-textarea {
-  height: 90px;
-  resize: vertical;
-  font-size: 13px;
-  line-height: 1.6;
-}
-.form-select { cursor: pointer; appearance: none; background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M0 0l5 6 5-6z' fill='%238a8278'/%3E%3C/svg%3E"); background-repeat: no-repeat; background-position: right 12px center; padding-right: 32px; }
-
-.checkboxes-row {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 10px;
-  margin-bottom: 8px;
-}
-.checkbox-item {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  font-size: 12px;
-  color: var(--ink-mid);
-  cursor: pointer;
-  padding: 6px 12px;
-  border: 1px solid var(--rule);
-  transition: all 0.15s;
-  user-select: none;
-}
-.checkbox-item input { accent-color: var(--blue-corp); cursor: pointer; }
-.checkbox-item:has(input:checked) {
-  border-color: var(--blue-corp);
-  background: var(--blue-light);
-  color: var(--blue-corp);
-  font-weight: 500;
-}
-
-.phil-group-label {
-  font-family: var(--mono);
-  font-size: 9px;
-  font-weight: 600;
-  letter-spacing: 2px;
-  text-transform: uppercase;
-  color: var(--ink-dim);
-  margin-top: 12px;
-  margin-bottom: 6px;
-  width: 100%;
-}
-.phil-group-label:first-child { margin-top: 0; }
-
-.submit-row {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  margin-top: 28px;
-  padding-top: 22px;
-  border-top: 1px solid var(--rule);
-}
-.submit-note {
-  font-size: 11px;
-  color: var(--ink-dim);
-  font-style: italic;
-  max-width: 440px;
-  line-height: 1.6;
-}
-.submit-btn {
-  background: var(--blue-corp);
-  color: #fff;
-  border: none;
-  padding: 14px 36px;
-  font-family: var(--mono);
-  font-size: 11px;
-  font-weight: 600;
-  letter-spacing: 2.5px;
-  text-transform: uppercase;
-  cursor: pointer;
-  transition: background 0.15s;
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  flex-shrink: 0;
-}
-.submit-btn:hover { background: var(--blue-mid); }
-.submit-btn:disabled { background: var(--rule-strong); cursor: not-allowed; }
-.submit-btn .spinner {
-  width: 14px; height: 14px;
-  border: 2px solid rgba(255,255,255,0.3);
-  border-top-color: #fff;
-  border-radius: 50%;
-  animation: spin 0.8s linear infinite;
-  display: none;
-}
-.submit-btn.loading .spinner { display: block; }
-@keyframes spin { to { transform: rotate(360deg); } }
-
-/* ── PROGRESS ── */
-.progress-panel {
-  background: var(--paper);
-  border: 1px solid var(--rule);
-  border-left: 4px solid var(--blue-corp);
-  padding: 24px 28px;
-  margin-bottom: 28px;
-  display: none;
-}
-.progress-panel.visible { display: block; }
-.progress-title {
-  font-family: var(--mono);
-  font-size: 11px;
-  font-weight: 600;
-  letter-spacing: 2px;
-  text-transform: uppercase;
-  color: var(--blue-corp);
-  margin-bottom: 16px;
-}
-.progress-steps { display: flex; flex-direction: column; gap: 8px; }
-.progress-step {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  font-family: var(--mono);
-  font-size: 11px;
-  color: var(--ink-dim);
-  transition: color 0.3s;
-}
-.progress-step.done { color: var(--green-check); }
-.progress-step.active { color: var(--blue-corp); font-weight: 500; }
-.step-icon { width: 18px; text-align: center; flex-shrink: 0; }
-
-/* ── OUTPUT DOCUMENT ── */
-.output-wrap { display: none; }
-.output-wrap.visible { display: block; }
-
-.doc-header {
-  background: var(--blue-corp);
-  color: #fff;
-  padding: 36px 48px 32px;
-  margin-bottom: 0;
-  position: relative;
-  overflow: hidden;
-}
-.doc-header::before {
-  content: '';
-  position: absolute;
-  top: 0; right: 0; bottom: 0;
-  width: 300px;
-  background: linear-gradient(135deg, transparent 40%, rgba(255,255,255,0.04) 100%);
-}
-.doc-type {
-  font-family: var(--mono);
-  font-size: 9px;
-  letter-spacing: 3px;
-  text-transform: uppercase;
-  color: rgba(255,255,255,0.5);
-  margin-bottom: 10px;
-}
-.doc-title {
-  font-family: var(--serif);
-  font-size: 30px;
-  font-weight: 700;
-  line-height: 1.2;
-  margin-bottom: 8px;
-}
-.doc-subtitle {
-  font-size: 13px;
-  color: rgba(255,255,255,0.65);
-  font-style: italic;
-  margin-bottom: 24px;
-}
-.doc-meta-grid {
-  display: grid;
-  grid-template-columns: repeat(4, 1fr);
-  gap: 1px;
-  background: rgba(255,255,255,0.1);
-  border-top: 1px solid rgba(255,255,255,0.15);
-  padding-top: 20px;
-}
-.doc-meta-item { padding: 0 20px 0 0; }
-.doc-meta-key {
-  font-family: var(--mono);
-  font-size: 8px;
-  letter-spacing: 2px;
-  text-transform: uppercase;
-  color: rgba(255,255,255,0.4);
-  display: block;
-  margin-bottom: 3px;
-}
-.doc-meta-val {
-  font-family: var(--mono);
-  font-size: 12px;
-  color: rgba(255,255,255,0.9);
-  display: block;
-}
-.doc-meta-val.gold { color: var(--gold-light); }
-
-.doc-body {
-  background: var(--paper);
-  border: 1px solid var(--rule);
-  border-top: none;
-  padding: 0;
-}
-
-/* SECTION */
-.doc-section {
-  border-bottom: 1px solid var(--rule);
-  padding: 32px 48px;
-}
-.doc-section:last-child { border-bottom: none; }
-.section-num {
-  font-family: var(--mono);
-  font-size: 9px;
-  letter-spacing: 2px;
-  text-transform: uppercase;
-  color: var(--ink-dim);
-  margin-bottom: 4px;
-}
-.section-title {
-  font-family: var(--serif);
-  font-size: 20px;
-  font-weight: 700;
-  color: var(--blue-corp);
-  margin-bottom: 20px;
-  padding-bottom: 12px;
-  border-bottom: 1px solid var(--rule);
-}
-.doc-content {
-  font-size: 13px;
-  line-height: 1.85;
-  color: var(--ink-mid);
-}
-.doc-content h4 {
-  font-family: var(--mono);
-  font-size: 10px;
-  font-weight: 600;
-  letter-spacing: 2px;
-  text-transform: uppercase;
-  color: var(--ink);
-  margin: 20px 0 8px;
-}
-.doc-content p { margin-bottom: 12px; }
-.doc-content ul, .doc-content ol {
-  margin: 8px 0 14px 20px;
-  display: flex;
-  flex-direction: column;
-  gap: 5px;
-}
-.doc-content li { line-height: 1.7; }
-.doc-content strong { color: var(--ink); font-weight: 600; }
-.doc-content em { color: var(--red); font-style: normal; font-weight: 500; }
-
-/* TABLE */
-.doc-table {
-  width: 100%;
-  border-collapse: collapse;
-  margin: 14px 0;
-  font-size: 12px;
-}
-.doc-table th {
-  background: var(--blue-corp);
-  color: #fff;
-  font-family: var(--mono);
-  font-size: 9px;
-  letter-spacing: 1.5px;
-  text-transform: uppercase;
-  padding: 9px 14px;
-  text-align: left;
-  font-weight: 500;
-}
-.doc-table td {
-  padding: 9px 14px;
-  border-bottom: 1px solid var(--rule);
-  vertical-align: top;
-  color: var(--ink-mid);
-  line-height: 1.6;
-}
-.doc-table tr:nth-child(even) td { background: var(--off); }
-.doc-table tr:hover td { background: var(--blue-light); }
-
-/* CALLOUT BOX */
-.callout {
-  border-left: 3px solid;
-  padding: 12px 16px;
-  margin: 16px 0;
-  font-size: 12px;
-  line-height: 1.7;
-}
-.callout.warning { border-color: var(--red); background: #fff5f5; color: var(--red); }
-.callout.note { border-color: var(--blue-corp); background: var(--blue-light); color: var(--blue-corp); }
-.callout.gold { border-color: var(--gold); background: #fffbee; color: var(--gold); }
-.callout-label {
-  font-family: var(--mono);
-  font-size: 9px;
-  font-weight: 600;
-  letter-spacing: 2px;
-  text-transform: uppercase;
-  display: block;
-  margin-bottom: 5px;
-}
-
-/* GRAPH NODE / EDGE BOXES */
-.graph-node {
-  display: inline-block;
-  padding: 3px 10px;
-  font-family: var(--mono);
-  font-size: 11px;
-  font-weight: 500;
-  border: 1px solid var(--blue-corp);
-  background: var(--blue-light);
-  color: var(--blue-corp);
-  margin: 2px;
-}
-.graph-edge {
-  display: inline-block;
-  padding: 2px 8px;
-  font-family: var(--mono);
-  font-size: 10px;
-  border: 1px solid var(--gold);
-  background: #fffbee;
-  color: var(--gold);
-  margin: 2px;
-}
-
-/* SIGNATURE BLOCK */
-.sig-block {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 40px;
-  margin-top: 24px;
-}
-.sig-party-name {
-  font-family: var(--serif);
-  font-size: 15px;
-  font-weight: 700;
-  color: var(--blue-corp);
-  margin-bottom: 3px;
-}
-.sig-party-role {
-  font-family: var(--mono);
-  font-size: 9px;
-  letter-spacing: 1.5px;
-  text-transform: uppercase;
-  color: var(--ink-dim);
-  margin-bottom: 20px;
-}
-.sig-line {
-  border-bottom: 1px solid var(--ink);
-  height: 40px;
-  margin-bottom: 4px;
-}
-.sig-label { font-family: var(--mono); font-size: 9px; color: var(--ink-dim); letter-spacing: 1px; }
-
-/* RISK BADGE */
-.risk { display: inline-block; padding: 1px 8px; font-family: var(--mono); font-size: 9px; font-weight: 600; letter-spacing: 1px; text-transform: uppercase; }
-.risk.high { background: #fff0f0; color: var(--red); border: 1px solid var(--red); }
-.risk.medium { background: #fffbee; color: var(--gold); border: 1px solid var(--gold); }
-.risk.low { background: #f0fff4; color: var(--green-check); border: 1px solid var(--green-check); }
-
-/* STREAMING CURSOR */
-.stream-cursor {
-  display: inline-block;
-  width: 2px;
-  height: 14px;
-  background: var(--blue-corp);
-  vertical-align: middle;
-  margin-left: 2px;
-  animation: blink-cursor 0.7s infinite;
-}
-@keyframes blink-cursor { 0%, 100% { opacity: 1; } 50% { opacity: 0; } }
-
-/* PRINT WATERMARK AREA */
-.doc-footer {
-  background: var(--off);
-  border-top: 1px solid var(--rule);
-  padding: 16px 48px;
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-}
-.doc-footer-left { font-family: var(--mono); font-size: 9px; color: var(--ink-dim); letter-spacing: 1px; line-height: 1.8; }
-.doc-footer-right { font-family: var(--mono); font-size: 9px; color: var(--ink-dim); text-align: right; line-height: 1.8; }
-.validity-stamp {
-  font-family: var(--serif);
-  font-size: 12px;
-  font-weight: 700;
-  color: var(--green-check);
-  border: 1px solid var(--green-check);
-  padding: 4px 14px;
-  transform: rotate(-2deg);
-  display: inline-block;
-}
-
-/* ACTIONS BAR */
-.actions-bar {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 16px 0;
-  margin-bottom: 8px;
-}
-.action-btn {
-  font-family: var(--mono);
-  font-size: 10px;
-  font-weight: 500;
-  letter-spacing: 1.5px;
-  text-transform: uppercase;
-  background: transparent;
-  border: 1px solid var(--rule-strong);
-  padding: 8px 18px;
-  cursor: pointer;
-  color: var(--ink-mid);
-  transition: all 0.15s;
-}
-.action-btn:hover { border-color: var(--blue-corp); color: var(--blue-corp); }
-.action-btn.primary { background: var(--blue-corp); color: #fff; border-color: var(--blue-corp); }
-.action-btn.primary:hover { background: var(--blue-mid); }
-
-/* ── RAW HTML MODAL ── */
-.raw-modal-overlay {
-  display: none;
-  position: fixed;
-  inset: 0;
-  background: rgba(10,10,15,0.75);
-  z-index: 9999;
-  align-items: center;
-  justify-content: center;
-  padding: 32px;
-}
-.raw-modal-overlay.visible { display: flex; }
-.raw-modal {
-  background: var(--ink);
-  border: 1px solid var(--rule-strong);
-  border-top: 3px solid var(--gold);
-  width: 100%;
-  max-width: 900px;
-  max-height: 85vh;
-  display: flex;
-  flex-direction: column;
-}
-.raw-modal-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 16px 24px;
-  border-bottom: 1px solid #333;
-  flex-shrink: 0;
-}
-.raw-modal-title {
-  font-family: var(--mono);
-  font-size: 10px;
-  font-weight: 600;
-  letter-spacing: 2.5px;
-  text-transform: uppercase;
-  color: var(--gold);
-}
-.raw-modal-close {
-  font-family: var(--mono);
-  font-size: 11px;
-  background: transparent;
-  border: 1px solid #444;
-  color: #999;
-  padding: 6px 14px;
-  cursor: pointer;
-  letter-spacing: 1px;
-  text-transform: uppercase;
-  transition: all 0.15s;
-}
-.raw-modal-close:hover { border-color: var(--red); color: var(--red); }
-.raw-modal-body {
-  overflow-y: auto;
-  flex: 1;
-  padding: 24px;
-}
-.raw-modal-body pre {
-  font-family: var(--mono);
-  font-size: 11px;
-  line-height: 1.7;
-  color: #c8c0b0;
-  white-space: pre-wrap;
-  word-break: break-all;
-  margin: 0;
-}
-.raw-modal-footer {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 12px 24px;
-  border-top: 1px solid #333;
-  flex-shrink: 0;
-}
-.raw-modal-info {
-  font-family: var(--mono);
-  font-size: 9px;
-  color: #555;
-  letter-spacing: 1px;
-}
-.raw-modal-copy {
-  font-family: var(--mono);
-  font-size: 10px;
-  font-weight: 600;
-  letter-spacing: 1.5px;
-  text-transform: uppercase;
-  background: var(--gold);
-  color: var(--ink);
-  border: none;
-  padding: 8px 20px;
-  cursor: pointer;
-  transition: opacity 0.15s;
-}
-.raw-modal-copy:hover { opacity: 0.85; }
-
-@media print {
-  .topbar, .input-form, .actions-bar, .progress-panel { display: none !important; }
-  body { background: white; }
-  .doc-header { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
-  .doc-section { page-break-inside: avoid; }
-  .doc-table   { page-break-inside: avoid; }
-  .callout     { page-break-inside: avoid; }
-  .sig-block   { page-break-inside: avoid; }
-}
-
-@media (max-width: 700px) {
-  .topbar { padding: 0 16px; font-size: 9px; }
-  .topbar-right { display: none; }
-  .site-header { grid-template-columns: 1fr; padding: 20px 20px 18px; gap: 16px; }
-  .brand-name { font-size: 32px; }
-  .header-badges { flex-direction: row; flex-wrap: wrap; align-items: flex-start; }
-  .main-wrap { padding: 20px 16px; }
-  .input-form { padding: 20px 18px; }
-  .form-grid { grid-template-columns: 1fr; gap: 16px; }
-  .form-group.full { grid-column: 1; }
-  .submit-row { flex-direction: column; gap: 16px; align-items: stretch; }
-  .submit-note { max-width: 100%; }
-  .submit-btn { justify-content: center; }
-  .actions-bar { flex-direction: column; gap: 10px; align-items: stretch; }
-  .actions-bar > div:last-child { display: flex; flex-wrap: wrap; gap: 8px; }
-  .action-btn { flex: 1 1 calc(50% - 4px); text-align: center; }
-  .doc-header { padding: 20px 20px 18px; }
-  .doc-title { font-size: 20px; }
-  .doc-meta-grid { grid-template-columns: 1fr 1fr; gap: 12px; }
-  .doc-section { padding: 20px 18px; }
-  .doc-table { display: block; overflow-x: auto; -webkit-overflow-scrolling: touch; }
-  .sig-block { grid-template-columns: 1fr; gap: 24px; }
-  .progress-panel { padding: 16px 18px; }
-  .doc-footer { flex-direction: column; gap: 12px; padding: 14px 18px; }
-  .doc-footer-right { text-align: left; }
-}
-</style>
-</head>
-<body>
-
-<!-- TOP BAR -->
-<div class="topbar">
-  <div class="topbar-left">
-    <span>PhiloSynth Pro™</span>
-    <span class="topbar-badge">Synthesis Engine v1.0</span>
-    <span>Платформа синтеза философских концепций · Claude-Powered</span>
-  </div>
-  <div class="topbar-right">Безопасная сессия · API-ключ хранится только в памяти вкладки</div>
-</div>
-
-<!-- SITE HEADER -->
-<div class="site-header">
-  <div>
-    <div class="brand-name">Philo<span>Synth</span></div>
-    <div class="brand-tagline">Система Синтеза Философских Концепций · Professional Grade</div>
-    <div class="brand-desc">
-      Платформа для автоматизированного синтеза, анализа и формализации философских концепций
-      на основе выбранных философских традиций. Генерация графов категорий, тезисов, диалогов,
-      исторической контекстуализации и критического анализа — в формате единого структурированного документа.
-    </div>
-  </div>
-  <div class="header-badges">
-    <div class="cert-badge gold">★ AI-POWERED SYNTHESIS</div>
-    <div class="cert-badge">MULTI-PASS GENERATION</div>
-    <div class="cert-badge">STREAMING OUTPUT</div>
-  </div>
-</div>
-
-<div class="main-wrap">
-
-  <!-- API KEY BLOCK -->
-  <div class="input-form" id="apiKeyBlock" style="border-top-color: var(--ink-dim); margin-bottom: 20px;">
-    <div class="form-section-title">Авторизация API</div>
-    <div class="form-grid" style="grid-template-columns: 1fr auto; align-items: end;">
-      <div class="form-group">
-        <div class="form-label">Ключ Anthropic API</div>
-        <div class="form-sublabel">Вводится однократно за сессию. Не сохраняется нигде, кроме памяти вкладки.</div>
-        <input class="form-input" id="apiKeyInput" type="password" placeholder="sk-ant-api03-..." autocomplete="off">
+      @media print {
+        .topbar,
+        .input-form,
+        .actions-bar,
+        .progress-panel {
+          display: none !important;
+        }
+        body {
+          background: #fff;
+        }
+        .doc-header {
+          -webkit-print-color-adjust: exact;
+          print-color-adjust: exact;
+        }
+        .doc-section {
+          page-break-inside: avoid;
+        }
+      }
+      @media (max-width: 700px) {
+        .topbar {
+          padding: 0 16px;
+          font-size: 9px;
+        }
+        .topbar-right {
+          display: none;
+        }
+        .site-header {
+          grid-template-columns: 1fr;
+          padding: 20px;
+          gap: 16px;
+        }
+        .brand-name {
+          font-size: 32px;
+        }
+        .main-wrap {
+          padding: 20px 16px;
+        }
+        .input-form {
+          padding: 20px 18px;
+        }
+        .form-grid {
+          grid-template-columns: 1fr;
+          gap: 16px;
+        }
+        .form-group.full {
+          grid-column: 1;
+        }
+        .submit-row {
+          flex-direction: column;
+          gap: 16px;
+          align-items: stretch;
+        }
+        .doc-header {
+          padding: 20px;
+        }
+        .doc-title {
+          font-size: 20px;
+        }
+        .doc-meta-grid {
+          grid-template-columns: 1fr 1fr;
+          gap: 12px;
+        }
+        .doc-section {
+          padding: 20px 18px;
+        }
+        .doc-table {
+          display: block;
+          overflow-x: auto;
+        }
+        .sig-block {
+          grid-template-columns: 1fr;
+          gap: 24px;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="topbar">
+      <div class="topbar-left">
+        <span>PhiloSynth Pro™</span>
+        <span class="topbar-badge">Synthesis Engine v1.0</span>
+        <span>Claude-Powered · 3D/2D Graph</span>
       </div>
-      <div class="form-group" style="flex-shrink:0;">
-        <button class="submit-btn" style="padding:10px 24px;" onclick="setApiKey()">
-          <span>Сохранить ключ</span>
-        </button>
-      </div>
+      <div class="topbar-right">API-ключ хранится только в памяти вкладки</div>
     </div>
-    <div id="apiKeyStatus" style="font-family:var(--mono);font-size:10px;margin-top:10px;color:var(--ink-dim);">
-      Ключ не введён
-    </div>
-  </div>
 
-  <!-- INPUT FORM -->
-  <div class="input-form">
-    <div class="form-section-title">§ 0 — Параметры Синтеза Концепции</div>
-
-    <div class="form-grid">
-
-      <!-- Seed idea -->
-      <div class="form-group full">
-        <div class="form-label">Зерно Концепции</div>
-        <div class="form-sublabel">Опишите идею, тему или набор тезисов, вокруг которых строится синтез. Система выстроит концепцию на основе выбранных философов и традиций.</div>
-        <textarea class="form-textarea" id="seedInput" placeholder='Например: «Синтез понимания сознания через призму феноменологии и аналитической философии» или «Новая этическая система, объединяющая стоицизм и экзистенциализм» или просто набор тезисов...'></textarea>
-      </div>
-
-      <!-- Philosophers -->
-      <div class="form-group full">
-        <div class="form-label">Философы для Синтеза</div>
-        <div class="form-sublabel">Выберите философов, чьи идеи станут основой. Рекомендуется 2–5 для лучшего результата.</div>
-        <div class="checkboxes-row" id="philCheckboxes">
-          <div class="phil-group-label">Античность</div>
-          <label class="checkbox-item"><input type="checkbox" value="Платон"> Платон</label>
-          <label class="checkbox-item"><input type="checkbox" value="Аристотель"> Аристотель</label>
-          <label class="checkbox-item"><input type="checkbox" value="Эпикур"> Эпикур</label>
-          <label class="checkbox-item"><input type="checkbox" value="Марк Аврелий"> Марк Аврелий</label>
-          <label class="checkbox-item"><input type="checkbox" value="Плотин"> Плотин</label>
-
-          <div class="phil-group-label">Новое Время</div>
-          <label class="checkbox-item"><input type="checkbox" value="Декарт"> Декарт</label>
-          <label class="checkbox-item"><input type="checkbox" value="Спиноза"> Спиноза</label>
-          <label class="checkbox-item"><input type="checkbox" value="Лейбниц"> Лейбниц</label>
-          <label class="checkbox-item"><input type="checkbox" value="Локк"> Локк</label>
-          <label class="checkbox-item"><input type="checkbox" value="Юм"> Юм</label>
-
-          <div class="phil-group-label">Немецкая Классика</div>
-          <label class="checkbox-item"><input type="checkbox" value="Кант"> Кант</label>
-          <label class="checkbox-item"><input type="checkbox" value="Гегель"> Гегель</label>
-          <label class="checkbox-item"><input type="checkbox" value="Шопенгауэр"> Шопенгауэр</label>
-          <label class="checkbox-item"><input type="checkbox" value="Фихте"> Фихте</label>
-          <label class="checkbox-item"><input type="checkbox" value="Шеллинг"> Шеллинг</label>
-
-          <div class="phil-group-label">XIX–XX Век</div>
-          <label class="checkbox-item"><input type="checkbox" value="Ницше"> Ницше</label>
-          <label class="checkbox-item"><input type="checkbox" value="Маркс"> Маркс</label>
-          <label class="checkbox-item"><input type="checkbox" value="Кьеркегор"> Кьеркегор</label>
-          <label class="checkbox-item"><input type="checkbox" value="Гуссерль"> Гуссерль</label>
-          <label class="checkbox-item"><input type="checkbox" value="Хайдеггер"> Хайдеггер</label>
-          <label class="checkbox-item"><input type="checkbox" value="Сартр"> Сартр</label>
-          <label class="checkbox-item"><input type="checkbox" value="Витгенштейн"> Витгенштейн</label>
-          <label class="checkbox-item"><input type="checkbox" value="Камю"> Камю</label>
-
-          <div class="phil-group-label">Современность</div>
-          <label class="checkbox-item"><input type="checkbox" value="Делёз"> Делёз</label>
-          <label class="checkbox-item"><input type="checkbox" value="Деррида"> Деррида</label>
-          <label class="checkbox-item"><input type="checkbox" value="Фуко"> Фуко</label>
-          <label class="checkbox-item"><input type="checkbox" value="Хабермас"> Хабермас</label>
-          <label class="checkbox-item"><input type="checkbox" value="Рорти"> Рорти</label>
-          <label class="checkbox-item"><input type="checkbox" value="Жижек"> Жижек</label>
-
-          <div class="phil-group-label">Восточная Философия</div>
-          <label class="checkbox-item"><input type="checkbox" value="Конфуций"> Конфуций</label>
-          <label class="checkbox-item"><input type="checkbox" value="Лао-цзы"> Лао-цзы</label>
-          <label class="checkbox-item"><input type="checkbox" value="Нагарджуна"> Нагарджуна</label>
-
-          <div class="phil-group-label">Русская Философия</div>
-          <label class="checkbox-item"><input type="checkbox" value="Бердяев"> Бердяев</label>
-          <label class="checkbox-item"><input type="checkbox" value="Соловьёв"> Соловьёв</label>
-          <label class="checkbox-item"><input type="checkbox" value="Лосев"> Лосев</label>
+    <div class="site-header">
+      <div>
+        <div class="brand-name">
+          Philo
+          <span>Synth</span>
+        </div>
+        <div class="brand-tagline">Система Синтеза Философских Концепций · Professional Grade</div>
+        <div class="brand-desc">
+          Платформа синтеза, анализа и формализации философских концепций. Генерация графов с
+          интерактивной 3D/2D-визуализацией, тезисов, диалогов, исторической контекстуализации и
+          критического анализа.
         </div>
       </div>
-
-      <!-- Method and Depth -->
-      <div class="form-group">
-        <div class="form-label">Метод Синтеза</div>
-        <div class="form-sublabel">Стратегия объединения идей выбранных философов.</div>
-        <select class="form-select" id="synthesisMethod">
-          <option value="dialectical">Диалектический (тезис → антитезис → синтез)</option>
-          <option value="integrative">Интегративный (поиск общих оснований)</option>
-          <option value="deconstructive">Деконструктивный (разбор и пересборка)</option>
-          <option value="hermeneutical">Герменевтический (интерпретация и горизонт)</option>
-          <option value="analytical">Аналитический (формализация и уточнение)</option>
-          <option value="creative">Творческий (свободная комбинаторика)</option>
-        </select>
-      </div>
-
-      <div class="form-group">
-        <div class="form-label">Глубина Проработки</div>
-        <div class="form-sublabel">Влияет на объём и детализацию каждого раздела.</div>
-        <select class="form-select" id="depthLevel">
-          <option value="overview">Обзорная (компактный документ)</option>
-          <option value="standard" selected>Стандартная (развёрнутый анализ)</option>
-          <option value="deep">Глубокая (академический уровень)</option>
-          <option value="exhaustive">Исчерпывающая (монография)</option>
-        </select>
-      </div>
-
-      <!-- Additional context -->
-      <div class="form-group full">
-        <div class="form-label">Дополнительный Контекст</div>
-        <div class="form-sublabel">Опционально. Любые уточнения, ограничения, фокус внимания.</div>
-        <textarea class="form-textarea" id="contextInput" style="height:60px;" placeholder="Например: фокус на этике, игнорировать метафизику, интересует применимость к образованию, сравнить с буддийской традицией..."></textarea>
-      </div>
-
-      <!-- Sections to include -->
-      <div class="form-group full">
-        <div class="form-label">Разделы Документа</div>
-        <div class="form-sublabel">Выберите, какие разделы включить в итоговый документ.</div>
-        <div class="checkboxes-row">
-          <label class="checkbox-item"><input type="checkbox" id="secGraph" checked> Граф категорий</label>
-          <label class="checkbox-item"><input type="checkbox" id="secGlossary" checked> Глоссарий терминов</label>
-          <label class="checkbox-item"><input type="checkbox" id="secTheses" checked> Корпус тезисов</label>
-          <label class="checkbox-item"><input type="checkbox" id="secHistory" checked> Историческая контекстуализация</label>
-          <label class="checkbox-item"><input type="checkbox" id="secName" checked> Анализ названия</label>
-          <label class="checkbox-item"><input type="checkbox" id="secPractical"> Практическое применение</label>
-          <label class="checkbox-item"><input type="checkbox" id="secDialogue"> Диалог между традициями</label>
-          <label class="checkbox-item"><input type="checkbox" id="secEvolution"> Эволюция и перспективы</label>
-          <label class="checkbox-item"><input type="checkbox" id="secCritique" checked> Критический анализ</label>
-          <label class="checkbox-item"><input type="checkbox" id="secOrigin"> Анализ происхождения</label>
-        </div>
-      </div>
-
-    </div>
-
-    <div class="submit-row">
-      <div class="submit-note">
-        Генерация документа выполняется в несколько проходов с потоковым выводом.
-        Каждый проход — отдельный запрос к Claude API. Полный документ может занять 2–5 минут
-        в зависимости от глубины и количества выбранных разделов.
-      </div>
-      <button class="submit-btn" id="submitBtn" onclick="generateDoc()">
-        <div class="spinner" id="btnSpinner"></div>
-        <span id="btnText">Синтезировать Концепцию</span>
-      </button>
-    </div>
-  </div>
-
-  <!-- PROGRESS PANEL -->
-  <div class="progress-panel" id="progressPanel">
-    <div class="progress-title">⚙ Синтез Философской Концепции — В Процессе</div>
-    <div class="progress-steps" id="progressSteps"></div>
-  </div>
-
-  <!-- OUTPUT -->
-  <div class="output-wrap" id="outputWrap">
-    <div class="actions-bar">
-      <div style="font-family:var(--mono);font-size:10px;color:var(--ink-dim);letter-spacing:1px;">
-        ДОКУМЕНТ СГЕНЕРИРОВАН
-      </div>
-      <div style="display:flex;gap:8px;">
-        <button class="action-btn" onclick="window.print()">Распечатать</button>
-        <button class="action-btn" onclick="viewRawHTML()">Raw HTML</button>
-        <button class="action-btn" onclick="saveHTML()">Сохранить HTML</button>
-        <button class="action-btn" onclick="resetForm()">Новый Синтез</button>
-        <button class="action-btn primary" onclick="copyDoc()">Скопировать</button>
+      <div class="header-badges">
+        <div class="cert-badge gold">★ AI-POWERED SYNTHESIS</div>
+        <div class="cert-badge">THREE.JS + D3.JS GRAPH</div>
+        <div class="cert-badge">STREAMING OUTPUT</div>
       </div>
     </div>
 
-    <!-- DOCUMENT -->
-    <div id="docOutput">
-      <div class="doc-header">
-        <div class="doc-type">PhiloSynth Pro™ · Синтез Философской Концепции</div>
-        <div class="doc-title" id="docTitle">Синтез Философской Концепции</div>
-        <div class="doc-subtitle" id="docSubtitle">—</div>
-        <div class="doc-meta-grid">
-          <div class="doc-meta-item">
-            <span class="doc-meta-key">Документ №</span>
-            <span class="doc-meta-val" id="docNum">—</span>
+    <div class="main-wrap">
+      <!-- API KEY -->
+      <div
+        class="input-form"
+        id="apiKeyBlock"
+        style="border-top-color: var(--ink-dim); margin-bottom: 20px"
+      >
+        <div class="form-section-title">Авторизация API</div>
+        <div class="form-grid" style="grid-template-columns: 1fr auto; align-items: end">
+          <div class="form-group">
+            <div class="form-label">Ключ Anthropic API</div>
+            <div class="form-sublabel">
+              Однократно за сессию. Не сохраняется нигде, кроме памяти вкладки.
+            </div>
+            <input
+              class="form-input"
+              id="apiKeyInput"
+              type="password"
+              placeholder="sk-ant-api03-..."
+              autocomplete="off"
+            />
           </div>
-          <div class="doc-meta-item">
-            <span class="doc-meta-key">Дата составления</span>
-            <span class="doc-meta-val" id="docDate">—</span>
+          <div class="form-group" style="flex-shrink: 0">
+            <button class="submit-btn" style="padding: 10px 24px" onclick="setApiKey()">
+              <span>Сохранить</span>
+            </button>
           </div>
-          <div class="doc-meta-item">
-            <span class="doc-meta-key">Метод синтеза</span>
-            <span class="doc-meta-val gold" id="docMethod">—</span>
-          </div>
-          <div class="doc-meta-item">
-            <span class="doc-meta-key">Глубина</span>
-            <span class="doc-meta-val gold" id="docDepth">—</span>
-          </div>
+        </div>
+        <div
+          id="apiKeyStatus"
+          style="font-family: var(--mono); font-size: 10px; margin-top: 10px; color: var(--ink-dim)"
+        >
+          Ключ не введён
         </div>
       </div>
 
-      <div id="docBodies"></div>
+      <!-- INPUT FORM -->
+      <div class="input-form">
+        <div class="form-section-title">§ 0 — Параметры Синтеза</div>
+        <div class="form-grid">
+          <div class="form-group full">
+            <div class="form-label">Зерно Концепции</div>
+            <div class="form-sublabel">
+              Идея, тема или набор тезисов. Система выстроит концепцию на основе выбранных
+              философов.
+            </div>
+            <textarea
+              class="form-textarea"
+              id="seedInput"
+              placeholder="«Синтез понимания сознания через призму феноменологии и аналитической философии»..."
+            ></textarea>
+          </div>
 
-      <div class="doc-footer" id="docFooter" style="display:none;">
-        <div class="doc-footer-left">
-          PhiloSynth Pro™ · v1.0<br>
-          Документ сгенерирован на основе анализа ИИ (Claude)<br>
-          Сессия: <span id="sessionId">—</span>
+          <div class="form-group full">
+            <div class="form-label">Философы для Синтеза</div>
+            <div class="form-sublabel">Рекомендуется 2–5. Полный каталог по эпохам.</div>
+            <div class="checkboxes-row" id="philBox">
+              <div class="phil-group-label">Досократики и Античность</div>
+              <label class="checkbox-item">
+                <input type="checkbox" value="Пифагор" />
+                Пифагор
+              </label>
+              <label class="checkbox-item">
+                <input type="checkbox" value="Гераклит" />
+                Гераклит
+              </label>
+              <label class="checkbox-item">
+                <input type="checkbox" value="Парменид" />
+                Парменид
+              </label>
+              <label class="checkbox-item">
+                <input type="checkbox" value="Сократ" />
+                Сократ
+              </label>
+              <label class="checkbox-item">
+                <input type="checkbox" value="Платон" />
+                Платон
+              </label>
+              <label class="checkbox-item">
+                <input type="checkbox" value="Аристотель" />
+                Аристотель
+              </label>
+              <label class="checkbox-item">
+                <input type="checkbox" value="Эпикур" />
+                Эпикур
+              </label>
+              <label class="checkbox-item">
+                <input type="checkbox" value="Марк Аврелий" />
+                Марк Аврелий
+              </label>
+              <label class="checkbox-item">
+                <input type="checkbox" value="Плотин" />
+                Плотин
+              </label>
+              <div class="phil-group-label">Средневековье</div>
+              <label class="checkbox-item">
+                <input type="checkbox" value="Августин" />
+                Августин
+              </label>
+              <label class="checkbox-item">
+                <input type="checkbox" value="Ансельм Кентерберийский" />
+                Ансельм
+              </label>
+              <label class="checkbox-item">
+                <input type="checkbox" value="Фома Аквинский" />
+                Фома Аквинский
+              </label>
+              <label class="checkbox-item">
+                <input type="checkbox" value="Дунс Скот" />
+                Дунс Скот
+              </label>
+              <label class="checkbox-item">
+                <input type="checkbox" value="Николай Кузанский" />
+                Николай Кузанский
+              </label>
+              <div class="phil-group-label">Новое Время (XVII–XVIII)</div>
+              <label class="checkbox-item">
+                <input type="checkbox" value="Фрэнсис Бэкон" />
+                Бэкон
+              </label>
+              <label class="checkbox-item">
+                <input type="checkbox" value="Декарт" />
+                Декарт
+              </label>
+              <label class="checkbox-item">
+                <input type="checkbox" value="Спиноза" />
+                Спиноза
+              </label>
+              <label class="checkbox-item">
+                <input type="checkbox" value="Локк" />
+                Локк
+              </label>
+              <label class="checkbox-item">
+                <input type="checkbox" value="Лейбниц" />
+                Лейбниц
+              </label>
+              <label class="checkbox-item">
+                <input type="checkbox" value="Беркли" />
+                Беркли
+              </label>
+              <label class="checkbox-item">
+                <input type="checkbox" value="Юм" />
+                Юм
+              </label>
+              <label class="checkbox-item">
+                <input type="checkbox" value="Руссо" />
+                Руссо
+              </label>
+              <div class="phil-group-label">Немецкая Классика</div>
+              <label class="checkbox-item">
+                <input type="checkbox" value="Кант" />
+                Кант
+              </label>
+              <label class="checkbox-item">
+                <input type="checkbox" value="Фихте" />
+                Фихте
+              </label>
+              <label class="checkbox-item">
+                <input type="checkbox" value="Шеллинг" />
+                Шеллинг
+              </label>
+              <label class="checkbox-item">
+                <input type="checkbox" value="Гегель" />
+                Гегель
+              </label>
+              <label class="checkbox-item">
+                <input type="checkbox" value="Шопенгауэр" />
+                Шопенгауэр
+              </label>
+              <div class="phil-group-label">XIX Век</div>
+              <label class="checkbox-item">
+                <input type="checkbox" value="Огюст Конт" />
+                Конт
+              </label>
+              <label class="checkbox-item">
+                <input type="checkbox" value="Кьеркегор" />
+                Кьеркегор
+              </label>
+              <label class="checkbox-item">
+                <input type="checkbox" value="Маркс" />
+                Маркс
+              </label>
+              <label class="checkbox-item">
+                <input type="checkbox" value="Дильтей" />
+                Дильтей
+              </label>
+              <label class="checkbox-item">
+                <input type="checkbox" value="Брентано" />
+                Брентано
+              </label>
+              <label class="checkbox-item">
+                <input type="checkbox" value="Пирс" />
+                Пирс
+              </label>
+              <label class="checkbox-item">
+                <input type="checkbox" value="Ницше" />
+                Ницше
+              </label>
+              <div class="phil-group-label">Рубеж XIX–XX</div>
+              <label class="checkbox-item">
+                <input type="checkbox" value="Фреге" />
+                Фреге
+              </label>
+              <label class="checkbox-item">
+                <input type="checkbox" value="Мейнонг" />
+                Мейнонг
+              </label>
+              <label class="checkbox-item">
+                <input type="checkbox" value="Фрейд" />
+                Фрейд
+              </label>
+              <label class="checkbox-item">
+                <input type="checkbox" value="Гуссерль" />
+                Гуссерль
+              </label>
+              <label class="checkbox-item">
+                <input type="checkbox" value="Бергсон" />
+                Бергсон
+              </label>
+              <label class="checkbox-item">
+                <input type="checkbox" value="Дьюи" />
+                Дьюи
+              </label>
+              <label class="checkbox-item">
+                <input type="checkbox" value="Уайтхед" />
+                Уайтхед
+              </label>
+              <label class="checkbox-item">
+                <input type="checkbox" value="Рассел" />
+                Рассел
+              </label>
+              <label class="checkbox-item">
+                <input type="checkbox" value="Кассирер" />
+                Кассирер
+              </label>
+              <div class="phil-group-label">XX Век (первая половина)</div>
+              <label class="checkbox-item">
+                <input type="checkbox" value="Витгенштейн" />
+                Витгенштейн
+              </label>
+              <label class="checkbox-item">
+                <input type="checkbox" value="Хайдеггер" />
+                Хайдеггер
+              </label>
+              <label class="checkbox-item">
+                <input type="checkbox" value="Карнап" />
+                Карнап
+              </label>
+              <label class="checkbox-item">
+                <input type="checkbox" value="Батай" />
+                Батай
+              </label>
+              <label class="checkbox-item">
+                <input type="checkbox" value="Гадамер" />
+                Гадамер
+              </label>
+              <label class="checkbox-item">
+                <input type="checkbox" value="Лакан" />
+                Лакан
+              </label>
+              <label class="checkbox-item">
+                <input type="checkbox" value="Адорно" />
+                Адорно
+              </label>
+              <label class="checkbox-item">
+                <input type="checkbox" value="Сартр" />
+                Сартр
+              </label>
+              <label class="checkbox-item">
+                <input type="checkbox" value="Левинас" />
+                Левинас
+              </label>
+              <label class="checkbox-item">
+                <input type="checkbox" value="Мерло-Понти" />
+                Мерло-Понти
+              </label>
+              <label class="checkbox-item">
+                <input type="checkbox" value="Куайн" />
+                Куайн
+              </label>
+              <label class="checkbox-item">
+                <input type="checkbox" value="Камю" />
+                Камю
+              </label>
+              <div class="phil-group-label">Современность</div>
+              <label class="checkbox-item">
+                <input type="checkbox" value="Делёз" />
+                Делёз
+              </label>
+              <label class="checkbox-item">
+                <input type="checkbox" value="Фуко" />
+                Фуко
+              </label>
+              <label class="checkbox-item">
+                <input type="checkbox" value="Деррида" />
+                Деррида
+              </label>
+              <label class="checkbox-item">
+                <input type="checkbox" value="Рорти" />
+                Рорти
+              </label>
+              <label class="checkbox-item">
+                <input type="checkbox" value="Хабермас" />
+                Хабермас
+              </label>
+              <label class="checkbox-item">
+                <input type="checkbox" value="Жижек" />
+                Жижек
+              </label>
+              <div class="phil-group-label">Восточная</div>
+              <label class="checkbox-item">
+                <input type="checkbox" value="Конфуций" />
+                Конфуций
+              </label>
+              <label class="checkbox-item">
+                <input type="checkbox" value="Лао-цзы" />
+                Лао-цзы
+              </label>
+              <label class="checkbox-item">
+                <input type="checkbox" value="Нагарджуна" />
+                Нагарджуна
+              </label>
+              <div class="phil-group-label">Русская</div>
+              <label class="checkbox-item">
+                <input type="checkbox" value="Соловьёв" />
+                Соловьёв
+              </label>
+              <label class="checkbox-item">
+                <input type="checkbox" value="Бердяев" />
+                Бердяев
+              </label>
+              <label class="checkbox-item">
+                <input type="checkbox" value="Лосев" />
+                Лосев
+              </label>
+            </div>
+          </div>
+
+          <div class="form-group">
+            <div class="form-label">Метод Синтеза</div>
+            <select class="form-select" id="synthesisMethod">
+              <option value="dialectical">Диалектический</option>
+              <option value="integrative">Интегративный</option>
+              <option value="deconstructive">Деконструктивный</option>
+              <option value="hermeneutical">Герменевтический</option>
+              <option value="analytical">Аналитический</option>
+              <option value="creative">Творческий</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <div class="form-label">Глубина</div>
+            <select class="form-select" id="depthLevel">
+              <option value="overview">Обзорная</option>
+              <option value="standard" selected>Стандартная</option>
+              <option value="deep">Глубокая</option>
+              <option value="exhaustive">Исчерпывающая</option>
+            </select>
+          </div>
+          <div class="form-group full">
+            <div class="form-label">Дополнительный Контекст</div>
+            <textarea
+              class="form-textarea"
+              id="contextInput"
+              style="height: 60px"
+              placeholder="Фокус, ограничения, пожелания..."
+            ></textarea>
+          </div>
+          <div class="form-group full">
+            <div class="form-label">Разделы Документа</div>
+            <div class="checkboxes-row">
+              <label class="checkbox-item">
+                <input type="checkbox" id="secGraph" checked />
+                Граф + 3D/2D
+              </label>
+              <label class="checkbox-item">
+                <input type="checkbox" id="secGlossary" checked />
+                Глоссарий
+              </label>
+              <label class="checkbox-item">
+                <input type="checkbox" id="secTheses" checked />
+                Тезисы
+              </label>
+              <label class="checkbox-item">
+                <input type="checkbox" id="secHistory" checked />
+                История
+              </label>
+              <label class="checkbox-item">
+                <input type="checkbox" id="secName" checked />
+                Название
+              </label>
+              <label class="checkbox-item">
+                <input type="checkbox" id="secPractical" />
+                Практика
+              </label>
+              <label class="checkbox-item">
+                <input type="checkbox" id="secDialogue" />
+                Диалог
+              </label>
+              <label class="checkbox-item">
+                <input type="checkbox" id="secEvolution" />
+                Эволюция
+              </label>
+              <label class="checkbox-item">
+                <input type="checkbox" id="secCritique" checked />
+                Критика
+              </label>
+              <label class="checkbox-item">
+                <input type="checkbox" id="secOrigin" />
+                Происхождение
+              </label>
+            </div>
+          </div>
         </div>
-        <div class="doc-footer-right">
-          <div class="validity-stamp">СИНТЕЗ ЗАВЕРШЁН</div><br>
-          Философы: <span id="footerPhilosophers">—</span>
+        <div class="submit-row">
+          <div class="submit-note">
+            Генерация выполняется в несколько проходов с потоковым выводом. 2–5 минут.
+          </div>
+          <button class="submit-btn" id="submitBtn" onclick="generateDoc()">
+            <div class="spinner" id="btnSpinner"></div>
+            <span id="btnText">Синтезировать</span>
+          </button>
+        </div>
+      </div>
+
+      <div class="progress-panel" id="progressPanel">
+        <div class="progress-title">⚙ Синтез — В Процессе</div>
+        <div class="progress-steps" id="progressSteps"></div>
+      </div>
+
+      <div class="output-wrap" id="outputWrap">
+        <div class="actions-bar">
+          <div
+            style="
+              font-family: var(--mono);
+              font-size: 10px;
+              color: var(--ink-dim);
+              letter-spacing: 1px;
+            "
+          >
+            ДОКУМЕНТ СГЕНЕРИРОВАН
+          </div>
+          <div class="actions-bar-btns">
+            <button
+              class="action-btn gold-btn"
+              id="btnGraph"
+              onclick="openGraph()"
+              style="display: none"
+            >
+              3D/2D Граф
+            </button>
+            <button class="action-btn" onclick="window.print()">Печать</button>
+            <button class="action-btn" onclick="viewRawHTML()">Raw HTML</button>
+            <button class="action-btn" onclick="saveHTML()">HTML</button>
+            <button class="action-btn" onclick="saveMD()">MD</button>
+            <button class="action-btn" onclick="resetForm()">Новый</button>
+            <button class="action-btn primary" onclick="copyDoc()">Копировать</button>
+          </div>
+        </div>
+        <div id="docOutput">
+          <div class="doc-header">
+            <div class="doc-type">PhiloSynth Pro™ · Синтез Философской Концепции</div>
+            <div class="doc-title" id="docTitle">Синтез Философской Концепции</div>
+            <div class="doc-subtitle" id="docSubtitle">—</div>
+            <div class="doc-meta-grid">
+              <div class="doc-meta-item">
+                <span class="doc-meta-key">Документ №</span>
+                <span class="doc-meta-val" id="docNum">—</span>
+              </div>
+              <div class="doc-meta-item">
+                <span class="doc-meta-key">Дата</span>
+                <span class="doc-meta-val" id="docDate">—</span>
+              </div>
+              <div class="doc-meta-item">
+                <span class="doc-meta-key">Метод</span>
+                <span class="doc-meta-val gold" id="docMethod">—</span>
+              </div>
+              <div class="doc-meta-item">
+                <span class="doc-meta-key">Глубина</span>
+                <span class="doc-meta-val gold" id="docDepth">—</span>
+              </div>
+            </div>
+          </div>
+          <div id="docBodies"></div>
+          <div class="doc-footer" id="docFooter" style="display: none">
+            <div class="doc-footer-left">
+              PhiloSynth Pro™ v1.0
+              <br />
+              Сессия:
+              <span id="sessionId">—</span>
+            </div>
+            <div class="doc-footer-right">
+              <div class="validity-stamp">СИНТЕЗ ЗАВЕРШЁН</div>
+              <br />
+              <span id="footerPhil">—</span>
+            </div>
+          </div>
         </div>
       </div>
     </div>
-  </div>
 
-</div>
-
-<!-- RAW HTML MODAL -->
-<div class="raw-modal-overlay" id="rawModalOverlay" onclick="if(event.target===this)closeRawHTML()">
-  <div class="raw-modal">
-    <div class="raw-modal-header">
-      <div class="raw-modal-title">⟨/⟩ Raw HTML</div>
-      <button class="raw-modal-close" onclick="closeRawHTML()">✕ Закрыть</button>
+    <!-- GRAPH MODAL -->
+    <div class="gm-overlay" id="gmOverlay">
+      <div class="gm-header">
+        <div class="gm-title">◈ Граф Категорий</div>
+        <div class="gm-actions">
+          <div class="gm-tabs">
+            <button class="gm-btn active" id="tab3d" onclick="switchView('3d')">3D</button>
+            <button class="gm-btn" id="tab2d" onclick="switchView('2d')">2D</button>
+          </div>
+          <button class="gm-btn gold" onclick="exportMMD()">↓ .mmd</button>
+          <button class="gm-btn close" onclick="closeGraph()">✕</button>
+        </div>
+      </div>
+      <div class="gm-body" id="gmBody">
+        <div class="gm-view active" id="view3d"></div>
+        <div class="gm-view" id="view2d"></div>
+        <div class="gm-hint" id="gmHint">Вращение: мышь · Зум: колёсико · Перетаскивание узлов</div>
+        <div class="gm-legend" id="gmLegend"></div>
+      </div>
     </div>
-    <div class="raw-modal-body">
-      <pre id="rawHTMLContent"></pre>
+
+    <!-- RAW MODAL -->
+    <div class="raw-overlay" id="rawOverlay" onclick="if (event.target === this) closeRaw();">
+      <div class="raw-modal">
+        <div class="raw-modal-header">
+          <div class="raw-modal-title">⟨/⟩ Raw HTML</div>
+          <button class="raw-close" onclick="closeRaw()">✕</button>
+        </div>
+        <div class="raw-modal-body"><pre id="rawContent"></pre></div>
+        <div class="raw-modal-footer">
+          <div class="raw-info" id="rawInfo">—</div>
+          <button class="raw-copy" onclick="copyRaw()">Копировать</button>
+        </div>
+      </div>
     </div>
-    <div class="raw-modal-footer">
-      <div class="raw-modal-info" id="rawModalInfo">—</div>
-      <button class="raw-modal-copy" onclick="copyRawHTML()">Скопировать HTML</button>
-    </div>
-  </div>
-</div>
 
-<script>
-// ══════════════════════════════════════════════
-// STATE
-// ══════════════════════════════════════════════
-let ANTHROPIC_API_KEY = '';
+    <script>
+      // ════════════════════════════════════════
+      // STATE
+      // ════════════════════════════════════════
+      let API_KEY = "",
+        G = { nodes: [], edges: [] },
+        graphBodyIdx = -1,
+        anim3d = null,
+        renderer3d = null;
+      const ML = {
+        dialectical: "Диалектический",
+        integrative: "Интегративный",
+        deconstructive: "Деконструктивный",
+        hermeneutical: "Герменевтический",
+        analytical: "Аналитический",
+        creative: "Творческий",
+      };
+      const MD = {
+        dialectical:
+          "Движение от тезиса к антитезису и к синтезу — обнаружение внутренних противоречий между традициями и их снятие в новом единстве",
+        integrative:
+          "Поиск общих оснований, скрытых точек пересечения и взаимодополняющих элементов между выбранными традициями",
+        deconstructive:
+          "Разбор базовых предпосылок каждой традиции, обнаружение скрытых допущений и пересборка из очищенных элементов",
+        hermeneutical:
+          "Погружение в горизонт понимания каждой традиции и расширение собственного горизонта через слияние перспектив",
+        analytical:
+          "Формализация ключевых положений, выявление логической структуры и построение непротиворечивого синтеза",
+        creative:
+          "Свободная комбинаторика идей с упором на оригинальность, неожиданные связи и порождающий потенциал",
+      };
+      const DL = {
+        overview: "Обзорная",
+        standard: "Стандартная",
+        deep: "Глубокая",
+        exhaustive: "Исчерпывающая",
+      };
+      const TC = {
+        онтологическ: 0x4a90d9,
+        эпистемологическ: 0x50c878,
+        этическ: 0xe8a838,
+        аксиологическ: 0xe8a838,
+        метафизическ: 0x9b59b6,
+        логическ: 0x1abc9c,
+        практическ: 0xe67e22,
+        эстетическ: 0xe91e63,
+        антропологическ: 0xf39c12,
+        феноменологическ: 0x8e44ad,
+        экзистенциальн: 0xc0392b,
+        социальн: 0x27ae60,
+        политическ: 0x2980b9,
+        теологическ: 0x7f8c8d,
+      };
+      function typeColor(t) {
+        for (const [k, v] of Object.entries(TC)) if (t && t.includes(k)) return v;
+        return 0x95a5a6;
+      }
+      function typeColorHex(t) {
+        return "#" + typeColor(t).toString(16).padStart(6, "0");
+      }
 
-const METHOD_LABELS = {
-  dialectical: 'Диалектический',
-  integrative: 'Интегративный',
-  deconstructive: 'Деконструктивный',
-  hermeneutical: 'Герменевтический',
-  analytical: 'Аналитический',
-  creative: 'Творческий'
-};
+      // ════════════════════════════════════════
+      // API KEY
+      // ════════════════════════════════════════
+      function setApiKey() {
+        const v = document.getElementById("apiKeyInput").value.trim();
+        if (!v.startsWith("sk-ant-")) {
+          document.getElementById("apiKeyStatus").textContent = "⚠ Должен начинаться с sk-ant-";
+          document.getElementById("apiKeyStatus").style.color = "var(--red)";
+          return;
+        }
+        API_KEY = v;
+        document.getElementById("apiKeyInput").value = "";
+        document.getElementById("apiKeyStatus").textContent = "✓ Принят · " + v.slice(0, 14) + "…";
+        document.getElementById("apiKeyStatus").style.color = "var(--green-check)";
+        document.getElementById("apiKeyBlock").style.borderTopColor = "var(--green-check)";
+      }
 
-const METHOD_DESC = {
-  dialectical: 'Движение от тезиса к антитезису и к синтезу — обнаружение внутренних противоречий между традициями и их снятие в новом единстве',
-  integrative: 'Поиск общих оснований, скрытых точек пересечения и взаимодополняющих элементов между выбранными традициями',
-  deconstructive: 'Разбор базовых предпосылок каждой традиции, обнаружение скрытых допущений и пересборка из очищенных элементов',
-  hermeneutical: 'Погружение в горизонт понимания каждой традиции и расширение собственного горизонта через слияние перспектив',
-  analytical: 'Формализация ключевых положений, выявление логической структуры и построение непротиворечивого синтеза',
-  creative: 'Свободная комбинаторика идей с упором на оригинальность, неожиданные связи и порождающий потенциал'
-};
+      // ════════════════════════════════════════
+      // INPUTS
+      // ════════════════════════════════════════
+      function getPhil() {
+        return Array.from(document.querySelectorAll("#philBox input:checked")).map((c) => c.value);
+      }
+      function getSec() {
+        const m = {
+          secGraph: "graph",
+          secGlossary: "glossary",
+          secTheses: "theses",
+          secHistory: "history",
+          secName: "name",
+          secPractical: "practical",
+          secDialogue: "dialogue",
+          secEvolution: "evolution",
+          secCritique: "critique",
+          secOrigin: "origin",
+        };
+        return Object.entries(m)
+          .filter(([id]) => document.getElementById(id).checked)
+          .map(([, k]) => k);
+      }
 
-const DEPTH_LABELS = {
-  overview: 'Обзорная',
-  standard: 'Стандартная',
-  deep: 'Глубокая',
-  exhaustive: 'Исчерпывающая'
-};
-
-// ══════════════════════════════════════════════
-// API KEY
-// ══════════════════════════════════════════════
-function setApiKey() {
-  const val = document.getElementById('apiKeyInput').value.trim();
-  if (!val.startsWith('sk-ant-')) {
-    document.getElementById('apiKeyStatus').textContent = '⚠ Ключ должен начинаться с sk-ant-';
-    document.getElementById('apiKeyStatus').style.color = 'var(--red)';
-    return;
-  }
-  ANTHROPIC_API_KEY = val;
-  document.getElementById('apiKeyInput').value = '';
-  document.getElementById('apiKeyStatus').textContent = '✓ Ключ принят · ' + val.slice(0, 14) + '…';
-  document.getElementById('apiKeyStatus').style.color = 'var(--green-check)';
-  document.getElementById('apiKeyBlock').style.borderTopColor = 'var(--green-check)';
-}
-
-// ══════════════════════════════════════════════
-// GATHER INPUTS
-// ══════════════════════════════════════════════
-function getSelectedPhilosophers() {
-  return Array.from(document.querySelectorAll('#philCheckboxes input[type=checkbox]:checked'))
-    .map(cb => cb.value);
-}
-
-function getSelectedSections() {
-  const map = {
-    secGraph: 'graph', secGlossary: 'glossary', secTheses: 'theses',
-    secHistory: 'history', secName: 'name', secPractical: 'practical',
-    secDialogue: 'dialogue', secEvolution: 'evolution', secCritique: 'critique',
-    secOrigin: 'origin'
-  };
-  const result = [];
-  for (const [id, key] of Object.entries(map)) {
-    if (document.getElementById(id).checked) result.push(key);
-  }
-  return result;
-}
-
-// ══════════════════════════════════════════════
-// SECTION DEFINITIONS
-// ══════════════════════════════════════════════
-
-// Each section has: key, title, promptBuilder(params)
-// We group them into passes of 2
-
-function buildSectionDefs(params) {
-  const allDefs = [];
-  let sectionNum = 1;
-
-  // §1 — Always: Executive Summary
-  allDefs.push({
-    key: '_summary',
-    num: sectionNum++,
-    title: 'Исполнительное Резюме Синтеза',
-    prompt: buildSummaryPrompt(params)
-  });
-
-  // §2 — Graph
-  if (params.sections.includes('graph')) {
-    allDefs.push({
-      key: 'graph',
-      num: sectionNum++,
-      title: 'Граф Категорий Концепции',
-      prompt: buildGraphPrompt(params)
-    });
-  }
-
-  // §3 — Glossary
-  if (params.sections.includes('glossary')) {
-    allDefs.push({
-      key: 'glossary',
-      num: sectionNum++,
-      title: 'Глоссарий Категорий и Определений',
-      prompt: buildGlossaryPrompt(params)
-    });
-  }
-
-  // §4 — Theses
-  if (params.sections.includes('theses')) {
-    allDefs.push({
-      key: 'theses',
-      num: sectionNum++,
-      title: 'Корпус Тезисов',
-      prompt: buildThesesPrompt(params)
-    });
-  }
-
-  // §5 — Name
-  if (params.sections.includes('name')) {
-    allDefs.push({
-      key: 'name',
-      num: sectionNum++,
-      title: 'Название Концепции и Его Анализ',
-      prompt: buildNamePrompt(params)
-    });
-  }
-
-  // §6 — History
-  if (params.sections.includes('history')) {
-    allDefs.push({
-      key: 'history',
-      num: sectionNum++,
-      title: 'Историческая Контекстуализация',
-      prompt: buildHistoryPrompt(params)
-    });
-  }
-
-  // §7 — Origin
-  if (params.sections.includes('origin')) {
-    allDefs.push({
-      key: 'origin',
-      num: sectionNum++,
-      title: 'Анализ Происхождения и Генеалогия Идей',
-      prompt: buildOriginPrompt(params)
-    });
-  }
-
-  // §8 — Practical
-  if (params.sections.includes('practical')) {
-    allDefs.push({
-      key: 'practical',
-      num: sectionNum++,
-      title: 'Практическое Применение',
-      prompt: buildPracticalPrompt(params)
-    });
-  }
-
-  // §9 — Dialogue
-  if (params.sections.includes('dialogue')) {
-    allDefs.push({
-      key: 'dialogue',
-      num: sectionNum++,
-      title: 'Диалог Между Традициями',
-      prompt: buildDialoguePrompt(params)
-    });
-  }
-
-  // §10 — Evolution
-  if (params.sections.includes('evolution')) {
-    allDefs.push({
-      key: 'evolution',
-      num: sectionNum++,
-      title: 'Эволюция и Перспективы Концепции',
-      prompt: buildEvolutionPrompt(params)
-    });
-  }
-
-  // §11 — Critique (always last content section)
-  if (params.sections.includes('critique')) {
-    allDefs.push({
-      key: 'critique',
-      num: sectionNum++,
-      title: 'Критический Анализ Синтеза',
-      prompt: buildCritiquePrompt(params)
-    });
-  }
-
-  return allDefs;
-}
-
-// Group sections into passes of 2
-function groupIntoPasses(defs) {
-  const passes = [];
-  for (let i = 0; i < defs.length; i += 2) {
-    passes.push(defs.slice(i, i + 2));
-  }
-  return passes;
-}
-
-// ══════════════════════════════════════════════
-// PROMPT BUILDERS
-// ══════════════════════════════════════════════
-
-function baseContext(params) {
-  return `ЗЕРНО КОНЦЕПЦИИ: «${params.seed}»
-ФИЛОСОФЫ ДЛЯ СИНТЕЗА: ${params.philosophers.join(', ')}
-МЕТОД СИНТЕЗА: ${METHOD_LABELS[params.method]} — ${METHOD_DESC[params.method]}
-ГЛУБИНА ПРОРАБОТКИ: ${DEPTH_LABELS[params.depth]}
-${params.context ? 'ДОПОЛНИТЕЛЬНЫЙ КОНТЕКСТ: ' + params.context : ''}`;
-}
-
-function minWords(params) {
-  return { overview: 150, standard: 250, deep: 400, exhaustive: 600 }[params.depth] || 250;
-}
-
-function htmlRules() {
-  return `ФОРМАТИРОВАНИЕ — используй ТОЛЬКО эти HTML-теги:
+      // ════════════════════════════════════════
+      // HTML RULES (full, restored from v1)
+      // ════════════════════════════════════════
+      function htmlRules() {
+        return `ФОРМАТИРОВАНИЕ — используй исключительно следующие HTML-теги:
 - <div class="doc-section"> — обёртка раздела
-- <div class="section-num">§ N</div> — номер
+- <div class="section-num">§ N</div> — номер раздела
 - <div class="section-title">Название</div> — заголовок
 - <div class="doc-content">...</div> — содержимое
-- <h4>Подзаголовок</h4>, <p>, <ul>/<ol> с <li>, <strong>, <em>
-- <table class="doc-table"><thead><tr><th>...</th></tr></thead><tbody><tr><td>...</td></tr></tbody></table>
-- <div class="callout warning/note/gold"><span class="callout-label">МЕТКА</span>текст</div>
-- <span class="risk high/medium/low">ТЕКСТ</span> — бейджи уровня
+- <h4>Подзаголовок</h4> — подзаголовки внутри doc-content
+- <p>Абзац</p> — текстовые абзацы
+- <ul><li>...</li></ul> или <ol><li>...</li></ol> — списки
+- <strong>текст</strong> — выделение важного
+- <em>текст</em> — критические предупреждения (красный)
+- <table class="doc-table"><thead><tr><th>...</th></tr></thead><tbody><tr><td>...</td></tr></tbody></table> — таблицы
+- <div class="callout warning"><span class="callout-label">МЕТКА</span>текст</div> — предупреждение
+- <div class="callout note"><span class="callout-label">МЕТКА</span>текст</div> — примечание
+- <div class="callout gold"><span class="callout-label">МЕТКА</span>текст</div> — рекомендация
+- <span class="risk high">ВЫСОКИЙ</span> / <span class="risk medium">СРЕДНИЙ</span> / <span class="risk low">НИЗКИЙ</span>
+Отвечай ТОЛЬКО HTML начиная с <div class="doc-section">. Никакого текста вне разметки.`;
+      }
 
-Отвечай ТОЛЬКО HTML, начиная с <div class="doc-section">. Никакого текста вне разметки.`;
-}
+      // ════════════════════════════════════════
+      // PROMPT BUILDERS
+      // ════════════════════════════════════════
+      function baseCtx(p) {
+        return `ЗЕРНО КОНЦЕПЦИИ: «${p.seed}»\nФИЛОСОФЫ: ${p.phil.join(", ")}\nМЕТОД: ${ML[p.method]} — ${MD[p.method]}\nГЛУБИНА: ${DL[p.depth]}${p.ctx ? "\nКОНТЕКСТ: " + p.ctx : ""}`;
+      }
+      function mw(p) {
+        return { overview: 150, standard: 250, deep: 400, exhaustive: 600 }[p.depth] || 250;
+      }
 
-function buildSummaryPrompt(p) {
-  return `Составь § — ИСПОЛНИТЕЛЬНОЕ РЕЗЮМЕ СИНТЕЗА.
+      function buildSectionDefs(p) {
+        const d = [];
+        let n = 1;
+        d.push({
+          key: "_sum",
+          num: n++,
+          title: "Исполнительное Резюме Синтеза",
+          prompt: `Составь § — ИСПОЛНИТЕЛЬНОЕ РЕЗЮМЕ СИНТЕЗА.
 
-Содержание:
-- Описание целей синтеза и выбранного метода (${METHOD_LABELS[p.method]})
-- Краткая характеристика каждого выбранного философа (${p.philosophers.join(', ')}) и его ключевого вклада в синтез
-- Предполагаемая новизна и ценность синтезируемой концепции
-- Обзор структуры документа — какие разделы включены и почему
-- Индекс синтетической когерентности (оценка 0–100): насколько органично сочетаются выбранные традиции
-- Потенциальные точки напряжения между выбранными философами
+Содержательное описание целей, стратегии и ожидаемых результатов синтеза:
 
-Минимум ${minWords(p)} слов содержательного текста.`;
-}
+1. ЦЕЛИ И МЕТОД — зачем создаётся данный синтез, какую философскую проблему он призван решить. Описание выбранного метода (${ML[p.method]} — ${MD[p.method]}) и его применимости к данному набору традиций.
 
-function buildGraphPrompt(p) {
-  return `Составь § — ГРАФ КАТЕГОРИЙ КОНЦЕПЦИИ.
+2. ПОРТРЕТ КАЖДОГО ФИЛОСОФА В КОНТЕКСТЕ СИНТЕЗА — для каждого из (${p.phil.join(", ")}): какова его ключевая идея, релевантная данному синтезу? Что именно он привносит? Какие аспекты его философии будут задействованы, а какие — осознанно оставлены за рамками?
 
-Построй концептуальный граф синтезируемой концепции:
+3. ПРЕДПОЛАГАЕМАЯ НОВИЗНА И ЦЕННОСТЬ — что нового данный синтез может дать, чего не давали исходные традиции по отдельности? Какие «слепые пятна» каждой традиции компенсируются другими?
 
-1. КАТЕГОРИИ (УЗЛЫ ГРАФА) — выдели 8–15 ключевых философских категорий, порождённых синтезом идей ${p.philosophers.join(', ')}. Для каждой категории: название, определение, тип (онтологическая, эпистемологическая, этическая, и т.д.), оценка центральности (0–1), оценка определённости (0–1), происхождение (от какого философа или из синтеза).
+4. ОБЗОР СТРУКТУРЫ ДОКУМЕНТА — какие разделы включены и почему, как они связаны между собой.
 
-Представь как таблицу: Категория / Тип / Определение / Центральность / Определённость / Происхождение.
+5. ИНДЕКС СИНТЕТИЧЕСКОЙ КОГЕРЕНТНОСТИ (оценка 0–100) — насколько органично сочетаются выбранные традиции. Развёрнутое обоснование оценки.
 
-2. СВЯЗИ (РЁБРА ГРАФА) — определи все значимые связи между категориями. Для каждой: тип (иерархическая, диалектическая, каузальная, и т.д.), направленность, сила (0–1).
+6. ТОЧКИ НАПРЯЖЕНИЯ — между какими именно философами и по каким именно вопросам существуют фундаментальные разногласия, которые синтез должен разрешить?
 
-Представь как таблицу: Категория 1 / Связь / Категория 2 / Тип / Направление / Сила.
+7. ПРЕДВАРИТЕЛЬНАЯ ОЦЕНКА СЛОЖНОСТИ — насколько трудным является данный синтез? Какие главные препятствия предстоит преодолеть?
 
-3. ТЕКСТОВОЕ ОПИСАНИЕ СТРУКТУРЫ — опиши словами общую топологию графа: какие категории центральные, какие периферийные, какие кластеры выявляются, есть ли изолированные узлы.
+Минимум ${mw(p)} слов.`,
+        });
 
-Минимум ${minWords(p)} слов.`;
-}
+        if (p.sec.includes("graph"))
+          d.push({
+            key: "graph",
+            num: n++,
+            title: "Граф Категорий Концепции",
+            prompt: `Составь § — ГРАФ КАТЕГОРИЙ.
 
-function buildGlossaryPrompt(p) {
-  return `Составь § — ГЛОССАРИЙ КАТЕГОРИЙ И ОПРЕДЕЛЕНИЙ.
+КРИТИЧЕСКОЕ ТРЕБОВАНИЕ: Граф ОБЯЗАН быть связным. Каждая категория должна быть связана хотя бы с одной другой. Не должно быть изолированных категорий или фрагментов. Перед финализацией проверь связность: из любой категории должен существовать путь по связям к любой другой.
 
-Для каждой категории из графа концепции (ссылайся на предыдущие разделы):
+1. ТАБЛИЦА КАТЕГОРИЙ — 8–15 категорий.
+Столбцы СТРОГО: Категория | Тип | Определение | Центральность | Определённость | Происхождение
+- Тип: онтологическая / эпистемологическая / этическая / аксиологическая / метафизическая / логическая / практическая / эстетическая / антропологическая / феноменологическая / экзистенциальная / социальная / политическая / теологическая
+- Центральность и Определённость: числа 0.0–1.0
+- Происхождение: от какого философа или «синтез»
 
-Таблица: Термин / Определение в контексте данной концепции / Традиционное понимание у ${p.philosophers.join(', ')} / Трансформация значения в синтезе.
+2. ТАБЛИЦА СВЯЗЕЙ — все значимые связи.
+Столбцы СТРОГО: Источник | Описание связи | Цель | Тип | Направление | Сила
+- Источник и Цель: ТОЧНЫЕ названия из таблицы категорий
+- Тип: иерархическая / диалектическая / каузальная / корреляционная / дополнительность / противоречие / эмерджентность / часть-целое / средство-цель / основание / определяющая / развитие
+- Направление — СТРОГО одно из трёх: однонаправленная | двунаправленная | рефлексивная
+  (рефлексивная = связь категории с самой собой, т.е. Источник = Цель; такие связи уместны, например, для самоконституирующихся или самореферентных категорий)
+- Сила: число 0.0–1.0
 
-Дополнительно:
-- Отдельный подраздел: термины, которые НАМЕРЕННО переопределены по сравнению с традиционным философским употреблением, с обоснованием каждого переопределения
-- Термины, заимствованные без изменений, с указанием источника
+3. ОПИСАНИЕ ТОПОЛОГИИ — кластеры, центральные и периферийные категории, мосты между кластерами, рефлексивные связи.
 
-Минимум ${minWords(p)} слов. Не менее 10 терминов.`;
-}
+ПОВТОРЯЮ: граф ОБЯЗАН быть связным. Названия в таблице связей ТОЧНО совпадают с таблицей категорий.
+Минимум ${mw(p)} слов.`,
+          });
 
-function buildThesesPrompt(p) {
-  return `Составь § — КОРПУС ТЕЗИСОВ.
+        if (p.sec.includes("glossary"))
+          d.push({
+            key: "glossary",
+            num: n++,
+            title: "Глоссарий Категорий и Определений",
+            prompt: `Составь § — ГЛОССАРИЙ КАТЕГОРИЙ И ОПРЕДЕЛЕНИЙ.
 
-Сформулируй ключевые тезисы синтезированной концепции:
+Для каждой категории из графа концепции (ссылайся на предыдущие разделы по номерам §§) составь таблицу с ФИЛОСОФСКИ ТОЧНЫМИ определениями, принятыми для целей данного документа. Не менее 12 терминов.
 
+Столбцы таблицы: Термин | Принятое определение в данной концепции | Традиционное понимание у ${p.phil.join(", ")} | Возможная альтернативная трактовка | Почему принятое определение предпочтительнее | Трансформация значения в синтезе.
+
+Дополнительно обязательные подразделы:
+1. НАМЕРЕННО ПЕРЕОПРЕДЕЛЁННЫЕ ТЕРМИНЫ — перечень терминов, которые сознательно получили иное значение по сравнению с традиционным философским употреблением, с развёрнутым обоснованием каждого переопределения.
+2. ТЕРМИНЫ, ЗАИМСТВОВАННЫЕ БЕЗ ИЗМЕНЕНИЙ — с указанием точного источника (философ, традиция, произведение).
+3. НОВЫЕ ТЕРМИНЫ — введённые данной концепцией впервые, с обоснованием необходимости их введения.
+
+Мин. ${mw(p)} слов.`,
+          });
+
+        if (p.sec.includes("theses"))
+          d.push({
+            key: "theses",
+            num: n++,
+            title: "Корпус Тезисов",
+            prompt: `Составь § — КОРПУС ТЕЗИСОВ.
+
+Сформулируй ключевые тезисы синтезированной концепции, сгруппированные по типам:
 1. ОНТОЛОГИЧЕСКИЕ ТЕЗИСЫ (не менее 3) — о природе бытия и реальности
 2. ЭПИСТЕМОЛОГИЧЕСКИЕ ТЕЗИСЫ (не менее 3) — о познании и знании
 3. ЭТИЧЕСКИЕ/АКСИОЛОГИЧЕСКИЕ ТЕЗИСЫ (не менее 2) — о ценностях и должном
 
-Для каждого тезиса:
-- Формулировка тезиса (чётко, в одном предложении)
-- Обоснование из графа категорий — из каких категорий и связей он следует (со ссылками на §§)
-- Вклад каждого из философов (${p.philosophers.join(', ')}) в данный тезис
-- Степень новизны: полностью новый / переформулированный / заимствованный
+Тезисы должны отражать структурные отношения между категориями из графа концепции (§ выше) и быть выражены в академическом стиле.
 
-Представь каждый тезис в структурированном виде. Минимум ${minWords(p)} слов.`;
-}
+Для КАЖДОГО тезиса обязательно:
+- Формулировка тезиса (чётко, в одном предложении, выделить жирным)
+- Обоснование из графа категорий — из КАКИХ ИМЕННО категорий и связей он логически следует (со ссылками на §§ и конкретные категории по названию)
+- Вклад каждого из философов (${p.phil.join(", ")}) в данный тезис — что именно каждый внёс
+- Степень новизны: полностью новый (не встречается ни у одного из исходных философов) / переформулированный (трансформация существующего) / заимствованный (с указанием источника)
+- Связанные категории (перечислить)
 
-function buildNamePrompt(p) {
-  return `Составь § — НАЗВАНИЕ КОНЦЕПЦИИ И ЕГО АНАЛИЗ.
+Мин. ${mw(p)} слов.`,
+          });
 
-1. ПРЕДЛОЖИ НАЗВАНИЕ — лаконичное, содержательное, узнаваемое название для синтезированной концепции. Выдели его жирным.
+        if (p.sec.includes("name"))
+          d.push({
+            key: "name",
+            num: n++,
+            title: "Название Концепции и Его Анализ",
+            prompt: `Составь § — НАЗВАНИЕ КОНЦЕПЦИИ И ЕГО АНАЛИЗ.
 
-2. ОБОСНОВАНИЕ НАЗВАНИЯ — почему именно это название, какие аспекты концепции оно схватывает, какие традиции отражает.
+1. ПРЕДЛОЖИ НАЗВАНИЕ — лаконичное, содержательное, узнаваемое в философской традиции. Выдели жирным. Название должно отражать сущность концепции.
 
-3. ЛИНГВИСТИЧЕСКИЙ АНАЛИЗ — этимология, коннотации, потенциальные ассоциации у читателя, однозначность vs двусмысленность.
+2. ОБОСНОВАНИЕ НАЗВАНИЯ — почему именно это название, какие аспекты концепции оно схватывает, какие традиции отражает. Как оно соотносится с существующей философской терминологией.
 
-4. АЛЬТЕРНАТИВНЫЕ НАЗВАНИЯ — предложи 3–5 альтернатив с кратким анализом каждой.
+3. ЛИНГВИСТИЧЕСКИЙ АНАЛИЗ — этимология, коннотации, потенциальные ассоциации, однозначность vs двусмысленность, звучание на разных языках.
 
-Таблица: Название / Плюсы / Минусы / Что подчёркивает / Что теряет.
+4. АНАЛИЗ «ЧТО ПОДЧЁРКИВАЕТ / ЧТО ТЕРЯЕТ» — какие аспекты концепции подчёркиваются в названии, а какие остаются в тени? Насколько точно название отражает суть?
 
-5. ИТОГОВАЯ РЕКОМЕНДАЦИЯ — какое название принять и почему.
+5. АЛЬТЕРНАТИВНЫЕ НАЗВАНИЯ — предложи 3–5 альтернатив с развёрнутым анализом каждой.
+Таблица: Название | Плюсы | Минусы | Что подчёркивает | Что теряет.
 
-Минимум ${minWords(p)} слов.`;
-}
+6. ИТОГОВАЯ РЕКОМЕНДАЦИЯ — какое название принять и почему. Отдельно: соответствие названия историческому контексту и методу синтеза.
 
-function buildHistoryPrompt(p) {
-  return `Составь § — ИСТОРИЧЕСКАЯ КОНТЕКСТУАЛИЗАЦИЯ.
+Мин. ${mw(p)} слов.`,
+          });
 
-Помести синтезированную концепцию в контекст истории философии:
+        if (p.sec.includes("history"))
+          d.push({
+            key: "history",
+            num: n++,
+            title: "Историческая Контекстуализация",
+            prompt: `Составь § — ИСТОРИЧЕСКАЯ КОНТЕКСТУАЛИЗАЦИЯ.
 
-1. ИСТОЧНИКИ ВЛИЯНИЯ — какие идеи каждого из философов (${p.philosophers.join(', ')}) непосредственно вошли в синтез. Таблица: Философ / Ключевая идея / Как трансформирована в синтезе / Степень влияния.
+Помести синтезированную концепцию в контекст истории философии. Представь результат в структурированном виде, включающем ВСЕ пять подразделов:
 
-2. ИСТОРИЧЕСКАЯ ГЕНЕАЛОГИЯ — цепочка идей от античности до настоящего момента, ведущая к данному синтезу. Какие промежуточные мыслители могли бы быть «предшественниками» данной концепции?
+1. ОБЩИЙ ИСТОРИЧЕСКИЙ КОНТЕКСТ — в какую эпоху, в какой интеллектуальный климат вписывается данная концепция. Какие философские «запросы» своего времени она могла бы удовлетворить.
 
-3. СОВРЕМЕННИКИ И ПАРАЛЛЕЛИ — существуют ли в современной философии попытки аналогичного синтеза? Кто работает в схожем направлении?
+2. КЛЮЧЕВЫЕ ИСТОЧНИКИ ВЛИЯНИЯ — таблица: Философ / Ключевая идея / Как трансформирована в синтезе / Степень влияния (0–1). Рассмотри влияние каждого из ${p.phil.join(", ")}.
 
-4. ПОТЕНЦИАЛЬНОЕ ВЛИЯНИЕ — на какие области философии и смежных дисциплин данная концепция могла бы повлиять?
+3. ИСТОРИЧЕСКАЯ ГЕНЕАЛОГИЯ — цепочка идей от античности до современности, ведущая к данному синтезу. Какие промежуточные мыслители (не вошедшие в список выбранных) могли бы быть «предшественниками»?
 
-5. СООТВЕТСТВИЕ НАЗВАНИЯ ИСТОРИЧЕСКОМУ КОНТЕКСТУ — насколько предложенное название вписывается в историю философии.
+4. СОВРЕМЕННЫЕ КОНЦЕПЦИИ (СХОДСТВА И РАЗЛИЧИЯ) — существуют ли в современной философии попытки аналогичного синтеза? Кто работает в схожем направлении? Таблица: Концепция/автор / Сходство / Различие.
 
-Минимум ${minWords(p)} слов.`;
-}
+5. ПОТЕНЦИАЛЬНОЕ ВЛИЯНИЕ НА ПОСЛЕДУЮЩУЮ ФИЛОСОФИЮ — на какие области и направления может повлиять. Каким образом.
 
-function buildOriginPrompt(p) {
-  return `Составь § — АНАЛИЗ ПРОИСХОЖДЕНИЯ И ГЕНЕАЛОГИЯ ИДЕЙ.
+6. СООТВЕТСТВИЕ НАЗВАНИЯ ИСТОРИЧЕСКОМУ КОНТЕКСТУ — насколько предложенное название вписывается в историю философии. Существуют ли исторические прецеденты похожих названий.
+
+Мин. ${mw(p)} слов.`,
+          });
+
+        if (p.sec.includes("origin"))
+          d.push({
+            key: "origin",
+            num: n++,
+            title: "Анализ Происхождения",
+            prompt: `Составь § — АНАЛИЗ ПРОИСХОЖДЕНИЯ И ГЕНЕАЛОГИЯ ИДЕЙ.
 
 Проведи «обратный инжиниринг» синтезированной концепции:
 
-1. ИДЕНТИФИКАЦИЯ РОДИТЕЛЬСКИХ ТРАДИЦИЙ — какие философские традиции являются «родителями» данной концепции. Таблица: Традиция / Вклад (%) / Ключевые заимствования / Трансформации.
+1. ИДЕНТИФИКАЦИЯ РОДИТЕЛЬСКИХ ТРАДИЦИЙ — какие философские традиции являются «родителями» данной концепции. Определи, является ли данная концепция синтезом существующих традиций. Укажи КОНКРЕТНЫЕ ПРИЗНАКИ, позволяющие сделать такой вывод.
+Таблица: Традиция | Вклад (%) | Ключевые заимствования | Трансформации | Приблизительное соотношение влияния.
 
-2. ЭЛЕМЕНТНАЯ ДЕКОМПОЗИЦИЯ — для каждой категории графа и каждого тезиса: из какой традиции он происходит? Что в нём нового?
+2. ЭЛЕМЕНТНАЯ ДЕКОМПОЗИЦИЯ — для КАЖДОЙ категории графа и КАЖДОГО тезиса: из какой традиции он происходит? Что в нём нового? Предоставь детальное обоснование.
 
-3. ОЦЕНКА ОРИГИНАЛЬНОСТИ — что в данной концепции является подлинно новым (не сводимым к исходным традициям)? Есть ли эмерджентные свойства синтеза?
+3. ОЦЕНКА ОРИГИНАЛЬНОСТИ — что в данной концепции является подлинно новым (не сводимым к исходным традициям)? Есть ли эмерджентные свойства синтеза — идеи, которые не содержатся ни в одной из исходных традиций, но возникают из их соединения?
 
-4. ПОТЕНЦИАЛЬНЫЕ ВОЗРАЖЕНИЯ — что бы сказал каждый из выбранных философов (${p.philosophers.join(', ')}), увидев, как его идеи трансформированы?
+4. ПОТЕНЦИАЛЬНЫЕ ВОЗРАЖЕНИЯ — что бы сказал КАЖДЫЙ из выбранных философов (${p.phil.join(", ")}), увидев, как его идеи трансформированы? Формулируй возражения от лица каждого мыслителя, исходя из его собственной системы.
 
-Минимум ${minWords(p)} слов.`;
-}
+Мин. ${mw(p)} слов.`,
+          });
 
-function buildPracticalPrompt(p) {
-  return `Составь § — ПРАКТИЧЕСКОЕ ПРИМЕНЕНИЕ.
+        if (p.sec.includes("practical"))
+          d.push({
+            key: "practical",
+            num: n++,
+            title: "Практическое Применение",
+            prompt: `Составь § — ПРАКТИЧЕСКОЕ ПРИМЕНЕНИЕ.
 
-Проанализируй возможности практического применения синтезированной концепции:
+Проанализируй возможности практического применения в следующих областях:
+1. ОБРАЗОВАНИЕ — как данная концепция может трансформировать педагогические практики, дидактические методы, структуру учебных программ
+2. ЭТИКА И ПРИНЯТИЕ РЕШЕНИЙ — практические этические рекомендации, вытекающие из концепции; инструменты принятия решений в сложных ситуациях
+3. ПСИХОЛОГИЯ И ЛИЧНОСТНОЕ РАЗВИТИЕ — инструменты самопознания, практики развития, терапевтическое применение
+4. СОЦИАЛЬНЫЕ ИНСТИТУТЫ — как концепция может повлиять на организацию общества, проектирование институтов, управление
+5. МЕЖКУЛЬТУРНЫЙ ДИАЛОГ — применимость к пониманию между культурами, религиями и традициями мысли
 
-Для каждой области — таблица: Область / Релевантные категории / Способ применения / Потенциальный эффект / Ограничения.
+Для КАЖДОЙ области обязательно 5 подпунктов:
+1. Краткое описание применимости концепции в данной области
+2. Релевантные тезисы и категории концепции (со ссылками на §§)
+3. Конкретные способы ОПЕРАЦИОНАЛИЗАЦИИ — не абстрактные пожелания, а конкретные, реализуемые рекомендации
+4. Потенциальные ТРУДНОСТИ И ОГРАНИЧЕНИЯ применения
+5. Критерии ОЦЕНКИ ЭФФЕКТИВНОСТИ применения — как измерить, что концепция действительно работает
 
-1. ОБРАЗОВАНИЕ — как данная концепция может трансформировать педагогические практики
-2. ЭТИКА И ПРИНЯТИЕ РЕШЕНИЙ — практические этические рекомендации, вытекающие из концепции
-3. ПСИХОЛОГИЯ И ЛИЧНОСТНОЕ РАЗВИТИЕ — инструменты самопознания и развития
-4. СОЦИАЛЬНЫЕ ИНСТИТУТЫ — как концепция может повлиять на организацию общества
-5. МЕЖКУЛЬТУРНЫЙ ДИАЛОГ — применимость к пониманию между культурами и традициями
+Общая таблица: Область | Релевантные категории | Способ применения | Потенциальный эффект | Ограничения | Критерии эффективности.
 
-Для каждой области: конкретные, операционализируемые рекомендации, а не абстрактные пожелания.
+Мин. ${mw(p)} слов.`,
+          });
 
-Минимум ${minWords(p)} слов.`;
-}
+        if (p.sec.includes("dialogue"))
+          d.push({
+            key: "dialogue",
+            num: n++,
+            title: "Диалог Между Традициями",
+            prompt: `Составь § — ДИАЛОГ МЕЖДУ ТРАДИЦИЯМИ.
 
-function buildDialoguePrompt(p) {
-  const phils = p.philosophers;
-  const p1 = phils[0] || 'Первый философ';
-  const p2 = phils[1] || phils[0] || 'Второй философ';
+Создай философский диалог между представителями традиций, участвующих в синтезе.
+Участники: ${p.phil.join(", ")}.
 
-  return `Составь § — ДИАЛОГ МЕЖДУ ТРАДИЦИЯМИ.
+Формат: классический философский диалог в стиле платоновских диалогов, но с современным содержанием. Придай участникам характерные черты в соответствии с их философскими позициями.
 
-Создай философский диалог между представителями традиций, участвующих в синтезе. Участники: ${phils.join(', ')}.
+ОБЯЗАТЕЛЬНАЯ СТРУКТУРА ДИАЛОГА из 5 частей:
+1. ВВЕДЕНИЕ — контекст встречи, представление участников и их исходных позиций
+2. ИЗЛОЖЕНИЕ ПОЗИЦИЙ — каждый участник формулирует свой взгляд на центральную проблему концепции
+3. СТОЛКНОВЕНИЕ — аргументы и контраргументы, выявление точек несогласия. Каждый аргумент должен опираться на реальные положения соответствующего философа.
+4. ПОИСК ОБЩЕГО — обнаружение неожиданных точек соприкосновения между традициями
+5. СИНТЕЗ — как именно из этого диалога рождается новая концепция. Момент «aha!».
 
-Формат: классический философский диалог (в стиле Платона, но с современным содержанием).
+Диалог должен быть содержательным, а не формальным — настоящее философское исследование, а не декорация.
 
-СТРУКТУРА:
-1. ВВЕДЕНИЕ — контекст встречи, представление участников
-2. ИЗЛОЖЕНИЕ ПОЗИЦИЙ — каждый участник кратко формулирует свой взгляд на центральную проблему концепции
-3. СТОЛКНОВЕНИЕ — аргументы и контраргументы, выявление точек несогласия
-4. ПОИСК ОБЩЕГО — обнаружение неожиданных точек соприкосновения
-5. СИНТЕЗ — как именно из этого диалога рождается новая концепция
+ПОСЛЕ ДИАЛОГА обязательно:
+- Таблица: Точки согласия | Точки расхождения | Как разрешены в синтезе | Философский корень разногласия.
+- Аналитический комментарий: что показал диалог о возможности и границах синтеза? Какие разногласия оказались НЕПРЕОДОЛИМЫМИ и потребовали авторского решения?
 
-После диалога:
-- Таблица: Точки согласия / Точки расхождения / Как разрешены в синтезе
-- Аналитический комментарий: что показал диалог о возможности и границах синтеза
+Мин. ${mw(p)} слов.`,
+          });
 
-Минимум ${minWords(p)} слов. Диалог должен быть содержательным, а не формальным.`;
-}
+        if (p.sec.includes("evolution"))
+          d.push({
+            key: "evolution",
+            num: n++,
+            title: "Эволюция и Перспективы",
+            prompt: `Составь § — ЭВОЛЮЦИЯ И ПЕРСПЕКТИВЫ КОНЦЕПЦИИ.
 
-function buildEvolutionPrompt(p) {
-  return `Составь § — ЭВОЛЮЦИЯ И ПЕРСПЕКТИВЫ КОНЦЕПЦИИ.
+Предложи возможные направления эволюции синтезированной концепции в свете современных научных открытий, социальных изменений и философских тенденций.
 
-1. НАПРАВЛЕНИЯ РАЗВИТИЯ — 3–5 возможных направлений эволюции синтезированной концепции:
-Таблица: Направление / Описание / Научная/социальная основа / Какие категории изменятся / Прогноз.
+1. НАПРАВЛЕНИЯ РАЗВИТИЯ — 3–5 возможных направлений.
+Таблица: Направление | Описание | Научная основа | Социальный контекст | Какие категории графа изменятся | Прогноз реализуемости.
 
-2. ПРЕДЛАГАЕМЫЕ ИЗМЕНЕНИЯ ГРАФА — какие новые категории могут появиться, какие связи переосмыслятся, какие элементы устареют.
+2. ПРЕДЛАГАЕМЫЕ ИЗМЕНЕНИЯ ГРАФА — какие новые категории могут появиться, какие связи переосмыслятся, какие элементы устареют. Для каждого предлагаемого изменения: конкретный механизм трансформации.
 
-3. ЭВОЛЮЦИЯ НАЗВАНИЯ — должно ли название измениться при развитии концепции? Предложи варианты.
+3. ЭВОЛЮЦИЯ НАЗВАНИЯ — должно ли название измениться при развитии концепции? Предложи варианты для каждого направления эволюции. Как может и должно ли сохраниться текущее название.
 
-4. ИНТЕГРАЦИЯ С СОВРЕМЕННОЙ НАУКОЙ — как данные нейронауки, когнитивистики, физики, теории сложности могут обогатить концепцию.
+4. ИНТЕГРАЦИЯ С СОВРЕМЕННОЙ НАУКОЙ — как данные нейронауки, когнитивистики, физики, теории сложности, AI могут обогатить или опровергнуть элементы концепции.
 
-5. ВРЕМЕННАЯ КАРТА — предположительные этапы развития концепции: ближайшие 10 лет, 50 лет, отдалённая перспектива.
+5. ВРЕМЕННАЯ КАРТА РАЗВИТИЯ:
+- Ближайшие 10 лет: какие аспекты наиболее актуальны
+- 50 лет: какие трансформации ожидаемы
+- Отдалённая перспектива: к чему концепция может эволюционировать
 
-Минимум ${minWords(p)} слов.`;
-}
+Мин. ${mw(p)} слов.`,
+          });
 
-function buildCritiquePrompt(p) {
-  return `Составь § — КРИТИЧЕСКИЙ АНАЛИЗ СИНТЕЗА.
+        if (p.sec.includes("critique"))
+          d.push({
+            key: "critique",
+            num: n++,
+            title: "Критический Анализ",
+            prompt: `Составь § — КРИТИЧЕСКИЙ АНАЛИЗ СИНТЕЗА.
 
-Проведи строгий критический анализ всего документа:
+Проведи СТРОГИЙ критический анализ всего документа. Будь честен и безжалостен — задача этого раздела не хвалить, а выявлять проблемы.
 
-1. ВНУТРЕННЯЯ КОГЕРЕНТНОСТЬ — есть ли противоречия между тезисами, категориями, определениями? Таблица выявленных противоречий с оценкой их серьёзности.
+1. ВНУТРЕННЯЯ КОГЕРЕНТНОСТЬ — есть ли противоречия между тезисами, категориями, определениями? Таблица выявленных противоречий: Элемент 1 | Элемент 2 | Суть противоречия | Серьёзность (1–10).
 
-2. ФИЛОСОФСКАЯ НОВИЗНА — честная оценка: что подлинно ново, а что — переименование уже существующего? Шкала оригинальности для каждого тезиса.
+2. ФИЛОСОФСКАЯ НОВИЗНА — честная оценка: что подлинно ново, а что — переименование уже существующего? Шкала оригинальности для каждого тезиса (0–10).
 
-3. ВЕРНОСТЬ ИСТОЧНИКАМ — насколько корректно интерпретированы идеи ${p.philosophers.join(', ')}? Где допущены упрощения или искажения?
+3. ВЕРНОСТЬ ИСТОЧНИКАМ — насколько корректно интерпретированы идеи ${p.phil.join(", ")}? Где допущены упрощения или искажения? Что бы возразил каждый из философов?
 
-4. СЛЕПЫЕ ПЯТНА — что данная концепция НЕ видит? Какие важные проблемы она игнорирует? Какие контраргументы наиболее сильны?
+4. СОХРАНЕНИЕ ЦЕННЫХ АСПЕКТОВ — удалось ли сохранить то ценное, что есть в каждой исходной традиции? Что было потеряно при синтезе?
 
-5. ОБЩАЯ ОЦЕНКА — итоговая таблица:
-Критерий / Оценка (1–10) / Комментарий.
+5. РАЗРЕШЕНИЕ ПРОТИВОРЕЧИЙ — насколько успешно синтез снимает противоречия между исходными традициями? Какие противоречия лишь замаскированы, а не разрешены?
+
+6. СЛЕПЫЕ ПЯТНА — что данная концепция НЕ видит? Какие важные проблемы игнорирует? Какие контраргументы наиболее сильны?
+
+7. ИТОГОВАЯ ОЦЕНКА — таблица:
+Критерий | Оценка (1–10) | Комментарий.
 Критерии: когерентность, новизна, глубина, практичность, верность источникам, элегантность, перспективность.
 
-6. РЕКОМЕНДАЦИИ — конкретные шаги для улучшения концепции.
+8. РЕКОМЕНДАЦИИ ПО УЛУЧШЕНИЮ — конкретные, операционализируемые шаги для усиления концепции. Не общие пожелания, а точечные действия.
 
-Будь честен и строг. Минимум ${minWords(p)} слов.`;
-}
-
-
-// ══════════════════════════════════════════════
-// GENERATION ENGINE
-// ══════════════════════════════════════════════
-
-async function generateDoc() {
-  const seed = document.getElementById('seedInput').value.trim();
-  const philosophers = getSelectedPhilosophers();
-  const sections = getSelectedSections();
-  const method = document.getElementById('synthesisMethod').value;
-  const depth = document.getElementById('depthLevel').value;
-  const context = document.getElementById('contextInput').value.trim();
-
-  if (!seed && philosophers.length === 0) {
-    alert('Введите зерно концепции или выберите хотя бы одного философа.');
-    return;
-  }
-  if (!ANTHROPIC_API_KEY) {
-    alert('Введите API-ключ Anthropic.');
-    return;
-  }
-  if (philosophers.length === 0) {
-    alert('Выберите хотя бы одного философа для синтеза.');
-    return;
-  }
-
-  const params = { seed, philosophers, sections, method, depth, context };
-
-  // UI: loading
-  const btn = document.getElementById('submitBtn');
-  btn.disabled = true;
-  btn.classList.add('loading');
-  document.getElementById('btnText').textContent = 'Синтез...';
-
-  // Doc meta
-  const docNum = 'PS-' + Math.floor(Math.random()*9000+1000) + '-' + Date.now().toString(36).toUpperCase().slice(-4);
-  document.getElementById('docNum').textContent = docNum;
-  document.getElementById('docDate').textContent = new Date().toLocaleDateString('ru-RU', {day:'2-digit',month:'long',year:'numeric'});
-  document.getElementById('docMethod').textContent = METHOD_LABELS[method];
-  document.getElementById('docDepth').textContent = DEPTH_LABELS[depth];
-  document.getElementById('docTitle').textContent = 'Синтез Философской Концепции';
-  document.getElementById('docSubtitle').textContent = seed
-    ? `«${seed.substring(0,90)}${seed.length>90?'...':''}»`
-    : `На основе: ${philosophers.join(', ')}`;
-  document.getElementById('sessionId').textContent = docNum;
-  document.getElementById('footerPhilosophers').textContent = philosophers.join(', ');
-
-  // Build section defs and passes
-  const sectionDefs = buildSectionDefs(params);
-  const passes = groupIntoPasses(sectionDefs);
-
-  // Build progress steps
-  const progressSteps = document.getElementById('progressSteps');
-  progressSteps.innerHTML = '';
-  const stepLabels = passes.map((pass, i) => {
-    const names = pass.map(d => d.title).join(' + ');
-    return names;
-  });
-  stepLabels.forEach((label, i) => {
-    const div = document.createElement('div');
-    div.className = 'progress-step';
-    div.id = 'pstep' + i;
-    div.innerHTML = `<span class="step-icon">◯</span> ${label}`;
-    progressSteps.appendChild(div);
-  });
-
-  document.getElementById('progressPanel').classList.add('visible');
-
-  // Prepare doc bodies
-  const docBodies = document.getElementById('docBodies');
-  docBodies.innerHTML = '';
-  passes.forEach((_, i) => {
-    const div = document.createElement('div');
-    div.className = 'doc-body';
-    div.id = 'docBody' + i;
-    if (i > 0) div.style.borderTop = 'none';
-    docBodies.appendChild(div);
-  });
-
-  document.getElementById('outputWrap').classList.add('visible');
-  document.getElementById('outputWrap').scrollIntoView({ behavior: 'smooth', block: 'start' });
-
-  const SYSTEM_PROMPT = `Ты — ведущий специалист по синтезу философских концепций, работающий в рамках платформы PhiloSynth Pro. Ты создаёшь строго структурированные академические документы высочайшего качества. Твой тон — серьёзный, академический, педантичный. Каждое утверждение обосновано. Каждый термин определён. Каждый тезис аргументирован. Ты глубоко знаешь историю философии и умеешь находить неочевидные связи между традициями.`;
-
-  for (let i = 0; i < passes.length; i++) {
-    const pass = passes[i];
-    const container = document.getElementById('docBody' + i);
-
-    // Activate step
-    const stepEl = document.getElementById('pstep' + i);
-    stepEl.className = 'progress-step active';
-    stepEl.querySelector('.step-icon').textContent = '⟳';
-
-    // Prior context (sandwich)
-    let priorContext = '';
-    if (i > 0) {
-      const allSections = [];
-      for (let n = 0; n < i; n++) {
-        const el = document.getElementById('docBody' + n);
-        if (!el) continue;
-        el.querySelectorAll('.doc-section').forEach(sec => {
-          const text = sec.innerText?.trim();
-          if (text) allSections.push(text);
-        });
+Мин. ${mw(p)} слов.`,
+          });
+        return d;
       }
-      if (allSections.length > 0) {
-        const totalBudget = 10000;
-        const baseBudget = Math.floor(totalBudget / allSections.length);
-        const priorText = allSections.map((text, idx) => {
-          const budget = (idx <= 2) ? baseBudget * 2 : baseBudget;
-          const half = Math.floor(budget / 2);
-          if (text.length <= budget) return text;
-          return text.slice(0, half) + '\n[...]\n' + text.slice(-half);
-        }).join('\n\n---\n\n');
-        priorContext = `\n\nУЖЕ СОСТАВЛЕННЫЕ РАЗДЕЛЫ (ссылайся на термины и §§ по номерам, не повторяй):\n"""\n${priorText}\n"""`;
+
+      function groupPasses(d) {
+        const p = [];
+        for (let i = 0; i < d.length; i += 2) p.push(d.slice(i, i + 2));
+        return p;
       }
-    }
 
-    // Build prompt for this pass (2 sections)
-    const sectionsPrompt = pass.map(def =>
-      `§ ${def.num} — ${def.title.toUpperCase()}\n${def.prompt}`
-    ).join('\n\n');
-
-    const fullPrompt = `ПАРАМЕТРЫ СИНТЕЗА:
-${baseContext(params)}
-${priorContext}
-
-${htmlRules()}
-
-ЗАДАНИЕ: составь ТОЛЬКО следующие разделы (строго в указанном порядке):
-
-${sectionsPrompt}
-
-ТРЕБОВАНИЯ:
-- Минимум ${minWords(params)} слов на раздел
-- Таблицы — содержательные, с реальным наполнением
-- Ссылки на предыдущие §§ — явные
-- Академический тон, никаких упрощений
-
-Отвечай ТОЛЬКО HTML начиная с <div class="doc-section">.`;
-
-    try {
-      await streamResponse(fullPrompt, container, SYSTEM_PROMPT);
-      stepEl.className = 'progress-step done';
-      stepEl.querySelector('.step-icon').textContent = '✓';
-    } catch(e) {
-      stepEl.className = 'progress-step done';
-      stepEl.querySelector('.step-icon').textContent = '✓';
-      container.innerHTML = `<div class="doc-section"><div class="callout warning"><span class="callout-label">⚠ Ошибка</span>${e.message}</div></div>`;
-    }
-  }
-
-  document.getElementById('docFooter').style.display = 'flex';
-  btn.disabled = false;
-  btn.classList.remove('loading');
-  document.getElementById('btnText').textContent = 'Синтезировать Концепцию';
-}
-
-// ══════════════════════════════════════════════
-// STREAMING
-// ══════════════════════════════════════════════
-async function streamResponse(prompt, container, systemPrompt) {
-  const body = {
-    model: 'claude-sonnet-4-20250514',
-    max_tokens: 8000,
-    stream: true,
-    messages: [{ role: 'user', content: prompt }]
-  };
-  if (systemPrompt) body.system = systemPrompt;
-
-  const resp = await fetch('https://api.anthropic.com/v1/messages', {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'x-api-key': ANTHROPIC_API_KEY,
-      'anthropic-version': '2023-06-01',
-      'anthropic-dangerous-direct-browser-access': 'true',
-    },
-    body: JSON.stringify(body)
-  });
-
-  if (!resp.ok) {
-    const err = await resp.json();
-    throw new Error(err.error?.message || resp.statusText);
-  }
-
-  const reader = resp.body.getReader();
-  const decoder = new TextDecoder();
-  let buffer = '';
-  let htmlBuffer = '';
-
-  const cursor = document.createElement('span');
-  cursor.className = 'stream-cursor';
-  container.appendChild(cursor);
-
-  while (true) {
-    const { done, value } = await reader.read();
-    if (done) break;
-
-    buffer += decoder.decode(value, { stream: true });
-    const lines = buffer.split('\n');
-    buffer = lines.pop();
-
-    for (const line of lines) {
-      if (!line.startsWith('data: ')) continue;
-      const data = line.slice(6).trim();
-      if (data === '[DONE]') continue;
-      try {
-        const parsed = JSON.parse(data);
-        if (parsed.type === 'content_block_delta' && parsed.delta?.text) {
-          htmlBuffer += parsed.delta.text;
-          cursor.remove();
-          container.innerHTML = htmlBuffer;
-          container.appendChild(cursor);
-          cursor.scrollIntoView({ block: 'nearest' });
+      // ════════════════════════════════════════
+      // GENERATION
+      // ════════════════════════════════════════
+      async function generateDoc() {
+        const seed = document.getElementById("seedInput").value.trim(),
+          phil = getPhil(),
+          sec = getSec(),
+          method = document.getElementById("synthesisMethod").value,
+          depth = document.getElementById("depthLevel").value,
+          ctx = document.getElementById("contextInput").value.trim();
+        if (!seed && !phil.length) {
+          alert("Введите зерно или выберите философов.");
+          return;
         }
-      } catch(e) {}
-    }
-  }
+        if (!API_KEY) {
+          alert("Введите API-ключ.");
+          return;
+        }
+        if (!phil.length) {
+          alert("Выберите хотя бы одного философа.");
+          return;
+        }
+        const p = { seed, phil, sec, method, depth, ctx };
+        const btn = document.getElementById("submitBtn");
+        btn.disabled = true;
+        btn.classList.add("loading");
+        document.getElementById("btnText").textContent = "Синтез...";
+        document.getElementById("btnGraph").style.display = "none";
+        G = { nodes: [], edges: [] };
+        graphBodyIdx = -1;
 
-  cursor.remove();
-  container.innerHTML = htmlBuffer;
-}
+        const docNum =
+          "PS-" +
+          Math.floor(Math.random() * 9000 + 1000) +
+          "-" +
+          Date.now().toString(36).toUpperCase().slice(-4);
+        document.getElementById("docNum").textContent = docNum;
+        document.getElementById("docDate").textContent = new Date().toLocaleDateString("ru-RU", {
+          day: "2-digit",
+          month: "long",
+          year: "numeric",
+        });
+        document.getElementById("docMethod").textContent = ML[method];
+        document.getElementById("docDepth").textContent = DL[depth];
+        document.getElementById("docTitle").textContent = "Синтез Философской Концепции";
+        document.getElementById("docSubtitle").textContent = seed
+          ? `«${seed.substring(0, 90)}${seed.length > 90 ? "..." : ""}»`
+          : `На основе: ${phil.join(", ")}`;
+        document.getElementById("sessionId").textContent = docNum;
+        document.getElementById("footerPhil").textContent = phil.join(", ");
 
-// ══════════════════════════════════════════════
-// ACTIONS
-// ══════════════════════════════════════════════
-function viewRawHTML() {
-  const bodies = document.getElementById('docBodies');
-  const html = bodies ? bodies.innerHTML : '';
-  if (!html.trim()) { alert('Документ ещё не сгенерирован.'); return; }
+        const defs = buildSectionDefs(p),
+          passes = groupPasses(defs);
+        passes.forEach((pass, i) => {
+          pass.forEach((d) => {
+            if (d.key === "graph") graphBodyIdx = i;
+          });
+        });
 
-  const pretty = html.replace(/></g, '>\n<').split('\n').map(l => l.trimStart()).join('\n');
-  document.getElementById('rawHTMLContent').textContent = pretty;
+        const ps = document.getElementById("progressSteps");
+        ps.innerHTML = "";
+        passes.forEach((pass, i) => {
+          const d = document.createElement("div");
+          d.className = "progress-step";
+          d.id = "ps" + i;
+          d.innerHTML = `<span class="step-icon">◯</span> ${pass.map((x) => x.title).join(" + ")}`;
+          ps.appendChild(d);
+        });
+        document.getElementById("progressPanel").classList.add("visible");
 
-  const byteLen = new Blob([html]).size;
-  const lineCount = pretty.split('\n').length;
-  document.getElementById('rawModalInfo').textContent =
-    `${lineCount} строк · ${(byteLen / 1024).toFixed(1)} KB`;
+        const db = document.getElementById("docBodies");
+        db.innerHTML = "";
+        passes.forEach((_, i) => {
+          const d = document.createElement("div");
+          d.className = "doc-body";
+          d.id = "db" + i;
+          if (i > 0) d.style.borderTop = "none";
+          db.appendChild(d);
+        });
+        document.getElementById("outputWrap").classList.add("visible");
+        document
+          .getElementById("outputWrap")
+          .scrollIntoView({ behavior: "smooth", block: "start" });
 
-  document.getElementById('rawModalOverlay').classList.add('visible');
-  document.body.style.overflow = 'hidden';
-}
+        const SYS = `Ты — ведущий специалист по синтезу философских концепций и архитектор философских систем. Ты создаёшь ИСКЛЮЧИТЕЛЬНО строго структурированные академические документы высочайшего качества. Педантичный академический тон. Каждое утверждение обосновано. Каждый термин определён. Каждый тезис аргументирован. Ты обладаешь глубокими знаниями истории философии от досократиков до современности, включая восточную и русскую философские традиции. Ты умеешь находить неочевидные связи между традициями, выявлять скрытые общие основания и порождать подлинно новые идеи из синтеза существующих. При этом ты строго различаешь подлинную новизну от переименования существующего. Ты уважаешь каждую традицию и не искажаешь позиции философов при синтезе. Все ссылки на предыдущие разделы документа — явные, по номерам §§ и названиям категорий.`;
+        for (let i = 0; i < passes.length; i++) {
+          const pass = passes[i],
+            ct = document.getElementById("db" + i),
+            st = document.getElementById("ps" + i);
+          st.className = "progress-step active";
+          st.querySelector(".step-icon").textContent = "⟳";
+          let prior = "";
+          if (i > 0) {
+            const all = [];
+            for (let n = 0; n < i; n++) {
+              const el = document.getElementById("db" + n);
+              if (!el) continue;
+              el.querySelectorAll(".doc-section").forEach((s) => {
+                const t = s.innerText?.trim();
+                if (t) all.push(t);
+              });
+            }
+            if (all.length) {
+              const bud = 10000,
+                base = Math.floor(bud / all.length);
+              const txt = all
+                .map((t, idx) => {
+                  const b = idx <= 2 ? base * 2 : base;
+                  const h = Math.floor(b / 2);
+                  return t.length <= b ? t : t.slice(0, h) + "\n[...]\n" + t.slice(-h);
+                })
+                .join("\n\n---\n\n");
+              prior = `\n\nУЖЕ СОСТАВЛЕННЫЕ РАЗДЕЛЫ (ссылайся на §§, не повторяй):\n"""\n${txt}\n"""`;
+            }
+          }
+          const sp = pass
+            .map((d) => `§ ${d.num} — ${d.title.toUpperCase()}\n${d.prompt}`)
+            .join("\n\n");
+          const fp = `ПАРАМЕТРЫ:\n${baseCtx(p)}${prior}\n\n${htmlRules()}\n\nЗАДАНИЕ: составь ТОЛЬКО следующие разделы (строго в указанном порядке, без добавления других):\n\n${sp}\n\nТРЕБОВАНИЯ К КАЧЕСТВУ:\n- Каждый раздел — не менее ${mw(p)} слов содержательного текста\n- Таблицы — подробные, с реальным наполнением применительно к данному конкретному синтезу и выбранным философам\n- Абсолютно серьёзный академический тон. Никаких упрощений и поверхностных обобщений\n- Все ссылки на предыдущие разделы — ЯВНЫЕ, по номерам §§ и названиям категорий (например: «как определено в §3 настоящего документа», «категория "X" из §2»)\n- Для каждого утверждения — обоснование. Для каждой оценки — аргументация\n- Каждый философ (${p.phil.join(", ")}) должен быть представлен корректно, без искажения его позиции\n\nОтвечай ТОЛЬКО HTML начиная с <div class="doc-section">. Никакого текста вне HTML-разметки.`;
+          try {
+            await streamResp(fp, ct, SYS);
+            st.className = "progress-step done";
+            st.querySelector(".step-icon").textContent = "✓";
+            if (i === graphBodyIdx) {
+              try {
+                G = parseGraph(ct);
+                if (G.nodes.length > 0) document.getElementById("btnGraph").style.display = "";
+              } catch (e) {
+                console.warn("Graph parse:", e);
+              }
+            }
+          } catch (e) {
+            st.className = "progress-step done";
+            st.querySelector(".step-icon").textContent = "✓";
+            ct.innerHTML = `<div class="doc-section"><div class="callout warning"><span class="callout-label">⚠ Ошибка</span>${e.message}</div></div>`;
+          }
+        }
+        document.getElementById("docFooter").style.display = "flex";
+        btn.disabled = false;
+        btn.classList.remove("loading");
+        document.getElementById("btnText").textContent = "Синтезировать";
+      }
 
-function closeRawHTML() {
-  document.getElementById('rawModalOverlay').classList.remove('visible');
-  document.body.style.overflow = '';
-}
+      async function streamResp(prompt, container, sys) {
+        const body = {
+          model: "claude-sonnet-4-6",
+          max_tokens: 8000,
+          stream: true,
+          messages: [{ role: "user", content: prompt }],
+        };
+        if (sys) body.system = sys;
+        const resp = await fetch("https://api.anthropic.com/v1/messages", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "x-api-key": API_KEY,
+            "anthropic-version": "2023-06-01",
+            "anthropic-dangerous-direct-browser-access": "true",
+          },
+          body: JSON.stringify(body),
+        });
+        if (!resp.ok) {
+          const e = await resp.json();
+          throw new Error(e.error?.message || resp.statusText);
+        }
+        const reader = resp.body.getReader(),
+          dec = new TextDecoder();
+        let buf = "",
+          html = "";
+        const cur = document.createElement("span");
+        cur.className = "stream-cursor";
+        container.appendChild(cur);
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+          buf += dec.decode(value, { stream: true });
+          const lines = buf.split("\n");
+          buf = lines.pop();
+          for (const l of lines) {
+            if (!l.startsWith("data: ")) continue;
+            const d = l.slice(6).trim();
+            if (d === "[DONE]") continue;
+            try {
+              const p = JSON.parse(d);
+              if (p.type === "content_block_delta" && p.delta?.text) {
+                html += p.delta.text;
+                cur.remove();
+                container.innerHTML = html;
+                container.appendChild(cur);
+                cur.scrollIntoView({ block: "nearest" });
+              }
+            } catch (e) {}
+          }
+        }
+        cur.remove();
+        container.innerHTML = html;
+      }
 
-function copyRawHTML() {
-  const bodies = document.getElementById('docBodies');
-  const html = bodies ? bodies.innerHTML : '';
-  navigator.clipboard.writeText(html).then(() => {
-    const btn = document.querySelector('.raw-modal-copy');
-    const orig = btn.textContent;
-    btn.textContent = '✓ Скопировано';
-    setTimeout(() => { btn.textContent = orig; }, 2000);
-  });
-}
+      // ════════════════════════════════════════
+      // GRAPH PARSING
+      // ════════════════════════════════════════
+      function parseGraph(ct) {
+        const tables = ct.querySelectorAll("table.doc-table"),
+          nodes = [],
+          edges = [];
+        for (const t of tables) {
+          const ths = Array.from(t.querySelectorAll("thead th")).map((h) =>
+            h.textContent.trim().toLowerCase(),
+          );
+          if (
+            ths.some((h) => h.includes("категория")) &&
+            ths.some((h) => h.includes("центральность"))
+          ) {
+            t.querySelectorAll("tbody tr").forEach((tr) => {
+              const td = Array.from(tr.querySelectorAll("td")).map((c) => c.textContent.trim());
+              if (td.length >= 4)
+                nodes.push({
+                  name: td[0],
+                  type: (td[1] || "").toLowerCase(),
+                  def: td[2] || "",
+                  cen: parseFloat(td[3]) || 0.5,
+                  cert: parseFloat(td[4]) || 0.5,
+                  orig: td[5] || "",
+                });
+            });
+          }
+          if (
+            ths.some((h) => h.includes("источник")) &&
+            ths.some((h) => h.includes("цель") || h.includes("направлен"))
+          ) {
+            t.querySelectorAll("tbody tr").forEach((tr) => {
+              const td = Array.from(tr.querySelectorAll("td")).map((c) => c.textContent.trim());
+              if (td.length >= 4)
+                edges.push({
+                  src: td[0],
+                  desc: td[1] || "",
+                  tgt: td[2],
+                  type: td[3] || "",
+                  dir: (td[4] || "однонаправленная").toLowerCase(),
+                  str: parseFloat(td[5]) || 0.5,
+                });
+            });
+          }
+        }
+        return { nodes, edges };
+      }
 
-document.addEventListener('keydown', e => {
-  if (e.key === 'Escape') closeRawHTML();
-});
+      // ════════════════════════════════════════
+      // GRAPH MODAL
+      // ════════════════════════════════════════
+      function openGraph() {
+        if (!G.nodes.length) {
+          alert("Нет данных графа.");
+          return;
+        }
+        document.getElementById("gmOverlay").classList.add("visible");
+        document.body.style.overflow = "hidden";
+        switchView("3d");
+      }
+      function closeGraph() {
+        document.getElementById("gmOverlay").classList.remove("visible");
+        document.body.style.overflow = "";
+        if (anim3d) cancelAnimationFrame(anim3d);
+        anim3d = null;
+        const c = document.getElementById("view3d").querySelector("canvas");
+        if (c) c.remove();
+        if (renderer3d) {
+          renderer3d.dispose();
+          renderer3d = null;
+        }
+      }
+      function switchView(v) {
+        document.getElementById("view3d").classList.toggle("active", v === "3d");
+        document.getElementById("view2d").classList.toggle("active", v === "2d");
+        document.getElementById("tab3d").classList.toggle("active", v === "3d");
+        document.getElementById("tab2d").classList.toggle("active", v === "2d");
+        document.getElementById("gmHint").textContent =
+          v === "3d"
+            ? "Вращение: мышь · Зум: колёсико · Перетаскивание узлов"
+            : "Перетаскивание узлов · Зум: колёсико";
+        if (v === "3d") build3D();
+        else build2D();
+      }
 
-function resetForm() {
-  document.getElementById('outputWrap').classList.remove('visible');
-  document.getElementById('progressPanel').classList.remove('visible');
-  document.getElementById('seedInput').value = '';
-  document.getElementById('contextInput').value = '';
-  document.getElementById('docFooter').style.display = 'none';
-  window.scrollTo({ top: 0, behavior: 'smooth' });
-}
+      // ── FORCE SIM (shared) ──
+      function forceSim(nodes, edges, dim) {
+        const ns = nodes.map((n, i) => ({
+          ...n,
+          id: i,
+          x: (Math.random() - 0.5) * 80,
+          y: (Math.random() - 0.5) * 80,
+          z: dim === 3 ? (Math.random() - 0.5) * 80 : 0,
+          vx: 0,
+          vy: 0,
+          vz: 0,
+        }));
+        const nm = {};
+        ns.forEach((n) => {
+          nm[n.name.toLowerCase().trim()] = n.id;
+        });
+        const es = edges
+          .map((e) => ({
+            ...e,
+            si: nm[e.src.toLowerCase().trim()] ?? -1,
+            ti: nm[e.tgt.toLowerCase().trim()] ?? -1,
+          }))
+          .filter((e) => e.si >= 0 && e.ti >= 0);
+        for (let it = 0; it < 300; it++) {
+          const a = Math.max(0.01, 1 - it / 300);
+          for (let i = 0; i < ns.length; i++)
+            for (let j = i + 1; j < ns.length; j++) {
+              let dx = ns[j].x - ns[i].x,
+                dy = ns[j].y - ns[i].y,
+                dz = ns[j].z - ns[i].z;
+              let d = Math.sqrt(dx * dx + dy * dy + dz * dz) || 1;
+              let f = 800 / (d * d);
+              ns[i].vx -= (dx / d) * f;
+              ns[i].vy -= (dy / d) * f;
+              ns[i].vz -= (dz / d) * f;
+              ns[j].vx += (dx / d) * f;
+              ns[j].vy += (dy / d) * f;
+              ns[j].vz += (dz / d) * f;
+            }
+          for (const e of es) {
+            if (e.si === e.ti) continue;
+            const s = ns[e.si],
+              t = ns[e.ti];
+            let dx = t.x - s.x,
+              dy = t.y - s.y,
+              dz = t.z - s.z;
+            let d = Math.sqrt(dx * dx + dy * dy + dz * dz) || 1;
+            let f = (d - 30) * 0.05 * (e.str || 0.5);
+            s.vx += (dx / d) * f;
+            s.vy += (dy / d) * f;
+            s.vz += (dz / d) * f;
+            t.vx -= (dx / d) * f;
+            t.vy -= (dy / d) * f;
+            t.vz -= (dz / d) * f;
+          }
+          for (const n of ns) {
+            n.vx -= n.x * 0.01;
+            n.vy -= n.y * 0.01;
+            n.vz -= n.z * 0.01;
+            n.x += n.vx * a;
+            n.y += n.vy * a;
+            n.z += n.vz * a;
+            n.vx *= 0.85;
+            n.vy *= 0.85;
+            n.vz *= 0.85;
+          }
+        }
+        return { ns, es };
+      }
 
-function copyDoc() {
-  const bodies = document.getElementById('docBodies');
-  const text = bodies ? bodies.innerText : '';
-  navigator.clipboard.writeText(text).then(() => alert('Документ скопирован.'));
-}
+      // ── 3D (Three.js) with node dragging ──
+      function build3D() {
+        const ct = document.getElementById("view3d");
+        const old = ct.querySelector("canvas");
+        if (old) old.remove();
+        if (renderer3d) {
+          renderer3d.dispose();
+          renderer3d = null;
+        }
+        if (anim3d) cancelAnimationFrame(anim3d);
+        const W = ct.clientWidth,
+          H = ct.clientHeight;
+        const { ns, es } = forceSim(G.nodes, G.edges, 3);
+        const scene = new THREE.Scene();
+        scene.background = new THREE.Color(0x0a0a14);
+        const cam = new THREE.PerspectiveCamera(50, W / H, 1, 2000);
+        cam.position.set(0, 0, 150);
+        renderer3d = new THREE.WebGLRenderer({ antialias: true });
+        renderer3d.setSize(W, H);
+        renderer3d.setPixelRatio(Math.min(devicePixelRatio, 2));
+        ct.insertBefore(renderer3d.domElement, ct.firstChild);
+        scene.add(new THREE.AmbientLight(0xffffff, 0.6));
+        const dl = new THREE.DirectionalLight(0xffffff, 0.8);
+        dl.position.set(50, 80, 100);
+        scene.add(dl);
 
-function getDocFilename(ext) {
-  const seed = document.getElementById('seedInput').value.trim();
-  const slug = seed.substring(0, 40).replace(/[^а-яёa-z0-9\s]/gi, '').trim().replace(/\s+/g, '-');
-  const date = new Date().toISOString().slice(0, 10);
-  return `philosynth-${date}-${slug || 'document'}.${ext}`;
-}
+        const meshes = [];
+        const types = new Set();
+        for (const n of ns) {
+          const c = typeColor(n.type);
+          types.add(n.type || "другое");
+          const r = 1.5 + n.cen * 3;
+          const m = new THREE.Mesh(
+            new THREE.SphereGeometry(r, 24, 24),
+            new THREE.MeshPhongMaterial({
+              color: c,
+              emissive: c,
+              emissiveIntensity: 0.15,
+              transparent: true,
+              opacity: 0.9,
+            }),
+          );
+          m.position.set(n.x, n.y, n.z);
+          m.userData = { nodeIdx: n.id };
+          scene.add(m);
+          meshes.push(m);
+          const sp = mkSprite(n.name);
+          sp.position.set(n.x, n.y + r + 2.5, n.z);
+          sp.userData = { labelFor: n.id };
+          scene.add(sp);
+        }
 
-function downloadFile(content, filename, mimeType) {
-  const blob = new Blob([content], { type: mimeType + ';charset=utf-8;' });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = filename;
-  document.body.appendChild(a);
-  a.click();
-  document.body.removeChild(a);
-  URL.revokeObjectURL(url);
-}
+        for (const e of es) {
+          const s = ns[e.si],
+            t = ns[e.ti];
+          const refl = e.dir.includes("рефлексив") || e.si === e.ti;
+          const bi = e.dir.includes("двунаправлен");
+          if (refl) {
+            const c = new THREE.CubicBezierCurve3(
+              new THREE.Vector3(s.x, s.y, s.z),
+              new THREE.Vector3(s.x + 15, s.y + 15, s.z),
+              new THREE.Vector3(s.x - 15, s.y + 15, s.z),
+              new THREE.Vector3(s.x, s.y, s.z),
+            );
+            scene.add(
+              new THREE.Line(
+                new THREE.BufferGeometry().setFromPoints(c.getPoints(32)),
+                new THREE.LineBasicMaterial({ color: 0xe8a838, transparent: true, opacity: 0.6 }),
+              ),
+            );
+          } else {
+            const col = bi ? 0x50c878 : 0x4a90d9;
+            const op = 0.3 + e.str * 0.5;
+            scene.add(
+              new THREE.Line(
+                new THREE.BufferGeometry().setFromPoints([
+                  new THREE.Vector3(s.x, s.y, s.z),
+                  new THREE.Vector3(t.x, t.y, t.z),
+                ]),
+                new THREE.LineBasicMaterial({ color: col, transparent: true, opacity: op }),
+              ),
+            );
+            const dir = new THREE.Vector3(t.x - s.x, t.y - s.y, t.z - s.z).normalize();
+            const tr = 1.5 + (ns[e.ti].cen || 0.5) * 3;
+            const ap = new THREE.Vector3(t.x, t.y, t.z).sub(dir.clone().multiplyScalar(tr + 1.5));
+            const cn = new THREE.Mesh(
+              new THREE.CylinderGeometry(0, 1, 3, 8),
+              new THREE.MeshPhongMaterial({ color: col, transparent: true, opacity: op + 0.1 }),
+            );
+            cn.position.copy(ap);
+            cn.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), dir);
+            scene.add(cn);
+            if (bi) {
+              const d2 = dir.clone().negate();
+              const sr = 1.5 + (ns[e.si].cen || 0.5) * 3;
+              const ap2 = new THREE.Vector3(s.x, s.y, s.z).sub(d2.clone().multiplyScalar(sr + 1.5));
+              const cn2 = cn.clone();
+              cn2.position.copy(ap2);
+              cn2.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), d2);
+              scene.add(cn2);
+            }
+          }
+        }
 
-function saveHTML() {
-  const styles = Array.from(document.querySelectorAll('style')).map(s => s.outerHTML).join('\n');
-  const docHTML = document.getElementById('docOutput').innerHTML;
-  const html = `<!DOCTYPE html>
-<html lang="ru">
-<head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>${document.getElementById('docTitle').textContent}</title>
-<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700;900&family=IBM+Plex+Mono:wght@300;400;500;600&family=IBM+Plex+Sans:ital,wght@0,300;0,400;0,500;0,600;1,400&display=swap" rel="stylesheet">
-${styles}
-<style>body{background:#f2f0eb;padding:32px;}#docOutput{max-width:1100px;margin:0 auto;}</style>
-</head>
-<body>
-<div id="docOutput">${docHTML}</div>
-</body>
-</html>`;
-  downloadFile(html, getDocFilename('html'), 'text/html');
-}
-</script>
-</body>
+        buildLegend(types);
+
+        // Controls: orbit + node drag via raycasting
+        let isDrag = false,
+          isOrbit = false,
+          pX = 0,
+          pY = 0,
+          rotX = 0,
+          rotY = 0,
+          zoom = 150,
+          dragNode = null;
+        const raycaster = new THREE.Raycaster();
+        const mouse = new THREE.Vector2();
+        const plane = new THREE.Plane();
+        const intersection = new THREE.Vector3();
+        const cv = renderer3d.domElement;
+
+        cv.addEventListener("mousedown", (e) => {
+          mouse.x = (e.offsetX / cv.clientWidth) * 2 - 1;
+          mouse.y = -(e.offsetY / cv.clientHeight) * 2 + 1;
+          raycaster.setFromCamera(mouse, cam);
+          const hits = raycaster.intersectObjects(meshes);
+          if (hits.length > 0) {
+            dragNode = hits[0].object;
+            plane.setFromNormalAndCoplanarPoint(
+              cam.getWorldDirection(new THREE.Vector3()).negate(),
+              dragNode.position,
+            );
+            cv.style.cursor = "grabbing";
+          } else {
+            isOrbit = true;
+          }
+          pX = e.clientX;
+          pY = e.clientY;
+        });
+
+        cv.addEventListener("mousemove", (e) => {
+          if (dragNode) {
+            mouse.x = (e.offsetX / cv.clientWidth) * 2 - 1;
+            mouse.y = -(e.offsetY / cv.clientHeight) * 2 + 1;
+            raycaster.setFromCamera(mouse, cam);
+            if (raycaster.ray.intersectPlane(plane, intersection)) {
+              dragNode.position.copy(intersection);
+              // Move label
+              scene.children.forEach((c) => {
+                if (c.userData?.labelFor === dragNode.userData.nodeIdx) {
+                  const r = 1.5 + (ns[dragNode.userData.nodeIdx].cen || 0.5) * 3;
+                  c.position.set(intersection.x, intersection.y + r + 2.5, intersection.z);
+                }
+              });
+            }
+          } else if (isOrbit) {
+            rotY += (e.clientX - pX) * 0.005;
+            rotX += (e.clientY - pY) * 0.005;
+            rotX = Math.max(-Math.PI / 2, Math.min(Math.PI / 2, rotX));
+            pX = e.clientX;
+            pY = e.clientY;
+          }
+        });
+
+        cv.addEventListener("mouseup", () => {
+          isDrag = false;
+          isOrbit = false;
+          dragNode = null;
+          cv.style.cursor = "";
+        });
+        cv.addEventListener("mouseleave", () => {
+          isOrbit = false;
+          dragNode = null;
+        });
+        cv.addEventListener(
+          "wheel",
+          (e) => {
+            zoom = Math.max(30, Math.min(400, zoom + e.deltaY * 0.1));
+            e.preventDefault();
+          },
+          { passive: false },
+        );
+        cv.addEventListener("dblclick", () => {
+          rotX = 0;
+          rotY = 0;
+          zoom = 150;
+        });
+
+        function animate() {
+          anim3d = requestAnimationFrame(animate);
+          if (!dragNode) {
+            /* auto-rotate only when not dragging */
+          }
+          cam.position.x = zoom * Math.sin(rotY) * Math.cos(rotX);
+          cam.position.y = zoom * Math.sin(rotX);
+          cam.position.z = zoom * Math.cos(rotY) * Math.cos(rotX);
+          cam.lookAt(0, 0, 0);
+          renderer3d.render(scene, cam);
+        }
+        animate();
+        new ResizeObserver(() => {
+          const w = ct.clientWidth,
+            h = ct.clientHeight;
+          cam.aspect = w / h;
+          cam.updateProjectionMatrix();
+          renderer3d.setSize(w, h);
+        }).observe(ct);
+      }
+
+      function mkSprite(text) {
+        const cv = document.createElement("canvas"),
+          c = cv.getContext("2d");
+        c.font = "28px IBM Plex Mono,monospace";
+        const m = c.measureText(text);
+        cv.width = m.width + 20;
+        cv.height = 44;
+        c.font = "28px IBM Plex Mono,monospace";
+        c.fillStyle = "#c8c0b0";
+        c.textAlign = "center";
+        c.textBaseline = "middle";
+        c.fillText(text, cv.width / 2, cv.height / 2);
+        const tx = new THREE.CanvasTexture(cv);
+        tx.minFilter = THREE.LinearFilter;
+        const sp = new THREE.Sprite(
+          new THREE.SpriteMaterial({ map: tx, transparent: true, depthTest: false }),
+        );
+        sp.scale.set(cv.width / 8, cv.height / 8, 1);
+        return sp;
+      }
+
+      // ── 2D (D3.js) with drag ──
+      function build2D() {
+        const ct = document.getElementById("view2d");
+        ct.innerHTML = "";
+        const W = ct.clientWidth,
+          H = ct.clientHeight;
+        const nm = {};
+        G.nodes.forEach((n, i) => {
+          nm[n.name.toLowerCase().trim()] = i;
+        });
+        const links = G.edges
+          .map((e) => ({
+            source: nm[e.src.toLowerCase().trim()],
+            target: nm[e.tgt.toLowerCase().trim()],
+            type: e.type,
+            dir: e.dir,
+            str: e.str,
+            desc: e.desc,
+          }))
+          .filter((l) => l.source != null && l.target != null);
+        const nodes = G.nodes.map((n, i) => ({ ...n, id: i }));
+
+        const svg = d3
+          .select(ct)
+          .append("svg")
+          .attr("width", W)
+          .attr("height", H)
+          .style("background", "#0a0a14");
+        const g = svg.append("g");
+
+        // Zoom
+        svg.call(
+          d3
+            .zoom()
+            .scaleExtent([0.2, 5])
+            .on("zoom", (e) => g.attr("transform", e.transform)),
+        );
+
+        // Arrow markers
+        const defs = g.append("defs");
+        defs
+          .append("marker")
+          .attr("id", "arr-uni")
+          .attr("viewBox", "0 -5 10 10")
+          .attr("refX", 20)
+          .attr("refY", 0)
+          .attr("markerWidth", 8)
+          .attr("markerHeight", 8)
+          .attr("orient", "auto")
+          .append("path")
+          .attr("d", "M0,-5L10,0L0,5")
+          .attr("fill", "#4a90d9");
+        defs
+          .append("marker")
+          .attr("id", "arr-bi")
+          .attr("viewBox", "0 -5 10 10")
+          .attr("refX", 20)
+          .attr("refY", 0)
+          .attr("markerWidth", 8)
+          .attr("markerHeight", 8)
+          .attr("orient", "auto")
+          .append("path")
+          .attr("d", "M0,-5L10,0L0,5")
+          .attr("fill", "#50c878");
+
+        const sim = d3
+          .forceSimulation(nodes)
+          .force(
+            "link",
+            d3
+              .forceLink(links)
+              .id((d) => d.id)
+              .distance(100)
+              .strength((d) => d.str || 0.3),
+          )
+          .force("charge", d3.forceManyBody().strength(-300))
+          .force("center", d3.forceCenter(W / 2, H / 2))
+          .force(
+            "collision",
+            d3.forceCollide().radius((d) => 10 + d.cen * 20),
+          );
+
+        // Edges
+        const link = g
+          .selectAll(".edge-line")
+          .data(links)
+          .enter()
+          .append("line")
+          .attr("class", "edge-line")
+          .attr("stroke", (d) =>
+            d.dir.includes("двунаправлен")
+              ? "#50c878"
+              : d.dir.includes("рефлексив")
+                ? "#e8a838"
+                : "#4a90d9",
+          )
+          .attr("stroke-opacity", (d) => 0.3 + d.str * 0.5)
+          .attr("stroke-width", (d) => 1 + d.str * 3)
+          .attr("marker-end", (d) =>
+            d.dir.includes("рефлексив")
+              ? null
+              : d.dir.includes("двунаправлен")
+                ? "url(#arr-bi)"
+                : "url(#arr-uni)",
+          );
+
+        // Reflexive arcs
+        const reflLinks = links.filter((l) => l.source === l.target || l.dir.includes("рефлексив"));
+        const arc = g
+          .selectAll(".edge-arc")
+          .data(reflLinks)
+          .enter()
+          .append("path")
+          .attr("fill", "none")
+          .attr("stroke", "#e8a838")
+          .attr("stroke-opacity", 0.6)
+          .attr("stroke-width", 2);
+
+        // Nodes
+        const node = g
+          .selectAll(".node-circle")
+          .data(nodes)
+          .enter()
+          .append("circle")
+          .attr("class", "node-circle")
+          .attr("r", (d) => 6 + d.cen * 14)
+          .attr("fill", (d) => typeColorHex(d.type))
+          .attr("stroke", (d) => typeColorHex(d.type))
+          .call(
+            d3
+              .drag()
+              .on("start", (e, d) => {
+                if (!e.active) sim.alphaTarget(0.3).restart();
+                d.fx = d.x;
+                d.fy = d.y;
+              })
+              .on("drag", (e, d) => {
+                d.fx = e.x;
+                d.fy = e.y;
+              })
+              .on("end", (e, d) => {
+                if (!e.active) sim.alphaTarget(0);
+                d.fx = null;
+                d.fy = null;
+              }),
+          );
+
+        node.append("title").text((d) => `${d.name}\n${d.type}\n${d.def}`);
+
+        // Labels
+        const label = g
+          .selectAll(".node-label")
+          .data(nodes)
+          .enter()
+          .append("text")
+          .attr("class", "node-label")
+          .attr("dy", (d) => -(8 + d.cen * 14))
+          .attr("text-anchor", "middle")
+          .text((d) => d.name);
+
+        sim.on("tick", () => {
+          link
+            .attr("x1", (d) => d.source.x)
+            .attr("y1", (d) => d.source.y)
+            .attr("x2", (d) => d.target.x)
+            .attr("y2", (d) => d.target.y);
+          arc.attr("d", (d) => {
+            const x = typeof d.source === "object" ? d.source.x : nodes[d.source].x;
+            const y = typeof d.source === "object" ? d.source.y : nodes[d.source].y;
+            return `M${x},${y}A20,20,0,1,1,${x + 1},${y + 1}`;
+          });
+          node.attr("cx", (d) => d.x).attr("cy", (d) => d.y);
+          label.attr("x", (d) => d.x).attr("y", (d) => d.y);
+        });
+
+        buildLegend(new Set(G.nodes.map((n) => n.type || "другое")));
+      }
+
+      function buildLegend(types) {
+        const l = document.getElementById("gmLegend");
+        let h =
+          '<div style="margin-bottom:6px;color:rgba(255,255,255,.5);font-size:9px;letter-spacing:1.5px">ТИПЫ КАТЕГОРИЙ</div>';
+        for (const t of types)
+          h += `<div class="gm-legend-item"><div class="gm-legend-dot" style="background:${typeColorHex(t)}"></div>${t}</div>`;
+        h +=
+          '<div style="margin-top:8px;color:rgba(255,255,255,.35);font-size:9px">→ однонаправл. · ↔ двунаправл. · ↺ рефлексивная</div>';
+        l.innerHTML = h;
+      }
+
+      // ════════════════════════════════════════
+      // MMD EXPORT
+      // ════════════════════════════════════════
+      function exportMMD() {
+        if (!G.nodes.length) {
+          alert("Нет графа.");
+          return;
+        }
+        const l = ["graph LR"];
+        const ids = {};
+        G.nodes.forEach((n, i) => {
+          ids[n.name.toLowerCase().trim()] = "N" + i;
+          l.push(`    N${i}["${n.name}"]`);
+        });
+        l.push("");
+        for (const e of G.edges) {
+          const s = ids[e.src.toLowerCase().trim()],
+            t = ids[e.tgt.toLowerCase().trim()];
+          if (!s || !t) continue;
+          const lb = e.type || e.desc || "";
+          if (e.dir.includes("рефлексив") || s === t) l.push(`    ${s} -->|"${lb} ↺"| ${s}`);
+          else if (e.dir.includes("двунаправлен")) l.push(`    ${s} <-->|"${lb}"| ${t}`);
+          else l.push(`    ${s} -->|"${lb}"| ${t}`);
+        }
+        l.push("");
+        let ci = 0;
+        const tg = {};
+        G.nodes.forEach((n, i) => {
+          const t = n.type || "default";
+          if (!tg[t]) tg[t] = [];
+          tg[t].push("N" + i);
+        });
+        for (const [t, ids2] of Object.entries(tg)) {
+          const cn = "t" + ci++;
+          l.push(`    classDef ${cn} fill:${typeColorHex(t)},stroke:${typeColorHex(t)},color:#fff`);
+          l.push(`    class ${ids2.join(",")} ${cn}`);
+        }
+        downloadFile(l.join("\n"), getDocFilename("mmd"), "text/plain");
+      }
+
+      // ════════════════════════════════════════
+      // SAVE / EXPORT
+      // ════════════════════════════════════════
+      function downloadFile(c, fn, mt) {
+        const b = new Blob([c], { type: mt + ";charset=utf-8;" });
+        const u = URL.createObjectURL(b);
+        const a = document.createElement("a");
+        a.href = u;
+        a.download = fn;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(u);
+      }
+      function getDocFilename(ext) {
+        const s = document
+          .getElementById("seedInput")
+          .value.trim()
+          .substring(0, 40)
+          .replace(/[^а-яёa-z0-9\s]/gi, "")
+          .trim()
+          .replace(/\s+/g, "-");
+        return `philosynth-${new Date().toISOString().slice(0, 10)}-${s || "doc"}.${ext}`;
+      }
+
+      function saveHTML() {
+        const styles = Array.from(document.querySelectorAll("style"))
+          .map((s) => s.outerHTML)
+          .join("\n");
+        const docHTML = document.getElementById("docOutput").innerHTML;
+        // Embed graph data + D3 interactive viz in saved file
+        const graphJSON = JSON.stringify(G);
+        const graphScript =
+          G.nodes.length > 0
+            ? `
+<script src="https://cdnjs.cloudflare.com/ajax/libs/d3/7.8.5/d3.min.js"><\/script>
+<div id="graphVizEmbed" style="width:100%;height:600px;background:#0a0a14;border:1px solid #333;margin:16px 0;position:relative;">
+  <div style="position:absolute;top:8px;left:50%;transform:translateX(-50%);font-family:monospace;font-size:10px;color:rgba(255,255,255,.3)">Перетаскивайте узлы · Зум: колёсико</div>
+</div>
+<script>
+(function(){
+const G=${graphJSON};
+const TC={'онтологическ':'#4a90d9','эпистемологическ':'#50c878','этическ':'#e8a838','аксиологическ':'#e8a838','метафизическ':'#9b59b6','логическ':'#1abc9c','практическ':'#e67e22','эстетическ':'#e91e63','антропологическ':'#f39c12','феноменологическ':'#8e44ad','экзистенциальн':'#c0392b','социальн':'#27ae60','политическ':'#2980b9','теологическ':'#7f8c8d'};
+function tc(t){for(const[k,v]of Object.entries(TC))if(t&&t.includes(k))return v;return'#95a5a6';}
+const ct=document.getElementById('graphVizEmbed');const W=ct.clientWidth,H=ct.clientHeight||600;
+const nm={};G.nodes.forEach((n,i)=>{nm[n.name.toLowerCase().trim()]=i;});
+const links=G.edges.map(e=>({source:nm[e.src.toLowerCase().trim()],target:nm[e.tgt.toLowerCase().trim()],type:e.type,dir:e.dir,str:e.str})).filter(l=>l.source!=null&&l.target!=null);
+const nodes=G.nodes.map((n,i)=>({...n,id:i}));
+const svg=d3.select(ct).append('svg').attr('width',W).attr('height',H).style('background','#0a0a14');
+const g=svg.append('g');svg.call(d3.zoom().scaleExtent([.2,5]).on('zoom',e=>g.attr('transform',e.transform)));
+const sim=d3.forceSimulation(nodes).force('link',d3.forceLink(links).id(d=>d.id).distance(100).strength(d=>d.str||.3)).force('charge',d3.forceManyBody().strength(-300)).force('center',d3.forceCenter(W/2,H/2)).force('collision',d3.forceCollide().radius(d=>10+d.cen*20));
+const link=g.selectAll('line').data(links).enter().append('line').attr('stroke',d=>d.dir.includes('двунаправлен')?'#50c878':d.dir.includes('рефлексив')?'#e8a838':'#4a90d9').attr('stroke-opacity',d=>.3+d.str*.5).attr('stroke-width',d=>1+d.str*3);
+const node=g.selectAll('circle').data(nodes).enter().append('circle').attr('r',d=>6+d.cen*14).attr('fill',d=>tc(d.type)).attr('stroke',d=>tc(d.type)).attr('stroke-width',2).call(d3.drag().on('start',(e,d)=>{if(!e.active)sim.alphaTarget(.3).restart();d.fx=d.x;d.fy=d.y;}).on('drag',(e,d)=>{d.fx=e.x;d.fy=e.y;}).on('end',(e,d)=>{if(!e.active)sim.alphaTarget(0);d.fx=null;d.fy=null;}));
+node.append('title').text(d=>d.name+'\\n'+d.type);
+const label=g.selectAll('text').data(nodes).enter().append('text').attr('dy',d=>-(8+d.cen*14)).attr('text-anchor','middle').attr('fill','#c8c0b0').attr('font-family','monospace').attr('font-size','10px').text(d=>d.name);
+sim.on('tick',()=>{link.attr('x1',d=>d.source.x).attr('y1',d=>d.source.y).attr('x2',d=>d.target.x).attr('y2',d=>d.target.y);node.attr('cx',d=>d.x).attr('cy',d=>d.y);label.attr('x',d=>d.x).attr('y',d=>d.y);});
+})();
+<\/script>`
+            : "";
+
+        const html = `<!DOCTYPE html><html lang="ru"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0"><title>${document.getElementById("docTitle").textContent}</title><link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700;900&family=IBM+Plex+Mono:wght@300;400;500;600&family=IBM+Plex+Sans:ital,wght@0,300;0,400;0,500;0,600;1,400&display=swap" rel="stylesheet">${styles}<style>body{background:#f2f0eb;padding:32px}#docOutput{max-width:1100px;margin:0 auto}</style></head><body><div id="docOutput">${docHTML}</div>${graphScript}</body></html>`;
+        downloadFile(html, getDocFilename("html"), "text/html");
+      }
+
+      // ════════════════════════════════════════
+      // SAVE MD (restored from v1)
+      // ════════════════════════════════════════
+      function saveMD() {
+        const lines = [];
+        lines.push(`# ${document.getElementById("docTitle").textContent}`);
+        lines.push(`\n> ${document.getElementById("docSubtitle").textContent}`);
+        lines.push(
+          `\n---\n\n| Параметр | Значение |\n|---|---|\n| Документ № | ${document.getElementById("docNum").textContent} |\n| Дата | ${document.getElementById("docDate").textContent} |\n| Метод | ${document.getElementById("docMethod").textContent} |\n| Глубина | ${document.getElementById("docDepth").textContent} |\n\n---\n`,
+        );
+        const db = document.getElementById("docBodies");
+        if (db) db.querySelectorAll(".doc-section").forEach((sec) => lines.push(sec2md(sec)));
+        lines.push(`\n---\n*PhiloSynth Pro™ · Документ сгенерирован Claude AI*`);
+        downloadFile(lines.join("\n"), getDocFilename("md"), "text/markdown");
+      }
+
+      function sec2md(sec) {
+        const parts = [];
+        const num = sec.querySelector(".section-num")?.textContent?.trim() || "";
+        const title = sec.querySelector(".section-title")?.textContent?.trim() || "";
+        if (num || title) parts.push(`## ${num}${num && title ? " — " : ""}${title}`);
+        const ct = sec.querySelector(".doc-content");
+        if (ct) parts.push(node2md(ct));
+        const sig = sec.querySelector(".sig-block");
+        if (sig) parts.push(sig2md(sig));
+        return parts.join("\n\n");
+      }
+
+      function node2md(node) {
+        const p = [];
+        node.childNodes.forEach((c) => {
+          if (c.nodeType === 3) {
+            const t = c.textContent.trim();
+            if (t) p.push(t);
+          } else if (c.nodeType === 1) {
+            const tag = c.tagName.toLowerCase();
+            if (tag === "h4") p.push(`\n### ${c.textContent.trim()}`);
+            else if (tag === "p") p.push(inline2md(c));
+            else if (tag === "ul") {
+              c.querySelectorAll("li").forEach((li) => p.push(`- ${inline2md(li)}`));
+            } else if (tag === "ol") {
+              let n = 1;
+              c.querySelectorAll("li").forEach((li) => p.push(`${n++}. ${inline2md(li)}`));
+            } else if (tag === "table") p.push(table2md(c));
+            else if (c.classList?.contains("callout")) {
+              const lb = c.querySelector(".callout-label")?.textContent?.trim() || "";
+              const tx = c.innerText.replace(lb, "").trim();
+              p.push(`> **${lb}** ${tx}`);
+            } else {
+              const inner = node2md(c);
+              if (inner.trim()) p.push(inner);
+            }
+          }
+        });
+        return p.join("\n\n");
+      }
+
+      function inline2md(el) {
+        let r = "";
+        el.childNodes.forEach((c) => {
+          if (c.nodeType === 3) r += c.textContent;
+          else if (c.nodeType === 1) {
+            const t = c.tagName.toLowerCase();
+            if (t === "strong") r += `**${c.textContent}**`;
+            else if (t === "em") r += `*${c.textContent}*`;
+            else if (c.classList?.contains("risk")) r += `\`${c.textContent}\``;
+            else r += c.textContent;
+          }
+        });
+        return r.trim();
+      }
+
+      function table2md(table) {
+        const rows = [];
+        const hs = Array.from(table.querySelectorAll("thead th")).map((th) =>
+          th.textContent.trim(),
+        );
+        if (hs.length) {
+          rows.push(`| ${hs.join(" | ")} |`);
+          rows.push(`| ${hs.map(() => "---").join(" | ")} |`);
+        }
+        table.querySelectorAll("tbody tr").forEach((tr) => {
+          const cs = Array.from(tr.querySelectorAll("td")).map((td) =>
+            (inline2md(td) || td.textContent.trim()).replace(/\|/g, "\\|"),
+          );
+          rows.push(`| ${cs.join(" | ")} |`);
+        });
+        return rows.join("\n");
+      }
+
+      function sig2md(sig) {
+        return Array.from(sig.querySelectorAll(".sig-party"))
+          .map((p) => {
+            const n = p.querySelector(".sig-party-name")?.textContent?.trim() || "";
+            const r = p.querySelector(".sig-party-role")?.textContent?.trim() || "";
+            return `**${n}** *(${r})*\n\n_________________\n*Подпись / Дата*`;
+          })
+          .join("\n\n---\n\n");
+      }
+
+      // ════════════════════════════════════════
+      // RAW HTML / COPY / RESET
+      // ════════════════════════════════════════
+      function viewRawHTML() {
+        const b = document.getElementById("docBodies");
+        const h = b ? b.innerHTML : "";
+        if (!h.trim()) {
+          alert("Документ не сгенерирован.");
+          return;
+        }
+        const pr = h
+          .replace(/></g, ">\n<")
+          .split("\n")
+          .map((l) => l.trimStart())
+          .join("\n");
+        document.getElementById("rawContent").textContent = pr;
+        document.getElementById("rawInfo").textContent =
+          `${pr.split("\n").length} строк · ${(new Blob([h]).size / 1024).toFixed(1)} KB`;
+        document.getElementById("rawOverlay").classList.add("visible");
+        document.body.style.overflow = "hidden";
+      }
+      function closeRaw() {
+        document.getElementById("rawOverlay").classList.remove("visible");
+        document.body.style.overflow = "";
+      }
+      function copyRaw() {
+        navigator.clipboard
+          .writeText(document.getElementById("docBodies")?.innerHTML || "")
+          .then(() => {
+            const b = document.querySelector(".raw-copy");
+            const o = b.textContent;
+            b.textContent = "✓";
+            setTimeout(() => (b.textContent = o), 1500);
+          });
+      }
+      document.addEventListener("keydown", (e) => {
+        if (e.key === "Escape") {
+          closeRaw();
+          closeGraph();
+        }
+      });
+      function resetForm() {
+        document.getElementById("outputWrap").classList.remove("visible");
+        document.getElementById("progressPanel").classList.remove("visible");
+        document.getElementById("seedInput").value = "";
+        document.getElementById("contextInput").value = "";
+        document.getElementById("docFooter").style.display = "none";
+        document.getElementById("btnGraph").style.display = "none";
+        G = { nodes: [], edges: [] };
+        window.scrollTo({ top: 0, behavior: "smooth" });
+      }
+      function copyDoc() {
+        navigator.clipboard
+          .writeText(document.getElementById("docBodies")?.innerText || "")
+          .then(() => alert("Скопировано."));
+      }
+    </script>
+  </body>
 </html>
