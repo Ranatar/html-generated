@@ -2720,26 +2720,26 @@
         defs
           .append("marker")
           .attr("id", "arr-uni")
-          .attr("viewBox", "0 -5 10 10")
+          .attr("viewBox", "0 -3 6 6")
           .attr("refX", 20)
           .attr("refY", 0)
-          .attr("markerWidth", 8)
-          .attr("markerHeight", 8)
+          .attr("markerWidth", 4)
+          .attr("markerHeight", 4)
           .attr("orient", "auto")
           .append("path")
-          .attr("d", "M0,-5L10,0L0,5")
+          .attr("d", "M0,-3L6,0L0,3")
           .attr("fill", "#4a90d9");
         defs
           .append("marker")
           .attr("id", "arr-bi")
-          .attr("viewBox", "0 -5 10 10")
+          .attr("viewBox", "0 -3 6 6")
           .attr("refX", 20)
           .attr("refY", 0)
-          .attr("markerWidth", 8)
-          .attr("markerHeight", 8)
+          .attr("markerWidth", 4)
+          .attr("markerHeight", 4)
           .attr("orient", "auto")
           .append("path")
-          .attr("d", "M0,-5L10,0L0,5")
+          .attr("d", "M0,-3L6,0L0,3")
           .attr("fill", "#50c878");
 
         const sim = d3
@@ -2749,8 +2749,8 @@
             d3
               .forceLink(links)
               .id((d) => d.id)
-              .distance(100)
-              .strength((d) => d.str || 0.3),
+              .distance(180)
+              .strength((d) => d.str || 0.1),
           )
           .force("charge", d3.forceManyBody().strength(-300))
           .force("center", d3.forceCenter(W / 2, H / 2))
@@ -2905,68 +2905,122 @@
         }
         downloadFile(l.join("\n"), getDocFilename("mmd"), "text/plain");
       }
-
       // ════════════════════════════════════════
-      // SAVE / EXPORT
+      // GRAPH EXPORT BUNDLE
+      // Собирает граф-секцию для скачиваемого HTML без дублирования кода:
+      // модальное окно клонируется из DOM, функции сериализуются через .toString().
       // ════════════════════════════════════════
-      function downloadFile(c, fn, mt) {
-        const b = new Blob([c], { type: mt + ";charset=utf-8;" });
-        const u = URL.createObjectURL(b);
-        const a = document.createElement("a");
-        a.href = u;
-        a.download = fn;
-        document.body.appendChild(a);
-        a.click();
-        document.body.removeChild(a);
-        URL.revokeObjectURL(u);
+      function buildGraphExportSection(graphData, filenameBase) {
+        if (!graphData || !graphData.nodes || !graphData.nodes.length) return "";
+ 
+        // ── 1. Клонируем модальное окно из DOM, очищаем динамическое состояние ──
+        const overlayEl = document.getElementById("gmOverlay");
+        if (!overlayEl) return "";
+        const clone = overlayEl.cloneNode(true);
+        clone.classList.remove("visible");
+        // Убираем canvas Three.js если был открыт 3D-вид
+        const oldCanvas = clone.querySelector("canvas");
+        if (oldCanvas) oldCanvas.remove();
+        // Очищаем содержимое 2D-вида (D3 SVG) — будет перестроено при открытии
+        const v2 = clone.querySelector("#view2d");
+        if (v2) v2.innerHTML = "";
+        // Сбрасываем активные табы на 3D (дефолт при открытии openGraph)
+        const t3 = clone.querySelector("#tab3d");
+        const t2 = clone.querySelector("#tab2d");
+        const vw3 = clone.querySelector("#view3d");
+        const vw2 = clone.querySelector("#view2d");
+        if (t3) { t3.classList.add("active");  }
+        if (t2) { t2.classList.remove("active"); }
+        if (vw3) { vw3.classList.add("active"); }
+        if (vw2) { vw2.classList.remove("active"); }
+        // Очищаем легенду — будет перестроена функцией buildLegend
+        const leg = clone.querySelector("#gmLegend");
+        if (leg) leg.innerHTML = "";
+        const modalHTML = clone.outerHTML;
+ 
+        // ── 2. Сериализуем все функции графа через .toString() ──
+        // Порядок важен: хелперы — перед потребителями.
+        const fnBundle = [
+          typeColor,
+          typeColorHex,
+          forceSim,
+          mkSprite,
+          build3D,
+          build2D,
+          buildLegend,
+          switchView,
+          openGraph,
+          closeGraph,
+          exportMMD,
+          downloadFile,
+        ]
+          .map((fn) => fn.toString())
+          .join("\n\n");
+ 
+        // ── 3. Собираем самодостаточный скрипт ──
+        // getDocFilename фиксируется по базовому имени на момент сохранения.
+        // Все функции экспортируются в window, чтобы работали onclick-атрибуты
+        // внутри клонированного модального HTML.
+        const initScript = `
+(function () {
+  var G = ${JSON.stringify(graphData)};
+  var anim3d = null;
+  var renderer3d = null;
+ 
+  function getDocFilename(ext) {
+    return ${JSON.stringify(filenameBase)} + (ext ? "." + ext : "");
+  }
+ 
+  ${fnBundle}
+ 
+  // Экспорт в глобальную область для onclick-атрибутов клонированного модала
+  window.openGraph   = openGraph;
+  window.closeGraph  = closeGraph;
+  window.switchView  = switchView;
+  window.exportMMD   = exportMMD;
+})();`;
+ 
+        // ── 4. Кнопки-контролы с теми же стилями, что на странице сервиса ──
+        const btnStyle = [
+          "display:inline-flex",
+          "align-items:center",
+          "gap:6px",
+          "padding:8px 18px",
+          "background:rgba(255,255,255,.04)",
+          "border:1px solid rgba(255,255,255,.15)",
+          "color:#c8c0b0",
+          "font-family:'IBM Plex Mono',monospace",
+          "font-size:11px",
+          "letter-spacing:.8px",
+          "cursor:pointer",
+          "transition:border-color .2s,background .2s",
+        ].join(";");
+ 
+        return `
+<div style="padding:20px 0 8px;display:flex;gap:10px;flex-wrap:wrap">
+  <button style="${btnStyle}" onclick="openGraph()">▦ Граф категорий</button>
+  <button style="${btnStyle}" onclick="exportMMD()">↓ Скачать .mmd</button>
+</div>
+${modalHTML}
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"><\/script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/d3/7.8.5/d3.min.js"><\/script>
+<script>${initScript}<\/script>`;
       }
-      function getDocFilename(ext) {
-        const s = document
-          .getElementById("seedInput")
-          .value.trim()
-          .substring(0, 40)
-          .replace(/[^а-яёa-z0-9\s]/gi, "")
-          .trim()
-          .replace(/\s+/g, "-");
-        return `philosynth-${new Date().toISOString().slice(0, 10)}-${s || "doc"}.${ext}`;
-      }
-
+ 
       function saveHTML() {
         const styles = Array.from(document.querySelectorAll("style"))
           .map((s) => s.outerHTML)
           .join("\n");
         const docHTML = document.getElementById("docOutput").innerHTML;
-        // Embed graph data + D3 interactive viz in saved file
-        const graphJSON = JSON.stringify(G);
-        const graphScript =
-          G.nodes.length > 0
-            ? `
-<script src="https://cdnjs.cloudflare.com/ajax/libs/d3/7.8.5/d3.min.js"><\/script>
-<div id="graphVizEmbed" style="width:100%;height:600px;background:#0a0a14;border:1px solid #333;margin:16px 0;position:relative;">
-  <div style="position:absolute;top:8px;left:50%;transform:translateX(-50%);font-family:monospace;font-size:10px;color:rgba(255,255,255,.3)">Перетаскивайте узлы · Зум: колёсико</div>
-</div>
-<script>
-(function(){
-const G=${graphJSON};
-const TC={'онтологическ':'#4a90d9','эпистемологическ':'#50c878','этическ':'#e8a838','аксиологическ':'#e8a838','метафизическ':'#9b59b6','логическ':'#1abc9c','практическ':'#e67e22','эстетическ':'#e91e63','антропологическ':'#f39c12','феноменологическ':'#8e44ad','экзистенциальн':'#c0392b','социальн':'#27ae60','политическ':'#2980b9','теологическ':'#7f8c8d'};
-function tc(t){for(const[k,v]of Object.entries(TC))if(t&&t.includes(k))return v;return'#95a5a6';}
-const ct=document.getElementById('graphVizEmbed');const W=ct.clientWidth,H=ct.clientHeight||600;
-const nm={};G.nodes.forEach((n,i)=>{nm[n.name.toLowerCase().trim()]=i;});
-const links=G.edges.map(e=>({source:nm[e.src.toLowerCase().trim()],target:nm[e.tgt.toLowerCase().trim()],type:e.type,dir:e.dir,str:e.str})).filter(l=>l.source!=null&&l.target!=null);
-const nodes=G.nodes.map((n,i)=>({...n,id:i}));
-const svg=d3.select(ct).append('svg').attr('width',W).attr('height',H).style('background','#0a0a14');
-const g=svg.append('g');svg.call(d3.zoom().scaleExtent([.2,5]).on('zoom',e=>g.attr('transform',e.transform)));
-const sim=d3.forceSimulation(nodes).force('link',d3.forceLink(links).id(d=>d.id).distance(100).strength(d=>d.str||.3)).force('charge',d3.forceManyBody().strength(-300)).force('center',d3.forceCenter(W/2,H/2)).force('collision',d3.forceCollide().radius(d=>10+d.cen*20));
-const link=g.selectAll('line').data(links).enter().append('line').attr('stroke',d=>d.dir.includes('двунаправлен')?'#50c878':d.dir.includes('рефлексив')?'#e8a838':'#4a90d9').attr('stroke-opacity',d=>.3+d.str*.5).attr('stroke-width',d=>1+d.str*3);
-const node=g.selectAll('circle').data(nodes).enter().append('circle').attr('r',d=>6+d.cen*14).attr('fill',d=>tc(d.type)).attr('stroke',d=>tc(d.type)).attr('stroke-width',2).call(d3.drag().on('start',(e,d)=>{if(!e.active)sim.alphaTarget(.3).restart();d.fx=d.x;d.fy=d.y;}).on('drag',(e,d)=>{d.fx=e.x;d.fy=e.y;}).on('end',(e,d)=>{if(!e.active)sim.alphaTarget(0);d.fx=null;d.fy=null;}));
-node.append('title').text(d=>d.name+'\\n'+d.type);
-const label=g.selectAll('text').data(nodes).enter().append('text').attr('dy',d=>-(8+d.cen*14)).attr('text-anchor','middle').attr('fill','#c8c0b0').attr('font-family','monospace').attr('font-size','10px').text(d=>d.name);
-sim.on('tick',()=>{link.attr('x1',d=>d.source.x).attr('y1',d=>d.source.y).attr('x2',d=>d.target.x).attr('y2',d=>d.target.y);node.attr('cx',d=>d.x).attr('cy',d=>d.y);label.attr('x',d=>d.x).attr('y',d=>d.y);});
-})();
-<\/script>`
-            : "";
-
-        const html = `<!DOCTYPE html><html lang="ru"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0"><title>${document.getElementById("docTitle").textContent}</title><link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700;900&family=IBM+Plex+Mono:wght@300;400;500;600&family=IBM+Plex+Sans:ital,wght@0,300;0,400;0,500;0,600;1,400&display=swap" rel="stylesheet">${styles}<style>body{background:#f2f0eb;padding:32px}#docOutput{max-width:1100px;margin:0 auto}</style></head><body><div id="docOutput">${docHTML}</div>${graphScript}</body></html>`;
+ 
+        // Базовое имя файла фиксируется на момент сохранения (без расширения)
+        const filenameBase = getDocFilename("html").replace(/\.html$/, "");
+ 
+        // Граф-секция: модаль + кнопки + сериализованные функции.
+        // Никакого дублирования кода — всё берётся из живых функций через .toString()
+        const graphSection = buildGraphExportSection(G, filenameBase);
+ 
+        const html = `<!DOCTYPE html><html lang="ru"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0"><title>${document.getElementById("docTitle").textContent}</title><link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700;900&family=IBM+Plex+Mono:wght@300;400;500;600&family=IBM+Plex+Sans:ital,wght@0,300;0,400;0,500;0,600;1,400&display=swap" rel="stylesheet">${styles}<style>body{background:#f2f0eb;padding:32px}#docOutput{max-width:1100px;margin:0 auto}</style></head><body><div id="docOutput">${docHTML}</div>${graphSection}</body></html>`;
         downloadFile(html, getDocFilename("html"), "text/html");
       }
 
