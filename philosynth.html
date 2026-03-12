@@ -2446,7 +2446,7 @@
         }
         return { ns, es };
       }
-
+ 
       // ── 3D (Three.js) with node dragging ──
       function build3D() {
         const ct = document.getElementById("view3d");
@@ -2472,7 +2472,7 @@
         const dl = new THREE.DirectionalLight(0xffffff, 0.8);
         dl.position.set(50, 80, 100);
         scene.add(dl);
-
+ 
         const meshes = [];
         const types = new Set();
         for (const n of ns) {
@@ -2498,7 +2498,10 @@
           sp.userData = { labelFor: n.id };
           scene.add(sp);
         }
-
+ 
+        // edgeGeos хранит геометрии рёбер для обновления при перетаскивании узлов
+        const edgeGeos = []; // { geo, si, ti }
+ 
         for (const e of es) {
           const s = ns[e.si],
             t = ns[e.ti];
@@ -2520,15 +2523,18 @@
           } else {
             const col = bi ? 0x50c878 : 0x4a90d9;
             const op = 0.3 + e.str * 0.5;
+            const geo = new THREE.BufferGeometry().setFromPoints([
+              new THREE.Vector3(s.x, s.y, s.z),
+              new THREE.Vector3(t.x, t.y, t.z),
+            ]);
             scene.add(
               new THREE.Line(
-                new THREE.BufferGeometry().setFromPoints([
-                  new THREE.Vector3(s.x, s.y, s.z),
-                  new THREE.Vector3(t.x, t.y, t.z),
-                ]),
+                geo,
                 new THREE.LineBasicMaterial({ color: col, transparent: true, opacity: op }),
               ),
             );
+            edgeGeos.push({ geo, si: e.si, ti: e.ti });
+ 
             const dir = new THREE.Vector3(t.x - s.x, t.y - s.y, t.z - s.z).normalize();
             const tr = 1.5 + (ns[e.ti].cen || 0.5) * 3;
             const ap = new THREE.Vector3(t.x, t.y, t.z).sub(dir.clone().multiplyScalar(tr + 1.5));
@@ -2550,9 +2556,9 @@
             }
           }
         }
-
+ 
         buildLegend(types);
-
+ 
         // Controls: orbit + node drag via raycasting
         let isDrag = false,
           isOrbit = false,
@@ -2567,7 +2573,7 @@
         const plane = new THREE.Plane();
         const intersection = new THREE.Vector3();
         const cv = renderer3d.domElement;
-
+ 
         cv.addEventListener("mousedown", (e) => {
           mouse.x = (e.offsetX / cv.clientWidth) * 2 - 1;
           mouse.y = -(e.offsetY / cv.clientHeight) * 2 + 1;
@@ -2586,7 +2592,7 @@
           pX = e.clientX;
           pY = e.clientY;
         });
-
+ 
         cv.addEventListener("mousemove", (e) => {
           if (dragNode) {
             mouse.x = (e.offsetX / cv.clientWidth) * 2 - 1;
@@ -2594,10 +2600,24 @@
             raycaster.setFromCamera(mouse, cam);
             if (raycaster.ray.intersectPlane(plane, intersection)) {
               dragNode.position.copy(intersection);
-              // Move label
+              // Синхронизируем позицию в массиве ns — это источник правды для рёбер
+              const nodeIdx = dragNode.userData.nodeIdx;
+              ns[nodeIdx].x = intersection.x;
+              ns[nodeIdx].y = intersection.y;
+              ns[nodeIdx].z = intersection.z;
+              // Обновляем все рёбра, смежные с перетаскиваемым узлом
+              for (const { geo, si, ti } of edgeGeos) {
+                if (si === nodeIdx || ti === nodeIdx) {
+                  const pos = geo.attributes.position;
+                  pos.setXYZ(0, ns[si].x, ns[si].y, ns[si].z);
+                  pos.setXYZ(1, ns[ti].x, ns[ti].y, ns[ti].z);
+                  pos.needsUpdate = true;
+                }
+              }
+              // Перемещаем метку-спрайт
               scene.children.forEach((c) => {
-                if (c.userData?.labelFor === dragNode.userData.nodeIdx) {
-                  const r = 1.5 + (ns[dragNode.userData.nodeIdx].cen || 0.5) * 3;
+                if (c.userData?.labelFor === nodeIdx) {
+                  const r = 1.5 + (ns[nodeIdx].cen || 0.5) * 3;
                   c.position.set(intersection.x, intersection.y + r + 2.5, intersection.z);
                 }
               });
@@ -2610,7 +2630,7 @@
             pY = e.clientY;
           }
         });
-
+ 
         cv.addEventListener("mouseup", () => {
           isDrag = false;
           isOrbit = false;
@@ -2634,7 +2654,7 @@
           rotY = 0;
           zoom = 150;
         });
-
+ 
         function animate() {
           anim3d = requestAnimationFrame(animate);
           if (!dragNode) {
@@ -2655,7 +2675,7 @@
           renderer3d.setSize(w, h);
         }).observe(ct);
       }
-
+ 
       function mkSprite(text) {
         const cv = document.createElement("canvas"),
           c = cv.getContext("2d");
