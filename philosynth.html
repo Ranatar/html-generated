@@ -1682,6 +1682,23 @@
         graphBodyIdx = -1,
         anim3d = null,
         renderer3d = null;
+
+      function downloadFile(content, filename, mimeType) {
+        const blob = new Blob([content], { type: mimeType });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = filename;
+        document.body.appendChild(a);
+        a.click();
+        setTimeout(() => { document.body.removeChild(a); URL.revokeObjectURL(url); }, 100);
+      }
+
+      function getDocFilename(ext) {
+        const num = document.getElementById("docNum")?.textContent?.trim() || "synthesis";
+        return num + (ext ? "." + ext : "");
+      }
+
       const ML = {
         dialectical: "Диалектический",
         integrative: "Интегративный",
@@ -3000,28 +3017,8 @@
   window.exportMMD   = exportMMD;
 })();`;
  
-        // ── 4. Кнопки-контролы с теми же стилями, что на странице сервиса ──
-        const btnStyle = [
-          "display:inline-flex",
-          "align-items:center",
-          "gap:6px",
-          "padding:8px 18px",
-          "background:rgba(255,255,255,.04)",
-          "border:1px solid rgba(255,255,255,.15)",
-          "color:#c8c0b0",
-          "font-family:'IBM Plex Mono',monospace",
-          "font-size:11px",
-          "letter-spacing:.8px",
-          "cursor:pointer",
-          "transition:border-color .2s,background .2s",
-        ].join(";");
- 
-        return `
-<div style="padding:20px 0 8px;display:flex;gap:10px;flex-wrap:wrap">
-  <button style="${btnStyle}" onclick="openGraph()">▦ Граф категорий</button>
-  <button style="${btnStyle}" onclick="exportMMD()">↓ Скачать .mmd</button>
-</div>
-${modalHTML}
+        // ── 4. Кнопки-контролы встраиваются в saveHTML() в начало раздела графа ──
+        return `${modalHTML}
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"><\/script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/d3/7.8.5/d3.min.js"><\/script>
 <script>${initScript}<\/script>`;
@@ -3031,15 +3028,33 @@ ${modalHTML}
         const styles = Array.from(document.querySelectorAll("style"))
           .map((s) => s.outerHTML)
           .join("\n");
-        const docHTML = document.getElementById("docOutput").innerHTML;
- 
+
         // Базовое имя файла фиксируется на момент сохранения (без расширения)
         const filenameBase = getDocFilename("html").replace(/\.html$/, "");
- 
-        // Граф-секция: модаль + кнопки + сериализованные функции.
-        // Никакого дублирования кода — всё берётся из живых функций через .toString()
+
+        // Граф-секция: модаль + сериализованные функции
         const graphSection = buildGraphExportSection(G, filenameBase);
- 
+
+        // Кнопки графа — вставляем в начало раздела db{graphBodyIdx},
+        // чтобы они стояли непосредственно перед таблицами графа
+        let docHTML = document.getElementById("docOutput").innerHTML;
+        if (G.nodes.length > 0 && graphBodyIdx >= 0) {
+          const graphBtnHTML =
+            `<div style="display:flex;gap:10px;flex-wrap:wrap;padding:12px 0 8px">` +
+            `<button class="action-btn gold-btn" onclick="openGraph()">▦ Граф категорий</button>` +
+            `<button class="action-btn" onclick="exportMMD()">↓ Скачать .mmd</button>` +
+            `</div>`;
+          const marker = `id="db${graphBodyIdx}"`;
+          const markerPos = docHTML.indexOf(marker);
+          if (markerPos !== -1) {
+            const closeAngle = docHTML.indexOf(">", markerPos);
+            docHTML =
+              docHTML.slice(0, closeAngle + 1) +
+              graphBtnHTML +
+              docHTML.slice(closeAngle + 1);
+          }
+        }
+
         const html = `<!DOCTYPE html><html lang="ru"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0"><title>${document.getElementById("docTitle").textContent}</title><link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700;900&family=IBM+Plex+Mono:wght@300;400;500;600&family=IBM+Plex+Sans:ital,wght@0,300;0,400;0,500;0,600;1,400&display=swap" rel="stylesheet">${styles}<style>body{background:#f2f0eb;padding:32px}#docOutput{max-width:1100px;margin:0 auto}</style></head><body><div id="docOutput">${docHTML}</div>${graphSection}</body></html>`;
         downloadFile(html, getDocFilename("html"), "text/html");
       }
