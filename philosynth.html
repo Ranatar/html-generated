@@ -1096,6 +1096,30 @@
           text-align: left;
         }
       }
+
+      /* ── SECTION DEPENDENCY WARNINGS ── */
+      .sec-warnings {
+        margin-top: 10px;
+        display: flex;
+        flex-direction: column;
+        gap: 5px;
+      }
+      .sec-warning-item {
+        font-family: var(--mono);
+        font-size: 10px;
+        color: var(--gold);
+        background: #fffbee;
+        border: 1px solid var(--gold);
+        padding: 6px 12px;
+        line-height: 1.5;
+        display: flex;
+        align-items: flex-start;
+        gap: 6px;
+      }
+      .sec-warning-item .warn-icon {
+        flex-shrink: 0;
+        font-size: 12px;
+      }
     </style>
   </head>
   <body>
@@ -1544,6 +1568,7 @@
                 Анализ происхождения
               </label>
             </div>
+            <div class="sec-warnings" id="secWarnings"></div>
           </div>
         </div>
         <div class="submit-row">
@@ -1552,10 +1577,13 @@
             Каждый проход — отдельный запрос к Claude API. Полный документ может занять 2–5 минут
             в зависимости от глубины и количества выбранных разделов.
           </div>
-          <button class="submit-btn" id="submitBtn" onclick="generateDoc()">
-            <div class="spinner" id="btnSpinner"></div>
-            <span id="btnText">Синтезировать Концепцию</span>
-          </button>
+          <div style="display: flex; flex-direction: column; align-items: flex-end; gap: 6px; flex-shrink: 0">
+            <button class="submit-btn" id="submitBtn" onclick="generateDoc()">
+              <div class="spinner" id="btnSpinner"></div>
+              <span id="btnText">Синтезировать Концепцию</span>
+            </button>
+            <div id="costEstimate" style="font-family: var(--mono); font-size: 9px; color: var(--ink-dim); letter-spacing: 0.5px; text-align: right"></div>
+          </div>
         </div>
       </div>
 
@@ -1626,6 +1654,8 @@
               <br />
               Сессия:
               <span id="sessionId">—</span>
+              <br />
+              <span id="footerCost" style="color: var(--gold)"></span>
             </div>
             <div class="doc-footer-right">
               <div class="validity-stamp">СИНТЕЗ ЗАВЕРШЁН</div>
@@ -1678,6 +1708,8 @@
       // STATE
       // ════════════════════════════════════════
       let API_KEY = "",
+        totalInputTokens = 0,
+        totalOutputTokens = 0,
         G = { nodes: [], edges: [] },
         graphBodyIdx = -1,
         anim3d = null,
@@ -1793,6 +1825,394 @@
       }
 
       // ════════════════════════════════════════
+      // SECTION DEPENDENCY WARNINGS
+      // ════════════════════════════════════════
+
+      const SECTION_WARNINGS = {
+        secGlossary:  { needs: ["secGraph"],                             label: "Глоссарий терминов" },
+        secTheses:    { needs: ["secGraph"],                             label: "Корпус тезисов" },
+        secOrigin:    { needs: ["secGraph", "secTheses"],                label: "Анализ происхождения" },
+        secPractical: { needs: ["secTheses"],                            label: "Практическое применение" },
+        secEvolution: { needs: ["secName", "secGraph"],                  label: "Эволюция и перспективы" },
+        secCritique:  { needs: ["secGraph", "secTheses", "secGlossary"], label: "Критический анализ" },
+        secDialogue:  { needs: ["secGraph"],                             label: "Диалог между традициями" },
+        secHistory:   { needs: [],                                       label: "Историческая контекстуализация" },
+        secName:      { needs: [],                                       label: "Анализ названия" },
+        secGraph:     { needs: [],                                       label: "Граф категорий" },
+      };
+
+      const SECTION_LABELS = {
+        secGraph:     "Граф категорий",
+        secGlossary:  "Глоссарий терминов",
+        secTheses:    "Корпус тезисов",
+        secHistory:   "Историческая контекстуализация",
+        secName:      "Анализ названия",
+        secPractical: "Практическое применение",
+        secDialogue:  "Диалог между традициями",
+        secEvolution: "Эволюция и перспективы",
+        secCritique:  "Критический анализ",
+        secOrigin:    "Анализ происхождения",
+      };
+
+      function updateSectionWarnings() {
+        const box = document.getElementById("secWarnings");
+        const warnings = [];
+        for (const [secId, cfg] of Object.entries(SECTION_WARNINGS)) {
+          const el = document.getElementById(secId);
+          if (!el || !el.checked || cfg.needs.length === 0) continue;
+          const missing = cfg.needs.filter(depId => {
+            const depEl = document.getElementById(depId);
+            return !depEl || !depEl.checked;
+          });
+          if (missing.length > 0) {
+            const missingNames = missing.map(id => "«" + SECTION_LABELS[id] + "»").join(", ");
+            const word = missing.length === 1 ? "раздела" : "разделов";
+            warnings.push(
+              '<div class="sec-warning-item"><span class="warn-icon">⚠</span>' +
+              '<span>Без ' + word + ' ' + missingNames + ' раздел «' + cfg.label + '» будет ненадлежащего качества!</span></div>'
+            );
+          }
+        }
+        box.innerHTML = warnings.join("");
+      }
+
+      // ════════════════════════════════════════
+      // CONTEXT DEPENDENCY MAP
+      // ════════════════════════════════════════
+
+      const CONTEXT_DEPS = {
+        graph: {
+          required: ["sum:goals"],
+          optional: ["sum:portraits"],
+        },
+        glossary: {
+          required: ["sum:goals", "graph:nodes"],
+          optional: [],
+        },
+        theses: {
+          required: ["sum:goals", "sum:tensions", "graph:nodes", "graph:edges"],
+          optional: ["sum:portraits", "sum:novelty", "graph:topology", "glossary:table"],
+        },
+        name: {
+          required: ["sum:goals", "sum:novelty"],
+          optional: ["sum:coherence", "graph:nodes", "theses:summary"],
+        },
+        history: {
+          required: ["sum:goals", "sum:portraits"],
+          optional: ["sum:novelty", "graph:nodes", "theses:summary", "name:title"],
+        },
+        origin: {
+          required: ["sum:goals", "sum:portraits", "sum:tensions", "graph:nodes", "graph:edges", "theses:full"],
+          optional: ["sum:novelty", "glossary:table", "name:title"],
+        },
+        practical: {
+          required: ["sum:goals", "sum:novelty", "theses:full"],
+          optional: ["graph:nodes", "name:title"],
+        },
+        dialogue: {
+          required: ["sum:goals", "sum:portraits", "sum:tensions", "sum:difficulty", "graph:nodes"],
+          optional: ["graph:edges", "graph:topology", "theses:summary", "name:title"],
+        },
+        evolution: {
+          required: ["sum:goals", "sum:novelty", "name:full", "graph:nodes"],
+          optional: ["sum:coherence", "graph:edges", "theses:summary", "history:contemporary", "history:genealogy", "history:influence", "history:name_context"],
+        },
+        critique: {
+          required: ["sum:goals", "sum:tensions", "sum:coherence", "graph:nodes", "graph:edges", "theses:full", "glossary:table"],
+          optional: ["sum:portraits", "sum:novelty", "graph:topology", "name:title", "history:contemporary"],
+        },
+      };
+
+      const CONTEXT_BUDGET = {
+        overview: 6000,
+        standard: 12000,
+        deep: 18000,
+        exhaustive: 25000,
+      };
+
+      // ════════════════════════════════════════
+      // COST ESTIMATION
+      // ════════════════════════════════════════
+      const CHARS_PER_TOKEN = 2.5; // эмпирика для русского + HTML
+      const PRICE_IN  = 3 / 1e6;  // $3 per MTok input
+      const PRICE_OUT = 15 / 1e6; // $15 per MTok output
+
+      // Ожидаемый выход (в словах) за раздел при данной глубине
+      // mw() даёт минимум; реально модель выдаёт примерно 1.5–2x от минимума
+      const OUTPUT_MULTIPLIER = 1.7;
+      const WORDS_TO_CHARS = 7; // среднее для русских слов с пробелами
+
+      function estimateCost() {
+        const phil = getPhil();
+        const sec = getSec();
+        const method = document.getElementById("synthesisMethod").value;
+        const depth = document.getElementById("depthLevel").value;
+        const seed = document.getElementById("seedInput").value.trim();
+        const ctx = document.getElementById("contextInput").value.trim();
+        if (!phil.length) return null;
+
+        const p = { seed, phil, sec, method, depth, ctx };
+        const defs = buildSectionDefs(p);
+        const passes = groupPasses(defs);
+
+        // Фиксированные части промпта
+        const sysLen = 600; // system prompt ~600 слов ≈ 1500 символов
+        const baseLen = baseCtx(p).length;
+        const rulesLen = htmlRules().length;
+
+        let totalInChars = 0;
+        let totalOutWords = 0;
+        const budget = CONTEXT_BUDGET[depth] || 12000;
+
+        for (let i = 0; i < passes.length; i++) {
+          const pass = passes[i];
+          // Входные символы: system + baseCtx + context + htmlRules + section prompts + boilerplate
+          const sectionPromptsLen = pass.reduce((sum, d) => sum + d.prompt.length + d.title.length + 20, 0);
+          const contextLen = (i === 0) ? 0 : Math.min(budget, i * 3000); // грубая оценка роста контекста
+          const boilerplate = 400; // "ПАРАМЕТРЫ СИНТЕЗА:", "ТРЕБОВАНИЯ К КАЧЕСТВУ:", etc.
+          const passInChars = sysLen * WORDS_TO_CHARS + baseLen + contextLen + rulesLen + sectionPromptsLen + boilerplate;
+          totalInChars += passInChars;
+
+          // Выходные слова: mw() * multiplier * количество разделов в pass
+          const outWords = mw(p) * OUTPUT_MULTIPLIER * pass.length;
+          totalOutWords += outWords;
+        }
+
+        const inTokens = Math.ceil(totalInChars / CHARS_PER_TOKEN);
+        const outTokens = Math.ceil(totalOutWords * WORDS_TO_CHARS / CHARS_PER_TOKEN);
+        const cost = inTokens * PRICE_IN + outTokens * PRICE_OUT;
+        return { inTokens, outTokens, cost, passes: passes.length };
+      }
+
+      function updateCostEstimate() {
+        const el = document.getElementById("costEstimate");
+        if (!el) return;
+        const est = estimateCost();
+        if (!est) {
+          el.textContent = "";
+          return;
+        }
+        el.textContent = "≈ " + est.passes + " запросов · ~" +
+          Math.round(est.inTokens / 1000) + "K вх. + ~" +
+          Math.round(est.outTokens / 1000) + "K вых. · ~$" +
+          est.cost.toFixed(3) + " (" + (est.cost * 100).toFixed(1) + "¢)";
+      }
+
+      // ════════════════════════════════════════
+      // CONTEXT EXTRACTION FUNCTIONS
+      // ════════════════════════════════════════
+
+      function extractByH4(containerEl, keyword) {
+        const kw = keyword.toLowerCase();
+        const h4s = containerEl.querySelectorAll(".doc-content h4");
+        for (const h4 of h4s) {
+          if (!h4.textContent.toLowerCase().includes(kw)) continue;
+          const parts = [h4.textContent.trim()];
+          let next = h4.nextElementSibling;
+          while (next && next.tagName !== "H4") {
+            if (next.tagName === "TABLE") {
+              parts.push(tableToText(next));
+            } else {
+              const t = next.innerText?.trim();
+              if (t) parts.push(t);
+            }
+            next = next.nextElementSibling;
+          }
+          return parts.filter(Boolean).join("\n");
+        }
+        return null;
+      }
+
+      function tableToText(table) {
+        const rows = [];
+        const ths = Array.from(table.querySelectorAll("thead th"))
+          .map(th => th.textContent.trim());
+        if (ths.length) {
+          rows.push(ths.join(" | "));
+          rows.push(ths.map(() => "---").join(" | "));
+        }
+        table.querySelectorAll("tbody tr").forEach(tr => {
+          const cells = Array.from(tr.querySelectorAll("td"))
+            .map(td => td.textContent.trim().replace(/\n+/g, " ").replace(/\s{2,}/g, " "));
+          rows.push(cells.join(" | "));
+        });
+        return rows.join("\n");
+      }
+
+      function extractAllTablesAsText(containerEl) {
+        const tables = containerEl.querySelectorAll("table.doc-table");
+        return Array.from(tables).map(t => tableToText(t)).join("\n\n");
+      }
+
+      function truncateText(text, maxLen) {
+        if (!text || text.length <= maxLen) return text || "";
+        const half = Math.floor(maxLen / 2);
+        return text.slice(0, half) + "\n[...сокращено...]\n" + text.slice(-half);
+      }
+
+      function extractThesesSummary(containerEl) {
+        const strongs = containerEl.querySelectorAll(".doc-content strong");
+        const theses = Array.from(strongs)
+          .map(s => s.textContent.trim())
+          .filter(t => t.length > 20);
+        if (theses.length === 0) {
+          return truncateText(containerEl.innerText?.trim() || "", 3000);
+        }
+        return "СВОДКА ТЕЗИСОВ:\n" + theses.map((t, i) => (i + 1) + ". " + t).join("\n");
+      }
+
+      function extractNameTitle(containerEl) {
+        const firstStrong = containerEl.querySelector(".doc-content strong");
+        const title = firstStrong?.textContent?.trim();
+        const rationale = extractByH4(containerEl, "обоснован");
+        let result = "";
+        if (title) result += "НАЗВАНИЕ КОНЦЕПЦИИ: «" + title + "»";
+        if (rationale) result += "\n" + rationale;
+        return result || truncateText(containerEl.innerText?.trim() || "", 1500);
+      }
+
+      function extractGraphNodesTable(containerEl) {
+        const tables = containerEl.querySelectorAll("table.doc-table");
+        for (const t of tables) {
+          const ths = Array.from(t.querySelectorAll("thead th"))
+            .map(h => h.textContent.toLowerCase());
+          if (ths.some(h => h.includes("категори")) &&
+              ths.some(h => h.includes("центральност"))) {
+            return "ТАБЛИЦА КАТЕГОРИЙ:\n" + tableToText(t);
+          }
+        }
+        return null;
+      }
+
+      function extractGraphEdgesTable(containerEl) {
+        const tables = containerEl.querySelectorAll("table.doc-table");
+        for (const t of tables) {
+          const ths = Array.from(t.querySelectorAll("thead th"))
+            .map(h => h.textContent.toLowerCase());
+          if (ths.some(h => h.includes("источник")) &&
+              ths.some(h => h.includes("цел") || h.includes("направлен"))) {
+            return "ТАБЛИЦА СВЯЗЕЙ:\n" + tableToText(t);
+          }
+        }
+        return null;
+      }
+
+      function extractContextFragment(contextKey, generated) {
+        const [section] = contextKey.split(":");
+        const el = generated[section];
+        if (!el) return null;
+        switch (contextKey) {
+          case "sum:goals":      return extractByH4(el, "цели и метод") || extractByH4(el, "цели");
+          case "sum:portraits":  return extractByH4(el, "портрет");
+          case "sum:novelty":    return extractByH4(el, "новизн");
+          case "sum:tensions":   return extractByH4(el, "напряжени");
+          case "sum:coherence":  return extractByH4(el, "когерентност");
+          case "sum:difficulty": return extractByH4(el, "сложност");
+          case "graph:nodes":    return extractGraphNodesTable(el);
+          case "graph:edges":    return extractGraphEdgesTable(el);
+          case "graph:topology": return extractByH4(el, "тополог");
+          case "glossary:table": { const txt = extractAllTablesAsText(el); return txt ? "ГЛОССАРИЙ:\n" + txt : null; }
+          case "theses:full":    return truncateText(el.innerText?.trim() || "", 6000);
+          case "theses:summary": return extractThesesSummary(el);
+          case "name:title":     return extractNameTitle(el);
+          case "name:full":      return truncateText(el.innerText?.trim() || "", 4000);
+          case "history:full":   return truncateText(el.innerText?.trim() || "", 4000);
+          case "history:contemporary":  return extractByH4(el, "современн");
+          case "history:genealogy":     return extractByH4(el, "генеалог");
+          case "history:influence":     return extractByH4(el, "потенциальное влиян");
+          case "history:name_context":  return extractByH4(el, "названия историчес") || extractByH4(el, "соответствие назван");
+          default: return null;
+        }
+      }
+
+      // ════════════════════════════════════════
+      // SMART CONTEXT BUILDER
+      // ════════════════════════════════════════
+
+      const CTX_LABELS = {
+        "sum:goals":      "§1 Резюме → Цели и метод",
+        "sum:portraits":  "§1 Резюме → Портреты философов",
+        "sum:novelty":    "§1 Резюме → Новизна и ценность",
+        "sum:tensions":   "§1 Резюме → Точки напряжения",
+        "sum:coherence":  "§1 Резюме → Индекс когерентности",
+        "sum:difficulty":  "§1 Резюме → Оценка сложности",
+        "graph:nodes":    "Граф → Таблица категорий",
+        "graph:edges":    "Граф → Таблица связей",
+        "graph:topology": "Граф → Топология",
+        "glossary:table": "Глоссарий → Определения",
+        "theses:full":    "Тезисы (полные)",
+        "theses:summary": "Тезисы (сводка)",
+        "name:title":     "Название концепции",
+        "name:full":      "Анализ названия",
+        "history:full":   "Историческая контекстуализация",
+        "history:contemporary": "История → Современные концепции",
+        "history:genealogy":    "История → Генеалогия идей",
+        "history:influence":    "История → Потенциальное влияние",
+        "history:name_context": "История → Название в ист. контексте",
+      };
+
+      function buildContextForSection(sectionKey, generated, depth) {
+        const deps = CONTEXT_DEPS[sectionKey];
+        if (!deps) return "";
+        const baseBudget = CONTEXT_BUDGET[depth] || 12000;
+        const totalBudget = (sectionKey === "critique")
+          ? Math.floor(baseBudget * 1.5)
+          : baseBudget;
+
+        // 1. Обязательный контекст
+        const requiredParts = [];
+        for (const key of deps.required) {
+          const text = extractContextFragment(key, generated);
+          if (text) requiredParts.push({ key, text });
+        }
+
+        // 2. Остаток бюджета
+        const requiredLen = requiredParts.reduce((sum, p) => sum + p.text.length, 0);
+        let remainingBudget = totalBudget - requiredLen;
+
+        // 3. Опциональный контекст
+        const optionalParts = [];
+        if (remainingBudget > 500) {
+          for (const key of deps.optional) {
+            if (remainingBudget <= 300) break;
+            const text = extractContextFragment(key, generated);
+            if (!text) continue;
+            if (text.length <= remainingBudget) {
+              optionalParts.push({ key, text });
+              remainingBudget -= text.length;
+            } else {
+              optionalParts.push({ key, text: truncateText(text, remainingBudget - 50) });
+              remainingBudget = 0;
+              break;
+            }
+          }
+        }
+
+        // 4. Если обязательный контекст сильно превышает бюджет — обрезаем
+        //    наименее критичные, но ТАБЛИЦЫ ГРАФА и ЦЕЛИ не трогаем
+        if (requiredLen > totalBudget * 1.5) {
+          const UNTOUCHABLE = new Set(["graph:nodes", "graph:edges", "sum:goals", "sum:tensions"]);
+          for (let j = requiredParts.length - 1; j >= 0; j--) {
+            const currentTotal = requiredParts.reduce((s, p) => s + p.text.length, 0);
+            if (currentTotal <= totalBudget * 1.3) break;
+            if (UNTOUCHABLE.has(requiredParts[j].key)) continue;
+            requiredParts[j].text = truncateText(requiredParts[j].text,
+              Math.max(500, Math.floor(requiredParts[j].text.length * 0.5)));
+          }
+        }
+
+        // 5. Форматируем
+        const allParts = [...requiredParts, ...optionalParts];
+        if (allParts.length === 0) return "";
+        const formatted = allParts.map(p => {
+          const label = CTX_LABELS[p.key] || p.key;
+          return "### " + label + "\n" + p.text;
+        }).join("\n\n");
+
+       return "\n\nКОНТЕКСТ ИЗ ПРЕДЫДУЩИХ РАЗДЕЛОВ (используй термины, §§ и названия категорий; не повторяй содержание):\n\"\"\"\n" + formatted + "\n\"\"\"";
+      }
+
+      // ════════════════════════════════════════
       // HTML RULES (full, restored from v1)
       // ════════════════════════════════════════
       function htmlRules() {
@@ -1817,8 +2237,21 @@
       // ════════════════════════════════════════
       // PROMPT BUILDERS
       // ════════════════════════════════════════
+      const SEC_NAMES = {
+        graph: "Граф категорий",
+        glossary: "Глоссарий терминов",
+        theses: "Корпус тезисов",
+        history: "Историческая контекстуализация",
+        name: "Анализ названия",
+        practical: "Практическое применение",
+        dialogue: "Диалог между традициями",
+        evolution: "Эволюция и перспективы",
+        critique: "Критический анализ",
+        origin: "Анализ происхождения",
+      };
       function baseCtx(p) {
-        return `ЗЕРНО КОНЦЕПЦИИ: «${p.seed}»\nФИЛОСОФЫ: ${p.phil.join(", ")}\nМЕТОД: ${ML[p.method]} — ${MD[p.method]}\nГЛУБИНА: ${DL[p.depth]}${p.ctx ? "\nКОНТЕКСТ: " + p.ctx : ""}`;
+        const secList = p.sec.map(k => SEC_NAMES[k] || k).join(", ");
+        return `ЗЕРНО КОНЦЕПЦИИ: «${p.seed}»\nФИЛОСОФЫ: ${p.phil.join(", ")}\nМЕТОД: ${ML[p.method]} — ${MD[p.method]}\nГЛУБИНА: ${DL[p.depth]}\nВЫБРАННЫЕ РАЗДЕЛЫ: Исполнительное резюме (всегда)${secList ? ", " + secList : ""}${p.ctx ? "\nКОНТЕКСТ: " + p.ctx : ""}`;
       }
       function mw(p) {
         return { overview: 150, standard: 250, deep: 400, exhaustive: 600 }[p.depth] || 250;
@@ -1833,21 +2266,30 @@
           title: "Исполнительное Резюме Синтеза",
           prompt: `Составь § — ИСПОЛНИТЕЛЬНОЕ РЕЗЮМЕ СИНТЕЗА.
 
-Содержательное описание целей, стратегии и ожидаемых результатов синтеза:
+Содержательное описание целей, стратегии и ожидаемых результатов синтеза.
 
-1. ЦЕЛИ И МЕТОД — зачем создаётся данный синтез, какую философскую проблему он призван решить. Описание выбранного метода (${ML[p.method]} — ${MD[p.method]}) и его применимости к данному набору традиций.
+КРИТИЧЕСКОЕ ТРЕБОВАНИЕ К ПОДЗАГОЛОВКАМ: используй ТОЧНО следующие подзаголовки <h4> (без нумерации, точно как указано):
 
-2. ПОРТРЕТ КАЖДОГО ФИЛОСОФА В КОНТЕКСТЕ СИНТЕЗА — для каждого из (${p.phil.join(", ")}): какова его ключевая идея, релевантная данному синтезу? Что именно он привносит? Какие аспекты его философии будут задействованы, а какие — осознанно оставлены за рамками?
+<h4>Цели и метод</h4>
+Зачем создаётся данный синтез, какую философскую проблему он призван решить. Описание выбранного метода (${ML[p.method]} — ${MD[p.method]}) и его применимости к данному набору традиций.
 
-3. ПРЕДПОЛАГАЕМАЯ НОВИЗНА И ЦЕННОСТЬ — что нового данный синтез может дать, чего не давали исходные традиции по отдельности? Какие «слепые пятна» каждой традиции компенсируются другими?
+<h4>Портрет каждого философа</h4>
+Для каждого из (${p.phil.join(", ")}): какова его ключевая идея, релевантная данному синтезу? Что именно он привносит? Какие аспекты его философии будут задействованы, а какие — осознанно оставлены за рамками?
 
-4. ОБЗОР СТРУКТУРЫ ДОКУМЕНТА — какие разделы включены и почему, как они связаны между собой.
+<h4>Новизна и ценность</h4>
+Что нового данный синтез может дать, чего не давали исходные традиции по отдельности? Какие «слепые пятна» каждой традиции компенсируются другими?
 
-5. ИНДЕКС СИНТЕТИЧЕСКОЙ КОГЕРЕНТНОСТИ (оценка 0–100) — насколько органично сочетаются выбранные традиции. Развёрнутое обоснование оценки.
+<h4>Структура документа</h4>
+Какие разделы включены и почему, как они связаны между собой.
 
-6. ТОЧКИ НАПРЯЖЕНИЯ — между какими именно философами и по каким именно вопросам существуют фундаментальные разногласия, которые синтез должен разрешить?
+<h4>Индекс когерентности</h4>
+Оценка 0–100: насколько органично сочетаются выбранные традиции. Развёрнутое обоснование оценки.
 
-7. ПРЕДВАРИТЕЛЬНАЯ ОЦЕНКА СЛОЖНОСТИ — насколько трудным является данный синтез? Какие главные препятствия предстоит преодолеть?
+<h4>Точки напряжения</h4>
+Между какими именно философами и по каким именно вопросам существуют фундаментальные разногласия, которые синтез должен разрешить?
+
+<h4>Оценка сложности</h4>
+Насколько трудным является данный синтез? Какие главные препятствия предстоит преодолеть?
 
 Минимум ${mw(p)} слов.`,
         });
@@ -1861,21 +2303,26 @@
 
 КРИТИЧЕСКОЕ ТРЕБОВАНИЕ: Граф ОБЯЗАН быть связным. Каждая категория должна быть связана хотя бы с одной другой. Не должно быть изолированных категорий или фрагментов. Перед финализацией проверь связность: из любой категории должен существовать путь по связям к любой другой.
 
-1. ТАБЛИЦА КАТЕГОРИЙ — 8–15 категорий.
+КРИТИЧЕСКОЕ ТРЕБОВАНИЕ К ПОДЗАГОЛОВКАМ: используй ТОЧНО следующие подзаголовки <h4>:
+
+<h4>Таблица категорий</h4>
+8–15 категорий.
 Столбцы СТРОГО: Категория | Тип | Определение | Центральность | Определённость | Происхождение
 - Тип: онтологическая / эпистемологическая / этическая / аксиологическая / метафизическая / логическая / практическая / эстетическая / антропологическая / феноменологическая / экзистенциальная / социальная / политическая / теологическая
 - Центральность и Определённость: числа 0.0–1.0
 - Происхождение: от какого философа или «синтез»
 
-2. ТАБЛИЦА СВЯЗЕЙ — все значимые связи.
+<h4>Таблица связей</h4>
+Все значимые связи.
 Столбцы СТРОГО: Источник | Описание связи | Цель | Тип | Направление | Сила
 - Источник и Цель: ТОЧНЫЕ названия из таблицы категорий
 - Тип: иерархическая / диалектическая / каузальная / корреляционная / дополнительность / противоречие / эмерджентность / часть-целое / средство-цель / основание / определяющая / развитие
 - Направление — СТРОГО одно из трёх: однонаправленная | двунаправленная | рефлексивная
-  (рефлексивная = связь категории с самой собой, т.е. Источник = Цель; такие связи уместны, например, для самоконституирующихся или самореферентных категорий)
+  (рефлексивная = связь категории с самой собой, т.е. Источник = Цель)
 - Сила: число 0.0–1.0
 
-3. ОПИСАНИЕ ТОПОЛОГИИ — кластеры, центральные и периферийные категории, мосты между кластерами, рефлексивные связи.
+<h4>Топология графа</h4>
+Кластеры, центральные и периферийные категории, мосты между кластерами, рефлексивные связи.
 
 ПОВТОРЯЮ: граф ОБЯЗАН быть связным. Названия в таблице связей ТОЧНО совпадают с таблицей категорий.
 Минимум ${mw(p)} слов.`,
@@ -1888,14 +2335,20 @@
             title: "Глоссарий Категорий и Определений",
             prompt: `Составь § — ГЛОССАРИЙ КАТЕГОРИЙ И ОПРЕДЕЛЕНИЙ.
 
-Для каждой категории из графа концепции (ссылайся на предыдущие разделы по номерам §§) составь таблицу с ФИЛОСОФСКИ ТОЧНЫМИ определениями, принятыми для целей данного документа. Не менее 12 терминов.
+Используй ТОЧНО следующие подзаголовки <h4>:
 
+<h4>Таблица определений</h4>
+Для каждой категории из графа концепции (ссылайся на предыдущие разделы по номерам §§) составь таблицу с ФИЛОСОФСКИ ТОЧНЫМИ определениями, принятыми для целей данного документа. Не менее 12 терминов.
 Столбцы таблицы: Термин | Принятое определение в данной концепции | Традиционное понимание у ${p.phil.join(", ")} | Возможная альтернативная трактовка | Почему принятое определение предпочтительнее | Трансформация значения в синтезе.
 
-Дополнительно обязательные подразделы:
-1. НАМЕРЕННО ПЕРЕОПРЕДЕЛЁННЫЕ ТЕРМИНЫ — перечень терминов, которые сознательно получили иное значение по сравнению с традиционным философским употреблением, с развёрнутым обоснованием каждого переопределения.
-2. ТЕРМИНЫ, ЗАИМСТВОВАННЫЕ БЕЗ ИЗМЕНЕНИЙ — с указанием точного источника (философ, традиция, произведение).
-3. НОВЫЕ ТЕРМИНЫ — введённые данной концепцией впервые, с обоснованием необходимости их введения.
+<h4>Переопределённые термины</h4>
+Перечень терминов, которые сознательно получили иное значение по сравнению с традиционным философским употреблением, с развёрнутым обоснованием каждого переопределения.
+
+<h4>Заимствованные термины</h4>
+Термины, заимствованные без изменений, с указанием точного источника (философ, традиция, произведение).
+
+<h4>Новые термины</h4>
+Термины, введённые данной концепцией впервые, с обоснованием необходимости их введения.
 
 Мин. ${mw(p)} слов.`,
           });
@@ -1907,19 +2360,30 @@
             title: "Корпус Тезисов",
             prompt: `Составь § — КОРПУС ТЕЗИСОВ.
 
-Сформулируй ключевые тезисы синтезированной концепции, сгруппированные по типам:
-1. ОНТОЛОГИЧЕСКИЕ ТЕЗИСЫ (не менее 3) — о природе бытия и реальности
-2. ЭПИСТЕМОЛОГИЧЕСКИЕ ТЕЗИСЫ (не менее 3) — о познании и знании
-3. ЭТИЧЕСКИЕ/АКСИОЛОГИЧЕСКИЕ ТЕЗИСЫ (не менее 2) — о ценностях и должном
+Используй ТОЧНО следующие подзаголовки <h4>:
+
+<h4>Онтологические тезисы</h4>
+Не менее 3 тезисов о природе бытия и реальности.
+
+<h4>Эпистемологические тезисы</h4>
+Не менее 3 тезисов о познании и знании.
+
+<h4>Этические и аксиологические тезисы</h4>
+Не менее 2 тезисов о ценностях и должном.
 
 Тезисы должны отражать структурные отношения между категориями из графа концепции (§ выше) и быть выражены в академическом стиле.
 
 Для КАЖДОГО тезиса обязательно:
-- Формулировка тезиса (чётко, в одном предложении, выделить жирным)
+- Формулировка тезиса (чётко, в одном предложении, выделить жирным — <strong>)
 - Обоснование из графа категорий — из КАКИХ ИМЕННО категорий и связей он логически следует (со ссылками на §§ и конкретные категории по названию)
 - Вклад каждого из философов (${p.phil.join(", ")}) в данный тезис — что именно каждый внёс
-- Степень новизны: полностью новый (не встречается ни у одного из исходных философов) / переформулированный (трансформация существующего) / заимствованный (с указанием источника)
+- Степень новизны: полностью новый / переформулированный / заимствованный (с указанием источника)
 - Связанные категории (перечислить)
+
+<h4>Сводная таблица тезисов</h4>
+ОБЯЗАТЕЛЬНО в конце раздела — итоговая таблица.
+Столбцы: № | Формулировка тезиса | Тип (онтол./эпистем./этич.) | Степень новизны | Связанные категории
+Эта таблица будет использоваться последующими разделами документа.
 
 Мин. ${mw(p)} слов.`,
           });
@@ -1931,18 +2395,26 @@
             title: "Название Концепции и Его Анализ",
             prompt: `Составь § — НАЗВАНИЕ КОНЦЕПЦИИ И ЕГО АНАЛИЗ.
 
-1. ПРЕДЛОЖИ НАЗВАНИЕ — лаконичное, содержательное, узнаваемое в философской традиции. Выдели жирным. Название должно отражать сущность концепции.
+Используй ТОЧНО следующие подзаголовки <h4>:
 
-2. ОБОСНОВАНИЕ НАЗВАНИЯ — почему именно это название, какие аспекты концепции оно схватывает, какие традиции отражает. Как оно соотносится с существующей философской терминологией.
+<h4>Предложенное название</h4>
+Лаконичное, содержательное, узнаваемое в философской традиции. Выдели жирным (<strong>). Название должно отражать сущность концепции.
 
-3. ЛИНГВИСТИЧЕСКИЙ АНАЛИЗ — этимология, коннотации, потенциальные ассоциации, однозначность vs двусмысленность, звучание на разных языках.
+<h4>Обоснование названия</h4>
+Почему именно это название, какие аспекты концепции оно схватывает, какие традиции отражает. Как оно соотносится с существующей философской терминологией.
 
-4. АНАЛИЗ «ЧТО ПОДЧЁРКИВАЕТ / ЧТО ТЕРЯЕТ» — какие аспекты концепции подчёркиваются в названии, а какие остаются в тени? Насколько точно название отражает суть?
+<h4>Лингвистический анализ</h4>
+Этимология, коннотации, потенциальные ассоциации, однозначность vs двусмысленность, звучание на разных языках.
 
-5. АЛЬТЕРНАТИВНЫЕ НАЗВАНИЯ — предложи 3–5 альтернатив с развёрнутым анализом каждой.
+<h4>Что подчёркивает и что теряет</h4>
+Какие аспекты концепции подчёркиваются в названии, а какие остаются в тени? Насколько точно название отражает суть?
+
+<h4>Альтернативные названия</h4>
+Предложи 3–5 альтернатив с развёрнутым анализом каждой.
 Таблица: Название | Плюсы | Минусы | Что подчёркивает | Что теряет.
 
-6. ИТОГОВАЯ РЕКОМЕНДАЦИЯ — какое название принять и почему. Отдельно: соответствие названия историческому контексту и методу синтеза.
+<h4>Итоговая рекомендация</h4>
+Какое название принять и почему. Отдельно: соответствие названия историческому контексту и методу синтеза.
 
 Мин. ${mw(p)} слов.`,
           });
@@ -1954,19 +2426,25 @@
             title: "Историческая Контекстуализация",
             prompt: `Составь § — ИСТОРИЧЕСКАЯ КОНТЕКСТУАЛИЗАЦИЯ.
 
-Помести синтезированную концепцию в контекст истории философии. Представь результат в структурированном виде, включающем ВСЕ пять подразделов:
+Помести синтезированную концепцию в контекст истории философии. Используй ТОЧНО следующие подзаголовки <h4>:
 
-1. ОБЩИЙ ИСТОРИЧЕСКИЙ КОНТЕКСТ — в какую эпоху, в какой интеллектуальный климат вписывается данная концепция. Какие философские «запросы» своего времени она могла бы удовлетворить.
+<h4>Исторический контекст</h4>
+В какую эпоху, в какой интеллектуальный климат вписывается данная концепция. Какие философские «запросы» своего времени она могла бы удовлетворить.
 
-2. КЛЮЧЕВЫЕ ИСТОЧНИКИ ВЛИЯНИЯ — таблица: Философ / Ключевая идея / Как трансформирована в синтезе / Степень влияния (0–1). Рассмотри влияние каждого из ${p.phil.join(", ")}.
+<h4>Источники влияния</h4>
+Таблица: Философ | Ключевая идея | Как трансформирована в синтезе | Степень влияния (0–1). Рассмотри влияние каждого из ${p.phil.join(", ")}.
 
-3. ИСТОРИЧЕСКАЯ ГЕНЕАЛОГИЯ — цепочка идей от античности до современности, ведущая к данному синтезу. Какие промежуточные мыслители (не вошедшие в список выбранных) могли бы быть «предшественниками»?
+<h4>Генеалогия идей</h4>
+Цепочка идей от античности до современности, ведущая к данному синтезу. Какие промежуточные мыслители (не вошедшие в список выбранных) могли бы быть «предшественниками»?
 
-4. СОВРЕМЕННЫЕ КОНЦЕПЦИИ (СХОДСТВА И РАЗЛИЧИЯ) — существуют ли в современной философии попытки аналогичного синтеза? Кто работает в схожем направлении? Таблица: Концепция/автор / Сходство / Различие.
+<h4>Современные концепции</h4>
+Существуют ли в современной философии попытки аналогичного синтеза? Кто работает в схожем направлении? Таблица: Концепция/автор | Сходство | Различие.
 
-5. ПОТЕНЦИАЛЬНОЕ ВЛИЯНИЕ НА ПОСЛЕДУЮЩУЮ ФИЛОСОФИЮ — на какие области и направления может повлиять. Каким образом.
+<h4>Потенциальное влияние</h4>
+На какие области и направления может повлиять. Каким образом.
 
-6. СООТВЕТСТВИЕ НАЗВАНИЯ ИСТОРИЧЕСКОМУ КОНТЕКСТУ — насколько предложенное название вписывается в историю философии. Существуют ли исторические прецеденты похожих названий.
+<h4>Название в историческом контексте</h4>
+Насколько предложенное название вписывается в историю философии. Существуют ли исторические прецеденты похожих названий.
 
 Мин. ${mw(p)} слов.`,
           });
@@ -2140,6 +2618,8 @@
         document.getElementById("btnGraph").style.display = "none";
         G = { nodes: [], edges: [] };
         graphBodyIdx = -1;
+        totalInputTokens = 0;
+        totalOutputTokens = 0;
 
         const docNum =
           "PS-" +
@@ -2203,34 +2683,32 @@
           st.querySelector(".step-icon").textContent = "⟳";
           let prior = "";
           if (i > 0) {
-            const all = [];
+            const generated = {};
             for (let n = 0; n < i; n++) {
               const el = document.getElementById("db" + n);
-              if (!el) continue;
-              el.querySelectorAll(".doc-section").forEach((s) => {
-                const t = s.innerText?.trim();
-                if (t) all.push(t);
-              });
+              if (!el || !el.querySelector(".doc-section")) continue;
+              for (const def of passes[n]) {
+                generated[def.key] = el;
+              }
             }
-            if (all.length) {
-              const bud = 10000,
-                base = Math.floor(bud / all.length);
-              const txt = all
-                .map((t, idx) => {
-                  const b = idx <= 2 ? base * 2 : base;
-                  const h = Math.floor(b / 2);
-                  return t.length <= b ? t : t.slice(0, h) + "\n[...]\n" + t.slice(-h);
-                })
-                .join("\n\n---\n\n");
-              prior = `\n\nУЖЕ СОСТАВЛЕННЫЕ РАЗДЕЛЫ (ссылайся на термины и §§ по номерам, не повторяй):\n"""\n${txt}\n"""`;
+            for (const def of pass) {
+              if (def.key === "_sum") continue;
+              prior = buildContextForSection(def.key, generated, p.depth);
+              break;
             }
+          }
+          if (prior) {
+            const keys = prior.match(/### .+/g)?.map(h => h.replace("### ", "")) || [];
+            st.title = "Контекст: " + keys.join(", ") + " (" + prior.length + " симв.)";
           }
           const sp = pass
             .map((d) => `§ ${d.num} — ${d.title.toUpperCase()}\n${d.prompt}`)
             .join("\n\n");
           const fp = `ПАРАМЕТРЫ СИНТЕЗА:\n${baseCtx(p)}${prior}\n\n${htmlRules()}\n\nЗАДАНИЕ: составь ТОЛЬКО следующие разделы (строго в указанном порядке, без добавления других):\n\n${sp}\n\nТРЕБОВАНИЯ К КАЧЕСТВУ:\n- Каждый раздел — не менее ${mw(p)} слов содержательного текста\n- Таблицы — подробные, с реальным наполнением применительно к данному конкретному синтезу и выбранным философам\n- Абсолютно серьёзный академический тон. Никаких упрощений и поверхностных обобщений\n- Все ссылки на предыдущие разделы — ЯВНЫЕ, по номерам §§ и названиям категорий (например: «как определено в §3 настоящего документа», «категория "X" из §2»)\n- Для каждого утверждения — обоснование. Для каждой оценки — аргументация\n- Каждый философ (${p.phil.join(", ")}) должен быть представлен корректно, без искажения его позиции\n\nОтвечай ТОЛЬКО HTML начиная с <div class="doc-section">. Никакого текста вне HTML-разметки.`;
           try {
-            await streamResp(fp, ct, SYS);
+            const usage = await streamResp(fp, ct, SYS);
+            totalInputTokens += usage.input_tokens;
+            totalOutputTokens += usage.output_tokens;
             st.className = "progress-step done";
             st.querySelector(".step-icon").textContent = "✓";
             if (i === graphBodyIdx) {
@@ -2248,6 +2726,14 @@
           }
         }
         document.getElementById("docFooter").style.display = "flex";
+        // Подсчёт точной стоимости: Claude Sonnet 4 = $3/MTok вход, $15/MTok выход
+        const costIn = totalInputTokens * 3 / 1e6;
+        const costOut = totalOutputTokens * 15 / 1e6;
+        const costTotal = costIn + costOut;
+        document.getElementById("footerCost").textContent =
+          "Токены: " + totalInputTokens.toLocaleString("ru") + " вх. + " +
+          totalOutputTokens.toLocaleString("ru") + " вых. · Стоимость: $" +
+          costTotal.toFixed(4) + " (" + (costTotal * 100).toFixed(2) + "¢)";
         btn.disabled = false;
         btn.classList.remove("loading");
         document.getElementById("btnText").textContent = "Синтезировать Концепцию";
@@ -2279,6 +2765,7 @@
           dec = new TextDecoder();
         let buf = "",
           html = "";
+        let usageIn = 0, usageOut = 0;
         const cur = document.createElement("span");
         cur.className = "stream-cursor";
         container.appendChild(cur);
@@ -2299,13 +2786,26 @@
                 cur.remove();
                 container.innerHTML = html;
                 container.appendChild(cur);
-                cur.scrollIntoView({ block: "nearest" });
+                // Авто-прокрутка только если пользователь у дна страницы
+                const distToBottom = document.documentElement.scrollHeight
+                  - window.scrollY - window.innerHeight;
+                if (distToBottom < 150) {
+                  cur.scrollIntoView({ block: "nearest" });
+                }
+              }
+              // Захват usage из streaming-событий
+              if (p.type === "message_start" && p.message?.usage) {
+                usageIn = p.message.usage.input_tokens || 0;
+              }
+              if (p.type === "message_delta" && p.usage) {
+                usageOut = p.usage.output_tokens || 0;
               }
             } catch (e) {}
           }
         }
         cur.remove();
         container.innerHTML = html;
+        return { input_tokens: usageIn, output_tokens: usageOut };
       }
 
       // ════════════════════════════════════════
@@ -3216,6 +3716,35 @@
           .writeText(document.getElementById("docBodies")?.innerText || "")
           .then(() => alert("Документ скопирован."));
       }
+
+      // ════════════════════════════════════════
+      // INIT: обработчики чекбоксов разделов
+      // ════════════════════════════════════════
+      document.addEventListener("DOMContentLoaded", () => {
+        const secIds = [
+          "secGraph", "secGlossary", "secTheses", "secHistory", "secName",
+          "secPractical", "secDialogue", "secEvolution", "secCritique", "secOrigin"
+        ];
+        for (const id of secIds) {
+          const el = document.getElementById(id);
+          if (el) el.addEventListener("change", updateSectionWarnings);
+        }
+        updateSectionWarnings();
+        updateCostEstimate();
+
+        // Обновление оценки при изменении любых параметров формы
+        for (const id of secIds) {
+          const el = document.getElementById(id);
+          if (el) el.addEventListener("change", updateCostEstimate);
+        }
+        document.querySelectorAll("#philBox input").forEach(cb => {
+          cb.addEventListener("change", updateCostEstimate);
+        });
+        document.getElementById("synthesisMethod")?.addEventListener("change", updateCostEstimate);
+        document.getElementById("depthLevel")?.addEventListener("change", updateCostEstimate);
+        document.getElementById("seedInput")?.addEventListener("input", updateCostEstimate);
+        document.getElementById("contextInput")?.addEventListener("input", updateCostEstimate);
+      });
     </script>
   </body>
 </html>
