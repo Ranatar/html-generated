@@ -1615,6 +1615,7 @@
             </button>
             <button class="action-btn" onclick="window.print()">Распечатать</button>
             <button class="action-btn" onclick="viewRawHTML()">Raw HTML</button>
+            <button class="action-btn" onclick="viewCtxLog()">Лог контекста</button>
             <button class="action-btn" onclick="saveHTML()">Сохранить HTML</button>
             <button class="action-btn" onclick="saveMD()">Сохранить MD</button>
             <button class="action-btn" onclick="resetForm()">Новый Синтез</button>
@@ -1703,6 +1704,21 @@
       </div>
     </div>
 
+    <!-- CTX LOG MODAL -->
+    <div class="raw-overlay" id="ctxLogOverlay" onclick="if (event.target === this) closeCtxLog();">
+      <div class="raw-modal" style="max-width: 1000px">
+        <div class="raw-modal-header">
+          <div class="raw-modal-title">◈ Лог Контекста</div>
+          <button class="raw-close" onclick="closeCtxLog()">✕ Закрыть</button>
+        </div>
+        <div class="raw-modal-body"><pre id="ctxLogContent" style="font-size: 12px; line-height: 1.6"></pre></div>
+        <div class="raw-modal-footer">
+          <div class="raw-info" id="ctxLogInfo">—</div>
+          <button class="raw-copy" onclick="copyCtxLog()">Скопировать лог</button>
+        </div>
+      </div>
+    </div>
+
     <script>
       // ════════════════════════════════════════
       // STATE
@@ -1710,6 +1726,7 @@
       let API_KEY = "",
         totalInputTokens = 0,
         totalOutputTokens = 0,
+        let ctxLog = [],
         G = { nodes: [], edges: [] },
         graphBodyIdx = -1,
         anim3d = null,
@@ -2161,9 +2178,15 @@
 
         // 1. Обязательный контекст
         const requiredParts = [];
+        const logEntries = [];
         for (const key of deps.required) {
           const text = extractContextFragment(key, generated);
-          if (text) requiredParts.push({ key, text });
+          if (text) {
+            requiredParts.push({ key, text });
+            logEntries.push({ key, status: "found", len: text.length, priority: "required" });
+          } else {
+            logEntries.push({ key, status: "missing", len: 0, priority: "required" });
+          }
         }
 
         // 2. Остаток бюджета
@@ -2174,17 +2197,30 @@
         const optionalParts = [];
         if (remainingBudget > 500) {
           for (const key of deps.optional) {
-            if (remainingBudget <= 300) break;
+            if (remainingBudget <= 300) {
+              logEntries.push({ key, status: "skipped_budget", len: 0, priority: "optional", note: "бюджет исчерпан: осталось " + remainingBudget + " симв." });
+              continue;
+            }
             const text = extractContextFragment(key, generated);
-            if (!text) continue;
+            if (!text) {
+              logEntries.push({ key, status: "missing", len: 0, priority: "optional" });
+              continue;
+            }
             if (text.length <= remainingBudget) {
               optionalParts.push({ key, text });
               remainingBudget -= text.length;
+              logEntries.push({ key, status: "found", len: text.length, priority: "optional" });
             } else {
-              optionalParts.push({ key, text: truncateText(text, remainingBudget - 50) });
+              const truncLen = remainingBudget - 50;
+              optionalParts.push({ key, text: truncateText(text, truncLen) });
+              logEntries.push({ key, status: "truncated", len: truncLen, priority: "optional", note: "обрезан с " + text.length + " до " + truncLen });
               remainingBudget = 0;
               break;
             }
+          }
+        } else {
+          for (const key of deps.optional) {
+            logEntries.push({ key, status: "skipped_budget", len: 0, priority: "optional", note: "бюджет исчерпан" });
           }
         }
 
@@ -2201,7 +2237,21 @@
           }
         }
 
-        // 5. Форматируем
+        // 5. Сохраняем лог
+        const totalUsed = requiredParts.reduce((s, p) => s + p.text.length, 0)
+                        + optionalParts.reduce((s, p) => s + p.text.length, 0);
+        ctxLog.push({
+          sectionKey,
+          budget: totalBudget,
+          entries: logEntries,
+          totalUsed,
+          reqFound: logEntries.filter(e => e.priority === "required" && e.status === "found").length,
+          reqTotal: deps.required.length,
+          optIncluded: logEntries.filter(e => e.priority === "optional" && (e.status === "found" || e.status === "truncated")).length,
+          optTotal: deps.optional.length,
+        });
+
+        // 6. Форматируем
         const allParts = [...requiredParts, ...optionalParts];
         if (allParts.length === 0) return "";
         const formatted = allParts.map(p => {
@@ -2620,6 +2670,7 @@
         graphBodyIdx = -1;
         totalInputTokens = 0;
         totalOutputTokens = 0;
+        ctxLog = [];
 
         const docNum =
           "PS-" +
@@ -3715,6 +3766,7 @@
         if (e.key === "Escape") {
           closeRaw();
           closeGraph();
+          closeCtxLog();
         }
       });
       function resetForm() {
@@ -3761,6 +3813,144 @@
         document.getElementById("seedInput")?.addEventListener("input", updateCostEstimate);
         document.getElementById("contextInput")?.addEventListener("input", updateCostEstimate);
       });
+
+      // ════════════════════════════════════════
+      // CONTEXT LOG VIEWER
+      // ════════════════════════════════════════
+
+      function formatCtxLog() {
+        if (ctxLog.length === 0) return "Лог пуст. Сгенерируйте документ.";
+        const lines = [];
+        lines.push("PHILOSYNTH PRO — ЛОГ КОНТЕКСТА");
+        lines.push("Дата: " + new Date().toLocaleString("ru-RU"));
+        lines.push("═".repeat(70));
+
+        for (const pass of ctxLog) {
+          const label = CTX_LABELS[pass.sectionKey + ":goals"]
+            ? pass.sectionKey
+            : pass.sectionKey;
+          lines.push("");
+          lines.push("═══ " + pass.sectionKey.toUpperCase() + " ═══");
+          lines.push("Бюджет: " + pass.budget.toLocaleString("ru") + " симв.");
+          lines.push("");
+
+          // Required
+          const reqEntries = pass.entries.filter(e => e.priority === "required");
+          if (reqEntries.length) {
+            lines.push("ОБЯЗАТЕЛЬНЫЙ КОНТЕКСТ (required):");
+            for (const e of reqEntries) {
+              const lbl = (CTX_LABELS[e.key] || e.key).padEnd(40);
+              if (e.status === "found") {
+                lines.push("  ✓ " + lbl + e.len.toLocaleString("ru").padStart(7) + " симв.");
+              } else {
+                lines.push("  X " + lbl + "НЕ НАЙДЕН");
+              }
+            }
+          }
+
+          // Optional
+          const optEntries = pass.entries.filter(e => e.priority === "optional");
+          if (optEntries.length) {
+            lines.push("");
+            lines.push("ОПЦИОНАЛЬНЫЙ КОНТЕКСТ (optional):");
+            for (const e of optEntries) {
+              const lbl = (CTX_LABELS[e.key] || e.key).padEnd(40);
+              if (e.status === "found") {
+                lines.push("  ✓ " + lbl + e.len.toLocaleString("ru").padStart(7) + " симв.");
+              } else if (e.status === "truncated") {
+                lines.push("  ◦ " + lbl + e.len.toLocaleString("ru").padStart(7) + " симв. [" + (e.note || "") + "]");
+              } else if (e.status === "skipped_budget") {
+                lines.push("  ◌ " + lbl + "пропущен  [" + (e.note || "бюджет исчерпан") + "]");
+              } else {
+                lines.push("  X " + lbl + "не найден");
+              }
+            }
+          }
+
+          lines.push("");
+          lines.push("ИТОГО: " + pass.totalUsed.toLocaleString("ru") + " / " +
+            pass.budget.toLocaleString("ru") + " симв. (" +
+            Math.round(pass.totalUsed / pass.budget * 100) + "% использовано)");
+          lines.push("  required: " + pass.reqFound + " из " + pass.reqTotal + " найдено");
+          lines.push("  optional: " + pass.optIncluded + " из " + pass.optTotal + " включено");
+          lines.push("─".repeat(70));
+        }
+
+        return lines.join("\n");
+      }
+
+      function formatCtxLogHTML() {
+        if (ctxLog.length === 0) return '<span style="color:#8a8278">Лог пуст. Сгенерируйте документ.</span>';
+        const esc = s => s.replace(/&/g,"&amp;").replace(/</g,"&lt;");
+        const lines = [];
+
+        for (const pass of ctxLog) {
+          lines.push('<span style="color:#d4a017;font-weight:600">═══ ' + esc(pass.sectionKey.toUpperCase()) + ' ═══</span>');
+          lines.push('Бюджет: ' + pass.budget.toLocaleString("ru") + ' симв.');
+          lines.push('');
+
+          const reqEntries = pass.entries.filter(e => e.priority === "required");
+          if (reqEntries.length) {
+            lines.push('<span style="color:#aaa;font-weight:500">ОБЯЗАТЕЛЬНЫЙ КОНТЕКСТ:</span>');
+            for (const e of reqEntries) {
+              const lbl = esc(CTX_LABELS[e.key] || e.key);
+              if (e.status === "found") {
+                lines.push('  <span style="color:#1a5c2a">✓</span> ' + lbl + ' — <span style="color:#1a5c2a">' + e.len.toLocaleString("ru") + ' симв.</span>');
+              } else {
+                lines.push('  <span style="color:#8b1a1a">✗</span> ' + lbl + ' — <span style="color:#8b1a1a;font-weight:600">НЕ НАЙДЕН</span>');
+              }
+            }
+          }
+
+          const optEntries = pass.entries.filter(e => e.priority === "optional");
+          if (optEntries.length) {
+            lines.push('');
+            lines.push('<span style="color:#aaa;font-weight:500">ОПЦИОНАЛЬНЫЙ КОНТЕКСТ:</span>');
+            for (const e of optEntries) {
+              const lbl = esc(CTX_LABELS[e.key] || e.key);
+              if (e.status === "found") {
+                lines.push('  <span style="color:#1a5c2a">✓</span> ' + lbl + ' — <span style="color:#1a5c2a">' + e.len.toLocaleString("ru") + ' симв.</span>');
+              } else if (e.status === "truncated") {
+                lines.push('  <span style="color:#d4a017">◦</span> ' + lbl + ' — <span style="color:#d4a017">' + e.len.toLocaleString("ru") + ' симв.</span> <span style="color:#666">[' + esc(e.note || "") + ']</span>');
+              } else if (e.status === "skipped_budget") {
+                lines.push('  <span style="color:#555">◌</span> ' + lbl + ' — <span style="color:#555">пропущен</span> <span style="color:#444">[' + esc(e.note || "") + ']</span>');
+              } else {
+                lines.push('  <span style="color:#8b1a1a">✗</span> ' + lbl + ' — <span style="color:#666">не найден</span>');
+              }
+            }
+          }
+
+          lines.push('');
+          const pct = Math.round(pass.totalUsed / pass.budget * 100);
+          lines.push('ИТОГО: ' + pass.totalUsed.toLocaleString("ru") + ' / ' + pass.budget.toLocaleString("ru") + ' симв. (' + pct + '%)');
+          lines.push('  required: ' + pass.reqFound + '/' + pass.reqTotal + '   optional: ' + pass.optIncluded + '/' + pass.optTotal);
+          lines.push('<span style="color:#333">─'.repeat(60) + '</span>');
+        }
+        return lines.join("\n");
+      }
+
+      function viewCtxLog() {
+        document.getElementById("ctxLogContent").innerHTML = formatCtxLogHTML();
+        const plainText = formatCtxLog();
+        document.getElementById("ctxLogInfo").textContent =
+          ctxLog.length + " разделов · " + plainText.split("\n").length + " строк";
+        document.getElementById("ctxLogOverlay").classList.add("visible");
+        document.body.style.overflow = "hidden";
+      }
+
+      function closeCtxLog() {
+        document.getElementById("ctxLogOverlay").classList.remove("visible");
+        document.body.style.overflow = "";
+      }
+
+      function copyCtxLog() {
+        navigator.clipboard.writeText(formatCtxLog()).then(() => {
+          const b = document.querySelector("#ctxLogOverlay .raw-copy");
+          const o = b.textContent;
+          b.textContent = "\u2713 Скопировано";
+          setTimeout(() => (b.textContent = o), 2000);
+        });
+      }
     </script>
   </body>
 </html>
