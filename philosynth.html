@@ -2021,7 +2021,13 @@
 
       function extractByH4(containerEl, keyword) {
         const kw = keyword.toLowerCase();
-        const h4s = containerEl.querySelectorAll(".doc-content h4");
+        // Ищем h4 во всём контейнере, не только внутри .doc-content,
+        // т.к. модель может не создать doc-content обёртку.
+        // ПРИМЕЧАНИЕ: nextElementSibling работает корректно, если h4 и
+        // последующие элементы — прямые дети одного родителя. Если модель
+        // обернёт каждый подраздел в отдельный <div>, обход остановится
+        // на границе div. В этом случае фолбэк — truncateText(innerText).
+        const h4s = containerEl.querySelectorAll("h4");
         for (const h4 of h4s) {
           if (!h4.textContent.toLowerCase().includes(kw)) continue;
           const parts = [h4.textContent.trim()];
@@ -2061,6 +2067,42 @@
         return Array.from(tables).map(t => tableToText(t)).join("\n\n");
       }
 
+      /**
+       * Извлекает из таблицы глоссария только первые 2 столбца: Термин | Определение.
+       * Полная таблица (6 столбцов × 12+ строк) слишком объёмна для контекста.
+       * @param {HTMLElement} containerEl
+       * @returns {string|null}
+       */
+      function extractGlossaryCompact(containerEl) {
+        const tables = containerEl.querySelectorAll("table.doc-table");
+        for (const t of tables) {
+          const ths = Array.from(t.querySelectorAll("thead th"))
+            .map(th => th.textContent.trim().toLowerCase());
+          // Ищем таблицу, у которой первый столбец содержит "термин"
+          if (ths.length >= 2 && ths[0].includes("термин")) {
+            const rows = [];
+            const h0 = t.querySelectorAll("thead th")[0]?.textContent.trim() || "Термин";
+            const h1 = t.querySelectorAll("thead th")[1]?.textContent.trim() || "Определение";
+            rows.push(h0 + " | " + h1);
+            rows.push("--- | ---");
+            t.querySelectorAll("tbody tr").forEach(tr => {
+              const tds = tr.querySelectorAll("td");
+              if (tds.length >= 2) {
+                const c0 = tds[0].textContent.trim().replace(/\n+/g, " ");
+                const c1 = tds[1].textContent.trim().replace(/\n+/g, " ").replace(/\s{2,}/g, " ");
+                rows.push(c0 + " | " + c1);
+              }
+            });
+            return "ГЛОССАРИЙ (термины и определения):\n" + rows.join("\n");
+          }
+        }
+        // Фолбэк: если таблица с "термин" не найдена, берём первую таблицу компактно
+        if (tables.length > 0) {
+          return "ГЛОССАРИЙ:\n" + tableToText(tables[0]);
+        }
+        return null;
+      }
+
       function truncateText(text, maxLen) {
         if (!text || text.length <= maxLen) return text || "";
         const half = Math.floor(maxLen / 2);
@@ -2068,7 +2110,7 @@
       }
 
       function extractThesesSummary(containerEl) {
-        const strongs = containerEl.querySelectorAll(".doc-content strong");
+        const strongs = containerEl.querySelectorAll("strong");
         const theses = Array.from(strongs)
           .map(s => s.textContent.trim())
           .filter(t => t.length > 20);
@@ -2079,7 +2121,7 @@
       }
 
       function extractNameTitle(containerEl) {
-        const firstStrong = containerEl.querySelector(".doc-content strong");
+        const firstStrong = containerEl.querySelector("strong");
         const title = firstStrong?.textContent?.trim();
         const rationale = extractByH4(containerEl, "обоснован");
         let result = "";
@@ -2128,7 +2170,7 @@
           case "graph:nodes":    return extractGraphNodesTable(el);
           case "graph:edges":    return extractGraphEdgesTable(el);
           case "graph:topology": return extractByH4(el, "ТОПОЛОГ");
-          case "glossary:table": { const txt = extractAllTablesAsText(el); return txt ? "ГЛОССАРИЙ:\n" + txt : null; }
+          case "glossary:table": return extractGlossaryCompact(el);
           case "theses:full":    return truncateText(el.innerText?.trim() || "", 6000);
           case "theses:summary": return extractThesesSummary(el);
           case "name:title":     return extractNameTitle(el);
