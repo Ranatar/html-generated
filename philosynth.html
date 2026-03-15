@@ -1670,6 +1670,13 @@
 
     <!-- GRAPH MODAL -->
     <div class="gm-overlay" id="gmOverlay">
+      <div id="graph-tooltip" style="
+        position: absolute; pointer-events: none; display: none;
+        background: rgba(10,10,20,0.92); border: 1px solid rgba(255,255,255,0.15);
+        color: #c8c0b0; font: 12px 'IBM Plex Mono', monospace;
+        padding: 8px 12px; border-radius: 6px; max-width: 280px;
+        white-space: pre-wrap; line-height: 1.5; z-index: 999;">
+      </div>
       <div class="gm-header">
         <div class="gm-title">◈ Граф Категорий</div>
         <div class="gm-actions">
@@ -3062,14 +3069,12 @@
         const ct = document.getElementById("view3d");
         const old = ct.querySelector("canvas");
         if (old) old.remove();
-        if (renderer3d) {
-          renderer3d.dispose();
-          renderer3d = null;
-        }
+        if (renderer3d) { renderer3d.dispose(); renderer3d = null; }
         if (anim3d) cancelAnimationFrame(anim3d);
-        const W = ct.clientWidth,
-          H = ct.clientHeight;
+
+        const W = ct.clientWidth, H = ct.clientHeight;
         const { ns, es } = forceSim(G.nodes, G.edges, 3);
+
         const scene = new THREE.Scene();
         scene.background = new THREE.Color(0x0a0a14);
         const cam = new THREE.PerspectiveCamera(50, W / H, 1, 2000);
@@ -3082,7 +3087,7 @@
         const dl = new THREE.DirectionalLight(0xffffff, 0.8);
         dl.position.set(50, 80, 100);
         scene.add(dl);
- 
+
         const meshes = [];
         const types = new Set();
         for (const n of ns) {
@@ -3092,11 +3097,8 @@
           const m = new THREE.Mesh(
             new THREE.SphereGeometry(r, 24, 24),
             new THREE.MeshPhongMaterial({
-              color: c,
-              emissive: c,
-              emissiveIntensity: 0.15,
-              transparent: true,
-              opacity: 0.9,
+              color: c, emissive: c, emissiveIntensity: 0.15,
+              transparent: true, opacity: 0.9,
             }),
           );
           m.position.set(n.x, n.y, n.z);
@@ -3108,82 +3110,223 @@
           sp.userData = { labelFor: n.id };
           scene.add(sp);
         }
- 
-        // edgeGeos хранит геометрии рёбер для обновления при перетаскивании узлов
-        const edgeGeos = []; // { geo, si, ti }
- 
+
+        const edgeGeos      = []; // { geo, si, ti }
+        const edgeHitMeshes = []; // [PREV] { mesh, si, ti }
+        const reflGeos      = []; // { geo, si }
+        const arrowMeshes   = []; // [NEW]  { mesh, si, ti, pointsToTi }
+
+        // [NEW] Обновляет позицию и ориентацию конуса-стрелки по текущим ns
+        function updateCone(mesh, si, ti, pointsToTi) {
+          const s = ns[si], t = ns[ti];
+          const ev = new THREE.Vector3(t.x - s.x, t.y - s.y, t.z - s.z);
+          const len = ev.length();
+          if (len < 0.001) return;
+          const dir = ev.divideScalar(len);
+          if (pointsToTi) {
+            const r = 1.5 + (t.cen || 0.5) * 3;
+            mesh.position.copy(
+              new THREE.Vector3(t.x, t.y, t.z).sub(dir.clone().multiplyScalar(r + 1.5))
+            );
+            mesh.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), dir);
+          } else {
+            const r = 1.5 + (s.cen || 0.5) * 3;
+            const d2 = dir.clone().negate();
+            mesh.position.copy(
+              new THREE.Vector3(s.x, s.y, s.z).sub(d2.clone().multiplyScalar(r + 1.5))
+            );
+            mesh.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), d2);
+          }
+        }
+
         for (const e of es) {
-          const s = ns[e.si],
-            t = ns[e.ti];
+          const s = ns[e.si], t = ns[e.ti];
           const refl = e.dir.includes("рефлексив") || e.si === e.ti;
-          const bi = e.dir.includes("двунаправлен");
+          const bi   = e.dir.includes("двунаправлен");
+
           if (refl) {
-            const c = new THREE.CubicBezierCurve3(
+            const curve = new THREE.CubicBezierCurve3(
               new THREE.Vector3(s.x, s.y, s.z),
               new THREE.Vector3(s.x + 15, s.y + 15, s.z),
               new THREE.Vector3(s.x - 15, s.y + 15, s.z),
               new THREE.Vector3(s.x, s.y, s.z),
             );
-            scene.add(
-              new THREE.Line(
-                new THREE.BufferGeometry().setFromPoints(c.getPoints(32)),
-                new THREE.LineBasicMaterial({ color: 0xe8a838, transparent: true, opacity: 0.6 }),
-              ),
+            const reflGeo = new THREE.BufferGeometry().setFromPoints(curve.getPoints(32));
+            scene.add(new THREE.Line(
+              reflGeo,
+              new THREE.LineBasicMaterial({ color: 0xe8a838, transparent: true, opacity: 0.6 }),
+            ));
+            reflGeos.push({ geo: reflGeo, si: e.si });
+            // [PREV] Хитбокс для рефлексивной петли — сфера
+            const torusHit = new THREE.Mesh(
+              new THREE.SphereGeometry(10, 8, 8),
+              new THREE.MeshBasicMaterial({ visible: false }),
             );
+            torusHit.position.set(s.x, s.y + 15, s.z);
+            torusHit.userData = { edgeData: e };
+            scene.add(torusHit);
+            edgeHitMeshes.push({ mesh: torusHit, si: e.si, ti: e.ti });
           } else {
             const col = bi ? 0x50c878 : 0x4a90d9;
-            const op = 0.3 + e.str * 0.5;
+            const op  = 0.3 + e.str * 0.5;
+
             const geo = new THREE.BufferGeometry().setFromPoints([
               new THREE.Vector3(s.x, s.y, s.z),
               new THREE.Vector3(t.x, t.y, t.z),
             ]);
-            scene.add(
-              new THREE.Line(
-                geo,
-                new THREE.LineBasicMaterial({ color: col, transparent: true, opacity: op }),
-              ),
-            );
+            scene.add(new THREE.Line(
+              geo,
+              new THREE.LineBasicMaterial({ color: col, transparent: true, opacity: op }),
+            ));
             edgeGeos.push({ geo, si: e.si, ti: e.ti });
- 
+
+            // Конус к ti
             const dir = new THREE.Vector3(t.x - s.x, t.y - s.y, t.z - s.z).normalize();
-            const tr = 1.5 + (ns[e.ti].cen || 0.5) * 3;
-            const ap = new THREE.Vector3(t.x, t.y, t.z).sub(dir.clone().multiplyScalar(tr + 1.5));
-            const cn = new THREE.Mesh(
+            const tr  = 1.5 + (ns[e.ti].cen || 0.5) * 3;
+            const ap  = new THREE.Vector3(t.x, t.y, t.z).sub(dir.clone().multiplyScalar(tr + 1.5));
+            const cn  = new THREE.Mesh(
               new THREE.CylinderGeometry(0, 1, 3, 8),
               new THREE.MeshPhongMaterial({ color: col, transparent: true, opacity: op + 0.1 }),
             );
             cn.position.copy(ap);
             cn.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), dir);
             scene.add(cn);
+            arrowMeshes.push({ mesh: cn, si: e.si, ti: e.ti, pointsToTi: true }); // [NEW]
+
             if (bi) {
-              const d2 = dir.clone().negate();
-              const sr = 1.5 + (ns[e.si].cen || 0.5) * 3;
+              const d2  = dir.clone().negate();
+              const sr  = 1.5 + (ns[e.si].cen || 0.5) * 3;
               const ap2 = new THREE.Vector3(s.x, s.y, s.z).sub(d2.clone().multiplyScalar(sr + 1.5));
               const cn2 = cn.clone();
               cn2.position.copy(ap2);
               cn2.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), d2);
               scene.add(cn2);
+              arrowMeshes.push({ mesh: cn2, si: e.si, ti: e.ti, pointsToTi: false }); // [NEW]
+            }
+
+            // [PREV] Хитбокс — невидимый цилиндр
+            const edgeVec = new THREE.Vector3(t.x - s.x, t.y - s.y, t.z - s.z);
+            const edgeLen = edgeVec.length();
+            const hitMesh = new THREE.Mesh(
+              new THREE.CylinderGeometry(2, 2, edgeLen, 6),
+              new THREE.MeshBasicMaterial({ visible: false }),
+            );
+            hitMesh.position.set((s.x + t.x) / 2, (s.y + t.y) / 2, (s.z + t.z) / 2);
+            hitMesh.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), edgeVec.normalize());
+            hitMesh.userData = { edgeData: e, _origLen: edgeLen };
+            scene.add(hitMesh);
+            edgeHitMeshes.push({ mesh: hitMesh, si: e.si, ti: e.ti });
+          }
+        }
+
+        buildLegend(types);
+
+        // [NEW] ── Живая силовая симуляция ──────────────────────────────────────
+        let simAlpha    = 0;
+        let fixedNodeIdx = null; // индекс перетаскиваемого узла в ns
+
+        function tickSim() {
+          const a = simAlpha;
+          // Отталкивание
+          for (let i = 0; i < ns.length; i++)
+            for (let j = i + 1; j < ns.length; j++) {
+              const dx = ns[j].x - ns[i].x, dy = ns[j].y - ns[i].y, dz = ns[j].z - ns[i].z;
+              const d  = Math.sqrt(dx*dx + dy*dy + dz*dz) || 1;
+              const f  = 800 / (d * d);
+              ns[i].vx -= (dx/d)*f*a; ns[i].vy -= (dy/d)*f*a; ns[i].vz -= (dz/d)*f*a;
+              ns[j].vx += (dx/d)*f*a; ns[j].vy += (dy/d)*f*a; ns[j].vz += (dz/d)*f*a;
+            }
+          // Притяжение вдоль рёбер
+          for (const e of es) {
+            if (e.si === e.ti) continue;
+            const s = ns[e.si], t = ns[e.ti];
+            const dx = t.x - s.x, dy = t.y - s.y, dz = t.z - s.z;
+            const d  = Math.sqrt(dx*dx + dy*dy + dz*dz) || 1;
+            const f  = (d - 30) * 0.05 * (e.str || 0.5) * a;
+            s.vx += (dx/d)*f; s.vy += (dy/d)*f; s.vz += (dz/d)*f;
+            t.vx -= (dx/d)*f; t.vy -= (dy/d)*f; t.vz -= (dz/d)*f;
+          }
+          // Центрирование + интеграция
+          for (const n of ns) {
+            if (n.id === fixedNodeIdx) {
+              // Перетаскиваемый узел фиксирован — обнуляем скорость
+              n.vx = 0; n.vy = 0; n.vz = 0;
+              continue;
+            }
+            n.vx -= n.x * 0.01 * a;
+            n.vy -= n.y * 0.01 * a;
+            n.vz -= n.z * 0.01 * a;
+            n.x += n.vx; n.y += n.vy; n.z += n.vz;
+            n.vx *= 0.85; n.vy *= 0.85; n.vz *= 0.85;
+          }
+          simAlpha *= 0.95;
+          if (simAlpha < 0.001 && fixedNodeIdx === null) simAlpha = 0;
+        }
+
+        // [NEW] Обновляет все Three.js-объекты по текущим позициям ns
+        function updateAllVisuals() {
+          // Сферы-узлы
+          meshes.forEach((m) => {
+            const n = ns[m.userData.nodeIdx];
+            m.position.set(n.x, n.y, n.z);
+          });
+          // Метки-спрайты
+          scene.children.forEach((c) => {
+            if (c.userData?.labelFor != null) {
+              const n = ns[c.userData.labelFor];
+              const r = 1.5 + (n.cen || 0.5) * 3;
+              c.position.set(n.x, n.y + r + 2.5, n.z);
+            }
+          });
+          // Линии рёбер
+          for (const { geo, si, ti } of edgeGeos) {
+            const pos = geo.attributes.position;
+            pos.setXYZ(0, ns[si].x, ns[si].y, ns[si].z);
+            pos.setXYZ(1, ns[ti].x, ns[ti].y, ns[ti].z);
+            pos.needsUpdate = true;
+          }
+          // Рефлексивные петли
+          for (const { geo, si } of reflGeos) {
+            const n = ns[si];
+            const curve = new THREE.CubicBezierCurve3(
+              new THREE.Vector3(n.x,      n.y,      n.z),
+              new THREE.Vector3(n.x + 15, n.y + 15, n.z),
+              new THREE.Vector3(n.x - 15, n.y + 15, n.z),
+              new THREE.Vector3(n.x,      n.y,      n.z),
+            );
+            geo.setFromPoints(curve.getPoints(32));
+          }
+          // Конусы-стрелки
+          for (const { mesh, si, ti, pointsToTi } of arrowMeshes) {
+            updateCone(mesh, si, ti, pointsToTi);
+          }
+          // Хитбоксы рёбер
+          for (const { mesh, si, ti } of edgeHitMeshes) {
+            if (si === ti) {
+              mesh.position.set(ns[si].x, ns[si].y + 15, ns[si].z);
+            } else {
+              const a = ns[si], b = ns[ti];
+              const ev  = new THREE.Vector3(b.x - a.x, b.y - a.y, b.z - a.z);
+              const len = ev.length();
+              mesh.position.set((a.x + b.x) / 2, (a.y + b.y) / 2, (a.z + b.z) / 2);
+              if (len > 0.001) {
+                mesh.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), ev.normalize());
+                mesh.scale.y = len / mesh.userData._origLen;
+              }
             }
           }
         }
- 
-        buildLegend(types);
- 
-        // Controls: orbit + node drag via raycasting
-        let isDrag = false,
-          isOrbit = false,
-          pX = 0,
-          pY = 0,
-          rotX = 0,
-          rotY = 0,
-          zoom = 150,
-          dragNode = null;
-        const raycaster = new THREE.Raycaster();
-        const mouse = new THREE.Vector2();
-        const plane = new THREE.Plane();
+        // ──────────────────────────────────────────────────────────────────────────
+
+        let isDrag = false, isOrbit = false, pX = 0, pY = 0;
+        let rotX = 0, rotY = 0, zoom = 150, dragNode = null;
+        const raycaster   = new THREE.Raycaster();
+        const mouse       = new THREE.Vector2();
+        const plane       = new THREE.Plane();
         const intersection = new THREE.Vector3();
-        const cv = renderer3d.domElement;
- 
+        const cv          = renderer3d.domElement;
+        const tooltip     = document.getElementById("graph-tooltip"); // [PREV]
+
         cv.addEventListener("mousedown", (e) => {
           mouse.x = (e.offsetX / cv.clientWidth) * 2 - 1;
           mouse.y = -(e.offsetY / cv.clientHeight) * 2 + 1;
@@ -3191,6 +3334,8 @@
           const hits = raycaster.intersectObjects(meshes);
           if (hits.length > 0) {
             dragNode = hits[0].object;
+            fixedNodeIdx = dragNode.userData.nodeIdx; // [NEW]
+            simAlpha = Math.max(simAlpha, 0.3);       // [NEW]
             plane.setFromNormalAndCoplanarPoint(
               cam.getWorldDirection(new THREE.Vector3()).negate(),
               dragNode.position,
@@ -3202,37 +3347,52 @@
           pX = e.clientX;
           pY = e.clientY;
         });
- 
+
         cv.addEventListener("mousemove", (e) => {
+          // [PREV] Hover-тултип
+          if (!dragNode && !isOrbit) {
+            mouse.x = (e.offsetX / cv.clientWidth) * 2 - 1;
+            mouse.y = -(e.offsetY / cv.clientHeight) * 2 + 1;
+            raycaster.setFromCamera(mouse, cam);
+            const nodeHits = raycaster.intersectObjects(meshes);
+            if (nodeHits.length > 0) {
+              const idx = nodeHits[0].object.userData.nodeIdx;
+              const n = ns[idx];
+              tooltip.style.display = "block";
+              tooltip.style.left = (e.offsetX + 14) + "px";
+              tooltip.style.top  = (e.offsetY - 10) + "px";
+              tooltip.textContent = `${n.name}\n[${n.type}]\n${n.def}`;
+              cv.style.cursor = "pointer";
+            } else {
+              const edgeHits = raycaster.intersectObjects(edgeHitMeshes.map((h) => h.mesh));
+              if (edgeHits.length > 0) {
+                const ed = edgeHits[0].object.userData.edgeData;
+                tooltip.style.display = "block";
+                tooltip.style.left = (e.offsetX + 14) + "px";
+                tooltip.style.top  = (e.offsetY - 10) + "px";
+                tooltip.textContent = `${ed.desc}\n[${ed.type}]\n${ed.dir}`;
+                cv.style.cursor = "default";
+              } else {
+                tooltip.style.display = "none";
+                cv.style.cursor = "";
+              }
+            }
+          }
+
           if (dragNode) {
+            tooltip.style.display = "none";
             mouse.x = (e.offsetX / cv.clientWidth) * 2 - 1;
             mouse.y = -(e.offsetY / cv.clientHeight) * 2 + 1;
             raycaster.setFromCamera(mouse, cam);
             if (raycaster.ray.intersectPlane(plane, intersection)) {
-              dragNode.position.copy(intersection);
-              // Синхронизируем позицию в массиве ns — это источник правды для рёбер
               const nodeIdx = dragNode.userData.nodeIdx;
-              ns[nodeIdx].x = intersection.x;
-              ns[nodeIdx].y = intersection.y;
+              ns[nodeIdx].x = intersection.x; // [NEW] позиция в ns — источник правды
+              ns[nodeIdx].y = intersection.y; // updateAllVisuals в animate обновит всё
               ns[nodeIdx].z = intersection.z;
-              // Обновляем все рёбра, смежные с перетаскиваемым узлом
-              for (const { geo, si, ti } of edgeGeos) {
-                if (si === nodeIdx || ti === nodeIdx) {
-                  const pos = geo.attributes.position;
-                  pos.setXYZ(0, ns[si].x, ns[si].y, ns[si].z);
-                  pos.setXYZ(1, ns[ti].x, ns[ti].y, ns[ti].z);
-                  pos.needsUpdate = true;
-                }
-              }
-              // Перемещаем метку-спрайт
-              scene.children.forEach((c) => {
-                if (c.userData?.labelFor === nodeIdx) {
-                  const r = 1.5 + (ns[nodeIdx].cen || 0.5) * 3;
-                  c.position.set(intersection.x, intersection.y + r + 2.5, intersection.z);
-                }
-              });
+              simAlpha = Math.max(simAlpha, 0.3); // [NEW] держим симуляцию живой
             }
           } else if (isOrbit) {
+            tooltip.style.display = "none";
             rotY += (e.clientX - pX) * 0.005;
             rotX += (e.clientY - pY) * 0.005;
             rotX = Math.max(-Math.PI / 2, Math.min(Math.PI / 2, rotX));
@@ -3240,35 +3400,35 @@
             pY = e.clientY;
           }
         });
- 
+
         cv.addEventListener("mouseup", () => {
           isDrag = false;
           isOrbit = false;
           dragNode = null;
+          fixedNodeIdx = null;              // [NEW]
+          simAlpha = Math.max(simAlpha, 0.4); // [NEW] даём графу "устояться" после отпускания
           cv.style.cursor = "";
         });
         cv.addEventListener("mouseleave", () => {
           isOrbit = false;
           dragNode = null;
+          fixedNodeIdx = null;           // [NEW]
+          tooltip.style.display = "none"; // [PREV]
         });
-        cv.addEventListener(
-          "wheel",
-          (e) => {
-            zoom = Math.max(30, Math.min(400, zoom + e.deltaY * 0.1));
-            e.preventDefault();
-          },
-          { passive: false },
-        );
+        cv.addEventListener("wheel", (e) => {
+          zoom = Math.max(30, Math.min(400, zoom + e.deltaY * 0.1));
+          e.preventDefault();
+        }, { passive: false });
         cv.addEventListener("dblclick", () => {
-          rotX = 0;
-          rotY = 0;
-          zoom = 150;
+          rotX = 0; rotY = 0; zoom = 150;
         });
- 
+
         function animate() {
           anim3d = requestAnimationFrame(animate);
-          if (!dragNode) {
-            /* auto-rotate only when not dragging */
+          // [NEW] Тик симуляции — когда есть альфа или активен drag
+          if (simAlpha > 0.001 || fixedNodeIdx !== null) {
+            tickSim();
+            updateAllVisuals();
           }
           cam.position.x = zoom * Math.sin(rotY) * Math.cos(rotX);
           cam.position.y = zoom * Math.sin(rotX);
@@ -3277,9 +3437,9 @@
           renderer3d.render(scene, cam);
         }
         animate();
+
         new ResizeObserver(() => {
-          const w = ct.clientWidth,
-            h = ct.clientHeight;
+          const w = ct.clientWidth, h = ct.clientHeight;
           cam.aspect = w / h;
           cam.updateProjectionMatrix();
           renderer3d.setSize(w, h);
@@ -3389,6 +3549,21 @@
             d3.forceCollide().radius((d) => 10 + d.cen * 20),
           );
 
+        //Невидимая широкая зона для hover
+        const linkHit = g
+          .selectAll(".edge-hit")
+          .data(links)
+          .enter()
+          .append("line")
+          .attr("class", "edge-hit")
+          .attr("stroke", "transparent")
+          .attr("stroke-width", 10)   // широкая зона попадания
+          .style("cursor", "pointer");
+
+        linkHit.append("title").text((d) =>
+          `${d.desc}\n[${d.type}]\n${d.dir}`
+        );
+
         // Edges
         const link = g
           .selectAll(".edge-line")
@@ -3415,6 +3590,19 @@
 
         // Reflexive arcs
         const reflLinks = links.filter((l) => l.source === l.target || l.dir.includes("рефлексив"));
+        const arcHit = g
+          .selectAll(".edge-arc-hit")
+          .data(reflLinks)
+          .enter()
+          .append("path")
+          .attr("fill", "none")
+          .attr("stroke", "transparent")
+          .attr("stroke-width", 10)
+          .style("cursor", "pointer");
+
+        arcHit.append("title").text((d) =>
+          `${d.desc}\n[${d.type}]\n${d.dir}`
+        );
         const arc = g
           .selectAll(".edge-arc")
           .data(reflLinks)
@@ -3474,6 +3662,16 @@
             .attr("x2", (d) => d.target.x)
             .attr("y2", (d) => d.target.y);
           arc.attr("d", (d) => {
+            const x = typeof d.source === "object" ? d.source.x : nodes[d.source].x;
+            const y = typeof d.source === "object" ? d.source.y : nodes[d.source].y;
+            return `M${x},${y}A20,20,0,1,1,${x + 1},${y + 1}`;
+          });
+          linkHit
+            .attr("x1", (d) => d.source.x)
+            .attr("y1", (d) => d.source.y)
+            .attr("x2", (d) => d.target.x)
+            .attr("y2", (d) => d.target.y);
+          arcHit.attr("d", (d) => {
             const x = typeof d.source === "object" ? d.source.x : nodes[d.source].x;
             const y = typeof d.source === "object" ? d.source.y : nodes[d.source].y;
             return `M${x},${y}A20,20,0,1,1,${x + 1},${y + 1}`;
