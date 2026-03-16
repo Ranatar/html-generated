@@ -4133,283 +4133,283 @@
       // CONTEXT LOG VIEWER
       // ════════════════════════════════════════
 
-      function formatCtxLog() {
-        if (genLog.length === 0 && ctxLog.length === 0)
-          return "Лог пуст. Сгенерируйте документ.";
-      
-        const num = n => n.toLocaleString("ru");
-        const lines = [];
-        lines.push("PHILOSYNTH PRO — ЛОГ КОНТЕКСТА И ГЕНЕРАЦИИ");
-        lines.push("Дата: " + new Date().toLocaleString("ru-RU"));
-        lines.push("═".repeat(70));
-      
-        // --- Общие элементы промпта ---
-        if (genCommon) {
-          lines.push("");
-          lines.push("ОБЩИЕ ЭЛЕМЕНТЫ ПРОМПТА (одинаковы для всех запросов):");
-          lines.push("  Системный промпт          " + num(genCommon.sysChars).padStart(7) + " симв.");
-          lines.push("  Параметры синтеза          " + num(genCommon.baseChars).padStart(7) + " симв.");
-          lines.push("  Правила форматирования    " + num(genCommon.rulesChars).padStart(7) + " симв.");
-          lines.push("  Требования к качеству     " + num(genCommon.qualityChars).padStart(7) + " симв.");
-          lines.push("  Служебный каркас          " + num(genCommon.scaffoldChars).padStart(7) + " симв.");
-          lines.push("                       ИТОГО " + num(genCommon.totalChars).padStart(7) + " симв.");
-          lines.push("─".repeat(70));
-        }
-      
-        const ctxByKey = {};
-        for (const pass of ctxLog) ctxByKey[pass.sectionKey] = pass;
-      
-        for (const g of genLog) {
-          const keys = g.sectionKey.split("+");
-      
-          lines.push("");
-          lines.push("═══ " + g.sectionLabel.toUpperCase() + " ═══");
-      
-          // --- Состав входа ---
-          lines.push("");
-          lines.push("ВХОД:");
-          lines.push("  Общие элементы             " + num(genCommon ? genCommon.totalChars : 0).padStart(7) + " симв.");
-      
-          if (g.priorChars > 0) {
-            lines.push("  Контекст пред. разделов   " + num(g.priorChars).padStart(7) + " симв.");
-      
-            for (const k of keys) {
-              const ctx = ctxByKey[k];
-              if (!ctx) continue;
-      
-              lines.push("    Бюджет: " + num(ctx.budget) + " симв., " +
-                "использовано: " + num(ctx.totalUsed) + " (" +
-                Math.round(ctx.totalUsed / ctx.budget * 100) + "%)");
-      
-              const reqEntries = ctx.entries.filter(e => e.priority === "required");
-              if (reqEntries.length) {
-                lines.push("    Обязательный:");
-                for (const e of reqEntries) {
-                  const lbl = (CTX_LABELS[e.key] || e.key).padEnd(36);
-                  if (e.status === "found") {
-                    lines.push("      ✓ " + lbl + num(e.len).padStart(7) + " симв.");
-                  } else {
-                    lines.push("      ✗ " + lbl + "НЕ НАЙДЕН");
-                  }
-                }
-              }
-      
-              const optEntries = ctx.entries.filter(e => e.priority === "optional");
-              if (optEntries.length) {
-                lines.push("    Опциональный:");
-                for (const e of optEntries) {
-                  const lbl = (CTX_LABELS[e.key] || e.key).padEnd(36);
-                  if (e.status === "found") {
-                    lines.push("      ✓ " + lbl + num(e.len).padStart(7) + " симв.");
-                  } else if (e.status === "truncated") {
-                    lines.push("      ◦ " + lbl + num(e.len).padStart(7) + " симв. [" + (e.note || "") + "]");
-                  } else if (e.status === "skipped_budget") {
-                    lines.push("      ◌ " + lbl + "пропущен [" + (e.note || "бюджет исчерпан") + "]");
-                  } else {
-                    lines.push("      ✗ " + lbl + "не найден");
-                  }
-                }
-              }
-            }
-          } else {
-            lines.push("  Контекст пред. разделов           — (первый раздел)");
-          }
-      
-          lines.push("  Задание секции             " + num(g.taskChars).padStart(7) + " симв.");
-          lines.push("                       ИТОГО " + num(g.inputChars).padStart(7) + " симв. → " +
-            num(g.inputTokens) + " токенов" +
-            (g.inputChars > 0 && g.inputTokens > 0
-              ? " (" + (g.inputChars / g.inputTokens).toFixed(1) + " с/т)"
-              : ""));
-      
-          // --- Выход ---
-          lines.push("");
-          lines.push("ВЫХОД:");
-          lines.push("  " + num(g.outputChars) + " симв. → " +
-            num(g.outputTokens) + " токенов" +
-            (g.outputChars > 0 && g.outputTokens > 0
-              ? " (" + (g.outputChars / g.outputTokens).toFixed(1) + " с/т)"
-              : ""));
-          lines.push("  Стоимость: $" + g.cost.toFixed(4) +
-            " (" + (g.cost * 100).toFixed(2) + "¢)");
-          if (g.error) {
-            lines.push("  ⚠ ОШИБКА: " + g.error);
-          }
-          lines.push("─".repeat(70));
-        }
-      
-        // --- Итоги ---
-        if (genLog.length > 0) {
-          const t = genLog.reduce((a, g) => ({
-            inC: a.inC + g.inputChars, outC: a.outC + g.outputChars,
-            inT: a.inT + g.inputTokens, outT: a.outT + g.outputTokens,
-            cost: a.cost + g.cost,
-          }), { inC: 0, outC: 0, inT: 0, outT: 0, cost: 0 });
-      
-          lines.push("");
-          lines.push("═══ ИТОГО ═══");
-          lines.push("Разделов: " + genLog.length);
-          lines.push("Вход:  " + num(t.inC) + " симв. → " + num(t.inT) + " токенов");
-          lines.push("Выход: " + num(t.outC) + " симв. → " + num(t.outT) + " токенов");
-          lines.push("Стоимость: $" + t.cost.toFixed(4) +
-            " (" + (t.cost * 100).toFixed(2) + "¢)");
+        function formatCtxLog() {
+          if (genLog.length === 0 && ctxLog.length === 0)
+            return "Лог пуст. Сгенерируйте документ.";
+        
+          const num = n => n.toLocaleString("ru");
+          const lines = [];
+          lines.push("PHILOSYNTH PRO — ЛОГ КОНТЕКСТА И ГЕНЕРАЦИИ");
+          lines.push("Дата: " + new Date().toLocaleString("ru-RU"));
           lines.push("═".repeat(70));
-        }
-      
-        return lines.join("\n");
-      }
-
-      function formatCtxLogHTML() {
-        if (genLog.length === 0 && ctxLog.length === 0)
-          return '<span style="color:#8a8278">Лог пуст. Сгенерируйте документ.</span>';
-      
-        const esc = s => s.replace(/&/g, "&amp;").replace(/</g, "&lt;");
-        const num = n => n.toLocaleString("ru");
-        const lines = [];
-      
-        // --- Общие элементы промпта ---
-        if (genCommon) {
-          lines.push('<span style="color:#aaa;font-weight:500">ОБЩИЕ ЭЛЕМЕНТЫ ПРОМПТА</span> <span style="color:#666">(одинаковы для всех запросов)</span>');
-      
-          const cl = (label, chars) =>
-            '  ' + label.padEnd(30) +
-            '<span style="color:#2a3f7a">' + num(chars).padStart(7) + ' симв.</span>';
-      
-          lines.push(cl("Системный промпт", genCommon.sysChars));
-          lines.push(cl("Параметры синтеза", genCommon.baseChars));
-          lines.push(cl("Правила форматирования", genCommon.rulesChars));
-          lines.push(cl("Требования к качеству", genCommon.qualityChars));
-          lines.push(cl("Служебный каркас", genCommon.scaffoldChars));
-          lines.push('  ' + ' '.repeat(23) +
-            '<span style="font-weight:600">ИТОГО</span> ' +
-            '<span style="color:#2a3f7a;font-weight:600">' + num(genCommon.totalChars).padStart(7) + ' симв.</span>');
-          lines.push('<span style="color:#333">' + '─'.repeat(60) + '</span>');
-        }
-      
-        const ctxByKey = {};
-        for (const pass of ctxLog) ctxByKey[pass.sectionKey] = pass;
-      
-        for (const g of genLog) {
-          const keys = g.sectionKey.split("+");
-      
-          lines.push('');
-          lines.push('<span style="color:#d4a017;font-weight:600">═══ ' +
-            esc(g.sectionLabel.toUpperCase()) + ' ═══</span>');
-      
-          // --- Состав входа ---
-          lines.push('');
-          lines.push('<span style="color:#aaa;font-weight:500">ВХОД:</span>');
-          lines.push('  Общие элементы' + ' '.repeat(14) +
-            '<span style="color:#666">' + num(genCommon ? genCommon.totalChars : 0).padStart(7) + ' симв.</span>');
-      
-          if (g.priorChars > 0) {
-            lines.push('  Контекст пред. разделов   ' +
-              '<span style="color:#d4a017">' + num(g.priorChars).padStart(7) + ' симв.</span>');
-      
-            for (const k of keys) {
-              const ctx = ctxByKey[k];
-              if (!ctx) continue;
-      
-              const pct = Math.round(ctx.totalUsed / ctx.budget * 100);
-              lines.push('    <span style="color:#888">Бюджет: ' + num(ctx.budget) +
-                ' симв., использовано: ' + num(ctx.totalUsed) + ' (' + pct + '%)</span>');
-      
-              const reqEntries = ctx.entries.filter(e => e.priority === "required");
-              if (reqEntries.length) {
-                lines.push('    <span style="color:#888">Обязательный:</span>');
-                for (const e of reqEntries) {
-                  const lbl = esc(CTX_LABELS[e.key] || e.key);
-                  if (e.status === "found") {
-                    lines.push('      <span style="color:#1a5c2a">✓</span> ' + lbl +
-                      ' — <span style="color:#1a5c2a">' + num(e.len) + ' симв.</span>');
-                  } else {
-                    lines.push('      <span style="color:#8b1a1a">✗</span> ' + lbl +
-                      ' — <span style="color:#8b1a1a;font-weight:600">НЕ НАЙДЕН</span>');
+        
+          // --- Общие элементы промпта ---
+          if (genCommon) {
+            lines.push("");
+            lines.push("ОБЩИЕ ЭЛЕМЕНТЫ ПРОМПТА (одинаковы для всех запросов):");
+            lines.push("  Системный промпт          " + num(genCommon.sysChars).padStart(7) + " симв.");
+            lines.push("  Параметры синтеза          " + num(genCommon.baseChars).padStart(7) + " симв.");
+            lines.push("  Правила форматирования    " + num(genCommon.rulesChars).padStart(7) + " симв.");
+            lines.push("  Требования к качеству     " + num(genCommon.qualityChars).padStart(7) + " симв.");
+            lines.push("  Служебный каркас          " + num(genCommon.scaffoldChars).padStart(7) + " симв.");
+            lines.push("                       ИТОГО " + num(genCommon.totalChars).padStart(7) + " симв.");
+            lines.push("─".repeat(70));
+          }
+        
+          const ctxByKey = {};
+          for (const pass of ctxLog) ctxByKey[pass.sectionKey] = pass;
+        
+          for (const g of genLog) {
+            const keys = g.sectionKey.split("+");
+        
+            lines.push("");
+            lines.push("═══ " + g.sectionLabel.toUpperCase() + " ═══");
+        
+            // --- Состав входа ---
+            lines.push("");
+            lines.push("ВХОД:");
+            lines.push("  Общие элементы             " + num(genCommon ? genCommon.totalChars : 0).padStart(7) + " симв.");
+        
+            if (g.priorChars > 0) {
+              lines.push("  Контекст пред. разделов   " + num(g.priorChars).padStart(7) + " симв.");
+        
+              for (const k of keys) {
+                const ctx = ctxByKey[k];
+                if (!ctx) continue;
+        
+                lines.push("    Бюджет: " + num(ctx.budget) + " симв., " +
+                  "использовано: " + num(ctx.totalUsed) + " (" +
+                  Math.round(ctx.totalUsed / ctx.budget * 100) + "%)");
+        
+                const reqEntries = ctx.entries.filter(e => e.priority === "required");
+                if (reqEntries.length) {
+                  lines.push("    Обязательный:");
+                  for (const e of reqEntries) {
+                    const lbl = (CTX_LABELS[e.key] || e.key).padEnd(36);
+                    if (e.status === "found") {
+                      lines.push("      ✓ " + lbl + num(e.len).padStart(7) + " симв.");
+                    } else {
+                      lines.push("      ✗ " + lbl + "НЕ НАЙДЕН");
+                    }
+                  }
+                }
+        
+                const optEntries = ctx.entries.filter(e => e.priority === "optional");
+                if (optEntries.length) {
+                  lines.push("    Опциональный:");
+                  for (const e of optEntries) {
+                    const lbl = (CTX_LABELS[e.key] || e.key).padEnd(36);
+                    if (e.status === "found") {
+                      lines.push("      ✓ " + lbl + num(e.len).padStart(7) + " симв.");
+                    } else if (e.status === "truncated") {
+                      lines.push("      ◦ " + lbl + num(e.len).padStart(7) + " симв. [" + (e.note || "") + "]");
+                    } else if (e.status === "skipped_budget") {
+                      lines.push("      ◌ " + lbl + "пропущен [" + (e.note || "бюджет исчерпан") + "]");
+                    } else {
+                      lines.push("      ✗ " + lbl + "не найден");
+                    }
                   }
                 }
               }
-      
-              const optEntries = ctx.entries.filter(e => e.priority === "optional");
-              if (optEntries.length) {
-                lines.push('    <span style="color:#888">Опциональный:</span>');
-                for (const e of optEntries) {
-                  const lbl = esc(CTX_LABELS[e.key] || e.key);
-                  if (e.status === "found") {
-                    lines.push('      <span style="color:#1a5c2a">✓</span> ' + lbl +
-                      ' — <span style="color:#1a5c2a">' + num(e.len) + ' симв.</span>');
-                  } else if (e.status === "truncated") {
-                    lines.push('      <span style="color:#d4a017">◦</span> ' + lbl +
-                      ' — <span style="color:#d4a017">' + num(e.len) + ' симв.</span> ' +
-                      '<span style="color:#666">[' + esc(e.note || "") + ']</span>');
-                  } else if (e.status === "skipped_budget") {
-                    lines.push('      <span style="color:#555">◌</span> ' + lbl +
-                      ' — <span style="color:#555">пропущен</span> ' +
-                      '<span style="color:#444">[' + esc(e.note || "") + ']</span>');
-                  } else {
-                    lines.push('      <span style="color:#8b1a1a">✗</span> ' + lbl +
-                      ' — <span style="color:#666">не найден</span>');
-                  }
-                }
-              }
+            } else {
+              lines.push("  Контекст пред. разделов           — (первый раздел)");
             }
-          } else {
-            lines.push('  Контекст пред. разделов' + ' '.repeat(5) +
-              '<span style="color:#666">— (первый раздел)</span>');
+        
+            lines.push("  Задание секции             " + num(g.taskChars).padStart(7) + " симв.");
+            lines.push("                       ИТОГО " + num(g.inputChars).padStart(7) + " симв. → " +
+              num(g.inputTokens) + " токенов" +
+              (g.inputChars > 0 && g.inputTokens > 0
+                ? " (" + (g.inputChars / g.inputTokens).toFixed(1) + " с/т)"
+                : ""));
+        
+            // --- Выход ---
+            lines.push("");
+            lines.push("ВЫХОД:");
+            lines.push("  " + num(g.outputChars) + " симв. → " +
+              num(g.outputTokens) + " токенов" +
+              (g.outputChars > 0 && g.outputTokens > 0
+                ? " (" + (g.outputChars / g.outputTokens).toFixed(1) + " с/т)"
+                : ""));
+            lines.push("  Стоимость: $" + g.cost.toFixed(4) +
+              " (" + (g.cost * 100).toFixed(2) + "¢)");
+            if (g.error) {
+              lines.push("  ⚠ ОШИБКА: " + g.error);
+            }
+            lines.push("─".repeat(70));
           }
-      
-          lines.push('  Задание секции             ' +
-            '<span style="color:#2a3f7a">' + num(g.taskChars).padStart(7) + ' симв.</span>');
-      
-          const ratioIn = g.inputChars > 0 && g.inputTokens > 0
-            ? ' <span style="color:#666">(' + (g.inputChars / g.inputTokens).toFixed(1) + ' с/т)</span>'
-            : '';
-          lines.push('  ' + ' '.repeat(23) +
-            '<span style="font-weight:600">ИТОГО</span> ' +
-            '<span style="color:#2a3f7a;font-weight:600">' + num(g.inputChars).padStart(7) + ' симв.</span>' +
-            ' → <span style="color:#2a3f7a;font-weight:600">' + num(g.inputTokens) + ' ток.</span>' + ratioIn);
-      
-          // --- Выход ---
-          lines.push('');
-          const ratioOut = g.outputChars > 0 && g.outputTokens > 0
-            ? ' <span style="color:#666">(' + (g.outputChars / g.outputTokens).toFixed(1) + ' с/т)</span>'
-            : '';
-          lines.push('<span style="color:#aaa;font-weight:500">ВЫХОД:</span> ' +
-            '<span style="color:#1a5c2a">' + num(g.outputChars) + ' симв.</span>' +
-            ' → <span style="color:#1a5c2a;font-weight:600">' + num(g.outputTokens) + ' ток.</span>' + ratioOut);
-          lines.push('  Стоимость: <span style="color:#d4a017;font-weight:600">$' +
-            g.cost.toFixed(4) + '</span> (' + (g.cost * 100).toFixed(2) + '¢)');
-      
-          if (g.error) {
-            lines.push('  <span style="color:#8b1a1a;font-weight:600">⚠ ОШИБКА: ' +
-              esc(g.error) + '</span>');
+        
+          // --- Итоги ---
+          if (genLog.length > 0) {
+            const t = genLog.reduce((a, g) => ({
+              inC: a.inC + g.inputChars, outC: a.outC + g.outputChars,
+              inT: a.inT + g.inputTokens, outT: a.outT + g.outputTokens,
+              cost: a.cost + g.cost,
+            }), { inC: 0, outC: 0, inT: 0, outT: 0, cost: 0 });
+        
+            lines.push("");
+            lines.push("═══ ИТОГО ═══");
+            lines.push("Разделов: " + genLog.length);
+            lines.push("Вход:  " + num(t.inC) + " симв. → " + num(t.inT) + " токенов");
+            lines.push("Выход: " + num(t.outC) + " симв. → " + num(t.outT) + " токенов");
+            lines.push("Стоимость: $" + t.cost.toFixed(4) +
+              " (" + (t.cost * 100).toFixed(2) + "¢)");
+            lines.push("═".repeat(70));
           }
-          lines.push('<span style="color:#333">' + '─'.repeat(60) + '</span>');
+        
+          return lines.join("\n");
         }
-      
-        // --- Итоги ---
-        if (genLog.length > 0) {
-          const t = genLog.reduce((a, g) => ({
-            inC: a.inC + g.inputChars, outC: a.outC + g.outputChars,
-            inT: a.inT + g.inputTokens, outT: a.outT + g.outputTokens,
-            cost: a.cost + g.cost,
-          }), { inC: 0, outC: 0, inT: 0, outT: 0, cost: 0 });
-      
-          lines.push('');
-          lines.push('<span style="color:#d4a017;font-weight:600">═══ ИТОГО ═══</span>');
-          lines.push('Разделов: ' + genLog.length);
-          lines.push('Вход:  <span style="color:#2a3f7a">' + num(t.inC) +
-            ' симв.</span> → <span style="color:#2a3f7a;font-weight:600">' +
-            num(t.inT) + ' ток.</span>');
-          lines.push('Выход: <span style="color:#1a5c2a">' + num(t.outC) +
-            ' симв.</span> → <span style="color:#1a5c2a;font-weight:600">' +
-            num(t.outT) + ' ток.</span>');
-          lines.push('Стоимость: <span style="color:#d4a017;font-weight:600">$' +
-            t.cost.toFixed(4) + '</span> (' + (t.cost * 100).toFixed(2) + '¢)');
-          lines.push('<span style="color:#d4a017">' + '═'.repeat(60) + '</span>');
+  
+        function formatCtxLogHTML() {
+          if (genLog.length === 0 && ctxLog.length === 0)
+            return '<span style="color:#8a8278">Лог пуст. Сгенерируйте документ.</span>';
+        
+          const esc = s => s.replace(/&/g, "&amp;").replace(/</g, "&lt;");
+          const num = n => n.toLocaleString("ru");
+          const lines = [];
+        
+          // --- Общие элементы промпта ---
+          if (genCommon) {
+            lines.push('<span style="color:#aaa;font-weight:500">ОБЩИЕ ЭЛЕМЕНТЫ ПРОМПТА</span> <span style="color:#888888">(одинаковы для всех запросов)</span>');
+        
+            const cl = (label, chars) =>
+              '  ' + label.padEnd(30) +
+              '<span style="color:#7ba7e8">' + num(chars).padStart(7) + ' симв.</span>';
+        
+            lines.push(cl("Системный промпт", genCommon.sysChars));
+            lines.push(cl("Параметры синтеза", genCommon.baseChars));
+            lines.push(cl("Правила форматирования", genCommon.rulesChars));
+            lines.push(cl("Требования к качеству", genCommon.qualityChars));
+            lines.push(cl("Служебный каркас", genCommon.scaffoldChars));
+            lines.push('  ' + ' '.repeat(23) +
+              '<span style="font-weight:600">ИТОГО</span> ' +
+              '<span style="color:#7ba7e8;font-weight:600">' + num(genCommon.totalChars).padStart(7) + ' симв.</span>');
+            lines.push('<span style="color:#555555">' + '─'.repeat(60) + '</span>');
+          }
+        
+          const ctxByKey = {};
+          for (const pass of ctxLog) ctxByKey[pass.sectionKey] = pass;
+        
+          for (const g of genLog) {
+            const keys = g.sectionKey.split("+");
+        
+            lines.push('');
+            lines.push('<span style="color:#d4a017;font-weight:600">═══ ' +
+              esc(g.sectionLabel.toUpperCase()) + ' ═══</span>');
+        
+            // --- Состав входа ---
+            lines.push('');
+            lines.push('<span style="color:#aaa;font-weight:500">ВХОД:</span>');
+            lines.push('  Общие элементы' + ' '.repeat(14) +
+              '<span style="color:#888888">' + num(genCommon ? genCommon.totalChars : 0).padStart(7) + ' симв.</span>');
+        
+            if (g.priorChars > 0) {
+              lines.push('  Контекст пред. разделов   ' +
+                '<span style="color:#d4a017">' + num(g.priorChars).padStart(7) + ' симв.</span>');
+        
+              for (const k of keys) {
+                const ctx = ctxByKey[k];
+                if (!ctx) continue;
+        
+                const pct = Math.round(ctx.totalUsed / ctx.budget * 100);
+                lines.push('    <span style="color:#888">Бюджет: ' + num(ctx.budget) +
+                  ' симв., использовано: ' + num(ctx.totalUsed) + ' (' + pct + '%)</span>');
+        
+                const reqEntries = ctx.entries.filter(e => e.priority === "required");
+                if (reqEntries.length) {
+                  lines.push('    <span style="color:#888">Обязательный:</span>');
+                  for (const e of reqEntries) {
+                    const lbl = esc(CTX_LABELS[e.key] || e.key);
+                    if (e.status === "found") {
+                      lines.push('      <span style="color:#4db87a">✓</span> ' + lbl +
+                        ' — <span style="color:#4db87a">' + num(e.len) + ' симв.</span>');
+                    } else {
+                      lines.push('      <span style="color:#e06060">✗</span> ' + lbl +
+                        ' — <span style="color:#e06060;font-weight:600">НЕ НАЙДЕН</span>');
+                    }
+                  }
+                }
+        
+                const optEntries = ctx.entries.filter(e => e.priority === "optional");
+                if (optEntries.length) {
+                  lines.push('    <span style="color:#888">Опциональный:</span>');
+                  for (const e of optEntries) {
+                    const lbl = esc(CTX_LABELS[e.key] || e.key);
+                    if (e.status === "found") {
+                      lines.push('      <span style="color:#4db87a">✓</span> ' + lbl +
+                        ' — <span style="color:#4db87a">' + num(e.len) + ' симв.</span>');
+                    } else if (e.status === "truncated") {
+                      lines.push('      <span style="color:#d4a017">◦</span> ' + lbl +
+                        ' — <span style="color:#d4a017">' + num(e.len) + ' симв.</span> ' +
+                        '<span style="color:#888888">[' + esc(e.note || "") + ']</span>');
+                    } else if (e.status === "skipped_budget") {
+                      lines.push('      <span style="color:#888888">◌</span> ' + lbl +
+                        ' — <span style="color:#888888">пропущен</span> ' +
+                        '<span style="color:#777777">[' + esc(e.note || "") + ']</span>');
+                    } else {
+                      lines.push('      <span style="color:#e06060">✗</span> ' + lbl +
+                        ' — <span style="color:#888888">не найден</span>');
+                    }
+                  }
+                }
+              }
+            } else {
+              lines.push('  Контекст пред. разделов' + ' '.repeat(5) +
+                '<span style="color:#888888">— (первый раздел)</span>');
+            }
+        
+            lines.push('  Задание секции             ' +
+              '<span style="color:#7ba7e8">' + num(g.taskChars).padStart(7) + ' симв.</span>');
+        
+            const ratioIn = g.inputChars > 0 && g.inputTokens > 0
+              ? ' <span style="color:#888888">(' + (g.inputChars / g.inputTokens).toFixed(1) + ' с/т)</span>'
+              : '';
+            lines.push('  ' + ' '.repeat(23) +
+              '<span style="font-weight:600">ИТОГО</span> ' +
+              '<span style="color:#7ba7e8;font-weight:600">' + num(g.inputChars).padStart(7) + ' симв.</span>' +
+              ' → <span style="color:#7ba7e8;font-weight:600">' + num(g.inputTokens) + ' ток.</span>' + ratioIn);
+        
+            // --- Выход ---
+            lines.push('');
+            const ratioOut = g.outputChars > 0 && g.outputTokens > 0
+              ? ' <span style="color:#888888">(' + (g.outputChars / g.outputTokens).toFixed(1) + ' с/т)</span>'
+              : '';
+            lines.push('<span style="color:#aaa;font-weight:500">ВЫХОД:</span> ' +
+              '<span style="color:#4db87a">' + num(g.outputChars) + ' симв.</span>' +
+              ' → <span style="color:#4db87a;font-weight:600">' + num(g.outputTokens) + ' ток.</span>' + ratioOut);
+            lines.push('  Стоимость: <span style="color:#d4a017;font-weight:600">$' +
+              g.cost.toFixed(4) + '</span> (' + (g.cost * 100).toFixed(2) + '¢)');
+        
+            if (g.error) {
+              lines.push('  <span style="color:#e06060;font-weight:600">⚠ ОШИБКА: ' +
+                esc(g.error) + '</span>');
+            }
+            lines.push('<span style="color:#555555">' + '─'.repeat(60) + '</span>');
+          }
+        
+          // --- Итоги ---
+          if (genLog.length > 0) {
+            const t = genLog.reduce((a, g) => ({
+              inC: a.inC + g.inputChars, outC: a.outC + g.outputChars,
+              inT: a.inT + g.inputTokens, outT: a.outT + g.outputTokens,
+              cost: a.cost + g.cost,
+            }), { inC: 0, outC: 0, inT: 0, outT: 0, cost: 0 });
+        
+            lines.push('');
+            lines.push('<span style="color:#d4a017;font-weight:600">═══ ИТОГО ═══</span>');
+            lines.push('Разделов: ' + genLog.length);
+            lines.push('Вход:  <span style="color:#7ba7e8">' + num(t.inC) +
+              ' симв.</span> → <span style="color:#7ba7e8;font-weight:600">' +
+              num(t.inT) + ' ток.</span>');
+            lines.push('Выход: <span style="color:#4db87a">' + num(t.outC) +
+              ' симв.</span> → <span style="color:#4db87a;font-weight:600">' +
+              num(t.outT) + ' ток.</span>');
+            lines.push('Стоимость: <span style="color:#d4a017;font-weight:600">$' +
+              t.cost.toFixed(4) + '</span> (' + (t.cost * 100).toFixed(2) + '¢)');
+            lines.push('<span style="color:#d4a017">' + '═'.repeat(60) + '</span>');
+          }
+        
+          return lines.join("\n");
         }
-      
-        return lines.join("\n");
-      }
 
       function viewCtxLog() {
         document.getElementById("ctxLogContent").innerHTML = formatCtxLogHTML();
