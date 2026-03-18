@@ -2612,58 +2612,6 @@
         return { overview: 150, standard: 250, deep: 400, exhaustive: 600 }[p.depth] || 250;
       }
 
-      // ════════════════════════════════════════
-      // GRAPH PROMPT BUILDER (modular by synthesis level)
-      // ════════════════════════════════════════
-
-      function buildGraphPrompt(p) {
-        const level = p.synthLevel || "comparative";
-
-        // ── Преамбула (общая для всех уровней) ──
-        const preamble = `Составь § — ГРАФ КАТЕГОРИЙ.
-
-КРИТИЧЕСКОЕ ТРЕБОВАНИЕ: Граф ОБЯЗАН быть связным. Каждая категория должна быть связана хотя бы с одной другой. Не должно быть изолированных категорий или фрагментов. Перед финализацией проверь связность: из любой категории должен существовать путь по связям к любой другой.
-
-Оформи ТОЧНО следующие секции (каждую — в <div data-section="..."> согласно правилам форматирования):
-
-`;
-
-        // ── Таблица категорий ──
-        const nodesTable = `«Таблица категорий»
-8–15 категорий.
-Столбцы СТРОГО: Категория | Тип | Определение | Центральность | Определённость | ${LEVEL_GRAPH_LAST_COL_NAME[level]}
-- Тип: онтологическая / эпистемологическая / этическая / аксиологическая / метафизическая / логическая / практическая / эстетическая / антропологическая / феноменологическая / экзистенциальная / социальная / политическая / теологическая
-- Центральность и Определённость: числа 0.0–1.0
-${LEVEL_GRAPH_LAST_COL_SPEC[level]}
-
-`;
-
-        // ── Таблица связей (одинакова для всех уровней) ──
-        const edgesTable = `«Таблица связей»
-Все значимые связи.
-Столбцы СТРОГО: Источник | Описание связи | Цель | Тип | Направление | Сила
-- Источник и Цель: ТОЧНЫЕ названия из таблицы категорий
-- Тип: иерархическая / диалектическая / каузальная / корреляционная / дополнительность / противоречие / эмерджентность / часть-целое / средство-цель / основание / определяющая / развитие
-- Направление — СТРОГО одно из трёх: однонаправленная | двунаправленная | рефлексивная
-  (рефлексивная = связь категории с самой собой, т.е. Источник = Цель)
-- Сила: число 0.0–1.0
-
-`;
-
-        // ── Топология (одинакова для всех уровней) ──
-        const topology = `«Топология графа»
-Кластеры, центральные и периферийные категории, мосты между кластерами, рефлексивные связи.
-
-`;
-
-        // ── Финал ──
-        const footer = `ПОВТОРЯЮ: граф ОБЯЗАН быть связным. Названия в таблице связей ТОЧНО совпадают с таблицей категорий.
-Минимум ${mw(p)} слов.`;
-
-        const methodGraphInst = METHOD_GRAPH[p.method] ? METHOD_GRAPH[p.method] + "\n\n" : "";
-        return preamble + LEVEL_GRAPH_METHODOLOGY(p)[level] + methodGraphInst + nodesTable + edgesTable + topology + footer;
-      }
-
       function buildSectionDefs(p) {
         const d = [];
         let n = 1;
@@ -2702,13 +2650,42 @@ ${METHOD_SUM[p.method] || ""}
 Минимум ${mw(p)} слов.`,
         });
 
-        if (p.sec.includes("graph"))
+        if (p.sec.includes("graph")) {
+          const graphLevel = p.synthLevel || "comparative";
+        
           d.push({
             key: "graph",
             num: n++,
             title: "Граф Категорий Концепции",
-            prompt: buildGraphPrompt(p),
+            prompt: `Составь § — ГРАФ КАТЕГОРИЙ.
+
+КРИТИЧЕСКОЕ ТРЕБОВАНИЕ: Граф ОБЯЗАН быть связным. Каждая категория должна быть связана хотя бы с одной другой. Не должно быть изолированных категорий или фрагментов. Перед финализацией проверь связность: из любой категории должен существовать путь по связям к любой другой.
+
+Оформи ТОЧНО следующие секции (каждую — в <div data-section="..."> согласно правилам форматирования):
+
+${LEVEL_GRAPH_METHODOLOGY(p)[graphLevel]}${METHOD_GRAPH[p.method] ? METHOD_GRAPH[p.method] + "\n\n" : ""}«Таблица категорий»
+8–15 категорий.
+Столбцы СТРОГО: Категория | Тип | Определение | Центральность | Определённость | ${LEVEL_GRAPH_LAST_COL_NAME[graphLevel]}
+- Тип: онтологическая / эпистемологическая / этическая / аксиологическая / метафизическая / логическая / практическая / эстетическая / антропологическая / феноменологическая / экзистенциальная / социальная / политическая / теологическая
+- Центральность и Определённость: числа 0.0–1.0
+${LEVEL_GRAPH_LAST_COL_SPEC[graphLevel]}
+
+«Таблица связей»
+Все значимые связи.
+Столбцы СТРОГО: Источник | Описание связи | Цель | Тип | Направление | Сила
+- Источник и Цель: ТОЧНЫЕ названия из таблицы категорий
+- Тип: иерархическая / диалектическая / каузальная / корреляционная / дополнительность / противоречие / эмерджентность / часть-целое / средство-цель / основание / определяющая / развитие
+- Направление — СТРОГО одно из трёх: однонаправленная | двунаправленная | рефлексивная
+  (рефлексивная = связь категории с самой собой, т.е. Источник = Цель)
+- Сила: число 0.0–1.0
+
+«Топология графа»
+Кластеры, центральные и периферийные категории, мосты между кластерами, рефлексивные связи.
+
+ПОВТОРЯЮ: граф ОБЯЗАН быть связным. Названия в таблице связей ТОЧНО совпадают с таблицей категорий.
+Минимум ${mw(p)} слов.`,
           });
+        }
 
         if (p.sec.includes("glossary")) {
           const glossaryLevel = p.synthLevel || "comparative";
@@ -3251,48 +3228,42 @@ ${METHOD_CRITIQUE(p)[p.method] || ""}
       // GRAPH PARSING
       // ════════════════════════════════════════
       function parseGraph(ct) {
-        const tables = ct.querySelectorAll("table.doc-table"),
-          nodes = [],
-          edges = [];
-        for (const t of tables) {
-          const ths = Array.from(t.querySelectorAll("thead th")).map((h) =>
-            h.textContent.trim().toLowerCase(),
-          );
-          if (
-            ths.some((h) => h.includes("категория")) &&
-            ths.some((h) => h.includes("центральность"))
-          ) {
-            t.querySelectorAll("tbody tr").forEach((tr) => {
-              const td = Array.from(tr.querySelectorAll("td")).map((c) => c.textContent.trim());
-              if (td.length >= 4)
-                nodes.push({
-                  name: td[0],
-                  type: (td[1] || "").toLowerCase(),
-                  def: td[2] || "",
-                  cen: parseFloat(td[3]) || 0.5,
-                  cert: parseFloat(td[4]) || 0.5,
-                  orig: td[5] || "",
-                });
-            });
-          }
-          if (
-            ths.some((h) => h.includes("источник")) &&
-            ths.some((h) => h.includes("цель") || h.includes("направлен"))
-          ) {
-            t.querySelectorAll("tbody tr").forEach((tr) => {
-              const td = Array.from(tr.querySelectorAll("td")).map((c) => c.textContent.trim());
-              if (td.length >= 4)
-                edges.push({
-                  src: td[0],
-                  desc: td[1] || "",
-                  tgt: td[2],
-                  type: td[3] || "",
-                  dir: (td[4] || "однонаправленная").toLowerCase(),
-                  str: parseFloat(td[5]) || 0.5,
-                });
-            });
-          }
+        const nodes = [], edges = [];
+      
+        // ── Узлы: только из секции «Таблица категорий» ──
+        const nodeSection = ct.querySelector('[data-section="Таблица категорий"]');
+        if (nodeSection) {
+          nodeSection.querySelectorAll("table.doc-table tbody tr").forEach((tr) => {
+            const td = Array.from(tr.querySelectorAll("td")).map((c) => c.textContent.trim());
+            if (td.length >= 4)
+              nodes.push({
+                name: td[0],
+                type: (td[1] || "").toLowerCase(),
+                def:  td[2] || "",
+                cen:  parseFloat(td[3]) || 0.5,
+                cert: parseFloat(td[4]) || 0.5,
+                orig: td[5] || "",
+              });
+          });
         }
+      
+        // ── Рёбра: только из секции «Таблица связей» ──
+        const edgeSection = ct.querySelector('[data-section="Таблица связей"]');
+        if (edgeSection) {
+          edgeSection.querySelectorAll("table.doc-table tbody tr").forEach((tr) => {
+            const td = Array.from(tr.querySelectorAll("td")).map((c) => c.textContent.trim());
+            if (td.length >= 4)
+              edges.push({
+                src:  td[0],
+                desc: td[1] || "",
+                tgt:  td[2],
+                type: td[3] || "",
+                dir:  (td[4] || "однонаправленная").toLowerCase(),
+                str:  parseFloat(td[5]) || 0.5,
+              });
+          });
+        }
+      
         return { nodes, edges };
       }
 
