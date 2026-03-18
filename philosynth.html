@@ -3419,7 +3419,7 @@ ${LEVEL_GRAPH_LAST_COL_SPEC[graphLevel]}
 «Таблица связей»
 Все значимые связи.
 Столбцы СТРОГО: Источник | Описание связи | Цель | Тип | Направление | Сила
-- Источник и Цель: ТОЧНЫЕ названия из таблицы категорий
+- Источник и Цель: ТОЧНЫЕ названия из таблицы категорий. Значения в колонках «Источник» и «Цель» должны побуквенно совпадать с текстом ячейки «Категория» из таблицы категорий
 - Тип: иерархическая / диалектическая / каузальная / корреляционная / дополнительность / противоречие / эмерджентность / часть-целое / средство-цель / основание / определяющая / развитие
 - Направление — СТРОГО одно из трёх: однонаправленная | двунаправленная | рефлексивная
   (рефлексивная = связь категории с самой собой, т.е. Источник = Цель)
@@ -4088,6 +4088,18 @@ ${METHOD_CRITIQUE(p)[p.method] || ""}
         else build2D();
       }
 
+      // ── Утилита: карта имён узлов (учитывает суффиксы [П]/[Д]) ──
+      function buildNodeMap(nodes) {
+        const nm = {};
+        nodes.forEach((n, i) => {
+          const full = n.name.toLowerCase().trim();
+          const bare = full.replace(/\s*\[[^\]]*\]\s*$/, "");
+          nm[full] = i;
+          if (bare !== full) nm[bare] = i;
+        });
+        return nm;
+      }
+
       // ── FORCE SIM (shared) ──
       function forceSim(nodes, edges, dim) {
         const ns = nodes.map((n, i) => ({
@@ -4100,10 +4112,7 @@ ${METHOD_CRITIQUE(p)[p.method] || ""}
           vy: 0,
           vz: 0,
         }));
-        const nm = {};
-        ns.forEach((n) => {
-          nm[n.name.toLowerCase().trim()] = n.id;
-        });
+        const nm = buildNodeMap(ns);
         const es = edges
           .map((e) => ({
             ...e,
@@ -4567,10 +4576,7 @@ ${METHOD_CRITIQUE(p)[p.method] || ""}
         ct.innerHTML = "";
         const W = ct.clientWidth,
           H = ct.clientHeight;
-        const nm = {};
-        G.nodes.forEach((n, i) => {
-          nm[n.name.toLowerCase().trim()] = i;
-        });
+        const nm = buildNodeMap(G.nodes);
         const links = G.edges
           .map((e) => ({
             source: nm[e.src.toLowerCase().trim()],
@@ -4798,8 +4804,12 @@ ${METHOD_CRITIQUE(p)[p.method] || ""}
         }
         const l = ["graph LR"];
         const ids = {};
+        const nm = buildNodeMap(G.nodes);
         G.nodes.forEach((n, i) => {
-          ids[n.name.toLowerCase().trim()] = "N" + i;
+          const full = n.name.toLowerCase().trim();
+          const bare = full.replace(/\s*\[[^\]]*\]\s*$/, "");
+          ids[full] = "N" + i;
+          if (bare !== full) ids[bare] = "N" + i;
           l.push(`    N${i}["${n.name}"]`);
         });
         l.push("");
@@ -4865,6 +4875,7 @@ ${METHOD_CRITIQUE(p)[p.method] || ""}
         const fnBundle = [
           typeColor,
           typeColorHex,
+          buildNodeMap,
           forceSim,
           mkSprite,
           build3D,
