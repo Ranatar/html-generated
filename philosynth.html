@@ -1910,7 +1910,9 @@
         G = { nodes: [], edges: [] },
         graphBodyIdx = -1,
         anim3d = null,
-        renderer3d = null;
+        renderer3d = null,
+        scene3d = null,
+        sim2d = null;
 
       function downloadFile(content, filename, mimeType) {
         const blob = new Blob([content], { type: mimeType });
@@ -3418,8 +3420,9 @@ ${LEVEL_GRAPH_LAST_COL_SPEC[graphLevel]}
 «Таблица связей»
 Все значимые связи.
 Столбцы СТРОГО: Источник | Описание связи | Цель | Тип | Направление | Сила
-- Источник и Цель: ТОЧНЫЕ названия из таблицы категорий. Значения в колонках «Источник» и «Цель» должны побуквенно совпадать с текстом ячейки «Категория» из таблицы категорий
+- Источник и Цель: ТОЧНЫЕ названия из таблицы категорий.
 - Тип: иерархическая / диалектическая / каузальная / корреляционная / дополнительность / противоречие / эмерджентность / часть-целое / средство-цель / основание / определяющая / развитие
+- При методе синтеза "творческий" возможны нестандартные типы связей
 - Направление — СТРОГО одно из трёх: однонаправленная | двунаправленная | рефлексивная
   (рефлексивная = связь категории с самой собой, т.е. Источник = Цель)
 - Сила: число 0.0–1.0
@@ -4012,15 +4015,14 @@ ${METHOD_CRITIQUE(p)[p.method] || ""}
       // ════════════════════════════════════════
       function parseGraph(ct) {
         const nodes = [], edges = [];
-      
-        // ── Узлы: только из секции «Таблица категорий» ──
+
         const nodeSection = ct.querySelector('[data-section="Таблица категорий"]');
         if (nodeSection) {
           nodeSection.querySelectorAll("table.doc-table tbody tr").forEach((tr) => {
             const td = Array.from(tr.querySelectorAll("td")).map((c) => c.textContent.trim());
             if (td.length >= 4)
               nodes.push({
-                name: td[0],
+                name: normalizeName(td[0]),   // ← нормализуем здесь
                 type: (td[1] || "").toLowerCase(),
                 def:  td[2] || "",
                 cen:  parseFloat(td[3]) || 0.5,
@@ -4029,24 +4031,23 @@ ${METHOD_CRITIQUE(p)[p.method] || ""}
               });
           });
         }
-      
-        // ── Рёбра: только из секции «Таблица связей» ──
+
         const edgeSection = ct.querySelector('[data-section="Таблица связей"]');
         if (edgeSection) {
           edgeSection.querySelectorAll("table.doc-table tbody tr").forEach((tr) => {
             const td = Array.from(tr.querySelectorAll("td")).map((c) => c.textContent.trim());
             if (td.length >= 4)
               edges.push({
-                src:  td[0],
+                src:  normalizeName(td[0]),   // ← нормализуем здесь
                 desc: td[1] || "",
-                tgt:  td[2],
+                tgt:  normalizeName(td[2]),   // ← и здесь
                 type: td[3] || "",
                 dir:  (td[4] || "однонаправленная").toLowerCase(),
                 str:  parseFloat(td[5]) || 0.5,
               });
           });
         }
-      
+
         return { nodes, edges };
       }
 
@@ -4087,31 +4088,48 @@ ${METHOD_CRITIQUE(p)[p.method] || ""}
         else build2D();
       }
 
-      // ── Утилита: карта имён узлов (учитывает суффиксы [П]/[Д]) ──
-      function buildNodeMap(nodes) {
-        const nm = {};
-        nodes.forEach((n, i) => {
-          const full = n.name.toLowerCase().trim();
-          const bare = full.replace(/\s*\[[^\]]*\]\s*$/, "");
-          nm[full] = i;
-          if (bare !== full) nm[bare] = i;
-        });
-        return nm;
+      // ── ЕДИНАЯ ФИЗИЧЕСКАЯ ИТЕРАЦИЯ ──
+      function tick(ns, es, alpha, fixedIdx = null) {
+        // Отталкивание
+        for (let i = 0; i < ns.length; i++)
+          for (let j = i + 1; j < ns.length; j++) {
+            const dx = ns[j].x - ns[i].x, dy = ns[j].y - ns[i].y, dz = ns[j].z - ns[i].z;
+            const d  = Math.sqrt(dx*dx + dy*dy + dz*dz) || 1;
+            const f  = (800 / (d*d)) * alpha;
+            ns[i].vx -= (dx/d)*f; ns[i].vy -= (dy/d)*f; ns[i].vz -= (dz/d)*f;
+            ns[j].vx += (dx/d)*f; ns[j].vy += (dy/d)*f; ns[j].vz += (dz/d)*f;
+          }
+        // Притяжение вдоль рёбер
+        for (const e of es) {
+          if (e.si === e.ti) continue;
+          const s = ns[e.si], t = ns[e.ti];
+          const dx = t.x - s.x, dy = t.y - s.y, dz = t.z - s.z;
+          const d  = Math.sqrt(dx*dx + dy*dy + dz*dz) || 1;
+          const f  = (d - 30) * 0.05 * (e.str || 0.5) * alpha;
+          s.vx += (dx/d)*f; s.vy += (dy/d)*f; s.vz += (dz/d)*f;
+          t.vx -= (dx/d)*f; t.vy -= (dy/d)*f; t.vz -= (dz/d)*f;
+        }
+        // Центрирование + интеграция
+        for (const n of ns) {
+          if (n.id === fixedIdx) { n.vx = 0; n.vy = 0; n.vz = 0; continue; }
+          n.vx -= n.x * 0.01 * alpha;
+          n.vy -= n.y * 0.01 * alpha;
+          n.vz -= n.z * 0.01 * alpha;
+          n.x += n.vx; n.y += n.vy; n.z += n.vz;
+          n.vx *= 0.85; n.vy *= 0.85; n.vz *= 0.85;
+        }
       }
 
-      // ── FORCE SIM (shared) ──
-      function forceSim(nodes, edges, dim) {
+      // ── СТАТИЧЕСКИЙ ПРОГРЕВ ──
+      function warmup(nodes, edges, dim) {
         const ns = nodes.map((n, i) => ({
-          ...n,
-          id: i,
+          ...n, id: i,
           x: (Math.random() - 0.5) * 80,
           y: (Math.random() - 0.5) * 80,
           z: dim === 3 ? (Math.random() - 0.5) * 80 : 0,
-          vx: 0,
-          vy: 0,
-          vz: 0,
+          vx: 0, vy: 0, vz: 0,
         }));
-        const nm = buildNodeMap(ns);
+        const nm = Object.fromEntries(G.nodes.map((n, i) => [n.name.toLowerCase(), i]));
         const es = edges
           .map((e) => ({
             ...e,
@@ -4120,48 +4138,7 @@ ${METHOD_CRITIQUE(p)[p.method] || ""}
           }))
           .filter((e) => e.si >= 0 && e.ti >= 0);
         for (let it = 0; it < 300; it++) {
-          const a = Math.max(0.01, 1 - it / 300);
-          for (let i = 0; i < ns.length; i++)
-            for (let j = i + 1; j < ns.length; j++) {
-              let dx = ns[j].x - ns[i].x,
-                dy = ns[j].y - ns[i].y,
-                dz = ns[j].z - ns[i].z;
-              let d = Math.sqrt(dx * dx + dy * dy + dz * dz) || 1;
-              let f = 800 / (d * d);
-              ns[i].vx -= (dx / d) * f;
-              ns[i].vy -= (dy / d) * f;
-              ns[i].vz -= (dz / d) * f;
-              ns[j].vx += (dx / d) * f;
-              ns[j].vy += (dy / d) * f;
-              ns[j].vz += (dz / d) * f;
-            }
-          for (const e of es) {
-            if (e.si === e.ti) continue;
-            const s = ns[e.si],
-              t = ns[e.ti];
-            let dx = t.x - s.x,
-              dy = t.y - s.y,
-              dz = t.z - s.z;
-            let d = Math.sqrt(dx * dx + dy * dy + dz * dz) || 1;
-            let f = (d - 30) * 0.05 * (e.str || 0.5);
-            s.vx += (dx / d) * f;
-            s.vy += (dy / d) * f;
-            s.vz += (dz / d) * f;
-            t.vx -= (dx / d) * f;
-            t.vy -= (dy / d) * f;
-            t.vz -= (dz / d) * f;
-          }
-          for (const n of ns) {
-            n.vx -= n.x * 0.01;
-            n.vy -= n.y * 0.01;
-            n.vz -= n.z * 0.01;
-            n.x += n.vx * a;
-            n.y += n.vy * a;
-            n.z += n.vz * a;
-            n.vx *= 0.85;
-            n.vy *= 0.85;
-            n.vz *= 0.85;
-          }
+          tick(ns, es, Math.max(0.01, 1 - it / 300));
         }
         return { ns, es };
       }
@@ -4174,11 +4151,23 @@ ${METHOD_CRITIQUE(p)[p.method] || ""}
         if (renderer3d) { renderer3d.dispose(); renderer3d = null; }
         if (anim3d) cancelAnimationFrame(anim3d);
 
+        if (scene3d) {
+          scene3d.traverse((obj) => {
+            if (obj.geometry) obj.geometry.dispose();
+            if (obj.material) {
+              if (obj.material.map) obj.material.map.dispose();
+              obj.material.dispose();
+            }
+          });
+          scene3d = null;
+        }
+
         const W = ct.clientWidth, H = ct.clientHeight;
-        const { ns, es } = forceSim(G.nodes, G.edges, 3);
+        const { ns, es } = warmup(G.nodes, G.edges, 3);
 
         const scene = new THREE.Scene();
         scene.background = new THREE.Color(0x0a0a14);
+        scene3d = scene;
         const cam = new THREE.PerspectiveCamera(50, W / H, 1, 2000);
         cam.position.set(0, 0, 150);
         renderer3d = new THREE.WebGLRenderer({ antialias: true });
@@ -4327,44 +4316,6 @@ ${METHOD_CRITIQUE(p)[p.method] || ""}
         let simAlpha    = 0;
         let fixedNodeIdx = null; // индекс перетаскиваемого узла в ns
 
-        function tickSim() {
-          const a = simAlpha;
-          // Отталкивание
-          for (let i = 0; i < ns.length; i++)
-            for (let j = i + 1; j < ns.length; j++) {
-              const dx = ns[j].x - ns[i].x, dy = ns[j].y - ns[i].y, dz = ns[j].z - ns[i].z;
-              const d  = Math.sqrt(dx*dx + dy*dy + dz*dz) || 1;
-              const f  = 800 / (d * d);
-              ns[i].vx -= (dx/d)*f*a; ns[i].vy -= (dy/d)*f*a; ns[i].vz -= (dz/d)*f*a;
-              ns[j].vx += (dx/d)*f*a; ns[j].vy += (dy/d)*f*a; ns[j].vz += (dz/d)*f*a;
-            }
-          // Притяжение вдоль рёбер
-          for (const e of es) {
-            if (e.si === e.ti) continue;
-            const s = ns[e.si], t = ns[e.ti];
-            const dx = t.x - s.x, dy = t.y - s.y, dz = t.z - s.z;
-            const d  = Math.sqrt(dx*dx + dy*dy + dz*dz) || 1;
-            const f  = (d - 30) * 0.05 * (e.str || 0.5) * a;
-            s.vx += (dx/d)*f; s.vy += (dy/d)*f; s.vz += (dz/d)*f;
-            t.vx -= (dx/d)*f; t.vy -= (dy/d)*f; t.vz -= (dz/d)*f;
-          }
-          // Центрирование + интеграция
-          for (const n of ns) {
-            if (n.id === fixedNodeIdx) {
-              // Перетаскиваемый узел фиксирован — обнуляем скорость
-              n.vx = 0; n.vy = 0; n.vz = 0;
-              continue;
-            }
-            n.vx -= n.x * 0.01 * a;
-            n.vy -= n.y * 0.01 * a;
-            n.vz -= n.z * 0.01 * a;
-            n.x += n.vx; n.y += n.vy; n.z += n.vz;
-            n.vx *= 0.85; n.vy *= 0.85; n.vz *= 0.85;
-          }
-          simAlpha *= 0.95;
-          if (simAlpha < 0.001 && fixedNodeIdx === null) simAlpha = 0;
-        }
-
         // [NEW] Обновляет все Three.js-объекты по текущим позициям ns
         function updateAllVisuals() {
           // Сферы-узлы
@@ -4422,6 +4373,22 @@ ${METHOD_CRITIQUE(p)[p.method] || ""}
 
         let isDrag = false, isOrbit = false, pX = 0, pY = 0;
         let rotX = 0, rotY = 0, zoom = 150, dragNode = null;
+        let orbitVX = 0, orbitVY = 0;
+        let hoveredMesh = null;
+
+        function setHover(mesh) {
+          if (hoveredMesh === mesh) return;
+          if (hoveredMesh) {
+            hoveredMesh.scale.setScalar(1);
+            hoveredMesh.material.emissiveIntensity = 0.15;
+          }
+          hoveredMesh = mesh;
+          if (hoveredMesh) {
+            hoveredMesh.scale.setScalar(1.3);
+            hoveredMesh.material.emissiveIntensity = 0.5;
+          }
+        }
+
         const raycaster   = new THREE.Raycaster();
         const mouse       = new THREE.Vector2();
         const plane       = new THREE.Plane();
@@ -4458,14 +4425,16 @@ ${METHOD_CRITIQUE(p)[p.method] || ""}
             raycaster.setFromCamera(mouse, cam);
             const nodeHits = raycaster.intersectObjects(meshes);
             if (nodeHits.length > 0) {
-              const idx = nodeHits[0].object.userData.nodeIdx;
-              const n = ns[idx];
+              const hit = nodeHits[0].object;
+              setHover(hit);
+              const n = ns[hit.userData.nodeIdx];
               tooltip.style.display = "block";
               tooltip.style.left = (e.offsetX + 14) + "px";
               tooltip.style.top  = (e.offsetY - 10) + "px";
               tooltip.textContent = `${n.name}\n[${n.type}]\n${n.def}`;
               cv.style.cursor = "pointer";
             } else {
+              setHover(null);
               const edgeHits = raycaster.intersectObjects(edgeHitMeshes.map((h) => h.mesh));
               if (edgeHits.length > 0) {
                 const ed = edgeHits[0].object.userData.edgeData;
@@ -4495,8 +4464,12 @@ ${METHOD_CRITIQUE(p)[p.method] || ""}
             }
           } else if (isOrbit) {
             tooltip.style.display = "none";
-            rotY += (e.clientX - pX) * 0.005;
-            rotX += (e.clientY - pY) * 0.005;
+            const dX = (e.clientX - pX) * 0.005;
+            const dY = (e.clientY - pY) * 0.005;
+            orbitVX = dX;
+            orbitVY = dY;
+            rotY += dX;
+            rotX += dY;
             rotX = Math.max(-Math.PI / 2, Math.min(Math.PI / 2, rotX));
             pX = e.clientX;
             pY = e.clientY;
@@ -4514,8 +4487,9 @@ ${METHOD_CRITIQUE(p)[p.method] || ""}
         cv.addEventListener("mouseleave", () => {
           isOrbit = false;
           dragNode = null;
-          fixedNodeIdx = null;           // [NEW]
-          tooltip.style.display = "none"; // [PREV]
+          fixedNodeIdx = null;
+          setHover(null);
+          tooltip.style.display = "none";
         });
         cv.addEventListener("wheel", (e) => {
           zoom = Math.max(30, Math.min(400, zoom + e.deltaY * 0.1));
@@ -4525,12 +4499,32 @@ ${METHOD_CRITIQUE(p)[p.method] || ""}
           rotX = 0; rotY = 0; zoom = 150;
         });
 
+        ns.forEach((n) => { n.tx = n.x; n.ty = n.y; n.tz = n.z; n.x = 0; n.y = 0; n.z = 0; });
+        let appearT = 0;
+        const APPEAR_DUR = 55;
+        function easeOut3(t) { return 1 - Math.pow(1 - t, 3); }
+
         function animate() {
           anim3d = requestAnimationFrame(animate);
-          // [NEW] Тик симуляции — когда есть альфа или активен drag
-          if (simAlpha > 0.001 || fixedNodeIdx !== null) {
-            tickSim();
+          // Анимация появления
+          if (appearT < APPEAR_DUR) {
+            appearT++;
+            const t = easeOut3(appearT / APPEAR_DUR);
+            ns.forEach((n) => { n.x = n.tx * t; n.y = n.ty * t; n.z = n.tz * t; });
+            meshes.forEach((m) => m.scale.setScalar(t));
             updateAllVisuals();
+          } else if (simAlpha > 0.001 || fixedNodeIdx !== null) {
+            tick(ns, es, simAlpha, fixedNodeIdx);
+            simAlpha *= 0.95;
+            if (simAlpha < 0.001 && fixedNodeIdx === null) simAlpha = 0;
+            updateAllVisuals();
+          }
+          if (!isOrbit) {
+            orbitVX *= 0.92;
+            orbitVY *= 0.92;
+            rotY += orbitVX;
+            rotX += orbitVY;
+            rotX = Math.max(-Math.PI / 2, Math.min(Math.PI / 2, rotX));
           }
           cam.position.x = zoom * Math.sin(rotY) * Math.cos(rotX);
           cam.position.y = zoom * Math.sin(rotX);
@@ -4572,10 +4566,11 @@ ${METHOD_CRITIQUE(p)[p.method] || ""}
       // ── 2D (D3.js) with drag ──
       function build2D() {
         const ct = document.getElementById("view2d");
+        if (sim2d) { sim2d.stop(); sim2d = null; }
         ct.innerHTML = "";
         const W = ct.clientWidth,
           H = ct.clientHeight;
-        const nm = buildNodeMap(G.nodes);
+        const nm = Object.fromEntries(G.nodes.map((n, i) => [n.name.toLowerCase(), i]));
         const links = G.edges
           .map((e) => ({
             source: nm[e.src.toLowerCase().trim()],
@@ -4606,11 +4601,31 @@ ${METHOD_CRITIQUE(p)[p.method] || ""}
 
         // Arrow markers
         const defs = g.append("defs");
+        const glow = defs.append("filter").attr("id", "glow");
+        glow.append("feGaussianBlur")
+          .attr("stdDeviation", "4")
+          .attr("result", "blur");
+        glow.append("feMerge").selectAll("feMergeNode")
+          .data(["blur", "SourceGraphic"])
+          .enter().append("feMergeNode")
+          .attr("in", (d) => d);
+        defs
+          .append("marker")
+          .attr("id", "arr-bi-start")
+          .attr("viewBox", "0 -3 6 6")
+          .attr("refX", 6)
+          .attr("refY", 0)
+          .attr("markerWidth", 4)
+          .attr("markerHeight", 4)
+          .attr("orient", "auto-start-reverse")
+          .append("path")
+          .attr("d", "M0,-3L6,0L0,3")
+          .attr("fill", "#50c878");
         defs
           .append("marker")
           .attr("id", "arr-uni")
           .attr("viewBox", "0 -3 6 6")
-          .attr("refX", 20)
+          .attr("refX", 6)
           .attr("refY", 0)
           .attr("markerWidth", 4)
           .attr("markerHeight", 4)
@@ -4622,7 +4637,7 @@ ${METHOD_CRITIQUE(p)[p.method] || ""}
           .append("marker")
           .attr("id", "arr-bi")
           .attr("viewBox", "0 -3 6 6")
-          .attr("refX", 20)
+          .attr("refX", 6)
           .attr("refY", 0)
           .attr("markerWidth", 4)
           .attr("markerHeight", 4)
@@ -4631,7 +4646,21 @@ ${METHOD_CRITIQUE(p)[p.method] || ""}
           .attr("d", "M0,-3L6,0L0,3")
           .attr("fill", "#50c878");
 
-        const sim = d3
+        function edgeEndpoints(d) {
+          const sx = d.source.x, sy = d.source.y;
+          const tx = d.target.x, ty = d.target.y;
+          const angle = Math.atan2(ty - sy, tx - sx);
+          const rs = 6 + (d.source.cen || 0) * 14;
+          const rt = 6 + (d.target.cen || 0) * 14;
+          return {
+            x1: sx + Math.cos(angle) * rs,
+            y1: sy + Math.sin(angle) * rs,
+            x2: tx - Math.cos(angle) * rt,
+            y2: ty - Math.sin(angle) * rt,
+          };
+        }
+
+        sim2d = d3
           .forceSimulation(nodes)
           .force(
             "link",
@@ -4685,7 +4714,11 @@ ${METHOD_CRITIQUE(p)[p.method] || ""}
               : d.dir.includes("двунаправлен")
                 ? "url(#arr-bi)"
                 : "url(#arr-uni)",
+          )
+          .attr("marker-start", (d) =>
+            d.dir.includes("двунаправлен") ? "url(#arr-bi-start)" : null,
           );
+          
 
         // Reflexive arcs
         const reflLinks = links.filter((l) => l.source === l.target || l.dir.includes("рефлексив"));
@@ -4726,7 +4759,7 @@ ${METHOD_CRITIQUE(p)[p.method] || ""}
             d3
               .drag()
               .on("start", (e, d) => {
-                if (!e.active) sim.alphaTarget(0.3).restart();
+                if (!e.active) sim2d.alphaTarget(0.3).restart();
                 d.fx = d.x;
                 d.fy = d.y;
               })
@@ -4735,11 +4768,24 @@ ${METHOD_CRITIQUE(p)[p.method] || ""}
                 d.fy = e.y;
               })
               .on("end", (e, d) => {
-                if (!e.active) sim.alphaTarget(0);
+                if (!e.active) sim2d.alphaTarget(0);
                 d.fx = null;
                 d.fy = null;
               }),
           );
+
+        node
+          .on("mouseover", function() {
+            d3.select(this)
+              .raise()
+              .attr("stroke-width", 2.5)
+              .attr("filter", "url(#glow)");
+          })
+          .on("mouseout", function() {
+            d3.select(this)
+              .attr("stroke-width", null)
+              .attr("filter", null);
+          });
 
         node.append("title").text((d) => `${d.name}\n${d.type}\n${d.def}`);
 
@@ -4754,22 +4800,24 @@ ${METHOD_CRITIQUE(p)[p.method] || ""}
           .attr("text-anchor", "middle")
           .text((d) => d.name);
 
-        sim.on("tick", () => {
-          link
-            .attr("x1", (d) => d.source.x)
-            .attr("y1", (d) => d.source.y)
-            .attr("x2", (d) => d.target.x)
-            .attr("y2", (d) => d.target.y);
+        sim2d.on("tick", () => {
+          link.each(function(d) {
+            const { x1, y1, x2, y2 } = edgeEndpoints(d);
+            d3.select(this)
+              .attr("x1", x1).attr("y1", y1)
+              .attr("x2", x2).attr("y2", y2);
+          });
           arc.attr("d", (d) => {
             const x = typeof d.source === "object" ? d.source.x : nodes[d.source].x;
             const y = typeof d.source === "object" ? d.source.y : nodes[d.source].y;
             return `M${x},${y}A20,20,0,1,1,${x + 1},${y + 1}`;
           });
-          linkHit
-            .attr("x1", (d) => d.source.x)
-            .attr("y1", (d) => d.source.y)
-            .attr("x2", (d) => d.target.x)
-            .attr("y2", (d) => d.target.y);
+          linkHit.each(function(d) {
+            const { x1, y1, x2, y2 } = edgeEndpoints(d);
+            d3.select(this)
+              .attr("x1", x1).attr("y1", y1)
+              .attr("x2", x2).attr("y2", y2);
+          });
           arcHit.attr("d", (d) => {
             const x = typeof d.source === "object" ? d.source.x : nodes[d.source].x;
             const y = typeof d.source === "object" ? d.source.y : nodes[d.source].y;
@@ -4805,10 +4853,7 @@ ${METHOD_CRITIQUE(p)[p.method] || ""}
         const ids = {};
         const nm = buildNodeMap(G.nodes);
         G.nodes.forEach((n, i) => {
-          const full = n.name.toLowerCase().trim();
-          const bare = full.replace(/\s*\[[^\]]*\]\s*$/, "");
-          ids[full] = "N" + i;
-          if (bare !== full) ids[bare] = "N" + i;
+          ids[n.name.toLowerCase()] = "N" + i;
           l.push(`    N${i}["${n.name}"]`);
         });
         l.push("");
@@ -4874,8 +4919,8 @@ ${METHOD_CRITIQUE(p)[p.method] || ""}
         const fnBundle = [
           typeColor,
           typeColorHex,
-          buildNodeMap,
-          forceSim,
+          tick,
+          warmup,
           mkSprite,
           build3D,
           build2D,
