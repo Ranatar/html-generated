@@ -26,6 +26,8 @@
         --blue-corp: #1a2855;
         --blue-mid: #2a3f7a;
         --blue-light: #e8ecf8;
+        --violet: #6b00aa;
+        --violet-light: #f3eaff;
         --green-check: #1a5c2a;
         --mono: "IBM Plex Mono", monospace;
         --sans: "IBM Plex Sans", sans-serif;
@@ -1168,6 +1170,30 @@
         font-size: 11px;
         opacity: 0.7;
       }
+      /* ── SUBSTITUTED CONTEXT RECOMMENDATIONS ── */
+      .sec-substitutions {
+        margin-top: 6px;
+        display: flex;
+        flex-direction: column;
+        gap: 4px;
+      }
+      .sec-substituted-item {
+        font-family: var(--mono);
+        font-size: 10px;
+        color: var(--violet);
+        background: var(--violet-light);
+        border: 1px solid rgba(107, 0, 170, 0.25);
+        padding: 6px 12px;
+        line-height: 1.5;
+        display: flex;
+        align-items: flex-start;
+        gap: 6px;
+      }
+      .sec-substituted-item .rec-icon {
+        flex-shrink: 0;
+        font-size: 11px;
+        opacity: 0.7;
+      }
       /* ── COMPATIBILITY ADVISOR ── */
       .compat-panel {
         margin-top: 16px;
@@ -1639,8 +1665,8 @@
             <div class="form-label">Уровень Синтеза</div>
             <div class="form-sublabel">Насколько радикально категории отрываются от исходных традиций.</div>
             <select class="form-select" id="synthesisLevel">
-              <option value="comparative" selected>Компаративный (заимствование и переопределение)</option>
-              <option value="transformative">Трансформативный (из напряжений между философами)</option>
+              <option value="comparative" selected>Сравнительный (заимствование и переопределение)</option>
+              <option value="transformative">Преобразующий (из напряжений между философами)</option>
               <option value="generative">Порождающий (от проблемы, не от философов)</option>
             </select>
           </div>
@@ -1711,6 +1737,7 @@
             </div>
             <div class="sec-warnings" id="secWarnings"></div>
             <div class="sec-recommendations" id="secRecommendations"></div>
+            <div class="sec-substitutions" id="secSubstitutions"></div>
 
             <!-- Compatibility Advisor Panel -->
             <div class="compat-panel hidden" id="compatPanel" data-severity="stable">
@@ -1959,8 +1986,8 @@
         exhaustive: "Исчерпывающая",
       };
       const SL = {
-        comparative: "Компаративный",
-        transformative: "Трансформативный",
+        comparative: "Сравнительный",
+        transformative: "Преобразующий",
         generative: "Порождающий",
       };
       const SD = {
@@ -2067,12 +2094,27 @@
       };
 
       function updateSectionWarnings() {
-        const box = document.getElementById("secWarnings");
+        const warBox = document.getElementById("secWarnings");
         const recBox = document.getElementById("secRecommendations");
+        const subBox = document.getElementById("secSubstitutions");
         const warnings = [];
         const recommendations = [];
+        const substitutions = [];
 
-        // ── 1. Существующие предупреждения о зависимостях между разделами ──
+        const secIdToKey = {
+          secGraph:     "graph",
+          secGlossary:  "glossary",
+          secTheses:    "theses",
+          secHistory:   "history",
+          secName:      "name",
+          secPractical: "practical",
+          secDialogue:  "dialogue",
+          secEvolution: "evolution",
+          secCritique:  "critique",
+          secOrigin:    "origin",
+        };
+
+        // ── 1. Предупреждения о зависимостях между разделами ─────────────────
         for (const [secId, cfg] of Object.entries(SECTION_WARNINGS)) {
           const el = document.getElementById(secId);
           if (!el || !el.checked || cfg.needs.length === 0) continue;
@@ -2090,20 +2132,13 @@
           }
         }
 
-        // ── 2. Предупреждения: конфликт параметров для конкретных разделов ──
+        // ── 2. Предупреждения: конфликт параметров для конкретных разделов ───
         const level = document.getElementById("synthesisLevel").value;
         const method = document.getElementById("synthesisMethod").value;
         const compatKey = level + ":" + method;
         const compatEntry = typeof COMPAT_MATRIX !== "undefined" ? COMPAT_MATRIX[compatKey] : null;
 
         if (compatEntry) {
-          const secIdToKey = {
-            secGraph: "graph", secGlossary: "glossary", secTheses: "theses",
-            secHistory: "history", secName: "name", secPractical: "practical",
-            secDialogue: "dialogue", secEvolution: "evolution", secCritique: "critique",
-            secOrigin: "origin"
-          };
-
           for (const [secId, secKey] of Object.entries(secIdToKey)) {
             const el = document.getElementById(secId);
             if (!el || !el.checked) continue;
@@ -2131,48 +2166,39 @@
         // ── 3. Мягкие рекомендации: необязательный контекст из CONTEXT_DEPS ──
         if (typeof CONTEXT_DEPS !== "undefined") {
 
-          // Маппинг контекстного ключа ("graph:nodes") → ID чекбокса родительского раздела
           const contextKeyToSecId = {
             graph: "secGraph", glossary: "secGlossary", theses: "secTheses",
             name: "secName", history: "secHistory", practical: "secPractical",
             dialogue: "secDialogue", evolution: "secEvolution", critique: "secCritique",
-            origin: "secOrigin"
+            origin: "secOrigin",
           };
 
-          // Маппинг ID чекбокса → ключ раздела в CONTEXT_DEPS
           const secIdToDepKey = {
             secGraph: "graph", secGlossary: "glossary", secTheses: "theses",
             secHistory: "history", secName: "name", secPractical: "practical",
             secDialogue: "dialogue", secEvolution: "evolution", secCritique: "critique",
-            secOrigin: "origin"
+            secOrigin: "origin",
           };
 
-          // Собираем: для каждого НЕвыбранного раздела-источника — какие выбранные разделы выиграли бы
-          // Ключ: secId источника (не выбранного), значение: массив названий выбранных разделов-потребителей
           const benefitMap = {};
 
           for (const [secId, depKey] of Object.entries(secIdToDepKey)) {
             const el = document.getElementById(secId);
-            if (!el || !el.checked) continue; // раздел не выбран — нет потребности
+            if (!el || !el.checked) continue;
 
             const deps = CONTEXT_DEPS[depKey];
             if (!deps || !deps.optional || deps.optional.length === 0) continue;
 
             for (const optKey of deps.optional) {
-              // optKey = "graph:nodes", "theses:summary", "sum:portraits", etc.
               const parentSection = optKey.split(":")[0];
-              // "sum" всегда генерируется — пропускаем
               if (parentSection === "sum") continue;
 
               const parentSecId = contextKeyToSecId[parentSection];
               if (!parentSecId) continue;
 
-              // Если родительский раздел уже выбран — контекст и так будет доступен
               const parentEl = document.getElementById(parentSecId);
               if (parentEl && parentEl.checked) continue;
 
-              // Если родительский раздел — обязательная зависимость данного раздела,
-              // предупреждение об этом уже показано блоком 1 (SECTION_WARNINGS) — не дублируем
               const sectionWarningCfg = SECTION_WARNINGS[secId];
               if (sectionWarningCfg && sectionWarningCfg.needs.includes(parentSecId)) continue;
 
@@ -2184,7 +2210,6 @@
             }
           }
 
-          // Формируем рекомендации, группированные по источнику
           for (const [srcSecId, consumers] of Object.entries(benefitMap)) {
             const srcLabel = SECTION_LABELS[srcSecId] || srcSecId;
             const consumerList = consumers.map(c => "«" + c + "»").join(", ");
@@ -2192,14 +2217,177 @@
             recommendations.push(
               '<div class="sec-recommend-item">' +
               '<span class="rec-icon">💡</span>' +
-              '<span>Включение «' + srcLabel + '» может улучшить качество ' + word + ' ' + consumerList + 
+              '<span>Включение «' + srcLabel + '» может улучшить качество ' + word + ' ' + consumerList +
               ' (дополнительный контекст).</span></div>'
             );
           }
         }
 
-        box.innerHTML = warnings.join("");
+        // ── 4. Уведомления о подстановках контекста ──────────────────────────
+        if (typeof buildEffectiveDeps !== "undefined") {
+          const currentSections = Object.entries(secIdToKey)
+            .filter(([id]) => document.getElementById(id)?.checked)
+            .map(([, k]) => k);
+
+          const effDeps = buildEffectiveDeps(currentSections);
+
+          for (const [sec, deps] of Object.entries(effDeps)) {
+            const originalDeps = CONTEXT_DEPS[sec];
+            // Множество всех ключей в оригинальных deps — и required, и optional
+            const origAllKeys = new Set([
+              ...(originalDeps?.required || []),
+              ...(originalDeps?.optional || []),
+            ]);
+
+            // Перебираем и required, и optional из effectiveDeps
+            for (const ctxKey of [...deps.required, ...deps.optional]) {
+              // Если ключ присутствует в оригинале — это не замена, пропускаем
+              if (origAllKeys.has(ctxKey)) continue;
+
+              const q = getSubstituteQuality(ctxKey); // один аргумент
+              const qLabel = q === 3 ? "равноценная замена"
+                           : q === 2 ? "частичная замена"
+                           :           "слабая замена";
+              const secLabel = SECTION_LABELS[
+                "sec" + sec.charAt(0).toUpperCase() + sec.slice(1)
+              ] || sec;
+              substitutions.push(
+                `<div class="sec-substituted-item">` +
+                `<span class="rec-icon">⇄</span>` +
+                `<span>«${secLabel}»: контекст «${CTX_LABELS[ctxKey] || ctxKey}» ` +
+                `используется как ${qLabel} для недостающего контекста.</span></div>`
+              );
+            }
+          }
+        }
+
+        warBox.innerHTML = warnings.join("");
         if (recBox) recBox.innerHTML = recommendations.join("");
+        if (subBox) subBox.innerHTML = substitutions.join("");
+      }
+
+      function getSubstituteQuality(ctxKey) {
+        for (const candidates of Object.values(SUBSTITUTION_MAP)) {
+          const found = candidates.find(c => c.key === ctxKey);
+          if (found) return found.q;
+        }
+        return null; // оригинальный ключ, не заменитель
+      }
+
+      function getEdgeQuality(fromSection, toSection, effectiveDeps) {
+        const deps = effectiveDeps[toSection];
+        if (!deps) return Infinity;
+
+        const allKeys = [...deps.required, ...deps.optional];
+        const edgeKeys = allKeys.filter(k => sourceOf(k) === fromSection);
+        if (!edgeKeys.length) return Infinity;
+
+        let minQ = Infinity;
+        for (const k of edgeKeys) {
+          const origDeps = CONTEXT_DEPS[toSection];
+          const isOriginal = origDeps &&
+            [...origDeps.required, ...origDeps.optional].includes(k);
+          if (isOriginal) {
+            minQ = Math.min(minQ, 10); // оригинальная зависимость — высокая цена удаления
+          } else {
+            const q = getSubstituteQuality(k) ?? 1;
+            minQ = Math.min(minQ, q);
+          }
+        }
+        return minQ;
+      }
+
+      function removeEdge(fromSection, toSection, predecessors, effectiveDeps) {
+        predecessors[toSection].delete(fromSection);
+
+        const deps = effectiveDeps[toSection];
+        if (!deps) return;
+
+        // Удаляем из optional все ключи с источником fromSection
+        deps.optional = deps.optional.filter(k => sourceOf(k) !== fromSection);
+
+        // required-ключи с источником fromSection — это оригинальные зависимости (q=10),
+        // до которых дошла очередь только при отсутствии других вариантов.
+        // Переносим их в optional, не удаляем полностью (контекст ценен, просто не блокирует порядок).
+        const reqFromSrc = deps.required.filter(k => sourceOf(k) === fromSection);
+        if (reqFromSrc.length) {
+          deps.required  = deps.required.filter(k => sourceOf(k) !== fromSection);
+          deps.optional  = [...deps.optional, ...reqFromSrc];
+        }
+      }
+
+      function findOneCycle(predecessors) {
+        const WHITE = 0, GRAY = 1, BLACK = 2;
+        const color = {};
+        for (const n of Object.keys(predecessors)) color[n] = WHITE;
+
+        let foundCycle = null;
+
+        function dfs(node, path) {
+          if (foundCycle) return;
+          color[node] = GRAY;
+          path.push(node);
+
+          for (const pred of [...(predecessors[node] || [])]) {
+            if (foundCycle) return;
+            if (color[pred] === GRAY) {
+              // pred уже в текущем пути — цикл найден
+              const idx = path.indexOf(pred);
+              foundCycle = path.slice(idx); // [pred, ..., node] — последнее ребро node→pred замыкает цикл
+              return;
+            }
+            if (color[pred] === WHITE) dfs(pred, path);
+          }
+
+          path.pop();
+          color[node] = BLACK;
+        }
+
+        for (const node of Object.keys(predecessors)) {
+          if (color[node] === WHITE) dfs(node, []);
+          if (foundCycle) break;
+        }
+
+        return foundCycle;
+      }
+
+      /**
+       * Итеративно разрывает циклы в графе зависимостей.
+       * При каждой итерации находит один цикл и удаляет его слабейшее ребро.
+       *
+       * @param {Object} predecessors   — { sectionKey: Set<sectionKey> }, мутируется
+       * @param {Object} effectiveDeps  — { sectionKey: { required, optional } }, мутируется
+       * @returns {Object}              — predecessors без циклов
+       */
+      function resolveCircularDeps(predecessors, effectiveDeps) {
+        // Верхняя граница итераций = количество рёбер (каждая итерация удаляет хотя бы одно)
+        const maxIter = Object.values(predecessors).reduce((s, p) => s + p.size, 0);
+
+        for (let i = 0; i < maxIter; i++) {
+          const cycle = findOneCycle(predecessors);
+          if (!cycle) break; // циклов нет — готово
+
+          // Ищем ребро с минимальным качеством
+          let weakestEdge = null, weakestQ = Infinity;
+          for (let j = 0; j < cycle.length; j++) {
+            const to   = cycle[j];
+            const from = cycle[(j + 1) % cycle.length];
+            const q = getEdgeQuality(from, to, effectiveDeps);
+            if (q < weakestQ) { weakestQ = q; weakestEdge = [from, to]; }
+          }
+
+          if (weakestEdge) {
+            removeEdge(weakestEdge[0], weakestEdge[1], predecessors, effectiveDeps);
+          } else {
+            // Все рёбра — оригинальные зависимости (q=10/Infinity).
+            // Такое возможно только если пользователь выбрал набор, где два раздела
+            // являются оригинальными required-зависимостями друг друга.
+            // Разрываем последнее ребро цикла как крайний fallback.
+            removeEdge(cycle[0], cycle[cycle.length - 1], predecessors, effectiveDeps);
+          }
+        }
+
+        return predecessors;
       }
 
       // ════════════════════════════════════════
@@ -2217,45 +2405,45 @@
        */
 
       const COMPAT_MATRIX = {
-        // ── Компаративный: ★ со всеми методами ──
+        // ── Сравнительный: ★ со всеми методами ──
         "comparative:dialectical": {
           rating: "★", severity: "stable",
           sections: { sum:"★", graph:"★", glossary:"★", theses:"★", dialogue:"★", critique:"★", name:"★", history:"★", practical:"★", evolution:"★", origin:"★" },
-          desc: "Компаративный уровень надёжно работает с любым методом. Диалектический метод даёт наиболее структурированный результат на этом уровне.",
+          desc: "Сравнительный уровень надёжно работает с любым методом. Диалектический метод даёт наиболее структурированный результат на этом уровне.",
           advice: null, replacements: null
         },
         "comparative:integrative": {
           rating: "★", severity: "stable",
           sections: { sum:"★", graph:"★", glossary:"★", theses:"★", dialogue:"★", critique:"★", name:"★", history:"★", practical:"★", evolution:"★", origin:"★" },
-          desc: "Компаративный уровень надёжно работает с любым методом. Интегративный метод оптимален для поиска общих оснований между традициями.",
+          desc: "Сравнительный уровень надёжно работает с любым методом. Интегративный метод оптимален для поиска общих оснований между традициями.",
           advice: null, replacements: null
         },
         "comparative:deconstructive": {
           rating: "★", severity: "stable",
           sections: { sum:"★", graph:"★", glossary:"★", theses:"★", dialogue:"★", critique:"★", name:"★", history:"★", practical:"★", evolution:"★", origin:"★" },
-          desc: "Компаративный уровень надёжно работает с любым методом. Деконструктивный метод позволяет вскрыть скрытые предпосылки каждой традиции.",
+          desc: "Сравнительный уровень надёжно работает с любым методом. Деконструктивный метод позволяет вскрыть скрытые предпосылки каждой традиции.",
           advice: null, replacements: null
         },
         "comparative:hermeneutical": {
           rating: "★", severity: "stable",
           sections: { sum:"★", graph:"★", glossary:"★", theses:"★", dialogue:"★", critique:"★", name:"★", history:"★", practical:"★", evolution:"★", origin:"★" },
-          desc: "Компаративный уровень надёжно работает с любым методом. Герменевтический метод даёт наиболее контекстуально богатый результат.",
+          desc: "Сравнительный уровень надёжно работает с любым методом. Герменевтический метод даёт наиболее контекстуально богатый результат.",
           advice: null, replacements: null
         },
         "comparative:analytical": {
           rating: "★", severity: "stable",
           sections: { sum:"★", graph:"★", glossary:"★", theses:"★", dialogue:"★", critique:"★", name:"★", history:"★", practical:"★", evolution:"★", origin:"★" },
-          desc: "Компаративный уровень надёжно работает с любым методом. Аналитический метод обеспечивает максимальную формальную строгость.",
+          desc: "Сравнительный уровень надёжно работает с любым методом. Аналитический метод обеспечивает максимальную формальную строгость.",
           advice: null, replacements: null
         },
         "comparative:creative": {
           rating: "★", severity: "stable",
           sections: { sum:"★", graph:"★", glossary:"★", theses:"★", dialogue:"★", critique:"★", name:"★", history:"★", practical:"★", evolution:"★", origin:"★" },
-          desc: "Компаративный уровень надёжно работает с любым методом. Творческий метод даёт наиболее оригинальные и неожиданные результаты.",
+          desc: "Сравнительный уровень надёжно работает с любым методом. Творческий метод даёт наиболее оригинальные и неожиданные результаты.",
           advice: null, replacements: null
         },
 
-        // ── Трансформативный ──
+        // ── Преобразующий ──
         "transformative:dialectical": {
           rating: "★★★", severity: "synergy-max",
           sections: { sum:"★★★", graph:"★★★", glossary:"★★★", theses:"★★★", dialogue:"★★★", critique:"★★★", name:"★★", history:"★★", practical:"★★", evolution:"★★", origin:"★★★" },
@@ -2266,7 +2454,7 @@
         "transformative:integrative": {
           rating: "✗✗", severity: "hard-conflict",
           sections: { sum:"✗✗", graph:"✗✗", glossary:"≈", theses:"✗✗", dialogue:"✗✗", critique:"✗✗", name:"≈", history:"≈", practical:"≈", evolution:"≈", origin:"✗✗" },
-          desc: "<strong>Жёсткое противоречие.</strong> Трансформативный уровень строится на несовместимости как источнике нового; интегративный метод — на общих основаниях как источнике. Это взаимоисключающие онтологии синтеза. Конфликт затрагивает 5 из 6 ключевых разделов.",
+          desc: "<strong>Жёсткое противоречие.</strong> Преобразующий уровень строится на несовместимости как источнике нового; интегративный метод — на общих основаниях как источнике. Это взаимоисключающие онтологии синтеза. Конфликт затрагивает 5 из 6 ключевых разделов.",
           advice: null,
           replacements: {
             keepLevel: [
@@ -2276,7 +2464,7 @@
               { param: "method", value: "creative",        label: "Творческий",        rating: "★★" }
             ],
             keepMethod: [
-              { param: "level", value: "comparative", label: "Компаративный", rating: "★" }
+              { param: "level", value: "comparative", label: "Сравнительный", rating: "★" }
             ]
           }
         },
@@ -2290,7 +2478,7 @@
         "transformative:hermeneutical": {
           rating: "✗", severity: "conflict",
           sections: { sum:"≈", graph:"≈", glossary:"≈", theses:"≈", dialogue:"✗", critique:"≈", name:"≈", history:"≈", practical:"≈", evolution:"≈", origin:"≈" },
-          desc: "<strong>Умеренный конфликт.</strong> Трансформативный уровень строит на несовместимости (рождение нового из невозможности), герменевтический метод — на расширении горизонтов (нарастающая совместимость). Конфликт сосредоточен в разделе «Диалог», где два финала несовместимы.",
+          desc: "<strong>Умеренный конфликт.</strong> Преобразующий уровень строит на несовместимости (рождение нового из невозможности), герменевтический метод — на расширении горизонтов (нарастающая совместимость). Конфликт сосредоточен в разделе «Диалог», где два финала несовместимы.",
           advice: "При исключении раздела «Диалог» напряжение снижается до управляемого ≈. При включении диалога — рекомендуется сменить метод.",
           replacements: {
             keepLevel: [
@@ -2298,22 +2486,22 @@
               { param: "method", value: "deconstructive",  label: "Деконструктивный",  rating: "★★★" }
             ],
             keepMethod: [
-              { param: "level", value: "comparative", label: "Компаративный", rating: "★" }
+              { param: "level", value: "comparative", label: "Сравнительный", rating: "★" }
             ]
           }
         },
         "transformative:analytical": {
           rating: "★★", severity: "synergy",
           sections: { sum:"★★", graph:"★★", glossary:"★★", theses:"★★", dialogue:"★★", critique:"★★", name:"★★", history:"★", practical:"★", evolution:"★", origin:"★★" },
-          desc: "<strong>Продуктивный парадокс.</strong> Аналитический метод делает трансформативные претензии верифицируемыми: «эмерджентность» перестаёт быть нарративным утверждением и превращается в результат формального аудита предпосылок.",
-          advice: "Выбирайте, когда нужна трансформативная глубина с аналитической строгостью и формальным доказательством эмерджентности.",
+          desc: "<strong>Продуктивный парадокс.</strong> Аналитический метод делает претензии преобразующего уровня верифицируемыми: «эмерджентность» перестаёт быть нарративным утверждением и превращается в результат формального аудита предпосылок.",
+          advice: "Выбирайте, когда нужна преобразующая глубина с аналитической строгостью и формальным доказательством эмерджентности.",
           replacements: null
         },
         "transformative:creative": {
           rating: "★★", severity: "synergy",
           sections: { sum:"★★", graph:"★★", glossary:"★★", theses:"★★", dialogue:"★★", critique:"★★", name:"★★", history:"★", practical:"★", evolution:"★★", origin:"★★" },
-          desc: "<strong>Продуктивный парадокс.</strong> Трансформативный уровень создаёт категории с неустановленными отношениями. Разрешение творческого метода маркировать связи как гипотетические — это не слабость, а честная онтология нового.",
-          advice: "Выбирайте, когда важна свобода в установлении отношений между трансформативными категориями; для синтезов в экспериментальном контексте.",
+          desc: "<strong>Продуктивный парадокс.</strong> Преобразующий уровень создаёт категории с неустановленными отношениями. Разрешение творческого метода маркировать связи как гипотетические — это не слабость, а честная онтология нового.",
+          advice: "Выбирайте, когда важна свобода в установлении отношений между преобразованными категориями; для синтезов в экспериментальном контексте.",
           replacements: null
         },
 
@@ -2330,7 +2518,7 @@
               { param: "method", value: "creative",       label: "Творческий",       rating: "★★" }
             ],
             keepMethod: [
-              { param: "level", value: "transformative", label: "Трансформативный", rating: "★★★" }
+              { param: "level", value: "transformative", label: "Преобразующий", rating: "★★★" }
             ]
           }
         },
@@ -2346,7 +2534,7 @@
               { param: "method", value: "creative",       label: "Творческий",       rating: "★★" }
             ],
             keepMethod: [
-              { param: "level", value: "comparative", label: "Компаративный", rating: "★" }
+              { param: "level", value: "comparative", label: "Сравнительный", rating: "★" }
             ]
           }
         },
@@ -2361,7 +2549,7 @@
           rating: "✗", severity: "conflict",
           sections: { sum:"≈", graph:"✗", glossary:"✗", theses:"≈", dialogue:"✗", critique:"✗", name:"≈", history:"≈", practical:"≈", evolution:"≈", origin:"✗" },
           desc: "<strong>Системный конфликт.</strong> Герменевтический метод организует граф вокруг горизонтов традиций, тогда как порождающий уровень запрещает строить категории из традиций. Четыре ключевых раздела получают несовместимые критерии организации содержания.",
-          advice: "Рекомендуется избегать. Если герменевтический метод принципиален — снизить уровень до компаративного или трансформативного.",
+          advice: "Рекомендуется избегать. Если герменевтический метод принципиален — снизить уровень до сравнительного или преобразующего.",
           replacements: {
             keepLevel: [
               { param: "method", value: "deconstructive", label: "Деконструктивный", rating: "★★★" },
@@ -2369,8 +2557,8 @@
               { param: "method", value: "creative",       label: "Творческий",       rating: "★★" }
             ],
             keepMethod: [
-              { param: "level", value: "comparative",    label: "Компаративный",    rating: "★" },
-              { param: "level", value: "transformative",  label: "Трансформативный", rating: "✗/≈" }
+              { param: "level", value: "comparative",    label: "Сравнительный",    rating: "★" },
+              { param: "level", value: "transformative",  label: "Преобразующий", rating: "✗/≈" }
             ]
           }
         },
@@ -2473,19 +2661,30 @@
 
         // Чипы по разделам
         const chipsEl = document.getElementById("compatChips");
-        const selectedSections = getSec();
-        // Всегда показываем "sum" как выбранный, а также все ключи из разделов секции entry.sections
-        const allSecKeys = Object.keys(entry.sections);
+        const selectedSections = getSec(); // DOM-порядок
+
+        // Вычисляем динамический порядок для выбранных разделов
+        let dynSelected = selectedSections;
+        if (selectedSections.length > 0 && typeof buildEffectiveDeps !== "undefined") {
+          const effDeps = buildEffectiveDeps(selectedSections);
+          dynSelected = buildDynamicOrder(effDeps, selectedSections).filter(k => k !== "sum");
+        }
+
+        // sum всегда первым, затем выбранные в динамическом порядке, затем невыбранные в статическом
+        const unselected = Object.keys(entry.sections).filter(
+          k => k !== "sum" && !selectedSections.includes(k)
+        );
+        const allSecKeys = ["sum", ...dynSelected, ...unselected];
+
         let chipsHtml = "";
         for (const sk of allSecKeys) {
+          if (!entry.sections[sk]) continue; // ключа нет в матрице — пропускаем
           const rating = entry.sections[sk];
           const label = COMPAT_SEC_LABELS[sk] || sk;
           const isSelected = sk === "sum" || selectedSections.includes(sk);
-          if (isSelected) {
-            chipsHtml += `<span class="compat-chip ${chipClassForRating(rating)}">${rating} ${label}</span>`;
-          } else {
-            chipsHtml += `<span class="compat-chip chip-inactive" title="Раздел не выбран">${label}</span>`;
-          }
+          chipsHtml += isSelected
+            ? `<span class="compat-chip ${chipClassForRating(rating)}">${rating} ${label}</span>`
+            : `<span class="compat-chip chip-inactive" title="Раздел не выбран">${label}</span>`;
         }
         chipsEl.innerHTML = chipsHtml;
 
@@ -2591,6 +2790,198 @@
         },
       };
 
+      const SUBSTITUTION_MAP = {
+        "graph:nodes":     [
+          { key: "glossary:table",       q: 3 },
+          { key: "origin:decomposition", q: 2 },
+          { key: "theses:summary",       q: 1 },
+        ],
+        "graph:edges":     [
+          { key: "theses:full",          q: 2 },
+        ],
+        "graph:topology":  [
+          { key: "evolution:graph_changes", q: 1 },
+        ],
+        "glossary:table":  [
+          { key: "graph:nodes",          q: 3 },
+        ],
+        "theses:full":     [
+          { key: "origin:decomposition", q: 3 },
+          { key: "dialogue:synthesis",   q: 2 },
+        ],
+        "theses:summary":  [
+          { key: "origin:decomposition", q: 3 },
+          { key: "graph:nodes",          q: 2 },
+          { key: "dialogue:synthesis",   q: 2 },
+        ],
+        "name:title":      [
+          { key: "history:name_context",  q: 2 },
+          { key: "evolution:name_evolution", q: 2 },
+          { key: "sum:goals",             q: 1 },
+        ],
+        "name:full":       [
+          { key: "history:name_context",  q: 2 },
+          { key: "sum:goals",             q: 1 },
+        ],
+        "history:genealogy":    [ { key: "origin:genealogy",     q: 3 } ],
+        "history:contemporary": [ { key: "evolution:science",    q: 2 } ],
+        "history:influence":    [
+          { key: "evolution:directions",  q: 3 },
+          { key: "practical:summary",     q: 2 },
+        ],
+        "history:name_context": [],   // нет замены
+      };
+
+      /**
+       * Возвращает ключ-раздел, из которого извлекается данный контекстный ключ.
+       * "graph:nodes" → "graph", "origin:decomposition" → "origin", "sum:goals" → "sum"
+       */
+      function sourceOf(ctxKey) {
+        return ctxKey.split(":")[0];
+      }
+
+      /**
+       * Ищет лучший доступный заменитель для ctxKey среди доступных разделов.
+       * selfSection исключается — раздел не может замещать себя.
+       *
+       * @param {string}   ctxKey        — недоступный ключ
+       * @param {Set}      available     — множество выбранных разделов + "sum"
+       * @param {string}   selfSection   — текущий раздел (исключается из кандидатов)
+       * @returns {string|null}          — лучший ключ-заменитель или null
+       */
+      function findSubstitute(ctxKey, available, selfSection) {
+        const candidates = SUBSTITUTION_MAP[ctxKey] || [];
+        // Берём первый (наивысшее качество), чей источник доступен и не является selfSection
+        for (const { key } of candidates) {
+          const src = sourceOf(key);
+          if (src !== selfSection && available.has(src)) return key;
+        }
+        return null;
+      }
+
+      /**
+       * Строит эффективные зависимости для заданного набора выбранных разделов.
+       * Возвращает объект { [sectionKey]: { required: [...], optional: [...] } }
+       * где все ключи заменены на доступные эквиваленты.
+       */
+      function buildEffectiveDeps(selectedSections) {
+        const available = new Set(["sum", ...selectedSections]);
+        const result = {};
+
+        for (const sec of selectedSections) {
+          const base = CONTEXT_DEPS[sec];
+          if (!base) { result[sec] = { required: [], optional: [] }; continue; }
+
+          const effective = { required: [], optional: [] };
+
+          const resolve = (ctxKey, tier) => {
+            const src = sourceOf(ctxKey);
+            if (available.has(src)) {
+              // Источник присутствует → используем оригинальный ключ
+              effective[tier].push(ctxKey);
+            } else {
+              // Ищем заменитель
+              const sub = findSubstitute(ctxKey, available, sec);
+              if (sub) {
+                // Заменитель найден — понижаем required → optional если качество < 3
+                const subQuality = (SUBSTITUTION_MAP[ctxKey] || []).find(c => c.key === sub)?.q ?? 1;
+                const effectiveTier = (tier === "required" && subQuality < 3) ? "optional" : tier;
+                effective[effectiveTier].push(sub);
+              }
+              // Иначе — ключ просто выпадает (раздел деградирует)
+            }
+          };
+
+          for (const k of base.required)  resolve(k, "required");
+          for (const k of base.optional)  resolve(k, "optional");
+
+          // Дедупликация (один ключ может попасть дважды через разные пути)
+          result[sec] = {
+            required: [...new Set(effective.required)],
+            optional: [...new Set(effective.optional)],
+          };
+        }
+
+        return result;
+      }
+
+      /**
+       * Для каждого раздела возвращает множество разделов, которые должны быть
+       * сгенерированы ДО него (прямые predecessor'ы по effective deps).
+       */
+      function computePredecessors(effectiveDeps) {
+        const preds = {}; // sectionKey → Set<sectionKey>
+
+        for (const [sec, deps] of Object.entries(effectiveDeps)) {
+          preds[sec] = new Set();
+          for (const ctxKey of [...deps.required, ...deps.optional]) {
+            const src = sourceOf(ctxKey);
+            if (src !== "sum" && src !== sec) {
+              preds[sec].add(src);
+            }
+          }
+        }
+        return preds;
+      }
+
+      /**
+       * Топологическая сортировка (Кан) с вторичным упорядочиванием
+       * по SECTION_TOPO_ORDER для стабильности при равных приоритетах.
+       */
+      const SECTION_TOPO_ORDER = {
+        sum: 0, graph: 1, glossary: 2, theses: 3, name: 4,
+        history: 5, origin: 6, practical: 6, dialogue: 6,
+        evolution: 7, critique: 8,
+      };
+
+      function buildDynamicOrder(effectiveDeps, selectedSections) {
+        const preds = computePredecessors(effectiveDeps);
+
+        // ── НОВОЕ: разрываем циклы перед топосортировкой ──────────────────────
+        // Мутирует и preds, и effectiveDeps (удаляет weakest optional-ключи).
+        // После возврата effectiveDeps актуален для buildContextForSection.
+        resolveCircularDeps(preds, effectiveDeps);
+        // ─────────────────────────────────────────────────────────────────────
+
+        const inDegree = {};
+        const adjList  = {};
+
+        for (const sec of selectedSections) {
+          inDegree[sec] = 0;
+          adjList[sec]  = [];
+        }
+
+        for (const [sec, predSet] of Object.entries(preds)) {
+          for (const pred of predSet) {
+            if (!selectedSections.includes(pred)) continue;
+            adjList[pred].push(sec);
+            inDegree[sec]++;
+          }
+        }
+
+        const queue = selectedSections
+          .filter(s => inDegree[s] === 0)
+          .sort((a, b) => SECTION_TOPO_ORDER[a] - SECTION_TOPO_ORDER[b]);
+        const order = [];
+
+        while (queue.length) {
+          const node = queue.shift();
+          order.push(node);
+          const succs = (adjList[node] || [])
+            .sort((a, b) => SECTION_TOPO_ORDER[a] - SECTION_TOPO_ORDER[b]);
+          for (const succ of succs) {
+            inDegree[succ]--;
+            if (inDegree[succ] === 0) {
+              const pos = queue.findIndex(q => SECTION_TOPO_ORDER[q] > SECTION_TOPO_ORDER[succ]);
+              if (pos === -1) queue.push(succ);
+              else queue.splice(pos, 0, succ);
+            }
+          }
+        }
+
+        return ["sum", ...order];
+      }
+
       const CONTEXT_BUDGET = {
         overview: 12000,
         standard: 24000,
@@ -2637,7 +3028,17 @@
         if (!phil.length) return null;
        
         const p      = { seed, phil, sec, method, depth, synthLevel, ctx };
-        const defs   = buildSectionDefs(p);
+        const effectiveDeps = buildEffectiveDeps(p.sec);
+        const dynamicOrder  = buildDynamicOrder(effectiveDeps, p.sec);
+        p.sec = dynamicOrder.filter(k => k !== "sum");
+        const baseDefs = buildSectionDefs(p);
+        const defsMap  = Object.fromEntries(baseDefs.map(d => [d.key, d]));
+        let secNum = 1;
+        const defs = dynamicOrder.map(key => {
+          const d = { ...defsMap[key] };
+          d.num = secNum++;
+          return d;
+        });
         const passes = groupPasses(defs);
        
         // ── Фиксированные части промпта: вычисляем фактически ──────────────────
@@ -2870,11 +3271,24 @@
           case "theses:summary": return extractThesesSummary(el);
           case "name:title":     return extractNameTitle(el);
           case "name:full":      return truncateText(el.innerText?.trim() || "", 4000);
+          case "dialogue:synthesis": return extractSection(el, "аналитическ");
+          case "origin:genealogy":     return extractSection(el, "идентификац");
+          case "origin:decomposition":  return truncateText(extractSection(el, "декомпозиц") || "", 5000);
+          case "origin:novelty":        return extractSection(el, "оригинальност");
           case "history:full":   return truncateText(el.innerText?.trim() || "", 4000);
           case "history:contemporary":  return extractSection(el, "современн");
           case "history:genealogy":     return extractSection(el, "генеалог");
           case "history:influence":     return extractSection(el, "потенциальное влиян");
           case "history:name_context":  return extractSection(el, "название историчес") || extractByH4(el, "соответствие назван");
+          case "practical:summary": {
+            const tables = el.querySelectorAll("table.doc-table");
+            const last = tables[tables.length - 1];
+            return last ? "ТАБЛИЦА ПРИМЕНЕНИЯ:\n" + tableToText(last) : null;
+          }
+          case "evolution:directions":    return extractSection(el, "направления развития");
+          case "evolution:graph_changes": return extractSection(el, "изменения графа");
+          case "evolution:name_evolution":return extractSection(el, "эволюция названия");
+          case "evolution:science":       return extractSection(el, "современной науке");
           default: return null;
         }
       }
@@ -2902,11 +3316,25 @@
         "history:genealogy":    "История → Генеалогия идей",
         "history:influence":    "История → Потенциальное влияние",
         "history:name_context": "История → Название в ист. контексте",
+        "origin:genealogy":       "Происхождение → Родительские традиции",
+        "origin:decomposition":   "Происхождение → Декомпозиция элементов",
+        "origin:novelty":         "Происхождение → Оригинальность",
+        "evolution:directions":   "Эволюция → Направления развития",
+        "evolution:graph_changes":"Эволюция → Изменения графа",
+        "evolution:name_evolution":"Эволюция → Название",
+        "evolution:science":      "Эволюция → Современная наука",
+        "dialogue:synthesis":     "Диалог → Аналитический комментарий",
+        "practical:summary":      "Практика → Сводная таблица",
       };
 
-      function buildContextForSection(sectionKey, generated, depth) {
-        const deps = CONTEXT_DEPS[sectionKey];
+      function buildContextForSection(sectionKey, generated, depth, effectiveDepsMap) {
+        const deps = effectiveDepsMap ?? CONTEXT_DEPS[sectionKey];
         if (!deps) return "";
+        const _origDeps = CONTEXT_DEPS[sectionKey];
+        const _origAllKeys = new Set([
+          ...(_origDeps?.required || []),
+          ...(_origDeps?.optional || []),
+        ]);
         const baseBudget = CONTEXT_BUDGET[depth] || 12000;
         const totalBudget = (sectionKey === "critique")
           ? Math.floor(baseBudget * 1.5)
@@ -2919,9 +3347,13 @@
           const text = extractContextFragment(key, generated);
           if (text) {
             requiredParts.push({ key, text });
-            logEntries.push({ key, status: "found", len: text.length, priority: "required" });
+            logEntries.push({ key, status: "found", len: text.length, priority: "required", 
+              isSubstitute: !_origAllKeys.has(key) 
+            });
           } else {
-            logEntries.push({ key, status: "missing", len: 0, priority: "required" });
+            logEntries.push({ key, status: "missing", len: 0, priority: "required",
+              isSubstitute: !_origAllKeys.has(key) 
+            });
           }
         }
 
@@ -2934,29 +3366,41 @@
         if (remainingBudget > 500) {
           for (const key of deps.optional) {
             if (remainingBudget <= 300) {
-              logEntries.push({ key, status: "skipped_budget", len: 0, priority: "optional", note: "бюджет исчерпан: осталось " + remainingBudget + " симв." });
+              logEntries.push({ key, status: "skipped_budget", len: 0, priority: "optional", note: "бюджет исчерпан: осталось " + remainingBudget + " симв." 
+              isSubstitute: !_origAllKeys.has(key) 
+              });
               continue;
             }
             const text = extractContextFragment(key, generated);
             if (!text) {
-              logEntries.push({ key, status: "missing", len: 0, priority: "optional" });
+              logEntries.push({ key, status: "missing", len: 0, priority: "optional",
+                isSubstitute: !_origAllKeys.has(key) 
+              });
               continue;
             }
             if (text.length <= remainingBudget) {
               optionalParts.push({ key, text });
               remainingBudget -= text.length;
-              logEntries.push({ key, status: "found", len: text.length, priority: "optional" });
+              logEntries.push({ key, status: "found", len: text.length, priority: "optional",
+                isSubstitute: !_origAllKeys.has(key) 
+              });
             } else {
               const truncLen = remainingBudget - 50;
               optionalParts.push({ key, text: truncateText(text, truncLen) });
-              logEntries.push({ key, status: "truncated", len: truncLen, priority: "optional", note: "обрезан с " + text.length + " до " + truncLen });
+              logEntries.push({ key, status: "truncated", len: truncLen, priority: "optional",
+                note: "обрезан с " + text.length + " до " + truncLen,
+                isSubstitute: !_origAllKeys.has(key) 
+              });
               remainingBudget = 0;
               break;
             }
           }
         } else {
           for (const key of deps.optional) {
-            logEntries.push({ key, status: "skipped_budget", len: 0, priority: "optional", note: "бюджет исчерпан" });
+            logEntries.push({ key, status: "skipped_budget", len: 0, priority: "optional",
+              note: "бюджет исчерпан: осталось " + remainingBudget + " симв.",
+              isSubstitute: !_origAllKeys.has(key) 
+            });
           }
         }
 
@@ -3123,13 +3567,13 @@
       const LEVEL_GRAPH_METHODOLOGY = (p) => ({
         comparative:
           `«Методология построения графа»
-Уровень синтеза: КОМПАРАТИВНЫЙ.
+Уровень синтеза: СРАВНИТЕЛЬНЫЙ.
 Возьми ключевые категории от каждого философа (${p.phil.join(", ")}), переопредели их в контексте данного синтеза и дополни синтетическими категориями, возникающими на пересечении философов. В столбце «Происхождение» чётко укажи, от какого философа заимствована категория (с переопределением или без) либо что она является синтетической.
 
 `,
         transformative:
           `«Методология построения графа»
-Уровень синтеза: ТРАНСФОРМАТИВНЫЙ.
+Уровень синтеза: ПРЕОБРАЗУБЮЩИЙ.
 ЗАПРЕЩЕНО прямое заимствование категорий от какой-либо одного философа. Каждая категория ОБЯЗАНА возникать из НАПРЯЖЕНИЯ, СТОЛКНОВЕНИЯ или ДИАЛОГА между как минимум двумя философами (${p.phil.join(", ")}). Категория — это не элемент одной системы, перенесённый в другую, а НОВОЕ ПОНЯТИЕ, рождённое из невозможности совместить исходные. В столбце «Генеалогия» укажи конкретное напряжение: между какими философами, по какому вопросу, и через какой механизм оно разрешено (снятие противоречия, обобщение, взаимная коррекция, выход на метауровень, etc.).
 
 `,
@@ -3188,8 +3632,8 @@
 Термины, введённые данной концепцией впервые, с обоснованием необходимости их введения.`,
 
         transformative:
-`«Трансформированные термины»
-Перечень терминов, которые имеют предшественников у исходных философов, но получили принципиально новое значение через трансформативный синтез. Для каждого: предшественник → напряжение → новое значение.
+`«Преобразованные термины»
+Перечень терминов, которые имеют предшественников у исходных философов, но получили принципиально новое значение через преобразущий синтез. Для каждого: предшественник → напряжение → новое значение.
 
 «Эмерджентные термины»
 Термины, не имеющие прямых предшественников ни у одного из исходных философов — возникшие исключительно из столкновения. Обосновать, почему они не могли появиться внутри отдельной традиции.`,
@@ -3217,7 +3661,7 @@
         comparative:
           "- Степень новизны: полностью новый / переформулированный / заимствованный (с указанием источника)",
         transformative:
-          "- Степень новизны: полностью эмерджентный (не сводим ни к одной философской системе) / трансформированный (имеет узнаваемых предшественников, но принципиально переосмыслен)",
+          "- Степень новизны: полностью эмерджентный (не сводим ни к одной философской системе) / преобразованный (имеет узнаваемых предшественников, но принципиально переосмыслен)",
         generative:
           "- Степень новизны: порождённый проблемой (возникает из зерна концепции) / порождённый преодолением ограничений (возникает из невозможности исходных подходов)",
       };
@@ -3255,9 +3699,9 @@
 
       // ── Диалог: вопрос аналитического комментария (не зависит от p) ──
       const LEVEL_DIALOGUE_COMMENT = {
-        comparative:    "что показал диалог о возможности и границах синтеза? Какие разногласия оказались НЕПРЕОДОЛИМЫМИ и потребовали авторского решения?",
-        transformative: "какие напряжения оказались подлинно продуктивными — породили новое понятие, — а какие остались формальным противоречием? Почему именно эти напряжения стали генеративными? Насколько рождённое понятие действительно несводимо к позиции хотя бы одного из участников?",
-        generative:     "насколько убедительно диалог демонстрирует коллективную недостаточность исходных систем перед лицом проблемы? Какие из обнаруженных ограничений наиболее принципиальны для обоснования нового категориального аппарата? Нет ли риска, что «проблемное поле» в действительности целиком покрывается одной из исходных традиций?",
+        comparative:    "Что показал диалог о возможности и границах синтеза? Какие разногласия оказались НЕПРЕОДОЛИМЫМИ и потребовали авторского решения?",
+        transformative: "Какие напряжения оказались подлинно продуктивными — породили новое понятие, — а какие остались формальным противоречием? Почему именно эти напряжения стали генеративными? Насколько рождённое понятие действительно несводимо к позиции хотя бы одного из участников?",
+        generative:     "Насколько убедительно диалог демонстрирует коллективную недостаточность исходных систем перед лицом проблемы? Какие из обнаруженных ограничений наиболее принципиальны для обоснования нового категориального аппарата? Нет ли риска, что «проблемное поле» в действительности целиком покрывается одной из исходных традиций?",
       };
 
       // ── Критика: метрика новизны — пункт 2 (зависит от p.phil) ──
@@ -3268,10 +3712,10 @@
 Шкала оригинальности для каждого тезиса (0–10), где 0 = прямое заимствование из одной традиции, 10 = невозможно без именно этого сочетания философов.`,
 
         transformative: `\
-2. ЭМЕРДЖЕНТНОСТЬ КОНЦЕПЦИИ — ключевой вопрос уровня трансформативного синтеза: действительно ли концепция несводима ни к одной из исходных систем? \
+2. ЭМЕРДЖЕНТНОСТЬ КОНЦЕПЦИИ — ключевой вопрос уровня преобразущего синтеза: действительно ли концепция несводима ни к одной из исходных систем? \
 Для каждой категории и каждого тезиса: можно ли редуцировать их к позиции одного из (${p.phil.join(", ")})? \
-Шкала эмерджентности (0–10), где 0 = скрытое заимствование, замаскированное под трансформацию, 10 = подлинно несводимое ни к одной исходной системе. \
-Честная оценка: сколько категорий реально трансформативны, а сколько — компаративны по существу?`,
+Шкала эмерджентности (0–10), где 0 = скрытое заимствование, замаскированное под преобразование, 10 = подлинно несводимое ни к одной исходной системе. \
+Честная оценка: сколько категорий реально преобразованы, а сколько — сравнительны по существу?`,
 
         generative: `\
 2. ПРОБЛЕМНАЯ ГЕНЕРАЦИЯ — ключевой вопрос уровня порождающего синтеза: действительно ли категории и тезисы порождены проблемой, а не исходными системами философов? \
@@ -3289,9 +3733,9 @@
 Что бы возразил каждый из философов против того, как его идеи переопределены в данном синтезе?`,
 
         transformative: `\
-3. ВЕРНОСТЬ УРОВНЮ СИНТЕЗА — проверка: соответствует ли текст заявленному трансформативному уровню? \
+3. ВЕРНОСТЬ УРОВНЮ СИНТЕЗА — проверка: соответствует ли текст заявленному преобразующему уровню? \
 Для каждой категории: обосновано ли в тексте, из какого именно напряжения между какими именно философами она возникла? \
-Выяви категории, которые фактически заимствованы у одного философа, но представлены как трансформативные (признак: генеалогия указывает одного источника без реального столкновения). \
+Выяви категории, которые фактически заимствованы у одного философа, но представлены как преобразованные (признак: генеалогия указывает одного источника без реального столкновения). \
 Что бы возразил каждый из (${p.phil.join(", ")}), увидев, что его понятие объявлено «результатом напряжения» с другими, — насколько это описание честно?`,
 
         generative: `\
@@ -3566,16 +4010,22 @@ ${LEVEL_THESES_NOVELTY[thesesLevel]}
             title: "Анализ Происхождения",
             prompt: `Составь § — АНАЛИЗ ПРОИСХОЖДЕНИЯ И ГЕНЕАЛОГИЯ ИДЕЙ.
 
-Проведи «обратный инжиниринг» синтезированной концепции:
+Проведи «обратный инжиниринг» синтезированной концепции.
 
-1. ИДЕНТИФИКАЦИЯ РОДИТЕЛЬСКИХ ТРАДИЦИЙ — какие философские традиции являются «родителями» данной концепции. Определи, является ли данная концепция синтезом существующих традиций. Укажи КОНКРЕТНЫЕ ПРИЗНАКИ, позволяющие сделать такой вывод.
+Оформи ТОЧНО следующие секции (каждую — в <div data-section="..."> согласно правилам форматирования):
+
+«Идентификация родительских традиций»
+Какие философские традиции являются «родителями» данной концепции. Определи, является ли данная концепция синтезом существующих традиций. Укажи КОНКРЕТНЫЕ ПРИЗНАКИ, позволяющие сделать такой вывод.
 Таблица: Традиция | Вклад (%) | Ключевые заимствования | Трансформации | Приблизительное соотношение влияния.
 
-2. ЭЛЕМЕНТНАЯ ДЕКОМПОЗИЦИЯ — для КАЖДОЙ категории графа и КАЖДОГО тезиса: из какой традиции он происходит? Что в нём нового? Предоставь детальное обоснование.
+«Элементная декомпозиция»
+Для КАЖДОЙ категории графа и КАЖДОГО тезиса: из какой традиции он происходит? Что в нём нового? Предоставь детальное обоснование.
 
-3. ОЦЕНКА ОРИГИНАЛЬНОСТИ — что в данной концепции является подлинно новым (не сводимым к исходным традициям)? Есть ли эмерджентные свойства синтеза — идеи, которые не содержатся ни в одной из исходных традиций, но возникают из их соединения?
+«Оценка оригинальности»
+Что в данной концепции является подлинно новым (не сводимым к исходным традициям)? Есть ли эмерджентные свойства синтеза — идеи, которые не содержатся ни в одной из исходных традиций, но возникают из их соединения?
 
-4. ПОТЕНЦИАЛЬНЫЕ ВОЗРАЖЕНИЯ — что бы сказал КАЖДЫЙ из выбранных философов (${p.phil.join(", ")}), увидев, как его идеи трансформированы? Формулируй возражения от лица каждого мыслителя, исходя из его собственной системы.
+«Потенциальные возражения»
+Что бы сказал КАЖДЫЙ из выбранных философов (${p.phil.join(", ")}), увидев, как его идеи трансформированы? Формулируй возражения от лица каждого мыслителя, исходя из его собственной системы.
 
 Мин. ${mw(p)} слов.`,
           });
@@ -3587,12 +4037,24 @@ ${LEVEL_THESES_NOVELTY[thesesLevel]}
             title: "Практическое Применение",
             prompt: `Составь § — ПРАКТИЧЕСКОЕ ПРИМЕНЕНИЕ.
 
-Проанализируй возможности практического применения в следующих областях:
-1. ОБРАЗОВАНИЕ — как данная концепция может трансформировать педагогические практики, дидактические методы, структуру учебных программ
-2. ЭТИКА И ПРИНЯТИЕ РЕШЕНИЙ — практические этические рекомендации, вытекающие из концепции; инструменты принятия решений в сложных ситуациях
-3. ПСИХОЛОГИЯ И ЛИЧНОСТНОЕ РАЗВИТИЕ — инструменты самопознания, практики развития, терапевтическое применение
-4. СОЦИАЛЬНЫЕ ИНСТИТУТЫ — как концепция может повлиять на организацию общества, проектирование институтов, управление
-5. МЕЖКУЛЬТУРНЫЙ ДИАЛОГ — применимость к пониманию между культурами, религиями и традициями мысли
+Проанализируй возможности практического применения в следующих областях.
+
+Оформи ТОЧНО следующие секции (каждую — в <div data-section="..."> согласно правилам форматирования):
+
+«Образование»
+Как данная концепция может трансформировать педагогические практики, дидактические методы, структуру учебных программ
+
+«Этика и принятие решений»
+Практические этические рекомендации, вытекающие из концепции; инструменты принятия решений в сложных ситуациях
+
+«Психология и личностное развитие»
+Инструменты самопознания, практики развития, терапевтическое применение
+
+«Социальные институты»
+Как концепция может повлиять на организацию общества, проектирование институтов, управление
+
+«Межкультурный диалог»
+Применимость к пониманию между культурами, религиями и традициями мысли
 
 Для КАЖДОЙ области обязательно 5 подпунктов:
 1. Краткое описание применимости концепции в данной области
@@ -3601,7 +4063,9 @@ ${LEVEL_THESES_NOVELTY[thesesLevel]}
 4. Потенциальные ТРУДНОСТИ И ОГРАНИЧЕНИЯ применения
 5. Критерии ОЦЕНКИ ЭФФЕКТИВНОСТИ применения — как измерить, что концепция действительно работает
 
-Общая таблица: Область | Релевантные категории | Способ применения | Потенциальный эффект | Ограничения | Критерии эффективности.
+«Сводная таблица»
+ОБЯЗАТЕЛЬНО в конце раздела — итоговая таблица.
+Область | Релевантные категории | Способ применения | Потенциальный эффект | Ограничения | Критерии эффективности.
 
 Мин. ${mw(p)} слов.`,
           });
@@ -3628,9 +4092,13 @@ ${LEVEL_DIALOGUE_STRUCT[dialogueLevel]}
  
 Диалог должен быть содержательным, а не формальным — настоящее философское исследование, а не декорация.
  
-ПОСЛЕ ДИАЛОГА обязательно:
-- Таблица: ${LEVEL_DIALOGUE_TABLE[dialogueLevel]}.
-- Аналитический комментарий: ${LEVEL_DIALOGUE_COMMENT[dialogueLevel]}
+ПОСЛЕ ДИАЛОГА обязательны следующие секции (оформи ТОЧНО каждую из них в <div data-section="..."> согласно правилам форматирования):
+
+Итоговая таблица диалога
+${LEVEL_DIALOGUE_TABLE[dialogueLevel]}
+
+«Аналитический комментарий»
+${LEVEL_DIALOGUE_COMMENT[dialogueLevel]}
  
 Мин. ${mw(p)} слов.`,
         });
@@ -3645,16 +4113,22 @@ ${LEVEL_DIALOGUE_STRUCT[dialogueLevel]}
 
 Предложи возможные направления эволюции синтезированной концепции в свете современных научных открытий, социальных изменений и философских тенденций.
 
-1. НАПРАВЛЕНИЯ РАЗВИТИЯ — 3–5 возможных направлений.
+Оформи ТОЧНО следующие секции (каждую — в <div data-section="..."> согласно правилам форматирования):
+
+«Направления развития»
+3–5 возможных направлений.
 Таблица: Направление | Описание | Научная основа | Социальный контекст | Какие категории графа изменятся | Прогноз реализуемости.
 
-2. ПРЕДЛАГАЕМЫЕ ИЗМЕНЕНИЯ ГРАФА — какие новые категории могут появиться, какие связи переосмыслятся, какие элементы устареют. Для каждого предлагаемого изменения: конкретный механизм трансформации.
+«Предлагаемые изменения графа»
+Какие новые категории могут появиться, какие связи переосмыслятся, какие элементы устареют. Для каждого предлагаемого изменения: конкретный механизм трансформации.
 
-3. ЭВОЛЮЦИЯ НАЗВАНИЯ — должно ли название измениться при развитии концепции? Предложи варианты для каждого направления эволюции. Как может и должно ли сохраниться текущее название.
+«Эволюция названия»
+Должно ли название измениться при развитии концепции? Предложи варианты для каждого направления эволюции. Как может и должно ли сохраниться текущее название.
 
-4. ИНТЕГРАЦИЯ С СОВРЕМЕННОЙ НАУКОЙ — как данные нейронауки, когнитивистики, физики, теории сложности, AI могут обогатить или опровергнуть элементы концепции.
+«Интеграция с современной наукой»
+Как данные нейронауки, когнитивистики, физики, теории сложности, AI могут обогатить или опровергнуть элементы концепции.
 
-5. ВРЕМЕННАЯ КАРТА РАЗВИТИЯ:
+«Временная карта развития»
 - Ближайшие 10 лет: какие аспекты наиболее актуальны
 - 50 лет: какие трансформации ожидаемы
 - Отдалённая перспектива: к чему концепция может эволюционировать
@@ -3780,8 +4254,23 @@ ${METHOD_CRITIQUE(p)[p.method] || ""}
         document.getElementById("sessionId").textContent = docNum;
         document.getElementById("footerPhil").textContent = phil.join(", ");
 
-        const defs = buildSectionDefs(p),
-          passes = groupPasses(defs);
+        const effectiveDeps = buildEffectiveDeps(p.sec);
+        const dynamicOrder  = buildDynamicOrder(effectiveDeps, p.sec);
+        p.sec = dynamicOrder.filter(k => k !== "sum");
+
+        // Пересобираем defs в новом порядке
+        const baseDefs = buildSectionDefs(p);    // sum всегда первый внутри
+        const defsMap  = Object.fromEntries(baseDefs.map(d => [d.key, d]));
+
+        // Переставляем разделы по динамическому порядку и перенумеровываем
+        let secNum = 1;
+        const defs = dynamicOrder.map(key => {
+          const d = { ...defsMap[key] };
+          d.num = secNum++;
+          return d;
+        });
+
+        const passes = groupPasses(defs);
         passes.forEach((pass, i) => {
           pass.forEach((d) => {
             if (d.key === "graph") graphBodyIdx = i;
@@ -3850,7 +4339,7 @@ ${METHOD_CRITIQUE(p)[p.method] || ""}
             }
             for (const def of pass) {
               if (def.key === "sum") continue;
-              prior = buildContextForSection(def.key, generated, p.depth);
+              prior = buildContextForSection(def.key, generated, p.depth, effectiveDeps);
               break;
             }
           }
@@ -4013,14 +4502,13 @@ ${METHOD_CRITIQUE(p)[p.method] || ""}
       // ════════════════════════════════════════
       // GRAPH PARSING
       // ════════════════════════════════════════
-
       function normalizeName(name) {
-  return name
-    .replace(/\[.*?\]/g, '')   // убираем всё в квадратных скобках
-    .replace(/\(.*?\)/g, '')   // убираем всё в круглых скобках
-    .trim();                   // убираем лишние пробелы по краям
+        return name
+          .replace(/\[.*?\]/g, '')   // убираем всё в квадратных скобках
+          .replace(/\(.*?\)/g, '')   // убираем всё в круглых скобках
+          .trim();                   // убираем лишние пробелы по краям
       }
-      
+
       function parseGraph(ct) {
         const nodes = [], edges = [];
 
@@ -5300,7 +5788,8 @@ ${METHOD_CRITIQUE(p)[p.method] || ""}
                   for (const e of reqEntries) {
                     const lbl = (CTX_LABELS[e.key] || e.key).padEnd(36);
                     if (e.status === "found") {
-                      lines.push("      ✓ " + lbl + num(e.len).padStart(7) + " симв.");
+                        const subMark = e.isSubstitute ? " [замена]" : "";
+                        lines.push("      ✓ " + lbl + num(e.len).padStart(7) + " симв." + subMark);
                     } else {
                       lines.push("      ✗ " + lbl + "НЕ НАЙДЕН");
                     }
@@ -5313,7 +5802,8 @@ ${METHOD_CRITIQUE(p)[p.method] || ""}
                   for (const e of optEntries) {
                     const lbl = (CTX_LABELS[e.key] || e.key).padEnd(36);
                     if (e.status === "found") {
-                      lines.push("      ✓ " + lbl + num(e.len).padStart(7) + " симв.");
+                      const subMark = e.isSubstitute ? " [замена]" : "";
+                      lines.push("      ✓ " + lbl + num(e.len).padStart(7) + " симв." + subMark);
                     } else if (e.status === "truncated") {
                       lines.push("      ◦ " + lbl + num(e.len).padStart(7) + " симв. [" + (e.note || "") + "]");
                     } else if (e.status === "skipped_budget") {
@@ -5440,8 +5930,11 @@ ${METHOD_CRITIQUE(p)[p.method] || ""}
                   for (const e of reqEntries) {
                     const lbl = esc(CTX_LABELS[e.key] || e.key);
                     if (e.status === "found") {
+                      const subTag = e.isSubstitute
+                        ? ' <span style="color:#9b59b6;font-size:9px;letter-spacing:0.5px">[замена]</span>'
+                        : '';
                       lines.push('      <span style="color:#4db87a">✓</span> ' + lbl +
-                        ' — <span style="color:#4db87a">' + num(e.len) + ' симв.</span>');
+                        ' — <span style="color:#4db87a">' + num(e.len) + ' симв.</span>' + subTag);
                     } else {
                       lines.push('      <span style="color:#e06060">✗</span> ' + lbl +
                         ' — <span style="color:#e06060;font-weight:600">НЕ НАЙДЕН</span>');
@@ -5455,11 +5948,17 @@ ${METHOD_CRITIQUE(p)[p.method] || ""}
                   for (const e of optEntries) {
                     const lbl = esc(CTX_LABELS[e.key] || e.key);
                     if (e.status === "found") {
+                      const subTag = e.isSubstitute
+                        ? ' <span style="color:#9b59b6;font-size:9px;letter-spacing:0.5px">[замена]</span>'
+                        : '';
                       lines.push('      <span style="color:#4db87a">✓</span> ' + lbl +
-                        ' — <span style="color:#4db87a">' + num(e.len) + ' симв.</span>');
+                        ' — <span style="color:#4db87a">' + num(e.len) + ' симв.</span>' + subTag);
                     } else if (e.status === "truncated") {
+                      const subTag = e.isSubstitute
+                        ? ' <span style="color:#9b59b6;font-size:9px;letter-spacing:0.5px">[замена]</span>'
+                        : '';
                       lines.push('      <span style="color:#d4a017">◦</span> ' + lbl +
-                        ' — <span style="color:#d4a017">' + num(e.len) + ' симв.</span> ' +
+                        ' — <span style="color:#d4a017">' + num(e.len) + ' симв.</span>' + subTag + ' ' +
                         '<span style="color:#888888">[' + esc(e.note || "") + ']</span>');
                     } else if (e.status === "skipped_budget") {
                       lines.push('      <span style="color:#888888">◌</span> ' + lbl +
