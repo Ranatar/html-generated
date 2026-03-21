@@ -2229,9 +2229,22 @@
             .filter(([id]) => document.getElementById(id)?.checked)
             .map(([, k]) => k);
 
+          // Deep-clone, чтобы resolveCircularDeps не мутировал оригинал
           const effDeps = buildEffectiveDeps(currentSections);
+          const effDepsClone = {};
+          for (const [k, v] of Object.entries(effDeps)) {
+            effDepsClone[k] = {
+              required: [...v.required],
+              optional: [...v.optional],
+            };
+          }
+          const predsClone = computePredecessors(effDepsClone);
+          resolveCircularDeps(predsClone, effDepsClone);
 
-          for (const [sec, deps] of Object.entries(effDeps)) {
+          // Используем effDepsClone (после разрешения циклов) для уведомлений
+          const resolvedEffDeps = effDepsClone;
+
+          for (const [sec, deps] of Object.entries(resolvedEffDeps)) {
             const originalDeps = CONTEXT_DEPS[sec];
             // Множество всех ключей в оригинальных deps — и required, и optional
             const origAllKeys = new Set([
@@ -3054,26 +3067,67 @@
         let totalInChars  = 0;
         let totalOutChars = 0;
        
+        // Эмпирические доли фрагментов от полного выхода раздела-источника.
+        // Ключи — контекстные фрагменты, значения — доля от общего выхода раздела.
+        const FRAGMENT_SHARE = {
+          "sum:goals": 0.18, "sum:portraits": 0.20, "sum:novelty": 0.12,
+          "sum:tensions": 0.12, "sum:coherence": 0.10, "sum:difficulty": 0.12,
+          "graph:nodes": 0.40, "graph:edges": 0.35, "graph:topology": 0.15,
+          "glossary:table": 0.85,
+          "theses:full": 0.90, "theses:summary": 0.25,
+          "name:title": 0.20, "name:full": 0.90,
+          "history:contemporary": 0.25, "history:genealogy": 0.25,
+          "history:influence": 0.20, "history:name_context": 0.15,
+          "origin:decomposition": 0.30, "origin:genealogy": 0.25, "origin:novelty": 0.20,
+          "evolution:directions": 0.25, "evolution:graph_changes": 0.20,
+          "evolution:name_evolution": 0.15, "evolution:science": 0.20,
+          "dialogue:synthesis": 0.30,
+          "practical:summary": 0.25,
+        };
+
+        // Оценка выхода каждого раздела (в символах)
+        const estimatedOutput = {};
+        for (const pass of passes) {
+          for (const def of pass) {
+            const mult = SECTION_OUTPUT_MULT[def.key] ?? SECTION_OUTPUT_MULT._default;
+            estimatedOutput[def.key] = Math.round(
+              mw(p) * mult * WORDS_TO_CHARS * HTML_OVERHEAD
+            );
+          }
+        }
+
         for (let i = 0; i < passes.length; i++) {
           const pass = passes[i];
-    
-          const contextChars = i === 0
-            ? 0
-            : Math.min(budget, Math.round(budget * (1 - Math.pow(0.3, i))));
-       
-          // Задание секции: «§ N — ЗАГОЛОВОК\n{prompt}», объединённое через «\n\n»
+
+          let contextChars = 0;
+          if (i > 0) {
+            for (const def of pass) {
+              if (def.key === "sum") continue;
+              const deps = effectiveDeps[def.key];
+              if (!deps) continue;
+
+              for (const ctxKey of [...deps.required, ...deps.optional]) {
+                const src = sourceOf(ctxKey);
+                const srcOutput = estimatedOutput[src];
+                if (!srcOutput) continue; // источник — sum или не сгенерирован
+                const share = FRAGMENT_SHARE[ctxKey] ?? 0.25;
+                contextChars += Math.round(srcOutput * share);
+              }
+            }
+            contextChars = Math.min(contextChars, budget);
+          }
+
           const sectionPromptsChars = pass.reduce(
             (s, d) => s + d.prompt.length + d.title.length + 20, 0
           );
-       
+
           const passInChars = sysChars + baseChars + contextChars
                             + rulesChars + qualityChars
                             + sectionPromptsChars + scaffoldChars;
           totalInChars += passInChars;
-      
+
           for (const def of pass) {
-            const mult = SECTION_OUTPUT_MULT[def.key] ?? SECTION_OUTPUT_MULT._default;
-            totalOutChars += Math.round(mw(p) * mult * WORDS_TO_CHARS * HTML_OVERHEAD);
+            totalOutChars += estimatedOutput[def.key] || 0;
           }
         }
        
@@ -3414,6 +3468,43 @@
             if (UNTOUCHABLE.has(requiredParts[j].key)) continue;
             requiredParts[j].text = truncateText(requiredParts[j].text,
               Math.max(500, Math.floor(requiredParts[j].text.length * 0.5)));
+          }
+        }
+
+        // 4b. Логируем утраченные ключи из оригинальных зависимостей
+        const effectiveAllKeys = new Set([...deps.required, ...deps.optional]);
+        if (_origDeps) {
+          const available = new Set(["sum", ...Object.keys(effectiveDepsMap || {})]);
+
+          for (const tier of ["required", "optional"]) {
+            for (const origKey of (_origDeps[tier] || [])) {
+              if (effectiveAllKeys.has(origKey)) continue;
+
+              // Ключ был в оригинале, но отсутствует в effective deps
+              const src = sourceOf(origKey);
+              let note;
+              if (!available.has(src) || src === "sum") {
+                // Раздел-источник не выбран
+                const sub = findSubstitute(origKey, available, sectionKey);
+                if (sub) {
+                  // Замена существовала, но была удалена resolveCircularDeps
+                  note = "замена " + (CTX_LABELS[sub] || sub) + " удалена при разрешении цикла";
+                } else {
+                  note = "раздел-источник не выбран, замена не найдена";
+                }
+              } else {
+                note = "удалён при разрешении цикла зависимостей";
+              }
+
+              logEntries.push({
+                key: origKey,
+                status: "dropped",
+                len: 0,
+                priority: tier,
+                isSubstitute: false,
+                note: note,
+              });
+            }
           }
         }
 
@@ -4455,6 +4546,7 @@ ${METHOD_CRITIQUE(p)[p.method] || ""}
         let buf = "",
           html = "";
         let usageIn = 0, usageOut = 0;
+        let pendingFlush = false;
         const cur = document.createElement("span");
         cur.className = "stream-cursor";
         container.appendChild(cur);
@@ -4472,14 +4564,20 @@ ${METHOD_CRITIQUE(p)[p.method] || ""}
               const p = JSON.parse(d);
               if (p.type === "content_block_delta" && p.delta?.text) {
                 html += p.delta.text;
-                cur.remove();
-                container.innerHTML = html;
-                container.appendChild(cur);
-                // Авто-прокрутка только если пользователь у дна страницы
-                const distToBottom = document.documentElement.scrollHeight
-                  - window.scrollY - window.innerHeight;
-                if (distToBottom < 150) {
-                  cur.scrollIntoView({ block: "nearest" });
+                if (!pendingFlush) {
+                  pendingFlush = true;
+                  requestAnimationFrame(() => {
+                    pendingFlush = false;
+                    cur.remove();
+                    container.innerHTML = html;
+                    container.appendChild(cur);
+                    // Авто-прокрутка только если пользователь у дна страницы
+                    const distToBottom = document.documentElement.scrollHeight
+                      - window.scrollY - window.innerHeight;
+                    if (distToBottom < 150) {
+                      cur.scrollIntoView({ block: "nearest" });
+                    }
+                  });
                 }
                 // Callback для обновления лога в реальном времени
                 if (onDelta) onDelta(html.length);
@@ -4491,9 +4589,36 @@ ${METHOD_CRITIQUE(p)[p.method] || ""}
               if (p.type === "message_delta" && p.usage) {
                 usageOut = p.usage.output_tokens || 0;
               }
-            } catch (e) {}
+            } catch (e) {
+              console.warn("SSE parse error:", e, "raw:", d);
+            }
           }
         }
+
+        // Обработка остатка буфера после завершения потока
+        if (buf.trim()) {
+          const remaining = buf.trim();
+          if (remaining.startsWith("data: ")) {
+            const d = remaining.slice(6).trim();
+            if (d !== "[DONE]") {
+              try {
+                const p = JSON.parse(d);
+                if (p.type === "content_block_delta" && p.delta?.text) {
+                  html += p.delta.text;
+                }
+                if (p.type === "message_start" && p.message?.usage) {
+                  usageIn = p.message.usage.input_tokens || 0;
+                }
+                if (p.type === "message_delta" && p.usage) {
+                  usageOut = p.usage.output_tokens || 0;
+                }
+              } catch (e) {
+                console.warn("SSE tail parse error:", e, "raw:", d);
+              }
+            }
+          }
+        }
+
         cur.remove();
         container.innerHTML = html;
         return { input_tokens: usageIn, output_tokens: usageOut };
@@ -5792,6 +5917,8 @@ ${METHOD_CRITIQUE(p)[p.method] || ""}
                     if (e.status === "found") {
                         const subMark = e.isSubstitute ? " [замена]" : "";
                         lines.push("      ✓ " + lbl + num(e.len).padStart(7) + " симв." + subMark);
+                    } else if (e.status === "dropped") {
+                      lines.push("      ✗ " + lbl + "утрачён [" + (e.note || "") + "]");
                     } else {
                       lines.push("      ✗ " + lbl + "НЕ НАЙДЕН");
                     }
@@ -5810,6 +5937,8 @@ ${METHOD_CRITIQUE(p)[p.method] || ""}
                       lines.push("      ◦ " + lbl + num(e.len).padStart(7) + " симв. [" + (e.note || "") + "]");
                     } else if (e.status === "skipped_budget") {
                       lines.push("      ◌ " + lbl + "пропущен [" + (e.note || "бюджет исчерпан") + "]");
+                    } else if (e.status === "dropped") {
+                      lines.push("      ✗ " + lbl + "утрачён [" + (e.note || "") + "]");
                     } else {
                       lines.push("      ✗ " + lbl + "не найден");
                     }
@@ -5937,6 +6066,10 @@ ${METHOD_CRITIQUE(p)[p.method] || ""}
                         : '';
                       lines.push('      <span style="color:#4db87a">✓</span> ' + lbl +
                         ' — <span style="color:#4db87a">' + num(e.len) + ' симв.</span>' + subTag);
+                    } else if (e.status === "dropped") {
+                      lines.push('      <span style="color:#e06060">✗</span> ' + lbl +
+                        ' — <span style="color:#e06060">утрачён</span> ' +
+                        '<span style="color:#777777">[' + esc(e.note || "") + ']</span>');
                     } else {
                       lines.push('      <span style="color:#e06060">✗</span> ' + lbl +
                         ' — <span style="color:#e06060;font-weight:600">НЕ НАЙДЕН</span>');
@@ -5965,6 +6098,10 @@ ${METHOD_CRITIQUE(p)[p.method] || ""}
                     } else if (e.status === "skipped_budget") {
                       lines.push('      <span style="color:#888888">◌</span> ' + lbl +
                         ' — <span style="color:#888888">пропущен</span> ' +
+                        '<span style="color:#777777">[' + esc(e.note || "") + ']</span>');
+                    } else if (e.status === "dropped") {
+                      lines.push('      <span style="color:#e06060">✗</span> ' + lbl +
+                        ' — <span style="color:#e06060">утрачён</span> ' +
                         '<span style="color:#777777">[' + esc(e.note || "") + ']</span>');
                     } else {
                       lines.push('      <span style="color:#e06060">✗</span> ' + lbl +
