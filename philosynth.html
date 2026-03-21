@@ -3480,29 +3480,39 @@
             for (const origKey of (_origDeps[tier] || [])) {
               if (effectiveAllKeys.has(origKey)) continue;
 
-              // Ключ был в оригинале, но отсутствует в effective deps
               const src = sourceOf(origKey);
-              let note;
-              if (!available.has(src) || src === "sum") {
-                // Раздел-источник не выбран
-                const sub = findSubstitute(origKey, available, sectionKey);
-                if (sub) {
-                  // Замена существовала, но была удалена resolveCircularDeps
-                  note = "замена " + (CTX_LABELS[sub] || sub) + " удалена при разрешении цикла";
-                } else {
-                  note = "раздел-источник не выбран, замена не найдена";
-                }
+              const sub = findSubstitute(origKey, available, sectionKey);
+              let note, status;
+
+              if (sub && effectiveAllKeys.has(sub)) {
+                // Случай 1: заменитель найден И присутствует в effective deps.
+                // Он уже залогирован как обычный found/truncated — 
+                // не дублируем, просто пропускаем.
+                continue;
+              } else if (sub) {
+                // Случай 2: заменитель существовал, но был удалён 
+                // (например, resolveCircularDeps отрезал ребро)
+                status = "dropped";
+                note = "замена " + (CTX_LABELS[sub] || sub) +
+                       " удалена при разрешении цикла";
+              } else if (!available.has(src)) {
+                // Случай 3: раздел-источник не выбран, замены нет
+                status = "dropped";
+                note = "раздел-источник не выбран, замена не найдена";
               } else {
+                // Случай 4: источник доступен, но ключ всё равно 
+                // отсутствует (удалён resolveCircularDeps напрямую)
+                status = "dropped";
                 note = "удалён при разрешении цикла зависимостей";
               }
 
               logEntries.push({
                 key: origKey,
-                status: "dropped",
+                status,
                 len: 0,
                 priority: tier,
                 isSubstitute: false,
-                note: note,
+                note,
               });
             }
           }
