@@ -4983,8 +4983,8 @@ ${METHOD_CRITIQUE(p)[p.method] || ""}
         };
        
         function addRole(name, role) {
-          if (!result.roles[name]) result.roles[name] = new Set();
-          result.roles[name].add(role);
+          if (!result.roles[name]) result.roles[name] = [];
+          if (!result.roles[name].includes(role)) result.roles[name].push(role);
         }
        
         // ── Читаем «Топологическую таблицу» ────────────────────────────────────
@@ -5002,13 +5002,25 @@ ${METHOD_CRITIQUE(p)[p.method] || ""}
           // Столбец 1: Кластер
           const clusterRaw = (td[1] || "").trim();
           const isBridge   = /^мост$/i.test(clusterRaw) || clusterRaw === "";
+          if (isBridge && /^мост$/i.test(clusterRaw)) {
+            addRole(name, "bridge");
+          }
        
           if (!isBridge && clusterRaw) {
-            // Несколько кластеров через «/»: берём первый как основной
-            const clusterLabel = clusterRaw.split(/\s*\/\s*/)[0].trim();
+            const parts = clusterRaw.split(/\s*\/\s*/);
+            const clusterLabel = parts[0].trim();
             if (clusterLabel) {
-              // Найти или создать индекс кластера
+              // Точное совпадение
               let idx = result.clusterLabels.indexOf(clusterLabel);
+              // Если нет — ищем по префиксу ("I" → "I — Логика незнания")
+              if (idx === -1) {
+                idx = result.clusterLabels.findIndex(existing =>
+                  existing.startsWith(clusterLabel + " ") ||
+                  existing.startsWith(clusterLabel + "\u00a0") ||
+                  existing.startsWith(clusterLabel + " —") ||
+                  existing === clusterLabel
+                );
+              }
               if (idx === -1) {
                 idx = result.clusterLabels.length;
                 result.clusterLabels.push(clusterLabel);
@@ -5211,12 +5223,12 @@ ${METHOD_CRITIQUE(p)[p.method] || ""}
         const W = ct.clientWidth, H = ct.clientHeight;
         const { ns, es } = warmup(G.nodes, G.edges, 3);
 
-        // Получить Set ролей для узла из topology.
-        // G.topology.roles хранит Sets (в браузере) или массивы (после JSON-сериализации).
         function getRoles(n) {
           const r = G.topology?.roles?.[n.name];
           if (!r) return new Set();
-          return r instanceof Set ? r : new Set(r);
+          if (r instanceof Set) return r;
+          if (Array.isArray(r)) return new Set(r);
+          return new Set(); // защита от {} после JSON
         }
 
         const scene = new THREE.Scene();
@@ -5329,6 +5341,7 @@ ${METHOD_CRITIQUE(p)[p.method] || ""}
             torusMesh.rotation.x = Math.PI / 2;
             scene.add(torusMesh);
             reflMeshes.push({ mesh: torusMesh, si: e.si });
+            torusMesh.material.userData = { baseOp: torusMesh.material.opacity };
             edgeMaterials.push(torusMesh.material);
 
             // Хитбокс
@@ -5354,6 +5367,8 @@ ${METHOD_CRITIQUE(p)[p.method] || ""}
             } else {
               lineMat = new THREE.LineBasicMaterial({ color: col, transparent: true, opacity: op });
             }
+            if (!lineMat.userData) lineMat.userData = {};
+            lineMat.userData.baseOp = lineMat.opacity;
             edgeMaterials.push(lineMat);
 
             const geo = new THREE.BufferGeometry().setFromPoints([
@@ -5361,7 +5376,8 @@ ${METHOD_CRITIQUE(p)[p.method] || ""}
               new THREE.Vector3(t.x, t.y, t.z),
             ]);
             const line = new THREE.Line(geo, lineMat);
-            if (dash) line.computeLineDistances();  // обязательно для LineDashedMaterial
+            if (dash) line.computeLineDistances();
+            line.userData = { si: e.si, ti: e.ti, baseOp: lineMat.opacity };
             scene.add(line);
             edgeGeos.push({ geo, si: e.si, ti: e.ti, line, isDashed: !!dash });
 
@@ -5375,8 +5391,10 @@ ${METHOD_CRITIQUE(p)[p.method] || ""}
             );
             cn.position.copy(ap);
             cn.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), dir);
+            cn.userData = { si: e.si, ti: e.ti, baseOp: lineMat.opacity };
             scene.add(cn);
             arrowMeshes.push({ mesh: cn, si: e.si, ti: e.ti, pointsToTi: true });
+            cn.material.userData = { baseOp: cn.material.opacity };
             edgeMaterials.push(cn.material);
 
             if (bi) {
@@ -5389,8 +5407,10 @@ ${METHOD_CRITIQUE(p)[p.method] || ""}
               );
               cn2.position.copy(ap2);
               cn2.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), d2);
+              cn2.userData = { si: e.si, ti: e.ti, baseOp: lineMat.opacity };
               scene.add(cn2);
               arrowMeshes.push({ mesh: cn2, si: e.si, ti: e.ti, pointsToTi: false });
+              cn2.material.userData = { baseOp: cn2.material.opacity };
               edgeMaterials.push(cn2.material);
             }
 
@@ -5468,12 +5488,12 @@ ${METHOD_CRITIQUE(p)[p.method] || ""}
             }
           });
           // Линии рёбер
-          for (const { geo, si, ti } of edgeGeos) {
-            const pos = geo.attributes.position;
-            pos.setXYZ(0, ns[si].x, ns[si].y, ns[si].z);
-            pos.setXYZ(1, ns[ti].x, ns[ti].y, ns[ti].z);
+          for (const eg of edgeGeos) {
+            const pos = eg.geo.attributes.position;
+            pos.setXYZ(0, ns[eg.si].x, ns[eg.si].y, ns[eg.si].z);
+            pos.setXYZ(1, ns[eg.ti].x, ns[eg.ti].y, ns[eg.ti].z);
             pos.needsUpdate = true;
-            if (edgeGeo.isDashed) edgeGeo.line.computeLineDistances();
+            if (eg.isDashed) eg.line.computeLineDistances();
           }
           // Рефлексивные петли
           for (const { mesh, si } of reflMeshes) {
@@ -5595,7 +5615,7 @@ ${METHOD_CRITIQUE(p)[p.method] || ""}
           // затем восстанавливаем по индексу конусов через arrowMeshes.
           edgeMaterials.forEach(mat => { mat.opacity *= 0.08; });
           // Восстанавливаем рёбра hoveredNode
-          [...edgeGeos, ...arrowMeshes.map(a => ({ si: a.mesh.userData?.si ?? -1, ti: a.mesh.userData?.ti ?? -1 }))];
+          //[...edgeGeos, ...arrowMeshes.map(a => ({ si: a.mesh.userData?.si ?? -1, ti: a.mesh.userData?.ti ?? -1 }))];
           // Упрощённый подход: перебираем по arrowMeshes (у них si/ti в mesh.userData не хранится).
           // Достаточно восстановить через прямой проход по es и соответствующим edgeGeos/arrowMeshes.
           // Реализация через userData на line-объектах (добавить при создании):
@@ -5656,8 +5676,8 @@ ${METHOD_CRITIQUE(p)[p.method] || ""}
               setHover(hit);
               const n = ns[hit.userData.nodeIdx];
               tooltip.style.display = "block";
-              tooltip.style.left = (e.offsetX + 14) + "px";
-              tooltip.style.top  = (e.offsetY - 10) + "px";
+              tooltip.style.left = (e.clientX + 14) + "px";
+              tooltip.style.top  = (e.clientY - 10) + "px";
               tooltip.textContent = `${n.name}\n[${normalizeType(n.type)}]\n${n.def}`;
               cv.style.cursor = "pointer";
             } else {
@@ -5666,8 +5686,8 @@ ${METHOD_CRITIQUE(p)[p.method] || ""}
               if (edgeHits.length > 0) {
                 const ed = edgeHits[0].object.userData.edgeData;
                 tooltip.style.display = "block";
-                tooltip.style.left = (e.offsetX + 14) + "px";
-                tooltip.style.top  = (e.offsetY - 10) + "px";
+                tooltip.style.left = (e.clientX + 14) + "px";
+                tooltip.style.top  = (e.clientY - 10) + "px";
                 tooltip.textContent = `${ed.desc}\n[${ed.type}]\n${ed.dir}`;
                 cv.style.cursor = "default";
               } else {
@@ -5769,17 +5789,25 @@ ${METHOD_CRITIQUE(p)[p.method] || ""}
         function animate() {
           anim3d = requestAnimationFrame(animate);
           // Анимация появления
-          if (appearT < APPEAR_DUR) {
+          if (appearT < APPEAR_DUR && fixedNodeIdx === null) {
             appearT++;
             const t = easeOut3(appearT / APPEAR_DUR);
             ns.forEach((n) => { n.x = n.tx * t; n.y = n.ty * t; n.z = n.tz * t; });
             meshes.forEach((m) => m.scale.setScalar(t));
             updateAllVisuals();
-          } else if (simAlpha > 0.001 || fixedNodeIdx !== null) {
-            tick(ns, es, simAlpha, fixedNodeIdx);
-            simAlpha *= 0.95;
-            if (simAlpha < 0.001 && fixedNodeIdx === null) simAlpha = 0;
-            updateAllVisuals();
+          } else {
+            if (appearT < APPEAR_DUR) {
+              // Прерываем анимацию — мгновенно к целевым позициям
+              ns.forEach((n) => { n.x = n.tx; n.y = n.ty; n.z = n.tz; });
+              meshes.forEach((m) => m.scale.setScalar(1));
+              appearT = APPEAR_DUR;
+            }
+            if (simAlpha > 0.001 || fixedNodeIdx !== null) {
+              tick(ns, es, simAlpha, fixedNodeIdx);
+              simAlpha *= 0.95;
+              if (simAlpha < 0.001 && fixedNodeIdx === null) simAlpha = 0;
+              updateAllVisuals();
+            }
           }
           if (!isOrbit) {
             orbitVX *= 0.96;
@@ -5883,6 +5911,14 @@ ${METHOD_CRITIQUE(p)[p.method] || ""}
           const s = typeof l.source === "object" ? l.source.id : l.source;
           return t === d.id && s !== d.id;
         });
+        // Двунаправленные: если A→B двунаправленная и мы смотрим A,
+        // добавить «входящую» сторону (B→A)
+        const biIncoming = links.filter(l => {
+          const s = typeof l.source === "object" ? l.source.id : l.source;
+          const t = typeof l.target === "object" ? l.target.id : l.target;
+          return s === d.id && t !== d.id && l.dir.includes("двунаправлен");
+        }).map(l => ({ ...l, source: l.target, target: l.source }));
+        inc.push(...biIncoming);
         const ref = links.filter(l => {
           const s = typeof l.source === "object" ? l.source.id : l.source;
           return s === d.id && l.dir.includes("рефлексив");
@@ -5949,7 +5985,13 @@ ${METHOD_CRITIQUE(p)[p.method] || ""}
           ...n,
           id:      i,
           cluster: topo.clusters[n.name] ?? -1,
-          roles:   topo.roles[n.name] || new Set(),
+          roles: (() => {
+            const r = topo.roles[n.name];
+            if (!r) return new Set();
+            if (r instanceof Set) return r;
+            if (Array.isArray(r)) return new Set(r);
+            return new Set();
+          })(),
         }));
        
         const links = G.edges
@@ -6209,7 +6251,8 @@ ${METHOD_CRITIQUE(p)[p.method] || ""}
         let h = secTitle("ТИПЫ КАТЕГОРИЙ");
         for (const t of nodeTypes)
           h += `<div class="gm-legend-item">
-            <div class="gm-legend-dot" style="background:${typeColorHex(t)}"></div>${t}
+            <div class="gm-legend-dot" style="background:${typeColorHex(t)}"></div>
+            <span>${t}</span>
           </div>`;
        
         if (edgeTypes?.size) {
@@ -6352,7 +6395,7 @@ ${METHOD_CRITIQUE(p)[p.method] || ""}
         // внутри клонированного модального HTML.
         const initScript = `
 (function () {
-  var G = ${JSON.stringify(graphData)};
+  var G = ${JSON.stringify(graphData, (key, value) => value instanceof Set ? [...value] : value)};
   var anim3d = null;
   var renderer3d = null;
   var scene3d = null;
