@@ -2367,22 +2367,30 @@
           .map(([, k]) => k);
       }
 
+      function _getResolvedDepsFromDOM() {
+        const level  = document.getElementById("synthesisLevel")?.value ?? "comparative";
+        const method = document.getElementById("synthesisMethod")?.value ?? "dialectical";
+        return resolveContextDeps({ synthLevel: level, method });
+      }
+
       // ════════════════════════════════════════
       // SECTION DEPENDENCY WARNINGS
       // ════════════════════════════════════════
 
-      const SECTION_WARNINGS = {
-        secGlossary:  { needs: ["secGraph"],                             label: "Глоссарий терминов" },
-        secTheses:    { needs: ["secGraph"],                             label: "Корпус тезисов" },
-        secOrigin:    { needs: ["secGraph", "secTheses"],                label: "Анализ происхождения" },
-        secPractical: { needs: ["secTheses"],                            label: "Практическое применение" },
-        secEvolution: { needs: ["secName", "secGraph"],                  label: "Эволюция и перспективы" },
-        secCritique:  { needs: ["secGraph", "secTheses", "secGlossary"], label: "Критический анализ" },
-        secDialogue:  { needs: ["secGraph"],                             label: "Диалог между традициями" },
-        secHistory:   { needs: [],                                       label: "Историческая контекстуализация" },
-        secName:      { needs: [],                                       label: "Анализ названия" },
-        secGraph:     { needs: [],                                       label: "Граф категорий" },
-      };
+      function computeSectionWarnings(resolvedDeps) {
+        const warnings = {};
+        for (const [sec, deps] of Object.entries(resolvedDeps)) {
+          const secId = "sec" + sec.charAt(0).toUpperCase() + sec.slice(1);
+          const needs = [...new Set(
+            deps.required
+              .map(k => sourceOf(k))
+              .filter(src => src !== "sum")
+              .map(src => "sec" + src.charAt(0).toUpperCase() + src.slice(1))
+          )];
+          warnings[secId] = { needs, label: SECTION_LABELS[secId] ?? sec };
+        }
+        return warnings;
+      }
 
       const SECTION_LABELS = {
         secGraph:     "Граф категорий",
@@ -2419,7 +2427,8 @@
         };
 
         // ── 1. Предупреждения о зависимостях между разделами ─────────────────
-        for (const [secId, cfg] of Object.entries(SECTION_WARNINGS)) {
+        const sectionWarnings = computeSectionWarnings(_getResolvedDepsFromDOM());
+        for (const [secId, cfg] of Object.entries(sectionWarnings)) {
           const el = document.getElementById(secId);
           if (!el || !el.checked || cfg.needs.length === 0) continue;
           const missing = cfg.needs.filter(depId => {
@@ -2440,7 +2449,7 @@
         const level = document.getElementById("synthesisLevel").value;
         const method = document.getElementById("synthesisMethod").value;
         const compatKey = level + ":" + method;
-        const compatEntry = typeof COMPAT_MATRIX !== "undefined" ? COMPAT_MATRIX[compatKey] : null;
+        const compatEntry = typeof getCompatEntryByKey !== "undefined" ? getCompatEntryByKey(compatKey) : null;
 
         if (compatEntry) {
           for (const [secId, secKey] of Object.entries(secIdToKey)) {
@@ -2468,7 +2477,8 @@
         }
 
         // ── 3. Мягкие рекомендации: необязательный контекст из CONTEXT_DEPS ──
-        if (typeof CONTEXT_DEPS !== "undefined") {
+        if (typeof resolveContextDeps !== "undefined") {
+          const _resolvedForWarnings = _getResolvedDepsFromDOM();
 
           const contextKeyToSecId = {
             graph: "secGraph", glossary: "secGlossary", theses: "secTheses",
@@ -2490,7 +2500,7 @@
             const el = document.getElementById(secId);
             if (!el || !el.checked) continue;
 
-            const deps = CONTEXT_DEPS[depKey];
+            const deps = _resolvedForWarnings[depKey];
             if (!deps || !deps.optional || deps.optional.length === 0) continue;
 
             for (const optKey of deps.optional) {
@@ -2534,7 +2544,7 @@
             .map(([, k]) => k);
 
           // Deep-clone, чтобы resolveCircularDeps не мутировал оригинал
-          const effDeps = buildEffectiveDeps(currentSections);
+          const effDeps = buildEffectiveDeps(currentSections, _getResolvedDepsFromDOM());
           const effDepsClone = {};
           for (const [k, v] of Object.entries(effDeps)) {
             effDepsClone[k] = {
@@ -2591,7 +2601,7 @@
         return null; // оригинальный ключ, не заменитель
       }
 
-      function getEdgeQuality(fromSection, toSection, effectiveDeps) {
+      function getEdgeQuality(fromSection, toSection, effectiveDeps, resolvedDeps) {
         const deps = effectiveDeps[toSection];
         if (!deps) return Infinity;
 
@@ -2601,7 +2611,7 @@
 
         let minQ = Infinity;
         for (const k of edgeKeys) {
-          const origDeps = CONTEXT_DEPS[toSection];
+          const origDeps = (resolvedDeps ?? CONTEXT_DEPS_BASE)[toSection];
           const isOriginal = origDeps &&
             [...origDeps.required, ...origDeps.optional].includes(k);
           if (isOriginal) {
@@ -2676,7 +2686,7 @@
        * @param {Object} effectiveDeps  — { sectionKey: { required, optional } }, мутируется
        * @returns {Object}              — predecessors без циклов
        */
-      function resolveCircularDeps(predecessors, effectiveDeps) {
+      function resolveCircularDeps(predecessors, effectiveDeps, resolvedDeps) {
         // Верхняя граница итераций = количество рёбер (каждая итерация удаляет хотя бы одно)
         const maxIter = Object.values(predecessors).reduce((s, p) => s + p.size, 0);
 
@@ -2689,7 +2699,7 @@
           for (let j = 0; j < cycle.length; j++) {
             const to   = cycle[j];
             const from = cycle[(j + 1) % cycle.length];
-            const q = getEdgeQuality(from, to, effectiveDeps);
+            const q = getEdgeQuality(from, to, effectiveDeps, resolvedDeps);
             if (q < weakestQ) { weakestQ = q; weakestEdge = [from, to]; }
           }
 
@@ -2712,188 +2722,363 @@
       // ════════════════════════════════════════
 
       /**
-       * Матрица совместимости уровень × метод.
-       * Ключи: "level:method"
-       * Значения: объект с общим рейтингом, раздело-специфичными рейтингами,
-       *           описанием и рекомендациями замен.
+       * Классификация секций на две группы.
        *
-       * Рейтинги:  "★★★" | "★★" | "★" | "≈" | "✗" | "✗✗"
-       * Severity:  "synergy-max" | "synergy" | "stable" | "tension" | "conflict" | "hard-conflict"
+       * CORE: секции, чья содержательная структура (методология построения,
+       *       шкалы новизны, критерии проверки) определяется осями уровня и метода.
+       *
+       * META: секции, на которые уровень/метод влияют косвенно (через постановку задачи
+       *       и форму ссылок, но не через радикальную смену структуры содержания).
        */
-
-      const COMPAT_MATRIX = {
-        // ── Сравнительный: ★ со всеми методами ──
+      const SEC_GROUP = {
+        sum:      "core",
+        graph:    "core",
+        theses:   "core",
+        dialogue: "core",
+        critique: "core",
+        origin:   "core",
+        glossary: "core",
+        name:     "meta",
+        history:  "meta",
+        practical:"meta",
+        evolution:"meta",
+      };
+       
+      /**
+       * Чувствительность секции к каждой оси, 1–3.
+       * [чувствительность к уровню синтеза, чувствительность к методу]
+       */
+      const SEC_SENSITIVITY = {
+      //           [level, method]
+        sum:      [2, 2],
+        graph:    [3, 3],
+        theses:   [3, 3],
+        dialogue: [3, 3],
+        critique: [3, 2],
+        origin:   [2, 1],
+        glossary: [2, 2],
+        name:     [1, 2],
+        history:  [1, 1],
+        practical:[1, 2],
+        evolution:[2, 1],
+      };
+       
+      /**
+       * Профиль синергии для каждого метода.
+       */
+      const METHOD_SYNERGY_PEAKS = {
+        dialectical:    null,                           // равномерная синергия во всём документе
+        integrative:    null,                           // (на практике только с comparative)
+        deconstructive: null,                           // равномерная деконструктивная синергия
+        hermeneutical:  null,                           // (на практике только с comparative)
+        analytical:     ["theses", "critique", "origin"], // верификация и формальный аудит
+        creative:       ["dialogue", "glossary"],         // открытые, незамкнутые секции
+      };
+       
+      /**
+       * Базовые рейтинги по группам для каждого severity.
+       */
+      const BASE_SECTION_RATING = {
+        //                  core    meta
+        "stable":          ["★",   "★"  ],
+        "tension":         ["≈",   "★"  ],
+        "synergy":         ["★★",  "★"  ],
+        "synergy-max":     ["★★★", "★★" ],
+        "conflict":        ["≈",   "≈"  ],
+        "hard-conflict":   ["≈",   "≈"  ],
+      };
+       
+      /**
+       * Вычисляет рейтинг одной секции.
+       *
+       * @param {string}  section   — ключ секции
+       * @param {string}  severity  — из записи COMPAT_MATRIX_COMPACT
+       * @param {string}  method    — метод синтеза
+       * @param {Object}  overrides — { [section]: rating }, частичная таблица переопределений
+       * @returns {string} символ рейтинга
+       */
+      function computeSectionRating(section, severity, method, overrides = {}) {
+        // 1. Явное переопределение имеет наивысший приоритет
+        if (Object.prototype.hasOwnProperty.call(overrides, section)) {
+          return overrides[section];
+        }
+       
+        const group = SEC_GROUP[section] ?? "meta";
+        const [baseCore, baseMeta] = BASE_SECTION_RATING[severity] ?? ["≈", "≈"];
+       
+        // 2. При synergy-max: модулируем core-секции через профиль метода
+        if (severity === "synergy-max" && group === "core") {
+          const peaks = METHOD_SYNERGY_PEAKS[method] ?? null;
+       
+          if (peaks !== null) {
+            // Концентрированная синергия: пики → ★★★, остальные core → ★★
+            return peaks.includes(section) ? "★★★" : "★★";
+          }
+          // Широкая синергия: все core → ★★★
+          return "★★★";
+        }
+       
+        // 3. Базовый рейтинг по группе
+        return group === "core" ? baseCore : baseMeta;
+      }
+       
+      /**
+       * Вычисляет все 11 рейтингов секций для одной записи матрицы.
+       * @param {string}  severity
+       * @param {string}  method
+       * @param {Object}  overrides — { [section]: rating } | null
+       * @returns {{ [section]: string }}
+       */
+      function computeSections(severity, method, overrides = {}) {
+        const SECTIONS = [
+          "sum", "graph", "glossary", "theses", "dialogue",
+          "critique", "name", "history", "practical", "evolution", "origin",
+        ];
+        const ov = overrides ?? {};
+        return Object.fromEntries(
+          SECTIONS.map(sec => [sec, computeSectionRating(sec, severity, method, ov)])
+        );
+      }
+       
+      const COMPAT_MATRIX_COMPACT = {
+       
+        // ── Сравнительный ──────────────────────────────────────────────
+        // severity = stable → алгоритм даёт ★ для всех секций, override не нужен.
+       
         "comparative:dialectical": {
           rating: "★", severity: "stable",
-          sections: { sum:"★", graph:"★", glossary:"★", theses:"★", dialogue:"★", critique:"★", name:"★", history:"★", practical:"★", evolution:"★", origin:"★" },
           desc: "Сравнительный уровень надёжно работает с любым методом. Диалектический метод даёт наиболее структурированный результат на этом уровне.",
-          advice: null, replacements: null
+          advice: null, replacements: null, sections_override: null,
         },
         "comparative:integrative": {
           rating: "★", severity: "stable",
-          sections: { sum:"★", graph:"★", glossary:"★", theses:"★", dialogue:"★", critique:"★", name:"★", history:"★", practical:"★", evolution:"★", origin:"★" },
           desc: "Сравнительный уровень надёжно работает с любым методом. Интегративный метод оптимален для поиска общих оснований между традициями.",
-          advice: null, replacements: null
+          advice: null, replacements: null, sections_override: null,
         },
         "comparative:deconstructive": {
           rating: "★", severity: "stable",
-          sections: { sum:"★", graph:"★", glossary:"★", theses:"★", dialogue:"★", critique:"★", name:"★", history:"★", practical:"★", evolution:"★", origin:"★" },
           desc: "Сравнительный уровень надёжно работает с любым методом. Деконструктивный метод позволяет вскрыть скрытые предпосылки каждой традиции.",
-          advice: null, replacements: null
+          advice: null, replacements: null, sections_override: null,
         },
         "comparative:hermeneutical": {
           rating: "★", severity: "stable",
-          sections: { sum:"★", graph:"★", glossary:"★", theses:"★", dialogue:"★", critique:"★", name:"★", history:"★", practical:"★", evolution:"★", origin:"★" },
           desc: "Сравнительный уровень надёжно работает с любым методом. Герменевтический метод даёт наиболее контекстуально богатый результат.",
-          advice: null, replacements: null
+          advice: null, replacements: null, sections_override: null,
         },
         "comparative:analytical": {
           rating: "★", severity: "stable",
-          sections: { sum:"★", graph:"★", glossary:"★", theses:"★", dialogue:"★", critique:"★", name:"★", history:"★", practical:"★", evolution:"★", origin:"★" },
           desc: "Сравнительный уровень надёжно работает с любым методом. Аналитический метод обеспечивает максимальную формальную строгость.",
-          advice: null, replacements: null
+          advice: null, replacements: null, sections_override: null,
         },
         "comparative:creative": {
           rating: "★", severity: "stable",
-          sections: { sum:"★", graph:"★", glossary:"★", theses:"★", dialogue:"★", critique:"★", name:"★", history:"★", practical:"★", evolution:"★", origin:"★" },
           desc: "Сравнительный уровень надёжно работает с любым методом. Творческий метод даёт наиболее оригинальные и неожиданные результаты.",
-          advice: null, replacements: null
+          advice: null, replacements: null, sections_override: null,
         },
-
-        // ── Преобразующий ──
+       
+        // ── Преобразующий ──────────────────────────────────────────────
+       
         "transformative:dialectical": {
           rating: "★★★", severity: "synergy-max",
-          sections: { sum:"★★★", graph:"★★★", glossary:"★★★", theses:"★★★", dialogue:"★★★", critique:"★★★", name:"★★", history:"★★", practical:"★★", evolution:"★★", origin:"★★★" },
           desc: "<strong>Структурный резонанс.</strong> Оба параметра разделяют один онтологический жест — продуктивный конфликт как источник нового. «Напряжение» уровня = пара тезис↔антитезис метода. «Рождение нового из невозможности» = снятие. Два языка для одного процесса.",
           advice: "Идеальный выбор, когда философы образуют явные оппозиции и результат должен быть и исторически обоснованным, и логически необходимым.",
-          replacements: null
+          replacements: null,
+          // Широкая синергия (dialectical peaks = null): core → ★★★, meta → ★★.
+          // Все 11 секций точно соответствуют алгоритму. override не нужен.
+          sections_override: null,
         },
+       
         "transformative:integrative": {
           rating: "✗✗", severity: "hard-conflict",
-          sections: { sum:"✗✗", graph:"✗✗", glossary:"≈", theses:"✗✗", dialogue:"✗✗", critique:"✗✗", name:"≈", history:"≈", practical:"≈", evolution:"≈", origin:"✗✗" },
           desc: "<strong>Жёсткое противоречие.</strong> Преобразующий уровень строится на несовместимости как источнике нового; интегративный метод — на общих основаниях как источнике. Это взаимоисключающие онтологии синтеза. Конфликт затрагивает 5 из 6 ключевых разделов.",
           advice: null,
           replacements: {
             keepLevel: [
               { param: "method", value: "dialectical",    label: "Диалектический",    rating: "★★★" },
               { param: "method", value: "deconstructive",  label: "Деконструктивный",  rating: "★★★" },
-              { param: "method", value: "analytical",      label: "Аналитический",     rating: "★★" },
-              { param: "method", value: "creative",        label: "Творческий",        rating: "★★" }
+              { param: "method", value: "analytical",      label: "Аналитический",     rating: "★★"  },
+              { param: "method", value: "creative",        label: "Творческий",        rating: "★★"  },
             ],
             keepMethod: [
-              { param: "level", value: "comparative", label: "Сравнительный", rating: "★" }
-            ]
-          }
+              { param: "level", value: "comparative", label: "Сравнительный", rating: "★" },
+            ],
+          },
+          sections_override: {
+            sum: "✗✗", graph: "✗✗", theses: "✗✗",
+            dialogue: "✗✗", critique: "✗✗", origin: "✗✗",
+          },
         },
+       
         "transformative:deconstructive": {
           rating: "★★★", severity: "synergy-max",
-          sections: { sum:"★★", graph:"★★★", glossary:"★★★", theses:"★★★", dialogue:"★★★", critique:"★★★", name:"★★", history:"★★", practical:"★★", evolution:"★★", origin:"★★★" },
-          desc: "<strong>Структурный резонанс.</strong> «Напряжение между системами» (уровень) возникает именно там, где их скрытые предпосылки несовместимы (метод). Трансформация = деконструкция + пересборка. Встроенный механизм самопроверки: «воспроизводит ли пересборка деконструированные предпосылки?»",
+          desc: "<strong>Структурный резонанс.</strong> «Напряжение между системами» (уровень) возникает именно там, где их скрытые предпосылки несовместимы (метод). Трансформация = деконструкция + пересборка. Встроенный механизм самопроверки.",
           advice: "Выбирайте, когда важна философская честность по отношению к источникам и когда синтез должен демонстрировать, почему исходные системы не могли прийти к результату самостоятельно.",
-          replacements: null
+          replacements: null,
+          sections_override: { sum: "★★" },
         },
+       
         "transformative:hermeneutical": {
           rating: "✗", severity: "conflict",
-          sections: { sum:"≈", graph:"≈", glossary:"≈", theses:"≈", dialogue:"✗", critique:"≈", name:"≈", history:"≈", practical:"≈", evolution:"≈", origin:"≈" },
           desc: "<strong>Умеренный конфликт.</strong> Преобразующий уровень строит на несовместимости (рождение нового из невозможности), герменевтический метод — на расширении горизонтов (нарастающая совместимость). Конфликт сосредоточен в разделе «Диалог», где два финала несовместимы.",
           advice: "При исключении раздела «Диалог» напряжение снижается до управляемого ≈. При включении диалога — рекомендуется сменить метод.",
           replacements: {
             keepLevel: [
               { param: "method", value: "dialectical",    label: "Диалектический",    rating: "★★★" },
-              { param: "method", value: "deconstructive",  label: "Деконструктивный",  rating: "★★★" }
+              { param: "method", value: "deconstructive",  label: "Деконструктивный",  rating: "★★★" },
             ],
             keepMethod: [
-              { param: "level", value: "comparative", label: "Сравнительный", rating: "★" }
-            ]
-          }
+              { param: "level", value: "comparative", label: "Сравнительный", rating: "★" },
+            ],
+          },
+          sections_override: { dialogue: "✗" },
         },
+       
         "transformative:analytical": {
           rating: "★★", severity: "synergy",
-          sections: { sum:"★★", graph:"★★", glossary:"★★", theses:"★★", dialogue:"★★", critique:"★★", name:"★★", history:"★", practical:"★", evolution:"★", origin:"★★" },
           desc: "<strong>Продуктивный парадокс.</strong> Аналитический метод делает претензии преобразующего уровня верифицируемыми: «эмерджентность» перестаёт быть нарративным утверждением и превращается в результат формального аудита предпосылок.",
           advice: "Выбирайте, когда нужна преобразующая глубина с аналитической строгостью и формальным доказательством эмерджентности.",
-          replacements: null
+          replacements: null,
+          sections_override: { name: "★★" },
         },
+       
         "transformative:creative": {
           rating: "★★", severity: "synergy",
-          sections: { sum:"★★", graph:"★★", glossary:"★★", theses:"★★", dialogue:"★★", critique:"★★", name:"★★", history:"★", practical:"★", evolution:"★★", origin:"★★" },
           desc: "<strong>Продуктивный парадокс.</strong> Преобразующий уровень создаёт категории с неустановленными отношениями. Разрешение творческого метода маркировать связи как гипотетические — это не слабость, а честная онтология нового.",
           advice: "Выбирайте, когда важна свобода в установлении отношений между преобразованными категориями; для синтезов в экспериментальном контексте.",
-          replacements: null
+          replacements: null,
+          sections_override: { name: "★★", evolution: "★★" },
         },
-
-        // ── Порождающий ──
+       
+        // ── Порождающий ────────────────────────────────────────────────
+       
         "generative:dialectical": {
           rating: "≈", severity: "tension",
-          sections: { sum:"≈", graph:"≈", glossary:"≈", theses:"≈", dialogue:"≈", critique:"≈", name:"≈", history:"≈", practical:"★", evolution:"★", origin:"≈" },
           desc: "<strong>Управляемое напряжение.</strong> Напряжение примиримо при условии: «ограничение философа A» = тезис, «ограничение философа B» = антитезис, «порождённая категория» = снятие. Это нетривиальная переинтерпретация диалектических ролей, которую промпт не предписывает явно.",
-          advice: "Рекомендуется добавить в контекстное поле инструкцию: «Интерпретируй ограничения традиций как диалектические полюса, а порождённую категорию — как снятие». Без этого результат непредсказуем.",
+          advice: "Рекомендуется добавить в поле «Дополнительный контекст» инструкцию: «Интерпретируй ограничения традиций как диалектические полюса, а порождённую категорию — как снятие». Эта инструкция передаётся модели через p.ctx перед каждым разделом.",
           replacements: {
             keepLevel: [
               { param: "method", value: "deconstructive", label: "Деконструктивный", rating: "★★★" },
               { param: "method", value: "analytical",     label: "Аналитический",    rating: "★★★" },
-              { param: "method", value: "creative",       label: "Творческий",       rating: "★★" }
+              { param: "method", value: "creative",       label: "Творческий",       rating: "★★"  },
             ],
             keepMethod: [
-              { param: "level", value: "transformative", label: "Преобразующий", rating: "★★★" }
-            ]
-          }
+              { param: "level", value: "transformative", label: "Преобразующий", rating: "★★★" },
+            ],
+          },
+          sections_override: { name: "≈", history: "≈" },
         },
+       
         "generative:integrative": {
           rating: "✗✗", severity: "hard-conflict",
-          sections: { sum:"✗✗", graph:"✗✗", glossary:"✗", theses:"✗✗", dialogue:"✗✗", critique:"✗✗", name:"≈", history:"≈", practical:"≈", evolution:"≈", origin:"✗✗" },
           desc: "<strong>Максимальный конфликт матрицы.</strong> Порождающий уровень строит категории из проблемы, не из традиций; интегративный метод требует строить из общих оснований традиций. Взаимоисключение тотально — конфликт в 5 из 6 ключевых разделов.",
           advice: null,
           replacements: {
             keepLevel: [
               { param: "method", value: "deconstructive", label: "Деконструктивный", rating: "★★★" },
               { param: "method", value: "analytical",     label: "Аналитический",    rating: "★★★" },
-              { param: "method", value: "creative",       label: "Творческий",       rating: "★★" }
+              { param: "method", value: "creative",       label: "Творческий",       rating: "★★"  },
             ],
             keepMethod: [
-              { param: "level", value: "comparative", label: "Сравнительный", rating: "★" }
-            ]
-          }
+              { param: "level", value: "comparative", label: "Сравнительный", rating: "★" },
+            ],
+          },
+          sections_override: {
+            sum: "✗✗", graph: "✗✗", glossary: "✗",
+            theses: "✗✗", dialogue: "✗✗", critique: "✗✗", origin: "✗✗",
+          },
         },
+       
         "generative:deconstructive": {
           rating: "★★★", severity: "synergy-max",
-          sections: { sum:"★★★", graph:"★★★", glossary:"★★★", theses:"★★★", dialogue:"★★★", critique:"★★★", name:"★★", history:"★★", practical:"★★", evolution:"★★★", origin:"★★★" },
           desc: "<strong>Максимальный критический потенциал.</strong> Оба параметра разделяют один эпистемологический жест — выявление того, чего не видно изнутри существующих систем. «Слепое пятно» (уровень) = «нераспознанная предпосылка» (метод). Единственная пара, где обе оси независимо требуют доказать невыводимость результата.",
           advice: "Выбирайте для наиболее амбициозных синтезов с высокими претензиями на оригинальность, когда зерно концепции формулирует проблему, которую ни один из философов не мог поставить в рамках своей системы.",
-          replacements: null
+          replacements: null,
+          sections_override: { evolution: "★★★" },
         },
+       
         "generative:hermeneutical": {
           rating: "✗", severity: "conflict",
-          sections: { sum:"≈", graph:"✗", glossary:"✗", theses:"≈", dialogue:"✗", critique:"✗", name:"≈", history:"≈", practical:"≈", evolution:"≈", origin:"✗" },
           desc: "<strong>Системный конфликт.</strong> Герменевтический метод организует граф вокруг горизонтов традиций, тогда как порождающий уровень запрещает строить категории из традиций. Четыре ключевых раздела получают несовместимые критерии организации содержания.",
           advice: "Рекомендуется избегать. Если герменевтический метод принципиален — снизить уровень до сравнительного или преобразующего.",
           replacements: {
             keepLevel: [
               { param: "method", value: "deconstructive", label: "Деконструктивный", rating: "★★★" },
-              { param: "method", value: "analytical",     label: "Аналитический",    rating: "★★" },
-              { param: "method", value: "creative",       label: "Творческий",       rating: "★★" }
+              { param: "method", value: "analytical",     label: "Аналитический",    rating: "★★"  },
+              { param: "method", value: "creative",       label: "Творческий",       rating: "★★"  },
             ],
             keepMethod: [
-              { param: "level", value: "comparative",    label: "Сравнительный",    rating: "★" },
-              { param: "level", value: "transformative",  label: "Преобразующий", rating: "✗/≈" }
-            ]
-          }
+              { param: "level",  value: "comparative",   label: "Сравнительный",  rating: "★" },
+              {
+                param: "level",  value: "transformative", label: "Преобразующий",  rating: "✗",
+                note: "Конфликт менее острый, чем с порождающим уровнем, но всё равно не рекомендуется.",
+              },
+            ],
+          },
+          sections_override: {
+            graph: "✗", glossary: "✗", dialogue: "✗", critique: "✗", origin: "✗",
+          },
         },
+       
         "generative:analytical": {
           rating: "★★★", severity: "synergy-max",
-          sections: { sum:"★★", graph:"★★", glossary:"★★", theses:"★★★", dialogue:"★★", critique:"★★★", name:"★★", history:"★", practical:"★", evolution:"★★", origin:"★★★" },
           desc: "<strong>Нарастающая синергия.</strong> Порождающий уровень заявляет о невыводимости из традиций — аналитический метод предоставляет формальный аппарат для доказательства. Пики синергии (★★★) в тезисах и критике, где нужно верифицировать претензии.",
           advice: "Выбирайте, когда синтез претендует на подлинную новизну и должен это доказать формально; для аудитории, ориентированной на аналитическую традицию.",
-          replacements: null
+          replacements: null,
+          sections_override: { history: "★", practical: "★" },
         },
+       
         "generative:creative": {
           rating: "★★", severity: "synergy",
-          sections: { sum:"★★", graph:"★★", glossary:"★★★", theses:"★★", dialogue:"★★★", critique:"★★", name:"★★", history:"★", practical:"★", evolution:"★★", origin:"★★" },
           desc: "<strong>Пики в открытых разделах.</strong> Оба параметра отказываются от закрытого финала: уровень нащупывает контуры нового языка, метод производит карту вопросов. Единственная комбинация, где оба параметра явно не требуют завершённого синтеза.",
           advice: "Для максимально экспериментальных синтезов, когда ценность — в постановке новых вопросов, а не в закрытой системе.",
-          replacements: null
-        }
+          replacements: null,
+          sections_override: {
+            glossary: "★★★", dialogue: "★★★",
+            name: "★★", evolution: "★★",
+          },
+        },
       };
+       
+      // ═══════════════════════════════════════════════════════════════════
+      // ПУБЛИЧНЫЕ АКСЕССОРЫ
+      // ═══════════════════════════════════════════════════════════════════
+       
+      /**
+       * Возвращает вычисленную таблицу рейтингов секций для комбинации level:method.
+       * @param {string} level 
+       * @param {string} method
+       * @returns {{ [section: string]: string } | null}
+       */
+      function getSectionRatings(level, method) {
+        const entry = COMPAT_MATRIX_COMPACT[`${level}:${method}`];
+        if (!entry) return null;
+        return computeSections(entry.severity, method, entry.sections_override);
+      }
+       
+      /**
+       * Возвращает полную запись матрицы совместимости с вычисленным полем `sections`.
+       * @param {string} level
+       * @param {string} method
+       * @returns {Object | null}
+       */
+      function getCompatEntry(level, method) {
+        const entry = COMPAT_MATRIX_COMPACT[`${level}:${method}`];
+        if (!entry) return null;
+        return {
+          ...entry,
+          sections: computeSections(entry.severity, method, entry.sections_override),
+        };
+      }
+       
+      /**
+       * Вспомогательная функция для getCompatEntry 
+       * @param {string} key — например, "transformative:analytical"
+       * @returns {Object | null}
+       */
+      function getCompatEntryByKey(key) {
+        const [level, method] = key.split(":");
+        return getCompatEntry(level, method);
+      }
 
       // Карта ключей разделов → человекочитаемые названия для чипов
       const COMPAT_SEC_LABELS = {
@@ -2958,7 +3143,7 @@
         const method = document.getElementById("synthesisMethod").value;
         const key = level + ":" + method;
         const panel = document.getElementById("compatPanel");
-        const entry = COMPAT_MATRIX[key];
+        const entry = getCompatEntryByKey(key);
 
         if (!entry) {
           panel.classList.add("hidden");
@@ -2983,8 +3168,8 @@
         // Вычисляем динамический порядок для выбранных разделов
         let dynSelected = selectedSections;
         if (selectedSections.length > 0 && typeof buildEffectiveDeps !== "undefined") {
-          const effDeps = buildEffectiveDeps(selectedSections);
-          dynSelected = buildDynamicOrder(effDeps, selectedSections).filter(k => k !== "sum");
+          const effDeps = buildEffectiveDeps(selectedSections, _getResolvedDepsFromDOM());
+          dynSelected = buildDynamicOrder(effDeps, selectedSections, _getResolvedDepsFromDOM()).filter(k => k !== "sum");
         }
 
         // sum всегда первым, затем выбранные в динамическом порядке, затем невыбранные в статическом
@@ -3064,48 +3249,177 @@
       // CONTEXT DEPENDENCY MAP
       // ════════════════════════════════════════
 
-      const CONTEXT_DEPS = {
+      /**
+       * Объединяет произвольное число объектов CONTEXT_DEPS.
+       * Каждый объект имеет вид { [секция]: { required: string[], optional: string[] } }.
+       * @param {...Object} objects
+       * @returns {{ [section: string]: { required: string[], optional: string[] } }}
+       */
+      function deepMergeUniq(...objects) {
+        const allSections = new Set(objects.flatMap(o => Object.keys(o)));
+        const result = {};
+       
+        for (const section of allSections) {
+          let required = [];
+          let optional  = [];
+       
+          for (const obj of objects) {
+            if (!obj[section]) continue;
+            const r   = obj[section].required ?? [];
+            const opt = obj[section].optional ?? [];
+       
+            for (const k of r) {
+              if (!required.includes(k)) required.push(k);
+              optional = optional.filter(x => x !== k); // повышение: уходит из optional
+            }
+            for (const k of opt) {
+              if (!required.includes(k) && !optional.includes(k)) optional.push(k);
+            }
+          }
+       
+          result[section] = { required, optional };
+        }
+       
+        return result;
+      }
+       
+      // ─────────────────────────────────────────────────────────────────
+      // База: уровень comparative (или если уровень не задан)
+      // ─────────────────────────────────────────────────────────────────
+      const CONTEXT_DEPS_BASE = {
         graph: {
           required: ["sum:goals"],
-          optional: ["sum:portraits"],
+          optional:  ["sum:portraits"],
         },
+       
         glossary: {
           required: ["sum:goals", "graph:nodes"],
-          optional: [],
+          optional:  [],
         },
+       
         theses: {
           required: ["sum:goals", "sum:tensions", "graph:nodes", "graph:edges"],
-          optional: ["sum:portraits", "sum:novelty", "graph:topology", "glossary:table"],
+          optional:  ["sum:portraits", "sum:novelty", "graph:topology", "glossary:table"],
         },
+       
         name: {
-          required: ["sum:goals", "sum:novelty"],
-          optional: ["sum:coherence", "graph:nodes", "theses:summary"],
+          required: ["sum:goals", "sum:novelty", "graph:nodes"],
+          optional:  ["sum:coherence", "sum:tensions"],
         },
+       
         history: {
           required: ["sum:goals", "sum:portraits"],
-          optional: ["sum:novelty", "sum:tensions", "graph:nodes", "theses:summary", "name:title"],
+          optional:  ["sum:novelty", "sum:tensions", "graph:nodes", "theses:summary", "name:title"],
         },
+       
         origin: {
-          required: ["sum:goals", "sum:portraits", "sum:tensions", "graph:nodes", "graph:edges", "theses:full"],
-          optional: ["sum:novelty", "glossary:table", "name:title"],
+          required: ["sum:goals", "sum:portraits", "sum:tensions", "graph:nodes", "theses:full"],
+          optional:  ["sum:novelty", "sum:coherence", "graph:edges", "glossary:table", "name:title"],
         },
+       
         practical: {
-          required: ["sum:goals", "sum:novelty", "theses:full"],
-          optional: ["graph:nodes", "name:title"],
+          required: ["sum:goals", "sum:novelty", "graph:nodes", "theses:summary"],
+          optional:  ["glossary:table", "name:title"],
         },
+       
         dialogue: {
           required: ["sum:goals", "sum:portraits", "sum:tensions", "graph:nodes"],
-          optional: ["sum:difficulty", "graph:edges", "graph:topology", "theses:summary", "name:title"],
+          optional:  ["sum:difficulty", "graph:edges", "theses:summary", "name:title"],
         },
+       
         evolution: {
           required: ["sum:goals", "sum:novelty", "name:full", "graph:nodes"],
-          optional: ["sum:coherence", "graph:edges", "graph:topology", "theses:summary", "history:contemporary", "history:genealogy", "history:influence", "history:name_context"],
+          optional: [
+            "sum:coherence", "sum:tensions", "graph:edges", "graph:topology",
+            "theses:summary", "history:contemporary", "history:genealogy",
+          ],
         },
+       
         critique: {
-          required: ["sum:goals", "sum:tensions", "sum:coherence", "graph:nodes", "graph:edges", "theses:full", "glossary:table"],
-          optional: ["sum:portraits", "sum:novelty", "graph:topology", "name:title", "history:contemporary"],
+          required: [
+            "sum:goals", "sum:portraits", "sum:novelty",
+            "sum:tensions", "sum:coherence",
+            "graph:nodes", "graph:edges", "theses:full", "glossary:table",
+          ],
+          optional: ["graph:topology", "name:title", "history:contemporary"],
         },
       };
+       
+      // ─────────────────────────────────────────────────────────────────
+      // Уровне-патчи: накладываются поверх BASE для non-comparative уровней
+      // ─────────────────────────────────────────────────────────────────
+      const CONTEXT_DEPS_LEVEL = {
+        transformative: {
+          graph: {
+            required: ["sum:tensions"],        // напряжения — исходный материал категорий
+          },
+          glossary: {
+            optional: ["sum:portraits", "sum:tensions"],
+          },
+          origin: {
+            required: ["graph:edges"],         // возвращаем в required: генеалогия связей важна
+          },
+          practical: {
+            optional: ["theses:full"],         // полные обоснования полезны при ссылках
+          },
+          dialogue: {
+            optional: ["glossary:table"],      // точные определения нужны в диалоге о напряжениях
+          },
+        },
+
+        generative: {
+          graph: {
+            required: ["sum:portraits", "sum:tensions"],
+          },
+          glossary: {
+            optional: ["sum:portraits"],       // столбец «почему ни один не мог сформулировать»
+          },
+          origin: {
+            required: ["graph:edges"],
+            optional: ["theses:summary"],      // дополнительный якорь для декомпозиции
+          },
+          practical: {
+            optional: ["theses:full"],
+          },
+          dialogue: {
+            optional: ["glossary:table"],
+          },
+        },
+      };
+       
+      // ─────────────────────────────────────────────────────────────────
+      // Метод-патчи: накладываются поверх BASE+LEVEL для конкретных методов
+      // ─────────────────────────────────────────────────────────────────
+      const CONTEXT_DEPS_METHOD = {
+        hermeneutical: {
+          history:   { optional: ["origin:genealogy"] },
+          evolution: { optional: ["origin:genealogy"] },
+        },
+       
+        analytical: {
+          theses: { optional: ["glossary:table"] },  // формализация тезисов через определения
+        },
+       
+        deconstructive: {
+          critique: { optional: ["origin:decomposition"] },
+        },
+      };
+       
+      /**
+       * Резолвер: возвращает эффективный CONTEXT_DEPS для заданных параметров синтеза.
+       * @param {{ synthLevel?: string, method?: string }} p
+       * @returns {{ [section: string]: { required: string[], optional: string[] } }}
+       */
+      function resolveContextDeps(p) {
+        const level  = p.synthLevel ?? "comparative";
+        const method = p.method     ?? "dialectical";
+       
+        return deepMergeUniq(
+          CONTEXT_DEPS_BASE,
+          CONTEXT_DEPS_LEVEL[level]   ?? {},
+          CONTEXT_DEPS_METHOD[method] ?? {}
+        );
+      }
 
       const SUBSTITUTION_MAP = {
         "graph:nodes":     [
@@ -3181,12 +3495,13 @@
        * Возвращает объект { [sectionKey]: { required: [...], optional: [...] } }
        * где все ключи заменены на доступные эквиваленты.
        */
-      function buildEffectiveDeps(selectedSections) {
+      function buildEffectiveDeps(selectedSections, resolvedDeps) {
         const available = new Set(["sum", ...selectedSections]);
+        const depsSource = resolvedDeps ?? CONTEXT_DEPS_BASE;
         const result = {};
 
         for (const sec of selectedSections) {
-          const base = CONTEXT_DEPS[sec];
+          const base = depsSource[sec];
           if (!base) { result[sec] = { required: [], optional: [] }; continue; }
 
           const effective = { required: [], optional: [] };
@@ -3251,8 +3566,9 @@
         evolution: 7, critique: 8,
       };
 
-      function buildDynamicOrder(effectiveDeps, selectedSections) {
+      function buildDynamicOrder(effectiveDeps, selectedSections, resolvedDeps) {
         const preds = computePredecessors(effectiveDeps);
+        resolveCircularDeps(preds, effectiveDeps, resolvedDeps);
 
         // ── НОВОЕ: разрываем циклы перед топосортировкой ──────────────────────
         // Мутирует и preds, и effectiveDeps (удаляет weakest optional-ключи).
@@ -3345,8 +3661,8 @@
         if (!phil.length) return null;
        
         const p      = { seed, phil, sec, method, depth, synthLevel, ctx };
-        const effectiveDeps = buildEffectiveDeps(p.sec);
-        const dynamicOrder  = buildDynamicOrder(effectiveDeps, p.sec);
+        const effectiveDeps = buildEffectiveDeps(p.sec, resolveContextDeps(p));
+        const dynamicOrder  = buildDynamicOrder(effectiveDeps, p.sec, resolveContextDeps(p));
         p.sec = dynamicOrder.filter(k => k !== "sum");
         const baseDefs = buildSectionDefs(p);
         const defsMap  = Object.fromEntries(baseDefs.map(d => [d.key, d]));
@@ -3685,10 +4001,11 @@
         "practical:summary":      "Практика → Сводная таблица",
       };
 
-      function buildContextForSection(sectionKey, generated, depth, effectiveDepsMap) {
-        const deps = effectiveDepsMap?.[sectionKey] ?? CONTEXT_DEPS[sectionKey];
+      function buildContextForSection(sectionKey, generated, depth, effectiveDepsMap, resolvedDeps) {
+        const depsSource = resolvedDeps ?? CONTEXT_DEPS_BASE;
+        const deps = effectiveDepsMap?.[sectionKey] ?? depsSource[sectionKey];
         if (!deps) return "";
-        const _origDeps = CONTEXT_DEPS[sectionKey];
+        const _origDeps = depsSource[sectionKey];
         const _origAllKeys = new Set([
           ...(_origDeps?.required || []),
           ...(_origDeps?.optional || []),
@@ -4627,7 +4944,7 @@ ${METHOD_CRITIQUE(p)[p.method] || ""}
 
         // ── Проверка совместимости перед генерацией ──
         const compatKey = p.synthLevel + ":" + p.method;
-        const compatEntry = typeof COMPAT_MATRIX !== "undefined" ? COMPAT_MATRIX[compatKey] : null;
+        const compatEntry = typeof getCompatEntryByKey !== "undefined" ? getCompatEntryByKey(compatKey) : null;
         if (compatEntry && (compatEntry.severity === "hard-conflict" || compatEntry.severity === "conflict")) {
           const sevLabel = compatEntry.severity === "hard-conflict" ? "ЖЁСТКИЙ КОНФЛИКТ (✗✗)" : "УМЕРЕННЫЙ КОНФЛИКТ (✗)";
           const confirmed = confirm(
@@ -4675,8 +4992,8 @@ ${METHOD_CRITIQUE(p)[p.method] || ""}
         document.getElementById("sessionId").textContent = docNum;
         document.getElementById("footerPhil").textContent = phil.join(", ");
 
-        const effectiveDeps = buildEffectiveDeps(p.sec);
-        const dynamicOrder  = buildDynamicOrder(effectiveDeps, p.sec);
+        const effectiveDeps = buildEffectiveDeps(p.sec, resolveContextDeps(p));
+        const dynamicOrder  = buildDynamicOrder(effectiveDeps, p.sec, resolveContextDeps(p))
         p.sec = dynamicOrder.filter(k => k !== "sum");
 
         // Пересобираем defs в новом порядке
@@ -4760,7 +5077,7 @@ ${METHOD_CRITIQUE(p)[p.method] || ""}
             }
             for (const def of pass) {
               if (def.key === "sum") continue;
-              prior = buildContextForSection(def.key, generated, p.depth, effectiveDeps);
+              prior = buildContextForSection(def.key, generated, p.depth, effectiveDeps, resolveContextDeps(p));
               break;
             }
           }
