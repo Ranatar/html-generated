@@ -2374,6 +2374,382 @@
       }
 
       // ════════════════════════════════════════
+      // CONTEXT DEPENDENCY MAP
+      // ════════════════════════════════════════
+
+      /**
+       * Объединяет произвольное число объектов CONTEXT_DEPS.
+       * Каждый объект имеет вид { [секция]: { required: string[], optional: string[] } }.
+       * @param {...Object} objects
+       * @returns {{ [section: string]: { required: string[], optional: string[] } }}
+       */
+      function deepMergeUniq(...objects) {
+        const allSections = new Set(objects.flatMap(o => Object.keys(o)));
+        const result = {};
+       
+        for (const section of allSections) {
+          let required = [];
+          let optional  = [];
+       
+          for (const obj of objects) {
+            if (!obj[section]) continue;
+            const r   = obj[section].required ?? [];
+            const opt = obj[section].optional ?? [];
+       
+            for (const k of r) {
+              if (!required.includes(k)) required.push(k);
+              optional = optional.filter(x => x !== k); // повышение: уходит из optional
+            }
+            for (const k of opt) {
+              if (!required.includes(k) && !optional.includes(k)) optional.push(k);
+            }
+          }
+       
+          result[section] = { required, optional };
+        }
+       
+        return result;
+      }
+       
+      // ─────────────────────────────────────────────────────────────────
+      // База: уровень comparative (или если уровень не задан)
+      // ─────────────────────────────────────────────────────────────────
+      const CONTEXT_DEPS_BASE = {
+        graph: {
+          required: ["sum:goals"],
+          optional:  ["sum:portraits"],
+        },
+       
+        glossary: {
+          required: ["sum:goals", "graph:nodes"],
+          optional:  [],
+        },
+       
+        theses: {
+          required: ["sum:goals", "sum:tensions", "graph:nodes", "graph:edges"],
+          optional:  ["sum:portraits", "sum:novelty", "graph:topology", "glossary:table"],
+        },
+       
+        name: {
+          required: ["sum:goals", "sum:novelty", "graph:nodes"],
+          optional:  ["sum:coherence", "sum:tensions"],
+        },
+       
+        history: {
+          required: ["sum:goals", "sum:portraits"],
+          optional:  ["sum:novelty", "sum:tensions", "graph:nodes", "theses:summary", "name:title"],
+        },
+       
+        origin: {
+          required: ["sum:goals", "sum:portraits", "sum:tensions", "graph:nodes", "theses:full"],
+          optional:  ["sum:novelty", "sum:coherence", "graph:edges", "glossary:table", "name:title"],
+        },
+       
+        practical: {
+          required: ["sum:goals", "sum:novelty", "graph:nodes", "theses:summary"],
+          optional:  ["glossary:table", "name:title"],
+        },
+       
+        dialogue: {
+          required: ["sum:goals", "sum:portraits", "sum:tensions", "graph:nodes"],
+          optional:  ["sum:difficulty", "graph:edges", "theses:summary", "name:title"],
+        },
+       
+        evolution: {
+          required: ["sum:goals", "sum:novelty", "name:full", "graph:nodes"],
+          optional: [
+            "sum:coherence", "sum:tensions", "graph:edges", "graph:topology",
+            "theses:summary", "history:contemporary", "history:genealogy",
+          ],
+        },
+       
+        critique: {
+          required: [
+            "sum:goals", "sum:portraits", "sum:novelty",
+            "sum:tensions", "sum:coherence",
+            "graph:nodes", "graph:edges", "theses:full", "glossary:table",
+          ],
+          optional: ["graph:topology", "name:title", "history:contemporary"],
+        },
+      };
+       
+      // ─────────────────────────────────────────────────────────────────
+      // Уровне-патчи: накладываются поверх BASE для non-comparative уровней
+      // ─────────────────────────────────────────────────────────────────
+      const CONTEXT_DEPS_LEVEL = {
+        transformative: {
+          graph: {
+            required: ["sum:tensions"],        // напряжения — исходный материал категорий
+          },
+          glossary: {
+            optional: ["sum:portraits", "sum:tensions"],
+          },
+          origin: {
+            required: ["graph:edges"],         // возвращаем в required: генеалогия связей важна
+          },
+          practical: {
+            optional: ["theses:full"],         // полные обоснования полезны при ссылках
+          },
+          dialogue: {
+            optional: ["glossary:table"],      // точные определения нужны в диалоге о напряжениях
+          },
+        },
+
+        generative: {
+          graph: {
+            required: ["sum:portraits", "sum:tensions"],
+          },
+          glossary: {
+            optional: ["sum:portraits"],       // столбец «почему ни один не мог сформулировать»
+          },
+          origin: {
+            required: ["graph:edges"],
+            optional: ["theses:summary"],      // дополнительный якорь для декомпозиции
+          },
+          practical: {
+            optional: ["theses:full"],
+          },
+          dialogue: {
+            optional: ["glossary:table"],
+          },
+        },
+      };
+       
+      // ─────────────────────────────────────────────────────────────────
+      // Метод-патчи: накладываются поверх BASE+LEVEL для конкретных методов
+      // ─────────────────────────────────────────────────────────────────
+      const CONTEXT_DEPS_METHOD = {
+        hermeneutical: {
+          history:   { optional: ["origin:genealogy"] },
+          evolution: { optional: ["origin:genealogy"] },
+        },
+       
+        analytical: {
+          theses: { optional: ["glossary:table"] },  // формализация тезисов через определения
+        },
+       
+        deconstructive: {
+          critique: { optional: ["origin:decomposition"] },
+        },
+      };
+       
+      /**
+       * Резолвер: возвращает эффективный CONTEXT_DEPS для заданных параметров синтеза.
+       * @param {{ synthLevel?: string, method?: string }} p
+       * @returns {{ [section: string]: { required: string[], optional: string[] } }}
+       */
+      function resolveContextDeps(p) {
+        const level  = p.synthLevel ?? "comparative";
+        const method = p.method     ?? "dialectical";
+       
+        return deepMergeUniq(
+          CONTEXT_DEPS_BASE,
+          CONTEXT_DEPS_LEVEL[level]   ?? {},
+          CONTEXT_DEPS_METHOD[method] ?? {}
+        );
+      }
+
+      const SUBSTITUTION_MAP = {
+        "graph:nodes": [
+          { key: "glossary:table",       q: 3 },
+          { key: "origin:decomposition", q: 2 },
+          { key: "theses:summary",       q: 1 },
+        ],
+        "graph:edges": [
+          { key: "theses:full",          q: 2 },
+          { key: "origin:decomposition", q: 1 }, 
+        ],
+        "graph:topology": [
+          { key: "evolution:graph_changes", q: 1 },
+          { key: "critique:full",           q: 1 }, 
+        ],
+        "glossary:table": [
+          { key: "graph:nodes",          q: 3 },
+        ],
+        "theses:full": [
+          { key: "origin:decomposition", q: 3 },
+          { key: "dialogue:synthesis",   q: 2 },
+        ],
+        "theses:summary": [
+          { key: "origin:decomposition", q: 3 },
+          { key: "graph:nodes",          q: 2 },
+          { key: "dialogue:synthesis",   q: 2 },
+        ],
+        "name:title": [
+          { key: "history:name_context",    q: 2 },
+          { key: "evolution:name_evolution", q: 2 },
+          { key: "sum:goals",               q: 1 },
+        ],
+        "name:full": [
+          { key: "history:name_context",    q: 2 },
+          { key: "evolution:name_evolution", q: 2 }, 
+          { key: "sum:goals",               q: 1 },
+        ],
+        "history:genealogy":    [ { key: "origin:genealogy",    q: 3 } ],
+        "history:contemporary": [ { key: "evolution:science",   q: 2 } ],
+        "history:influence": [
+          { key: "evolution:directions",  q: 3 },
+          { key: "practical:summary",     q: 2 },
+        ],
+        "history:name_context": [], 
+        "origin:decomposition": [
+          { key: "theses:summary",       q: 1 },
+        ],
+      };
+
+      /**
+       * Возвращает ключ-раздел, из которого извлекается данный контекстный ключ.
+       * "graph:nodes" → "graph", "origin:decomposition" → "origin", "sum:goals" → "sum"
+       */
+      function sourceOf(ctxKey) {
+        return ctxKey.split(":")[0];
+      }
+
+      /**
+       * Ищет лучший доступный заменитель для ctxKey среди доступных разделов.
+       * selfSection исключается — раздел не может замещать себя.
+       *
+       * @param {string}   ctxKey        — недоступный ключ
+       * @param {Set}      available     — множество выбранных разделов + "sum"
+       * @param {string}   selfSection   — текущий раздел (исключается из кандидатов)
+       * @returns {string|null}          — лучший ключ-заменитель или null
+       */
+      function findSubstitute(ctxKey, available, selfSection) {
+        const candidates = SUBSTITUTION_MAP[ctxKey] || [];
+        // Берём первый (наивысшее качество), чей источник доступен и не является selfSection
+        for (const { key } of candidates) {
+          const src = sourceOf(key);
+          if (src !== selfSection && available.has(src)) return key;
+        }
+        return null;
+      }
+
+      /**
+       * Строит эффективные зависимости для заданного набора выбранных разделов.
+       * Возвращает объект { [sectionKey]: { required: [...], optional: [...] } }
+       * где все ключи заменены на доступные эквиваленты.
+       */
+      function buildEffectiveDeps(selectedSections, resolvedDeps) {
+        const available = new Set(["sum", ...selectedSections]);
+        const depsSource = resolvedDeps ?? CONTEXT_DEPS_BASE;
+        const result = {};
+
+        for (const sec of selectedSections) {
+          const base = depsSource[sec];
+          if (!base) { result[sec] = { required: [], optional: [] }; continue; }
+
+          const effective = { required: [], optional: [] };
+
+          const resolve = (ctxKey, tier) => {
+            const src = sourceOf(ctxKey);
+            if (available.has(src)) {
+              // Источник присутствует → используем оригинальный ключ
+              effective[tier].push(ctxKey);
+            } else {
+              // Ищем заменитель
+              const sub = findSubstitute(ctxKey, available, sec);
+              if (sub) {
+                // Заменитель найден — понижаем required → optional если качество < 3
+                const subQuality = (SUBSTITUTION_MAP[ctxKey] || []).find(c => c.key === sub)?.q ?? 1;
+                const effectiveTier = (tier === "required" && subQuality < 3) ? "optional" : tier;
+                effective[effectiveTier].push(sub);
+              }
+              // Иначе — ключ просто выпадает (раздел деградирует)
+            }
+          };
+
+          for (const k of base.required)  resolve(k, "required");
+          for (const k of base.optional)  resolve(k, "optional");
+
+          // Дедупликация (один ключ может попасть дважды через разные пути)
+          result[sec] = {
+            required: [...new Set(effective.required)],
+            optional: [...new Set(effective.optional)],
+          };
+        }
+
+        return result;
+      }
+
+      /**
+       * Для каждого раздела возвращает множество разделов, которые должны быть
+       * сгенерированы ДО него (прямые predecessor'ы по effective deps).
+       */
+      function computePredecessors(effectiveDeps) {
+        const preds = {}; // sectionKey → Set<sectionKey>
+
+        for (const [sec, deps] of Object.entries(effectiveDeps)) {
+          preds[sec] = new Set();
+          for (const ctxKey of [...deps.required, ...deps.optional]) {
+            const src = sourceOf(ctxKey);
+            if (src !== "sum" && src !== sec) {
+              preds[sec].add(src);
+            }
+          }
+        }
+        return preds;
+      }
+
+      /**
+       * Топологическая сортировка (Кан) с вторичным упорядочиванием
+       * по SECTION_TOPO_ORDER для стабильности при равных приоритетах.
+       */
+      const SECTION_TOPO_ORDER = {
+        sum: 0, graph: 1, glossary: 2, theses: 3, name: 4,
+        history: 5, origin: 6, practical: 6, dialogue: 6,
+        evolution: 7, critique: 8,
+      };
+
+      function buildDynamicOrder(effectiveDeps, selectedSections, resolvedDeps) {
+        const preds = computePredecessors(effectiveDeps);
+        resolveCircularDeps(preds, effectiveDeps, resolvedDeps);
+
+        // ── НОВОЕ: разрываем циклы перед топосортировкой ──────────────────────
+        // Мутирует и preds, и effectiveDeps (удаляет weakest optional-ключи).
+        // После возврата effectiveDeps актуален для buildContextForSection.
+        resolveCircularDeps(preds, effectiveDeps);
+        // ─────────────────────────────────────────────────────────────────────
+
+        const inDegree = {};
+        const adjList  = {};
+
+        for (const sec of selectedSections) {
+          inDegree[sec] = 0;
+          adjList[sec]  = [];
+        }
+
+        for (const [sec, predSet] of Object.entries(preds)) {
+          for (const pred of predSet) {
+            if (!selectedSections.includes(pred)) continue;
+            adjList[pred].push(sec);
+            inDegree[sec]++;
+          }
+        }
+
+        const queue = selectedSections
+          .filter(s => inDegree[s] === 0)
+          .sort((a, b) => SECTION_TOPO_ORDER[a] - SECTION_TOPO_ORDER[b]);
+        const order = [];
+
+        while (queue.length) {
+          const node = queue.shift();
+          order.push(node);
+          const succs = (adjList[node] || [])
+            .sort((a, b) => SECTION_TOPO_ORDER[a] - SECTION_TOPO_ORDER[b]);
+          for (const succ of succs) {
+            inDegree[succ]--;
+            if (inDegree[succ] === 0) {
+              const pos = queue.findIndex(q => SECTION_TOPO_ORDER[q] > SECTION_TOPO_ORDER[succ]);
+              if (pos === -1) queue.push(succ);
+              else queue.splice(pos, 0, succ);
+            }
+          }
+        }
+
+        return ["sum", ...order];
+      }
+
+      // ════════════════════════════════════════
       // SECTION DEPENDENCY WARNINGS
       // ════════════════════════════════════════
 
@@ -2745,25 +3121,6 @@
       };
        
       /**
-       * Чувствительность секции к каждой оси, 1–3.
-       * [чувствительность к уровню синтеза, чувствительность к методу]
-       */
-      const SEC_SENSITIVITY = {
-      //           [level, method]
-        sum:      [2, 2],
-        graph:    [3, 3],
-        theses:   [3, 3],
-        dialogue: [3, 3],
-        critique: [3, 2],
-        origin:   [2, 1],
-        glossary: [2, 2],
-        name:     [1, 2],
-        history:  [1, 1],
-        practical:[1, 2],
-        evolution:[2, 1],
-      };
-       
-      /**
        * Профиль синергии для каждого метода.
        */
       const METHOD_SYNERGY_PEAKS = {
@@ -2787,63 +3144,8 @@
         "conflict":        ["≈",   "≈"  ],
         "hard-conflict":   ["≈",   "≈"  ],
       };
-       
-      /**
-       * Вычисляет рейтинг одной секции.
-       *
-       * @param {string}  section   — ключ секции
-       * @param {string}  severity  — из записи COMPAT_MATRIX_COMPACT
-       * @param {string}  method    — метод синтеза
-       * @param {Object}  overrides — { [section]: rating }, частичная таблица переопределений
-       * @returns {string} символ рейтинга
-       */
-      function computeSectionRating(section, severity, method, overrides = {}) {
-        // 1. Явное переопределение имеет наивысший приоритет
-        if (Object.prototype.hasOwnProperty.call(overrides, section)) {
-          return overrides[section];
-        }
-       
-        const group = SEC_GROUP[section] ?? "meta";
-        const [baseCore, baseMeta] = BASE_SECTION_RATING[severity] ?? ["≈", "≈"];
-       
-        // 2. При synergy-max: модулируем core-секции через профиль метода
-        if (severity === "synergy-max" && group === "core") {
-          const peaks = METHOD_SYNERGY_PEAKS[method] ?? null;
-       
-          if (peaks !== null) {
-            // Концентрированная синергия: пики → ★★★, остальные core → ★★
-            return peaks.includes(section) ? "★★★" : "★★";
-          }
-          // Широкая синергия: все core → ★★★
-          return "★★★";
-        }
-       
-        // 3. Базовый рейтинг по группе
-        return group === "core" ? baseCore : baseMeta;
-      }
-       
-      /**
-       * Вычисляет все 11 рейтингов секций для одной записи матрицы.
-       * @param {string}  severity
-       * @param {string}  method
-       * @param {Object}  overrides — { [section]: rating } | null
-       * @returns {{ [section]: string }}
-       */
-      function computeSections(severity, method, overrides = {}) {
-        const SECTIONS = [
-          "sum", "graph", "glossary", "theses", "dialogue",
-          "critique", "name", "history", "practical", "evolution", "origin",
-        ];
-        const ov = overrides ?? {};
-        return Object.fromEntries(
-          SECTIONS.map(sec => [sec, computeSectionRating(sec, severity, method, ov)])
-        );
-      }
-       
+
       const COMPAT_MATRIX_COMPACT = {
-       
-        // ── Сравнительный ──────────────────────────────────────────────
-        // severity = stable → алгоритм даёт ★ для всех секций, override не нужен.
        
         "comparative:dialectical": {
           rating: "★", severity: "stable",
@@ -2876,15 +3178,11 @@
           advice: null, replacements: null, sections_override: null,
         },
        
-        // ── Преобразующий ──────────────────────────────────────────────
-       
         "transformative:dialectical": {
           rating: "★★★", severity: "synergy-max",
           desc: "<strong>Структурный резонанс.</strong> Оба параметра разделяют один онтологический жест — продуктивный конфликт как источник нового. «Напряжение» уровня = пара тезис↔антитезис метода. «Рождение нового из невозможности» = снятие. Два языка для одного процесса.",
           advice: "Идеальный выбор, когда философы образуют явные оппозиции и результат должен быть и исторически обоснованным, и логически необходимым.",
           replacements: null,
-          // Широкая синергия (dialectical peaks = null): core → ★★★, meta → ★★.
-          // Все 11 секций точно соответствуют алгоритму. override не нужен.
           sections_override: null,
         },
        
@@ -2938,7 +3236,7 @@
           desc: "<strong>Продуктивный парадокс.</strong> Аналитический метод делает претензии преобразующего уровня верифицируемыми: «эмерджентность» перестаёт быть нарративным утверждением и превращается в результат формального аудита предпосылок.",
           advice: "Выбирайте, когда нужна преобразующая глубина с аналитической строгостью и формальным доказательством эмерджентности.",
           replacements: null,
-          sections_override: { name: "★★" },
+          sections_override: { name: "★★", practical: "★★" },
         },
        
         "transformative:creative": {
@@ -2948,8 +3246,6 @@
           replacements: null,
           sections_override: { name: "★★", evolution: "★★" },
         },
-       
-        // ── Порождающий ────────────────────────────────────────────────
        
         "generative:dialectical": {
           rating: "≈", severity: "tension",
@@ -3024,7 +3320,7 @@
           desc: "<strong>Нарастающая синергия.</strong> Порождающий уровень заявляет о невыводимости из традиций — аналитический метод предоставляет формальный аппарат для доказательства. Пики синергии (★★★) в тезисах и критике, где нужно верифицировать претензии.",
           advice: "Выбирайте, когда синтез претендует на подлинную новизну и должен это доказать формально; для аудитории, ориентированной на аналитическую традицию.",
           replacements: null,
-          sections_override: { history: "★", practical: "★" },
+          sections_override: { history: "★" },
         },
        
         "generative:creative": {
@@ -3039,21 +3335,61 @@
         },
       };
        
+      /**
+       * Вычисляет рейтинг одной секции.
+       *
+       * @param {string}  section   — ключ секции
+       * @param {string}  severity  — из записи COMPAT_MATRIX_COMPACT
+       * @param {string}  method    — метод синтеза
+       * @param {Object}  overrides — { [section]: rating }, частичная таблица переопределений
+       * @returns {string} символ рейтинга
+       */
+      function computeSectionRating(section, severity, method, overrides = {}) {
+        // 1. Явное переопределение имеет наивысший приоритет
+        if (Object.prototype.hasOwnProperty.call(overrides, section)) {
+          return overrides[section];
+        }
+       
+        const group = SEC_GROUP[section] ?? "meta";
+        const [baseCore, baseMeta] = BASE_SECTION_RATING[severity] ?? ["≈", "≈"];
+       
+        // 2. При synergy-max: модулируем core-секции через профиль метода
+        if (severity === "synergy-max" && group === "core") {
+          const peaks = METHOD_SYNERGY_PEAKS[method] ?? null;
+       
+          if (peaks !== null) {
+            // Концентрированная синергия: пики → ★★★, остальные core → ★★
+            return peaks.includes(section) ? "★★★" : "★★";
+          }
+          // Широкая синергия: все core → ★★★
+          return "★★★";
+        }
+       
+        // 3. Базовый рейтинг по группе
+        return group === "core" ? baseCore : baseMeta;
+      }
+       
+      /**
+       * Вычисляет все 11 рейтингов секций для одной записи матрицы.
+       * @param {string}  severity
+       * @param {string}  method
+       * @param {Object}  overrides — { [section]: rating } | null
+       * @returns {{ [section]: string }}
+       */
+      function computeSections(severity, method, overrides = {}) {
+        const SECTIONS = [
+          "sum", "graph", "glossary", "theses", "dialogue",
+          "critique", "name", "history", "practical", "evolution", "origin",
+        ];
+        const ov = overrides ?? {};
+        return Object.fromEntries(
+          SECTIONS.map(sec => [sec, computeSectionRating(sec, severity, method, ov)])
+        );
+      }
+       
       // ═══════════════════════════════════════════════════════════════════
       // ПУБЛИЧНЫЕ АКСЕССОРЫ
       // ═══════════════════════════════════════════════════════════════════
-       
-      /**
-       * Возвращает вычисленную таблицу рейтингов секций для комбинации level:method.
-       * @param {string} level 
-       * @param {string} method
-       * @returns {{ [section: string]: string } | null}
-       */
-      function getSectionRatings(level, method) {
-        const entry = COMPAT_MATRIX_COMPACT[`${level}:${method}`];
-        if (!entry) return null;
-        return computeSections(entry.severity, method, entry.sections_override);
-      }
        
       /**
        * Возвращает полную запись матрицы совместимости с вычисленным полем `sections`.
@@ -3245,375 +3581,7 @@
         }
       }
 
-      // ════════════════════════════════════════
-      // CONTEXT DEPENDENCY MAP
-      // ════════════════════════════════════════
-
-      /**
-       * Объединяет произвольное число объектов CONTEXT_DEPS.
-       * Каждый объект имеет вид { [секция]: { required: string[], optional: string[] } }.
-       * @param {...Object} objects
-       * @returns {{ [section: string]: { required: string[], optional: string[] } }}
-       */
-      function deepMergeUniq(...objects) {
-        const allSections = new Set(objects.flatMap(o => Object.keys(o)));
-        const result = {};
-       
-        for (const section of allSections) {
-          let required = [];
-          let optional  = [];
-       
-          for (const obj of objects) {
-            if (!obj[section]) continue;
-            const r   = obj[section].required ?? [];
-            const opt = obj[section].optional ?? [];
-       
-            for (const k of r) {
-              if (!required.includes(k)) required.push(k);
-              optional = optional.filter(x => x !== k); // повышение: уходит из optional
-            }
-            for (const k of opt) {
-              if (!required.includes(k) && !optional.includes(k)) optional.push(k);
-            }
-          }
-       
-          result[section] = { required, optional };
-        }
-       
-        return result;
-      }
-       
-      // ─────────────────────────────────────────────────────────────────
-      // База: уровень comparative (или если уровень не задан)
-      // ─────────────────────────────────────────────────────────────────
-      const CONTEXT_DEPS_BASE = {
-        graph: {
-          required: ["sum:goals"],
-          optional:  ["sum:portraits"],
-        },
-       
-        glossary: {
-          required: ["sum:goals", "graph:nodes"],
-          optional:  [],
-        },
-       
-        theses: {
-          required: ["sum:goals", "sum:tensions", "graph:nodes", "graph:edges"],
-          optional:  ["sum:portraits", "sum:novelty", "graph:topology", "glossary:table"],
-        },
-       
-        name: {
-          required: ["sum:goals", "sum:novelty", "graph:nodes"],
-          optional:  ["sum:coherence", "sum:tensions"],
-        },
-       
-        history: {
-          required: ["sum:goals", "sum:portraits"],
-          optional:  ["sum:novelty", "sum:tensions", "graph:nodes", "theses:summary", "name:title"],
-        },
-       
-        origin: {
-          required: ["sum:goals", "sum:portraits", "sum:tensions", "graph:nodes", "theses:full"],
-          optional:  ["sum:novelty", "sum:coherence", "graph:edges", "glossary:table", "name:title"],
-        },
-       
-        practical: {
-          required: ["sum:goals", "sum:novelty", "graph:nodes", "theses:summary"],
-          optional:  ["glossary:table", "name:title"],
-        },
-       
-        dialogue: {
-          required: ["sum:goals", "sum:portraits", "sum:tensions", "graph:nodes"],
-          optional:  ["sum:difficulty", "graph:edges", "theses:summary", "name:title"],
-        },
-       
-        evolution: {
-          required: ["sum:goals", "sum:novelty", "name:full", "graph:nodes"],
-          optional: [
-            "sum:coherence", "sum:tensions", "graph:edges", "graph:topology",
-            "theses:summary", "history:contemporary", "history:genealogy",
-          ],
-        },
-       
-        critique: {
-          required: [
-            "sum:goals", "sum:portraits", "sum:novelty",
-            "sum:tensions", "sum:coherence",
-            "graph:nodes", "graph:edges", "theses:full", "glossary:table",
-          ],
-          optional: ["graph:topology", "name:title", "history:contemporary"],
-        },
-      };
-       
-      // ─────────────────────────────────────────────────────────────────
-      // Уровне-патчи: накладываются поверх BASE для non-comparative уровней
-      // ─────────────────────────────────────────────────────────────────
-      const CONTEXT_DEPS_LEVEL = {
-        transformative: {
-          graph: {
-            required: ["sum:tensions"],        // напряжения — исходный материал категорий
-          },
-          glossary: {
-            optional: ["sum:portraits", "sum:tensions"],
-          },
-          origin: {
-            required: ["graph:edges"],         // возвращаем в required: генеалогия связей важна
-          },
-          practical: {
-            optional: ["theses:full"],         // полные обоснования полезны при ссылках
-          },
-          dialogue: {
-            optional: ["glossary:table"],      // точные определения нужны в диалоге о напряжениях
-          },
-        },
-
-        generative: {
-          graph: {
-            required: ["sum:portraits", "sum:tensions"],
-          },
-          glossary: {
-            optional: ["sum:portraits"],       // столбец «почему ни один не мог сформулировать»
-          },
-          origin: {
-            required: ["graph:edges"],
-            optional: ["theses:summary"],      // дополнительный якорь для декомпозиции
-          },
-          practical: {
-            optional: ["theses:full"],
-          },
-          dialogue: {
-            optional: ["glossary:table"],
-          },
-        },
-      };
-       
-      // ─────────────────────────────────────────────────────────────────
-      // Метод-патчи: накладываются поверх BASE+LEVEL для конкретных методов
-      // ─────────────────────────────────────────────────────────────────
-      const CONTEXT_DEPS_METHOD = {
-        hermeneutical: {
-          history:   { optional: ["origin:genealogy"] },
-          evolution: { optional: ["origin:genealogy"] },
-        },
-       
-        analytical: {
-          theses: { optional: ["glossary:table"] },  // формализация тезисов через определения
-        },
-       
-        deconstructive: {
-          critique: { optional: ["origin:decomposition"] },
-        },
-      };
-       
-      /**
-       * Резолвер: возвращает эффективный CONTEXT_DEPS для заданных параметров синтеза.
-       * @param {{ synthLevel?: string, method?: string }} p
-       * @returns {{ [section: string]: { required: string[], optional: string[] } }}
-       */
-      function resolveContextDeps(p) {
-        const level  = p.synthLevel ?? "comparative";
-        const method = p.method     ?? "dialectical";
-       
-        return deepMergeUniq(
-          CONTEXT_DEPS_BASE,
-          CONTEXT_DEPS_LEVEL[level]   ?? {},
-          CONTEXT_DEPS_METHOD[method] ?? {}
-        );
-      }
-
-      const SUBSTITUTION_MAP = {
-        "graph:nodes":     [
-          { key: "glossary:table",       q: 3 },
-          { key: "origin:decomposition", q: 2 },
-          { key: "theses:summary",       q: 1 },
-        ],
-        "graph:edges":     [
-          { key: "theses:full",          q: 2 },
-        ],
-        "graph:topology":  [
-          { key: "evolution:graph_changes", q: 1 },
-        ],
-        "glossary:table":  [
-          { key: "graph:nodes",          q: 3 },
-        ],
-        "theses:full":     [
-          { key: "origin:decomposition", q: 3 },
-          { key: "dialogue:synthesis",   q: 2 },
-        ],
-        "theses:summary":  [
-          { key: "origin:decomposition", q: 3 },
-          { key: "graph:nodes",          q: 2 },
-          { key: "dialogue:synthesis",   q: 2 },
-        ],
-        "name:title":      [
-          { key: "history:name_context",  q: 2 },
-          { key: "evolution:name_evolution", q: 2 },
-          { key: "sum:goals",             q: 1 },
-        ],
-        "name:full":       [
-          { key: "history:name_context",  q: 2 },
-          { key: "sum:goals",             q: 1 },
-        ],
-        "history:genealogy":    [ { key: "origin:genealogy",     q: 3 } ],
-        "history:contemporary": [ { key: "evolution:science",    q: 2 } ],
-        "history:influence":    [
-          { key: "evolution:directions",  q: 3 },
-          { key: "practical:summary",     q: 2 },
-        ],
-        "history:name_context": [],   // нет замены
-      };
-
-      /**
-       * Возвращает ключ-раздел, из которого извлекается данный контекстный ключ.
-       * "graph:nodes" → "graph", "origin:decomposition" → "origin", "sum:goals" → "sum"
-       */
-      function sourceOf(ctxKey) {
-        return ctxKey.split(":")[0];
-      }
-
-      /**
-       * Ищет лучший доступный заменитель для ctxKey среди доступных разделов.
-       * selfSection исключается — раздел не может замещать себя.
-       *
-       * @param {string}   ctxKey        — недоступный ключ
-       * @param {Set}      available     — множество выбранных разделов + "sum"
-       * @param {string}   selfSection   — текущий раздел (исключается из кандидатов)
-       * @returns {string|null}          — лучший ключ-заменитель или null
-       */
-      function findSubstitute(ctxKey, available, selfSection) {
-        const candidates = SUBSTITUTION_MAP[ctxKey] || [];
-        // Берём первый (наивысшее качество), чей источник доступен и не является selfSection
-        for (const { key } of candidates) {
-          const src = sourceOf(key);
-          if (src !== selfSection && available.has(src)) return key;
-        }
-        return null;
-      }
-
-      /**
-       * Строит эффективные зависимости для заданного набора выбранных разделов.
-       * Возвращает объект { [sectionKey]: { required: [...], optional: [...] } }
-       * где все ключи заменены на доступные эквиваленты.
-       */
-      function buildEffectiveDeps(selectedSections, resolvedDeps) {
-        const available = new Set(["sum", ...selectedSections]);
-        const depsSource = resolvedDeps ?? CONTEXT_DEPS_BASE;
-        const result = {};
-
-        for (const sec of selectedSections) {
-          const base = depsSource[sec];
-          if (!base) { result[sec] = { required: [], optional: [] }; continue; }
-
-          const effective = { required: [], optional: [] };
-
-          const resolve = (ctxKey, tier) => {
-            const src = sourceOf(ctxKey);
-            if (available.has(src)) {
-              // Источник присутствует → используем оригинальный ключ
-              effective[tier].push(ctxKey);
-            } else {
-              // Ищем заменитель
-              const sub = findSubstitute(ctxKey, available, sec);
-              if (sub) {
-                // Заменитель найден — понижаем required → optional если качество < 3
-                const subQuality = (SUBSTITUTION_MAP[ctxKey] || []).find(c => c.key === sub)?.q ?? 1;
-                const effectiveTier = (tier === "required" && subQuality < 3) ? "optional" : tier;
-                effective[effectiveTier].push(sub);
-              }
-              // Иначе — ключ просто выпадает (раздел деградирует)
-            }
-          };
-
-          for (const k of base.required)  resolve(k, "required");
-          for (const k of base.optional)  resolve(k, "optional");
-
-          // Дедупликация (один ключ может попасть дважды через разные пути)
-          result[sec] = {
-            required: [...new Set(effective.required)],
-            optional: [...new Set(effective.optional)],
-          };
-        }
-
-        return result;
-      }
-
-      /**
-       * Для каждого раздела возвращает множество разделов, которые должны быть
-       * сгенерированы ДО него (прямые predecessor'ы по effective deps).
-       */
-      function computePredecessors(effectiveDeps) {
-        const preds = {}; // sectionKey → Set<sectionKey>
-
-        for (const [sec, deps] of Object.entries(effectiveDeps)) {
-          preds[sec] = new Set();
-          for (const ctxKey of [...deps.required, ...deps.optional]) {
-            const src = sourceOf(ctxKey);
-            if (src !== "sum" && src !== sec) {
-              preds[sec].add(src);
-            }
-          }
-        }
-        return preds;
-      }
-
-      /**
-       * Топологическая сортировка (Кан) с вторичным упорядочиванием
-       * по SECTION_TOPO_ORDER для стабильности при равных приоритетах.
-       */
-      const SECTION_TOPO_ORDER = {
-        sum: 0, graph: 1, glossary: 2, theses: 3, name: 4,
-        history: 5, origin: 6, practical: 6, dialogue: 6,
-        evolution: 7, critique: 8,
-      };
-
-      function buildDynamicOrder(effectiveDeps, selectedSections, resolvedDeps) {
-        const preds = computePredecessors(effectiveDeps);
-        resolveCircularDeps(preds, effectiveDeps, resolvedDeps);
-
-        // ── НОВОЕ: разрываем циклы перед топосортировкой ──────────────────────
-        // Мутирует и preds, и effectiveDeps (удаляет weakest optional-ключи).
-        // После возврата effectiveDeps актуален для buildContextForSection.
-        resolveCircularDeps(preds, effectiveDeps);
-        // ─────────────────────────────────────────────────────────────────────
-
-        const inDegree = {};
-        const adjList  = {};
-
-        for (const sec of selectedSections) {
-          inDegree[sec] = 0;
-          adjList[sec]  = [];
-        }
-
-        for (const [sec, predSet] of Object.entries(preds)) {
-          for (const pred of predSet) {
-            if (!selectedSections.includes(pred)) continue;
-            adjList[pred].push(sec);
-            inDegree[sec]++;
-          }
-        }
-
-        const queue = selectedSections
-          .filter(s => inDegree[s] === 0)
-          .sort((a, b) => SECTION_TOPO_ORDER[a] - SECTION_TOPO_ORDER[b]);
-        const order = [];
-
-        while (queue.length) {
-          const node = queue.shift();
-          order.push(node);
-          const succs = (adjList[node] || [])
-            .sort((a, b) => SECTION_TOPO_ORDER[a] - SECTION_TOPO_ORDER[b]);
-          for (const succ of succs) {
-            inDegree[succ]--;
-            if (inDegree[succ] === 0) {
-              const pos = queue.findIndex(q => SECTION_TOPO_ORDER[q] > SECTION_TOPO_ORDER[succ]);
-              if (pos === -1) queue.push(succ);
-              else queue.splice(pos, 0, succ);
-            }
-          }
-        }
-
-        return ["sum", ...order];
-      }
+      
 
       const CONTEXT_BUDGET = {
         overview: 12000,
