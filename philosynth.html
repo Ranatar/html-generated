@@ -903,7 +903,7 @@
         overflow: hidden;
       }
       .gm-body canvas,
-      .gm-body svg {
+      .gm-body < svg {
         display: block;
         width: 100%;
         height: 100%;
@@ -7443,9 +7443,42 @@ ${METHOD_CRITIQUE(p)[p.method] || ""}
       }
  
       function saveHTML() {
-        const styles = Array.from(document.querySelectorAll("style"))
-          .map((s) => s.outerHTML)
-          .join("\n");
+        //const styles = Array.from(document.querySelectorAll("style"))
+        //  .map((s) => s.outerHTML)
+        //  .join("\n");
+
+        const styles = (() => {
+          // Временный контейнер со всем контентом итогового файла
+          const tmp = document.createElement("div");
+          tmp.style.display = "none";
+          // docOutput + клон модального окна графа
+          const overlayEl = document.getElementById("gmOverlay");
+          tmp.innerHTML = document.getElementById("docOutput").innerHTML
+            + (overlayEl ? overlayEl.outerHTML : "");
+          document.body.appendChild(tmp);
+
+          const kept = [];
+          for (const sheet of document.styleSheets) {
+            try {
+              for (const rule of sheet.cssRules) {
+                if (rule instanceof CSSStyleRule) {
+                  let used = false;
+                  try { used = !!tmp.querySelector(rule.selectorText); }
+                  catch (_) { used = true; } // невалидный/сложный селектор — включаем
+                  if (used) kept.push(rule.cssText);
+                } else {
+                  // @keyframes, @font-face, @media, @supports и т.п. — всегда включать
+                  kept.push(rule.cssText);
+                }
+              }
+            } catch (_) {
+              // cross-origin stylesheet — пропускаем
+            }
+          }
+
+          document.body.removeChild(tmp);
+          return `<style>\n${kept.join("\n")}\n</style>`;
+        })();
 
         // Базовое имя файла фиксируется на момент сохранения (без расширения)
         const filenameBase = getDocFilename("html").replace(/\.html$/, "");
