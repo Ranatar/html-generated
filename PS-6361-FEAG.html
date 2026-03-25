@@ -3394,6 +3394,51 @@ function build3D() {
           mesh.material.emissiveIntensity = 0.6;
         }
 
+        function setSelected(mesh) {
+          // Снимаем старый selected
+          if (selectedMesh3d) {
+            resetAll3d();
+            selectedMesh3d = null;
+          }
+
+          selectedMesh3d = mesh;
+          if (!mesh) return;
+
+          const selIdx = mesh.userData.nodeIdx;
+          const nbrs   = neighbors[selIdx] || new Set();
+          const visSet = new Set([selIdx, ...nbrs]);
+
+          // Диммируем не-соседей (то же, что раньше делал hover)
+          meshes.forEach(m => {
+            const idx = m.userData.nodeIdx;
+            if (!visSet.has(idx)) {
+              m.material.opacity           = DIM_OPACITY;
+              m.material.emissiveIntensity = DIM_EMISSIVE;
+            }
+          });
+          scene.children.forEach(c => {
+            if (c.userData?.labelFor != null && !visSet.has(c.userData.labelFor))
+              c.material.opacity = DIM_OPACITY;
+          });
+          edgeMaterials.forEach(mat => { mat.opacity *= 0.08; });
+          scene.children.forEach(c => {
+            if (c.isLine && c.userData?.si !== undefined) {
+              const { si, ti } = c.userData;
+              if (visSet.has(si) && visSet.has(ti))
+                c.material.opacity = c.material.userData?.baseOp ?? 0.5;
+            }
+            if (c.isMesh && c.userData?.si !== undefined) {
+              const { si, ti } = c.userData;
+              if (visSet.has(si) && visSet.has(ti))
+                c.material.opacity = c.material.userData?.baseOp ?? 0.5;
+            }
+          });
+
+          // Подсвечиваем выбранный узел
+          mesh.scale.setScalar(1.3);
+          mesh.material.emissiveIntensity = 0.6;
+        }
+
         const raycaster   = new THREE.Raycaster();
         const mouse       = new THREE.Vector2();
         const plane       = new THREE.Plane();
@@ -3524,6 +3569,13 @@ function build3D() {
               const panel = ct.querySelector(".gm-info-panel");
               if (panel) panel.classList.remove("visible");
             }
+          }
+
+          if (moved < 5 && isOrbit) {
+            // Клик на пустом месте (isOrbit=true т.к. mousedown не попал в узел)
+            setSelected(null);
+            const panel = ct.querySelector(".gm-info-panel");
+            if (panel) panel.classList.remove("visible");
           }
 
           isDrag = false;
@@ -3672,6 +3724,14 @@ function build3D() {
               if (panel) panel.classList.remove("visible");
             }
           }
+
+          if (moved < 5 && isOrbit) {
+            // Клик на пустом месте (isOrbit=true т.к. mousedown не попал в узел)
+            setSelected(null);
+            const panel = ct.querySelector(".gm-info-panel");
+            if (panel) panel.classList.remove("visible");
+          }
+
           isDrag = false; isOrbit = false; dragNode = null; fixedNodeIdx = null;
           simAlpha = Math.max(simAlpha, 0.4);
         }, { passive: false });
