@@ -5325,16 +5325,15 @@ ${METHOD_CRITIQUE(p)[p.method] || ""}
       // ════════════════════════════════════════
       function parseTopology(container, nodeNames) {
         const result = {
-          clusters:      {},  // nodeName → clusterIndex
-          roles:         {},  // nodeName → Set<string>
+          clusters:      {},  // nodeName → number[]  (массив индексов кластеров)
+          roles:         {},
           clusterLabels: [],
         };
         if (!nodeNames.length) return result;
-       
+
         const sec = container.querySelector('[data-section="Топология графа"]');
         if (!sec) return result;
-       
-        // ── Маппинг русских меток ролей → внутренние ключи ─────────────────────
+
         const ROLE_MAP = {
           "центральная":        "central",
           "периферийная":       "peripheral",
@@ -5347,55 +5346,92 @@ ${METHOD_CRITIQUE(p)[p.method] || ""}
           "деконструированная": "deconstructed",
           "пересобранная":      "reassembled",
         };
-       
+
         function addRole(name, role) {
           if (!result.roles[name]) result.roles[name] = [];
           if (!result.roles[name].includes(role)) result.roles[name].push(role);
         }
-       
-        // ── Читаем «Топологическую таблицу» ────────────────────────────────────
+
+        // ── Извлекает «именную часть» метки, отбрасывая римский номер-префикс ──────
+        // "I — Первый кластер"  →  "Первый кластер"
+        // "II - Второй"         →  "Второй"
+        // "Первый кластер"      →  "Первый кластер"  (без изменений)
+        function clusterNamePart(label) {
+          const m = label.match(/^[IVXLCDM]+\s*[-–—]\s*(.+)$/i);
+          return m ? m[1].trim() : label;
+        }
+
+        // ── Ищет кластер по метке; если не найден — создаёт новый ──────────────────
+        // Поддерживает три варианта совпадения:
+        //   1. Точное:           "I — Логика"  ↔  "I — Логика"
+        //   2. Префиксное:       "I"           ↔  "I — Логика"  (и обратно)
+        //   3. По именной части: "Логика"      ↔  "I — Логика"
+        function findOrCreateCluster(label) {
+          if (!label) return -1;
+
+          // 1. Точное совпадение
+          let idx = result.clusterLabels.indexOf(label);
+          if (idx !== -1) return idx;
+
+          const SEPS = [" —", " –", " -", "\u00a0—", "\u00a0–", "\u00a0-", " ", "\u00a0"];
+
+          // 2. Префиксное совпадение (в обе стороны)
+          idx = result.clusterLabels.findIndex(existing => {
+            // label является префиксом existing: "I" → "I — Логика"
+            if (SEPS.some(s => existing.startsWith(label + s))) return true;
+            // existing является префиксом label: "I" ← "I — Логика"
+            if (SEPS.some(s => label.startsWith(existing + s))) return true;
+            return false;
+          });
+          if (idx !== -1) return idx;
+
+          // 3. Совпадение именных частей: "Логика" ↔ "I — Логика"
+          const namePart = clusterNamePart(label);
+          idx = result.clusterLabels.findIndex(existing =>
+            clusterNamePart(existing).toLowerCase() === namePart.toLowerCase()
+          );
+          if (idx !== -1) return idx;
+
+          // 4. Не найден → регистрируем новый
+          idx = result.clusterLabels.length;
+          result.clusterLabels.push(label);
+          return idx;
+        }
+
+        // ── Добавляет категорию в кластер (без дублей) ──────────────────────────────
+        function assignCluster(name, idx) {
+          if (idx === -1) return;
+          if (!result.clusters[name]) result.clusters[name] = [];
+          if (!result.clusters[name].includes(idx)) result.clusters[name].push(idx);
+        }
+
         const topoSection = sec.querySelector('[data-section="Топологическая таблица"]');
-        const tableScope  = topoSection || sec;  // fallback: вся секция топологии
-       
+        const tableScope  = topoSection || sec;
+
         tableScope.querySelectorAll("table.doc-table tbody tr").forEach(tr => {
           const td = Array.from(tr.querySelectorAll("td")).map(c => c.textContent.trim());
           if (td.length < 2) return;
-       
-          // Столбец 0: Категория — нормализуем (убираем кавычки, скобки)
+
           const name = normalizeName(td[0]);
           if (!name) return;
-       
-          // Столбец 1: Кластер
+
+          // ── Столбец 1: Кластер(ы) ────────────────────────────────────────────────
           const clusterRaw = (td[1] || "").trim();
-          const isBridge   = /^мост$/i.test(clusterRaw) || clusterRaw === "";
-          if (isBridge && /^мост$/i.test(clusterRaw)) {
-            addRole(name, "bridge");
-          }
-       
-          if (!isBridge && clusterRaw) {
-            const parts = clusterRaw.split(/\s*\/\s*/);
-            const clusterLabel = parts[0].trim();
-            if (clusterLabel) {
-              // Точное совпадение
-              let idx = result.clusterLabels.indexOf(clusterLabel);
-              // Если нет — ищем по префиксу ("I" → "I — Логика незнания")
-              if (idx === -1) {
-                idx = result.clusterLabels.findIndex(existing =>
-                  existing.startsWith(clusterLabel + " ") ||
-                  existing.startsWith(clusterLabel + "\u00a0") ||
-                  existing.startsWith(clusterLabel + " —") ||
-                  existing === clusterLabel
-                );
+          if (clusterRaw) {
+            clusterRaw.split(/\s*\/\s*/).forEach(part => {
+              const label = part.trim();
+              if (!label) return;
+
+              if (/^мост$/i.test(label)) {
+                addRole(name, "bridge");                        // роль — да
+                // кластер — не назначаем (мост сам по себе не входит в кластер)
+              } else {
+                assignCluster(name, findOrCreateCluster(label)); // кластер — да
               }
-              if (idx === -1) {
-                idx = result.clusterLabels.length;
-                result.clusterLabels.push(clusterLabel);
-              }
-              result.clusters[name] = idx;
-            }
+            });
           }
-       
-          // Столбец 2: Роли (через запятую или «/»)
+
+          // ── Столбец 2: Роли ───────────────────────────────────────────────────────
           const rolesRaw = (td[2] || "").trim();
           if (rolesRaw) {
             rolesRaw.split(/[,\/]+/).forEach(part => {
@@ -5403,11 +5439,8 @@ ${METHOD_CRITIQUE(p)[p.method] || ""}
               if (key) addRole(name, key);
             });
           }
-       
-          // Столбец 3: Рефлексивная связь — «да» → роль не нужна, это уже в edges
-          // (оставляем для возможного расширения)
         });
-       
+
         return result;
       }
               
@@ -5623,8 +5656,14 @@ ${METHOD_CRITIQUE(p)[p.method] || ""}
         const color   = typeColorHex(d.type);
         const certPct = Math.round((d.cert ?? 0.5) * 100);
         const cenPct  = Math.round((d.cen  ?? 0.5) * 100);
-        const clLabel = d.cluster >= 0 ? (clusterLabels[d.cluster] || `Кластер ${d.cluster + 1}`) : null;
-        const clColor = d.cluster >= 0 ? CPAL[d.cluster % CPAL.length] : null;
+        // d.cluster теперь всегда массив индексов (может быть пустым)
+        const clBadges = (Array.isArray(d.cluster) ? d.cluster : [])
+          .map(idx => {
+            const label = clusterLabels[idx] || `Кластер ${idx + 1}`;
+            const color = CPAL[idx % CPAL.length];
+            return `<span class="gm-panel-badge" style="border-color:${color};color:${color}">${label}</span>`;
+          })
+          .join("");
        
         const ROLE_LABELS = {
           central:      "Центральная",
@@ -5691,7 +5730,7 @@ ${METHOD_CRITIQUE(p)[p.method] || ""}
           </div>
           <div class="gm-panel-badges">
             <span class="gm-panel-badge" style="border-color:${color};color:${color}">${d.type || "—"}</span>
-            ${clLabel ? `<span class="gm-panel-badge" style="border-color:${clColor};color:${clColor}">${clLabel}</span>` : ""}
+            ${clBadges}
           </div>
           ${roleTags ? `<div class="gm-panel-roles">${roleTags}</div>` : ""}
           <div class="gm-panel-def">${d.def || ""}</div>
@@ -6165,10 +6204,11 @@ ${METHOD_CRITIQUE(p)[p.method] || ""}
             // Группируем ns по кластерам
             const clusterNodes = {};
             for (const n of ns) {
-              const idx = topo.clusters?.[n.name] ?? -1;
-              if (idx < 0) continue;
-              if (!clusterNodes[idx]) clusterNodes[idx] = [];
-              clusterNodes[idx].push(n);
+              const clusterList = topo.clusters?.[n.name] || [];
+              for (const idx of clusterList) {
+                if (!clusterNodes[idx]) clusterNodes[idx] = [];
+                clusterNodes[idx].push(n);
+              }
             }
             for (const [idxStr, members] of Object.entries(clusterNodes)) {
               const idx   = Number(idxStr);
@@ -6248,7 +6288,7 @@ ${METHOD_CRITIQUE(p)[p.method] || ""}
           if (clusterShells.length) {
             const topo = G.topology;
             for (const { mesh, clusterIdx } of clusterShells) {
-              const members = ns.filter(n => (topo.clusters?.[n.name] ?? -1) === clusterIdx);
+              const members = ns.filter(n => (topo.clusters?.[n.name] || []).includes(clusterIdx));
               if (!members.length) continue;
               // Центроид
               const cx = members.reduce((s, n) => s + n.x, 0) / members.length;
@@ -6530,7 +6570,7 @@ ${METHOD_CRITIQUE(p)[p.method] || ""}
                 const nodeData = {
                   ...G.nodes[nodeIdx],
                   id:      nodeIdx,
-                  cluster: G.topology?.clusters?.[n.name] ?? -1,
+                  cluster: G.topology?.clusters?.[n.name] ?? [],
                   roles:   G.topology?.roles?.[n.name] instanceof Set
                     ? G.topology.roles[n.name]
                     : new Set(G.topology?.roles?.[n.name] || []),
@@ -6661,20 +6701,28 @@ ${METHOD_CRITIQUE(p)[p.method] || ""}
         cv.addEventListener("touchend", (e) => {
           e.preventDefault();
           if (e.touches.length < 2) lastPinchDist = null;
-          if (e.touches.length > 0) return; // ещё есть пальцы на экране
-          const p = getTouchPos(e);
-          const moved = Math.hypot(p.clientX - mouseDownX, p.clientY - mouseDownY);
+          if (e.touches.length > 0) return;
+          
+          // ✅ Правильно получаем координаты из changedTouches
+          const rect = cv.getBoundingClientRect();
+          const touch = e.changedTouches[0];
+          const offsetX = touch.clientX - rect.left;
+          const offsetY = touch.clientY - rect.top;
+          
+          const moved = Math.hypot(touch.clientX - mouseDownX, touch.clientY - mouseDownY);
+          
           if (moved < 5 && !isOrbit) {
-            mouse.x = (e.offsetX / cv.clientWidth) * 2 - 1;
-            mouse.y = -(e.offsetY / cv.clientHeight) * 2 + 1;
+            // ✅ Используем правильные координаты для raycaster
+            mouse.x = (offsetX / cv.clientWidth) * 2 - 1;
+            mouse.y = -(offsetY / cv.clientHeight) * 2 + 1;
             raycaster.setFromCamera(mouse, cam);
             const hits = raycaster.intersectObjects(meshes);
+            
             if (hits.length > 0) {
               const hitMesh = hits[0].object;
               const nodeIdx = hitMesh.userData.nodeIdx;
           
               if (selectedMesh3d === hitMesh) {
-                // Повторный клик — снять выделение
                 setSelected(null);
                 const panel = ct.querySelector(".gm-info-panel");
                 if (panel) panel.classList.remove("visible");
@@ -6684,7 +6732,7 @@ ${METHOD_CRITIQUE(p)[p.method] || ""}
                 const nodeData = {
                   ...G.nodes[nodeIdx],
                   id:      nodeIdx,
-                  cluster: G.topology?.clusters?.[n.name] ?? -1,
+                  cluster: G.topology?.clusters?.[n.name] ?? [],
                   roles:   G.topology?.roles?.[n.name] instanceof Set
                     ? G.topology.roles[n.name]
                     : new Set(G.topology?.roles?.[n.name] || []),
@@ -6698,7 +6746,6 @@ ${METHOD_CRITIQUE(p)[p.method] || ""}
                 showNodePanel(ct, nodeData, links3d, G.topology?.clusterLabels || []);
               }
             } else {
-              // Клик по пустому месту — снять всё
               setSelected(null);
               const panel = ct.querySelector(".gm-info-panel");
               if (panel) panel.classList.remove("visible");
@@ -6706,13 +6753,15 @@ ${METHOD_CRITIQUE(p)[p.method] || ""}
           }
 
           if (moved < 5 && isOrbit) {
-            // Клик на пустом месте (isOrbit=true т.к. mousedown не попал в узел)
             setSelected(null);
             const panel = ct.querySelector(".gm-info-panel");
             if (panel) panel.classList.remove("visible");
           }
 
-          isDrag = false; isOrbit = false; dragNode = null; fixedNodeIdx = null;
+          isDrag = false;
+          isOrbit = false;
+          dragNode = null;
+          fixedNodeIdx = null;
           simAlpha = Math.max(simAlpha, 0.4);
         }, { passive: false });
 
@@ -6780,7 +6829,7 @@ ${METHOD_CRITIQUE(p)[p.method] || ""}
         const nodes = G.nodes.map((n, i) => ({
           ...n,
           id:      i,
-          cluster: topo.clusters[n.name] ?? -1,
+          cluster: topo.clusters[n.name] ?? [],
           roles: (() => {
             const r = topo.roles[n.name];
             if (!r) return new Set();
@@ -6803,6 +6852,13 @@ ${METHOD_CRITIQUE(p)[p.method] || ""}
        
         const regularLinks = links.filter(l => !l.dir.includes("рефлексив"));
         const reflLinks    = links.filter(l =>  l.dir.includes("рефлексив"));
+
+        // Плоский массив: один элемент на каждую пару (узел, кластер).
+        // offset — порядковый номер кластера в списке узла (0, 1, 2…),
+        // определяет смещение радиуса концентрического кольца.
+        const ringData = nodes.flatMap(n =>
+          n.cluster.map((clIdx, offset) => ({ node: n, clIdx, offset }))
+        );
        
         // ── SVG-сцена ─────────────────────────────────────────────────────────
         const svg = d3.select(ct).append("svg")
@@ -6914,11 +6970,11 @@ ${METHOD_CRITIQUE(p)[p.method] || ""}
           });
        
         // ── Кольца кластеров (под узлами) ─────────────────────────────────────
-        const clusterRing = g.selectAll(".cluster-ring").data(nodes).enter()
+        const clusterRing = g.selectAll(".cluster-ring").data(ringData).enter()
           .append("circle").attr("class", "cluster-ring")
-          .attr("r",               d => d.cluster >= 0 ? 8 + d.cen * 14 + 6 : 0)
+          .attr("r",               d => (6 + d.node.cen * 14) + 6 + d.offset * 5)
           .attr("fill",            "none")
-          .attr("stroke",          d => d.cluster >= 0 ? CPAL[d.cluster % CPAL.length] : "none")
+          .attr("stroke",          d => CPAL[d.clIdx % CPAL.length])
           .attr("stroke-opacity",  0.5)
           .attr("stroke-width",    1.5)
           .attr("stroke-dasharray","3,2")
@@ -7003,7 +7059,7 @@ ${METHOD_CRITIQUE(p)[p.method] || ""}
           const DIM = 0.08;
           node.attr("opacity",        n => nbrIds.has(n.id) ? 1 : DIM);
           label.attr("opacity",       n => nbrIds.has(n.id) ? 1 : DIM);
-          clusterRing.attr("opacity", n => nbrIds.has(n.id) ? 1 : DIM);
+          clusterRing.attr("opacity", d => nbrIds.has(d.node.id) ? 1 : DIM);
           link.attr("opacity", l => {
             const s = typeof l.source === "object" ? l.source.id : l.source;
             const t = typeof l.target === "object" ? l.target.id : l.target;
@@ -7033,9 +7089,9 @@ ${METHOD_CRITIQUE(p)[p.method] || ""}
             if (s === d.id) nbrIds.add(t);
             if (t === d.id) nbrIds.add(s);
           });
-      
+
           node.attr("filter", n => nbrIds.has(n.id) ? "url(#glow2)" : null);
-      
+
           // stroke-opacity, а не opacity
           link.attr("stroke-opacity", l => {
             const s = typeof l.source === "object" ? l.source.id : l.source;
@@ -7046,7 +7102,7 @@ ${METHOD_CRITIQUE(p)[p.method] || ""}
             const s = typeof l.source === "object" ? l.source.id : l.source;
             return s === d.id ? 1 : 0.7;
           });
-      
+
           d3.select(this).raise();
         })
         .on("mouseout", function() {
@@ -7099,7 +7155,7 @@ ${METHOD_CRITIQUE(p)[p.method] || ""}
           arc.attr("d", arcPath);
           arcHit.attr("d", arcPath);
           node.attr("transform", d => `translate(${d.x},${d.y})`);   // ← заменяет cx/cy
-          clusterRing.attr("cx", d => d.x).attr("cy", d => d.y);     // остаётся
+          clusterRing.attr("cx", d => d.node.x).attr("cy", d => d.node.y);    // остаётся
           label.attr("x",        d => d.x).attr("y", d => d.y);
         });
       }
@@ -7442,43 +7498,71 @@ ${METHOD_CRITIQUE(p)[p.method] || ""}
 <script>${initScript}<\/script>`;
       }
  
-      function saveHTML() {
-        //const styles = Array.from(document.querySelectorAll("style"))
-        //  .map((s) => s.outerHTML)
-        //  .join("\n");
+      /*
+      function buildFilteredStyles() {
+        const docOutput = document.getElementById("docOutput");
 
-        const styles = (() => {
-          // Временный контейнер со всем контентом итогового файла
-          const tmp = document.createElement("div");
-          tmp.style.display = "none";
-          // docOutput + клон модального окна графа
-          const overlayEl = document.getElementById("gmOverlay");
-          tmp.innerHTML = document.getElementById("docOutput").innerHTML
-            + (overlayEl ? overlayEl.outerHTML : "");
-          document.body.appendChild(tmp);
-
-          const kept = [];
-          for (const sheet of document.styleSheets) {
+        function selectorKept(selectorText) {
+          // Проверяем каждую часть составного селектора (через запятую)
+          return selectorText.split(",").map(s => s.trim()).some(sel => {
+            // 1. Общие селекторы страницы
+            if (/^(\*|html|body|:root)/.test(sel)) return true;
+            // 2. Модальные окна: .gm-* и .raw-*
+            if (/\.(gm|raw)-/.test(sel)) return true;
+            // 3. Используется в docOutput — убираем псевдоклассы/псевдоэлементы перед querySelector
+            const stripped = sel
+              .replace(/::?[\w-]+(\([^)]*\))?/g, "")
+              .trim();
+            if (!stripped) return true; // был только псевдокласс — оставляем
             try {
-              for (const rule of sheet.cssRules) {
-                if (rule instanceof CSSStyleRule) {
-                  let used = false;
-                  try { used = !!tmp.querySelector(rule.selectorText); }
-                  catch (_) { used = true; } // невалидный/сложный селектор — включаем
-                  if (used) kept.push(rule.cssText);
-                } else {
-                  // @keyframes, @font-face, @media, @supports и т.п. — всегда включать
-                  kept.push(rule.cssText);
-                }
-              }
-            } catch (_) {
-              // cross-origin stylesheet — пропускаем
+              return docOutput.querySelector(stripped) !== null;
+            } catch (e) {
+              return false; // невалидный селектор после стрипа — пропускаем
+            }
+          });
+        }
+
+        function processRules(rules) {
+          const kept = [];
+          for (const rule of rules) {
+            if (rule instanceof CSSStyleRule) {
+              if (selectorKept(rule.selectorText)) kept.push(rule.cssText);
+            } else if (rule instanceof CSSMediaRule) {
+              const inner = processRules(rule.cssRules);
+              if (inner.length)
+                kept.push(`@media ${rule.conditionText} {\n${inner.join("\n")}\n}`);
+            } else if (rule instanceof CSSSupportsRule) {
+              const inner = processRules(rule.cssRules);
+              if (inner.length)
+                kept.push(`@supports ${rule.conditionText} {\n${inner.join("\n")}\n}`);
+            } else {
+              // @keyframes, @font-face и прочее — сохраняем всегда
+              kept.push(rule.cssText);
             }
           }
+          return kept;
+        }
 
-          document.body.removeChild(tmp);
-          return `<style>\n${kept.join("\n")}\n</style>`;
-        })();
+        const result = [];
+        for (const sheet of document.styleSheets) {
+          try {
+            const rules = processRules(sheet.cssRules);
+            if (rules.length)
+              result.push(`<style>\n${rules.join("\n\n")}\n</style>`);
+          } catch (e) {
+            // cross-origin таблицы (внешние CDN) — пропускаем
+          }
+        }
+        return result.join("\n");
+      }
+      */
+
+      function saveHTML() {
+        const styles = Array.from(document.querySelectorAll("style"))
+          .map((s) => s.outerHTML)
+          .join("\n");
+
+        // const styles = buildFilteredStyles();
 
         // Базовое имя файла фиксируется на момент сохранения (без расширения)
         const filenameBase = getDocFilename("html").replace(/\.html$/, "");
