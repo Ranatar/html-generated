@@ -348,6 +348,95 @@ html, body {
 #overlay-screen .menu-btn:hover {
   background: var(--bg-panel-light);
 }
+
+/* ═══════════════════════════════════════════
+   MOBILE ADAPTATION
+   ═══════════════════════════════════════════ */
+#mobile-buttons { display: none; }
+
+@media (max-width: 900px), (pointer: coarse) {
+  :root {
+    --panel-right-width: 0px;
+    --bar-top-height: 32px;
+  }
+  #game-container {
+    grid-template-rows: var(--bar-top-height) 1fr auto;
+    grid-template-columns: 1fr;
+    grid-template-areas:
+      "topbar"
+      "viewport"
+      "bottompanel";
+  }
+  #right-panel {
+    grid-area: bottompanel;
+    border-left: none;
+    border-top: 2px solid var(--border-gold);
+    flex-direction: row;
+    height: auto;
+    max-height: 40vh;
+  }
+  /* Minimap: small square on right */
+  #minimap-container {
+    height: auto; width: 110px; min-width: 110px;
+    border-bottom: none; border-left: 2px solid var(--border-gold);
+    order: 3;
+  }
+  /* Info panel: compact horizontal */
+  #info-panel {
+    flex: 1; min-height: auto; padding: 4px;
+    border-bottom: none; border-right: 2px solid var(--border-gold);
+    order: 1; overflow: hidden;
+  }
+  #portrait-area { margin-bottom: 0; }
+  #portrait-symbol { font-size: 24px; width: 32px; height: 32px; }
+  #unit-name { font-size: 11px; }
+  #unit-stats { font-size: 9px; }
+  .stat-bar { height: 6px; }
+  /* Command panel: 4×2 grid, large buttons */
+  #command-panel {
+    height: auto; padding: 4px;
+    grid-template-columns: repeat(4, 1fr);
+    grid-template-rows: repeat(2, 1fr);
+    order: 2; flex: 1.5;
+    border-top: 2px solid var(--border-gold);
+  }
+  .cmd-btn { min-height: 40px; padding: 2px; }
+  .cmd-btn .cmd-icon { font-size: 20px; }
+  .cmd-btn .cmd-label { font-size: 8px; }
+  /* Queue bar compact */
+  #queue-bar { height: 24px; order: 0; font-size: 9px; }
+  .queue-slot { width: 20px; height: 20px; font-size: 12px; }
+  /* Top bar compact */
+  #top-bar { padding: 0 8px; gap: 12px; font-size: 11px; }
+  .resource-icon { font-size: 12px; }
+  /* Overlay buttons */
+  #overlay-screen .menu-btn { font-size: 13px; padding: 8px 20px; }
+  #overlay-screen h1 { font-size: 28px; }
+  #overlay-screen h2 { font-size: 12px; margin-bottom: 16px; }
+  /* Floating mobile buttons */
+  #mobile-buttons {
+    display: flex; position: absolute;
+    top: 38px; right: 8px; z-index: 15;
+    gap: 4px;
+  }
+  .mobile-btn {
+    width: 36px; height: 36px;
+    background: var(--bg-panel);
+    border: 1px solid var(--border-gold);
+    color: var(--gold-color);
+    font-size: 16px;
+    display: flex; align-items: center; justify-content: center;
+    cursor: pointer; border-radius: 4px;
+    opacity: 0.85;
+  }
+  .mobile-btn:active { background: var(--bg-panel-light); opacity: 1; }
+  /* Notifications smaller */
+  .notification { font-size: 11px; }
+  /* Tooltip: wider on mobile, positioned centrally */
+  #tooltip { max-width: 180px; font-size: 10px; }
+  /* Multi-select grid smaller */
+  .multi-select-icon { width: 22px; height: 22px; font-size: 13px; }
+}
 </style>
 </head>
 <body>
@@ -392,6 +481,16 @@ html, body {
     <canvas id="game-canvas"></canvas>
     <div id="selection-box"></div>
     <div id="notifications"></div>
+  </div>
+
+
+  <!-- Mobile floating buttons -->
+  <div id="mobile-buttons">
+    <div class="mobile-btn" id="mbtn-pause" title="Pause">⏸</div>
+    <div class="mobile-btn" id="mbtn-hero" title="Select Hero">🦸</div>
+    <div class="mobile-btn" id="mbtn-attack" title="Attack-Move">⚔️</div>
+    <div class="mobile-btn" id="mbtn-stop" title="Stop">⛔</div>
+    <div class="mobile-btn" id="mbtn-cancel" title="Cancel">✖</div>
   </div>
 
   <!-- Right Panel -->
@@ -1888,6 +1987,7 @@ const Game = {
     AIManager.init();
     GroundItems.init();
     GameStats.init();
+    TouchInput.init();
     Audio.startMusic();
     this.running = true;
     this.tick = 0;
@@ -1910,8 +2010,9 @@ const Game = {
     const viewport = document.getElementById('viewport');
     this.canvas.width = viewport.clientWidth;
     this.canvas.height = viewport.clientHeight;
-    this.viewCols = Math.ceil(this.canvas.width / CELL) + 1;
-    this.viewRows = Math.ceil(this.canvas.height / CELL) + 1;
+    const z = Camera.zoom || 1;
+    this.viewCols = Math.ceil(this.canvas.width / (CELL * z)) + 1;
+    this.viewRows = Math.ceil(this.canvas.height / (CELL * z)) + 1;
   },
 
   setupListeners() {
@@ -2045,6 +2146,7 @@ const Game = {
     vp.addEventListener('mousemove', e => Input.onMouseMove(e));
     vp.addEventListener('mouseup', e => Input.onMouseUp(e));
     vp.addEventListener('contextmenu', e => e.preventDefault());
+    document.addEventListener('contextmenu', e => { if (TouchInput.isMobile) e.preventDefault(); });
     // Сбрасывать mouseInViewport при уходе мыши — иначе edge scroll застревает
     vp.addEventListener('mouseleave', () => { Input.mouseInViewport = false; });
     // Also reset on window blur to prevent stuck scrolling
@@ -2213,6 +2315,8 @@ const Game = {
     this._lastRenderTime = now;
     Camera.update(rafDt);
     ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
+    const _z = Camera.zoom || 1;
+    if (_z !== 1) { ctx.save(); ctx.scale(_z, _z); }
     Renderer.drawTerrain(ctx);
     Renderer.drawEntities(ctx);
     GroundItems.draw(ctx);
@@ -2224,6 +2328,7 @@ const Game = {
     Renderer.drawSelectionMarkers(ctx);
     SpeechBubble.draw(ctx);
     BuildPlacement.drawGhost(ctx);
+    if (_z !== 1) { ctx.restore(); }
     Minimap.render();
   },
 
@@ -2296,6 +2401,7 @@ const Game = {
 // ─── CAMERA ────────────────────────────────────
 const Camera = {
   x: 0, y: 0,
+  zoom: 1.0,
   edgeScrollSpeed: 20,
   keyScrollSpeed: 25,
   edgeThreshold: 20,
@@ -2323,9 +2429,9 @@ const Camera = {
     if (Input.keys['a'] || Input.keys['arrowleft'])  dx -= this.keyScrollSpeed * dt;
     if (Input.keys['d'] || Input.keys['arrowright']) dx += this.keyScrollSpeed * dt;
 
-    // Edge scroll — используем кешированный rect + стабилизация
+    // Edge scroll — используем кешированный rect + стабилизация (desktop only)
     const vp = this._vpRect;
-    if (Input.mouseInViewport && vp && document.hasFocus() && !Input.dragging) {
+    if (!TouchInput.isMobile && Input.mouseInViewport && vp && document.hasFocus() && !Input.dragging) {
       const mx = Input.mouseX - vp.left;
       const my = Input.mouseY - vp.top;
       // Dead zone: 2px inner margin to prevent flickering at exact edge
@@ -2350,17 +2456,19 @@ const Camera = {
 
   // Конвертация: тайл → экранные пиксели
   tileToScreen(tx, ty) {
+    const z = this.zoom || 1;
     return {
-      x: Math.round((tx - this.x) * CELL),
-      y: Math.round((ty - this.y) * CELL),
+      x: Math.round((tx - this.x) * CELL * z),
+      y: Math.round((ty - this.y) * CELL * z),
     };
   },
 
   // Конвертация: экранные пиксели → тайл
   screenToTile(sx, sy) {
+    const z = this.zoom || 1;
     return {
-      tx: Math.floor(sx / CELL + this.x),
-      ty: Math.floor(sy / CELL + this.y),
+      tx: Math.floor(sx / (CELL * z) + this.x),
+      ty: Math.floor(sy / (CELL * z) + this.y),
     };
   },
 };
@@ -2884,6 +2992,375 @@ const Input = {
 
       this.dragging = false;
       document.getElementById('selection-box').style.display = 'none';
+    }
+  },
+};
+
+
+// ─── TOUCH INPUT (mobile) ─────────────────────
+const TouchInput = {
+  isMobile: false,
+  _lastTap: 0,
+  _lastTapX: 0,
+  _lastTapY: 0,
+  _touchStartX: 0,
+  _touchStartY: 0,
+  _touchStartTime: 0,
+  _longPressTimer: null,
+  _singleTapTimer: null,
+  _isPanning: false,
+  _isDraggingGhost: false,
+  _isSelecting: false,
+  _pinchStartDist: 0,
+  _pinchStartZoom: 1,
+  _activeTouches: 0,
+  DOUBLE_TAP_MS: 350,
+  DOUBLE_TAP_DIST: 20,
+  LONG_PRESS_MS: 500,
+  DRAG_THRESHOLD: 10,
+
+  init() {
+    this.isMobile = ('ontouchstart' in window) || (navigator.maxTouchPoints > 0) || window.innerWidth <= 900;
+    if (!this.isMobile) return;
+
+    // Prevent default touch behaviors on viewport
+    const vp = document.getElementById('viewport');
+    vp.addEventListener('touchstart', e => this.onTouchStart(e), { passive: false });
+    vp.addEventListener('touchmove', e => this.onTouchMove(e), { passive: false });
+    vp.addEventListener('touchend', e => this.onTouchEnd(e), { passive: false });
+    vp.addEventListener('touchcancel', e => this.onTouchEnd(e), { passive: false });
+
+    // Prevent zoom on double-tap for entire page
+    document.addEventListener('touchstart', e => {
+      if (e.touches.length > 1) e.preventDefault();
+    }, { passive: false });
+
+    // Mobile floating buttons
+    document.getElementById('mbtn-pause')?.addEventListener('touchend', e => {
+      e.preventDefault();
+      if (Game.running) {
+        Game.paused = !Game.paused;
+        document.getElementById('pause-menu').style.display = Game.paused ? 'flex' : 'none';
+      }
+    });
+    document.getElementById('mbtn-hero')?.addEventListener('touchend', e => {
+      e.preventDefault();
+      const hero = EntityManager.entities.find(en => en.alive && en.isHero && en.owner === 0);
+      if (hero) {
+        Selection.selected = [hero]; Selection.updateUI();
+        Camera.x = hero.vx - Game.viewCols / 2;
+        Camera.y = hero.vy - Game.viewRows / 2;
+      }
+    });
+    document.getElementById('mbtn-attack')?.addEventListener('touchend', e => {
+      e.preventDefault();
+      CommandPanel.attackMoveMode = !CommandPanel.attackMoveMode;
+      if (CommandPanel.attackMoveMode) Notifications.show('Double-tap target for attack-move.', 2000);
+    });
+    document.getElementById('mbtn-stop')?.addEventListener('touchend', e => {
+      e.preventDefault();
+      const units = Selection.selected.filter(u => u.entityType === 'unit' && u.owner === 0);
+      UnitMovement.stopGroup(units);
+    });
+    document.getElementById('mbtn-cancel')?.addEventListener('touchend', e => {
+      e.preventDefault();
+      if (BuildPlacement.active) { BuildPlacement.cancel(); return; }
+      if (CommandPanel.inBuildMenu) { CommandPanel.inBuildMenu = false; CommandPanel.refresh(); return; }
+      if (CommandPanel.attackMoveMode) { CommandPanel.attackMoveMode = false; return; }
+      if (CommandPanel.abilityTargetMode) { CommandPanel.abilityTargetMode = null; CommandPanel.castingHero = null; return; }
+      Selection.clear();
+    });
+
+    // Minimap touch
+    const mm = document.getElementById('minimap-canvas');
+    const mmTap = (e) => {
+      const t = e.changedTouches[0];
+      const rect = mm.getBoundingClientRect();
+      const scaleX = MAP_W / rect.width, scaleY = MAP_H / rect.height;
+      Camera.x = (t.clientX - rect.left) * scaleX - Game.viewCols / 2;
+      Camera.y = (t.clientY - rect.top) * scaleY - Game.viewRows / 2;
+    };
+    mm.addEventListener('touchstart', e => { e.preventDefault(); mmTap(e); });
+    mm.addEventListener('touchmove', e => { e.preventDefault(); mmTap(e); });
+  },
+
+  _getVpXY(touch) {
+    const vp = Camera._vpRect || document.getElementById('viewport').getBoundingClientRect();
+    return { x: touch.clientX - vp.left, y: touch.clientY - vp.top };
+  },
+
+  onTouchStart(e) {
+    e.preventDefault();
+    if (!Game.running || Game.paused) return;
+    GameStats.recordAction();
+    this._activeTouches = e.touches.length;
+
+    if (e.touches.length === 2) {
+      // Pinch start
+      const dx = e.touches[0].clientX - e.touches[1].clientX;
+      const dy = e.touches[0].clientY - e.touches[1].clientY;
+      this._pinchStartDist = Math.hypot(dx, dy);
+      this._pinchStartZoom = Camera.zoom || 1;
+      this._isPanning = false;
+      this._isSelecting = false;
+      this._clearLongPress();
+      if (this._singleTapTimer) { clearTimeout(this._singleTapTimer); this._singleTapTimer = null; }
+      return;
+    }
+
+    const pos = this._getVpXY(e.touches[0]);
+    this._touchStartX = pos.x;
+    this._touchStartY = pos.y;
+    this._touchStartTime = performance.now();
+    this._isPanning = false;
+    this._isDraggingGhost = false;
+    this._isSelecting = false;
+
+    // Build placement mode: touch initializes ghost position, drag will move it
+    if (BuildPlacement.active) {
+      // Only initialize ghost if not yet positioned (first touch after selecting building)
+      if (BuildPlacement.ghostX < 0) {
+        const tile = Camera.screenToTile(pos.x, pos.y);
+        BuildPlacement.updateGhost(tile.tx, tile.ty);
+      }
+      // Don't set _isSelecting — drag will move the ghost, tap will confirm
+    } else {
+      // Check if touch starts on own unit → selection drag (box select)
+      const tile = Camera.screenToTile(pos.x, pos.y);
+      const ent = EntityManager.getAt(tile.tx, tile.ty);
+      if (ent && ent.alive && (ent.owner === 0 || ent.owner === NEUTRAL_PASSIVE)) {
+        this._isSelecting = true;
+      }
+    }
+
+    // Start long-press timer
+    this._clearLongPress();
+    this._longPressTimer = setTimeout(() => {
+      this._onLongPress(pos.x, pos.y);
+    }, this.LONG_PRESS_MS);
+  },
+
+  onTouchMove(e) {
+    e.preventDefault();
+    if (!Game.running || Game.paused) return;
+
+    if (e.touches.length === 2) {
+      // Pinch zoom
+      const dx = e.touches[0].clientX - e.touches[1].clientX;
+      const dy = e.touches[0].clientY - e.touches[1].clientY;
+      const dist = Math.hypot(dx, dy);
+      if (this._pinchStartDist > 0) {
+        const scale = dist / this._pinchStartDist;
+        Camera.zoom = Math.max(0.5, Math.min(2.0, this._pinchStartZoom * scale));
+        Game.resize();
+      }
+      return;
+    }
+
+    const pos = this._getVpXY(e.touches[0]);
+    const dx = pos.x - this._touchStartX;
+    const dy = pos.y - this._touchStartY;
+    const dist = Math.hypot(dx, dy);
+
+    if (dist > this.DRAG_THRESHOLD) {
+      this._clearLongPress();
+      if (this._singleTapTimer) { clearTimeout(this._singleTapTimer); this._singleTapTimer = null; }
+
+      if (BuildPlacement.active) {
+        // Drag moves the building ghost
+        const tile = Camera.screenToTile(pos.x, pos.y);
+        BuildPlacement.updateGhost(tile.tx, tile.ty);
+        this._isDraggingGhost = true;
+      } else if (this._isSelecting) {
+        // Selection box drag
+        Input.dragging = true;
+        Input.dragStartX = this._touchStartX;
+        Input.dragStartY = this._touchStartY;
+        Selection.updateDragBox(this._touchStartX, this._touchStartY, pos.x, pos.y);
+      } else {
+        // Camera pan
+        this._isPanning = true;
+        const zoom = Camera.zoom || 1;
+        Camera.x -= dx / (CELL * zoom);
+        Camera.y -= dy / (CELL * zoom);
+        Camera.x = Math.max(0, Math.min(MAP_W - Game.viewCols + 1, Camera.x));
+        Camera.y = Math.max(0, Math.min(MAP_H - Game.viewRows + 1, Camera.y));
+        this._touchStartX = pos.x;
+        this._touchStartY = pos.y;
+      }
+    }
+  },
+
+  onTouchEnd(e) {
+    e.preventDefault();
+    this._clearLongPress();
+    this._activeTouches = e.touches.length;
+
+    // Pinch end
+    if (e.changedTouches.length > 0 && e.touches.length === 0 && this._pinchStartDist > 0) {
+      this._pinchStartDist = 0;
+      return;
+    }
+
+    const pos = this._getVpXY(e.changedTouches[0]);
+    const dx = Math.abs(pos.x - this._touchStartX);
+    const dy = Math.abs(pos.y - this._touchStartY);
+    const elapsed = performance.now() - this._touchStartTime;
+
+    // Selection box end
+    if (this._isSelecting && Input.dragging) {
+      if (dx > this.DRAG_THRESHOLD || dy > this.DRAG_THRESHOLD) {
+        Selection.selectInBox(Input.dragStartX, Input.dragStartY, pos.x, pos.y);
+      }
+      Input.dragging = false;
+      document.getElementById('selection-box').style.display = 'none';
+      this._isSelecting = false;
+      return;
+    }
+
+    // Ignore if was panning
+    if (this._isPanning) {
+      this._isPanning = false;
+      return;
+    }
+
+    // Build ghost was being dragged — don't process as tap (user will tap to confirm)
+    if (this._isDraggingGhost) {
+      this._isDraggingGhost = false;
+      return;
+    }
+
+    // Only process as tap if drag was small and short
+    if (dx > this.DRAG_THRESHOLD || dy > this.DRAG_THRESHOLD || elapsed > 600) return;
+
+    // Immediate-mode taps: build placement, attack-move, ability targeting — no defer needed
+    if (BuildPlacement.active || CommandPanel.attackMoveMode || CommandPanel.abilityTargetMode) {
+      this._lastTap = 0;
+      this._onSingleTap(pos.x, pos.y);
+      return;
+    }
+
+    const now = performance.now();
+    const tapDist = Math.hypot(pos.x - this._lastTapX, pos.y - this._lastTapY);
+    const isDoubleTap = (now - this._lastTap < this.DOUBLE_TAP_MS) && (tapDist < this.DOUBLE_TAP_DIST);
+
+    if (isDoubleTap) {
+      // ── Double-tap → cancel pending single-tap and issue command ──
+      this._lastTap = 0;
+      if (this._singleTapTimer) { clearTimeout(this._singleTapTimer); this._singleTapTimer = null; }
+      this._onDoubleTap(pos.x, pos.y);
+    } else {
+      // ── Defer single tap — wait to see if a second tap follows ──
+      this._lastTap = now;
+      this._lastTapX = pos.x;
+      this._lastTapY = pos.y;
+      if (this._singleTapTimer) clearTimeout(this._singleTapTimer);
+      const _tapX = pos.x, _tapY = pos.y;
+      this._singleTapTimer = setTimeout(() => {
+        this._singleTapTimer = null;
+        this._onSingleTap(_tapX, _tapY);
+      }, this.DOUBLE_TAP_MS);
+    }
+  },
+
+  _onSingleTap(x, y) {
+    const tile = Camera.screenToTile(x, y);
+
+    // Build placement: confirm with single tap
+    if (BuildPlacement.active) {
+      if (BuildPlacement.valid) {
+        BuildPlacement.place();
+      } else {
+        Notifications.show('Cannot build here!', 2000, 'error');
+      }
+      return;
+    }
+
+    // Attack-move mode: single tap sets target
+    if (CommandPanel.attackMoveMode) {
+      const units = Selection.selected.filter(u => u.entityType === 'unit' && u.owner === 0);
+      const targetEnt = EntityManager.getAt(tile.tx, tile.ty);
+      if (targetEnt && targetEnt.alive && isEnemy(0, targetEnt.owner)) {
+        Combat.attackTarget(units, targetEnt);
+      } else {
+        Combat.attackMove(units, tile.tx, tile.ty);
+      }
+      CommandPanel.attackMoveMode = false;
+      RightClickFX.spawn(tile.tx, tile.ty, 'attack');
+      return;
+    }
+
+    // Ability targeting mode
+    if (CommandPanel.abilityTargetMode && CommandPanel.castingHero) {
+      const mode = CommandPanel.abilityTargetMode;
+      if (mode.startsWith('unit_')) {
+        UnitAbilities.cast(CommandPanel.castingHero, mode.slice(5), tile.tx, tile.ty);
+      } else {
+        HeroSystem.castAbility(CommandPanel.castingHero, mode, tile.tx, tile.ty);
+      }
+      CommandPanel.abilityTargetMode = null;
+      CommandPanel.castingHero = null;
+      CommandPanel.refresh();
+      return;
+    }
+
+    // Normal selection
+    Selection.selectAt(tile.tx, tile.ty, false);
+  },
+
+  _onDoubleTap(x, y) {
+    const tile = Camera.screenToTile(x, y);
+    const sel = Selection.selected;
+    if (sel.length === 0) return;
+    if (sel[0].owner !== 0 && sel[0].owner !== NEUTRAL_PASSIVE) return;
+
+    // Issue command (same as right-click)
+    Selection.issueCommand(tile.tx, tile.ty, false);
+  },
+
+  _onLongPress(x, y) {
+    // Show tooltip at position
+    const vp = Camera._vpRect || document.getElementById('viewport').getBoundingClientRect();
+    const tile = Camera.screenToTile(x, y);
+    const tooltipEl = document.getElementById('tooltip');
+
+    // Check entity
+    const ent = EntityManager.getAt(tile.tx, tile.ty);
+    if (ent && ent.alive) {
+      let tipText = '';
+      if (ent.entityType === 'unit') {
+        const name = ent.isHero ? (ENTITY_NAMES[ent.heroClass] || 'Hero') : (ENTITY_NAMES[ent.type] || ent.type);
+        tipText = `${name}\nHP: ${ent.hp}/${ent.maxHp}  ATK: ${ent.damage}  ARM: ${ent.armor}`;
+        if (ent.isHero) tipText += `\nLv.${ent.level}`;
+      } else {
+        tipText = `${ENTITY_NAMES[ent.type] || ent.type}\nHP: ${ent.hp}/${ent.maxHp}`;
+      }
+      tooltipEl.style.display = 'block';
+      tooltipEl.textContent = tipText;
+      tooltipEl.style.whiteSpace = 'pre';
+      tooltipEl.style.left = Math.min(x + vp.left + 12, window.innerWidth - 200) + 'px';
+      tooltipEl.style.top = Math.min(y + vp.top - 40, window.innerHeight - 80) + 'px';
+      // Auto-hide after 2s
+      setTimeout(() => { tooltipEl.style.display = 'none'; }, 2000);
+      return;
+    }
+
+    // Check ground item
+    const gi = GroundItems.getAt(tile.tx, tile.ty);
+    if (gi) {
+      tooltipEl.style.display = 'block';
+      tooltipEl.textContent = GroundItems.getTooltip(gi.itemKey);
+      tooltipEl.style.whiteSpace = 'pre';
+      tooltipEl.style.left = Math.min(x + vp.left + 12, window.innerWidth - 200) + 'px';
+      tooltipEl.style.top = Math.min(y + vp.top - 40, window.innerHeight - 80) + 'px';
+      setTimeout(() => { tooltipEl.style.display = 'none'; }, 2000);
+    }
+  },
+
+  _clearLongPress() {
+    if (this._longPressTimer) {
+      clearTimeout(this._longPressTimer);
+      this._longPressTimer = null;
     }
   },
 };
@@ -8607,6 +9084,13 @@ const Training = {
         // Click to cancel
         const idx = i;
         slot.title = `${ENTITY_NAMES[unitType] || unitType} — right-click to cancel`;
+        slot.addEventListener('click', () => {
+          if (TouchInput.isMobile) {
+            Training.cancelAt(building, idx);
+            Training.updateQueueUI(building);
+            CommandPanel.refresh();
+          }
+        });
         slot.addEventListener('contextmenu', (e) => {
           e.preventDefault();
           Training.cancelAt(building, idx);
