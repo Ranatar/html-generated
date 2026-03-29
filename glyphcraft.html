@@ -313,7 +313,7 @@ html, body {
 #overlay-screen {
   position: absolute;
   top: 0; left: 0; right: 0; bottom: 0;
-  background: rgba(0, 0, 0, 0.85);
+  background: rgba(0, 0, 0, 1);
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -583,6 +583,11 @@ const EmojiSpriteCache = {
   // drawImage с масштабированием до CELL×CELL — гарантирует заполнение ячейки
   draw(ctx, symbol, color, x, y, tintA = 0.60, isEmoji = false) {
     ctx.drawImage(this._get(symbol, color, tintA, isEmoji), x, y, CELL, CELL);
+  },
+
+  // drawImage scaled to arbitrary pixel size (for buildings)
+  drawScaled(ctx, symbol, color, x, y, pxW, pxH, tintA = 0.60, isEmoji = false) {
+    ctx.drawImage(this._get(symbol, color, tintA, isEmoji), x, y, pxW, pxH);
   },
 
   clear() { this._cache.clear(); },
@@ -2502,9 +2507,10 @@ const Input = {
     // F9: toggle mute
     if (e.key === 'F9') { Audio.toggleMute(); e.preventDefault(); return; }
 
-    // Escape: cancel build placement, then build menu, then attack-move, patrol, then selection
+    // Escape: cancel build placement, then skill menu, then build menu, then attack-move, patrol, then selection
     if (e.key === 'Escape') {
       if (BuildPlacement.active) { BuildPlacement.cancel(); return; }
+      if (CommandPanel.inSkillMenu) { CommandPanel.inSkillMenu = false; CommandPanel.refresh(); return; }
       if (CommandPanel.inBuildMenu) { CommandPanel.inBuildMenu = false; CommandPanel.refresh(); return; }
       if (CommandPanel.attackMoveMode) { CommandPanel.attackMoveMode = false; return; }
       if (CommandPanel._patrolMode) { CommandPanel._patrolMode = false; return; }
@@ -2555,8 +2561,14 @@ const Input = {
       const hasPeasant = units.some(u => isWorkerUnit(u));
       const heroUnit = units.find(u => u.isHero && u.owner === 0);
 
-      // Hero ability hotkeys Q/W/E/R (only when not in build menu)
-      if (heroUnit && !CommandPanel.inBuildMenu) {
+      // O = open skill learning menu
+      if (k === 'o' && heroUnit && heroUnit.skillPoints > 0) {
+        CommandPanel.inSkillMenu = !CommandPanel.inSkillMenu;
+        CommandPanel.refresh();
+        e.preventDefault(); return;
+      }
+      // Hero ability hotkeys Q/W/E/R (only when not in build menu or skill menu)
+      if (heroUnit && !CommandPanel.inBuildMenu && !CommandPanel.inSkillMenu) {
         const abilities = HeroSystem.getAbilities(heroUnit);
         const abilityKeyMap = { q: 0, w: 1, e: 2, r: 3 };
         if (abilityKeyMap[k] !== undefined && abilityKeyMap[k] < abilities.length) {
@@ -2917,7 +2929,8 @@ const Input = {
       if (hoverEnt && hoverEnt.alive && _hoverVisible && !BuildPlacement.active && !this.dragging) {
         let tipText = '';
         if (hoverEnt.entityType === 'unit') {
-          const name = hoverEnt.isHero ? (ENTITY_NAMES[hoverEnt.heroClass] || 'Hero') : (ENTITY_NAMES[hoverEnt.type] || CREEP_DATA[hoverEnt.type]?.name || hoverEnt.type);
+          let name = hoverEnt.isHero ? (ENTITY_NAMES[hoverEnt.heroClass] || 'Hero') : (ENTITY_NAMES[hoverEnt.type] || CREEP_DATA[hoverEnt.type]?.name || hoverEnt.type);
+          if (hoverEnt._isMilitia) name = 'Militia';
           const ownerStr = hoverEnt.owner===0?'You':isAlly(0,hoverEnt.owner)?'Ally':isEnemy(0,hoverEnt.owner)?'Enemy':'Neutral';
           tipText = `${name} (${ownerStr})\nHP: ${hoverEnt.hp}/${hoverEnt.maxHp}  ATK: ${hoverEnt.damage}  ARM: ${hoverEnt.armor}`;
           if (hoverEnt.isHero) tipText += `\nLv.${hoverEnt.level}  STR:${hoverEnt.str} AGI:${hoverEnt.agi} INT:${hoverEnt.int}`;
@@ -3065,6 +3078,7 @@ const TouchInput = {
     document.getElementById('mbtn-cancel')?.addEventListener('touchend', e => {
       e.preventDefault();
       if (BuildPlacement.active) { BuildPlacement.cancel(); return; }
+      if (CommandPanel.inSkillMenu) { CommandPanel.inSkillMenu = false; CommandPanel.refresh(); return; }
       if (CommandPanel.inBuildMenu) { CommandPanel.inBuildMenu = false; CommandPanel.refresh(); return; }
       if (CommandPanel.attackMoveMode) { CommandPanel.attackMoveMode = false; return; }
       if (CommandPanel.abilityTargetMode) { CommandPanel.abilityTargetMode = null; CommandPanel.castingHero = null; return; }
@@ -3968,19 +3982,16 @@ const Renderer = {
         } else {
           // Затенённая зона: показывать только если игрок это здание видел раньше
           if (!ent._everSeen) continue;
-          // Рисовать тусклый силуэт с символом — тип здания известен
+          // Рисовать тусклый силуэт — тип здания известен
           ctx.globalAlpha = 0.30;
-          for (let dy = 0; dy < ent.h; dy++) {
-            for (let dx = 0; dx < ent.w; dx++) {
-              const pos = Camera.tileToScreen(ent.x + dx, ent.y + dy);
-              ctx.fillStyle = '#0d1020';
-              ctx.fillRect(pos.x, pos.y, CELL, CELL);
-              const bldCx = Math.floor(ent.w / 2), bldCy = Math.floor(ent.h / 2);
-              if (dx === bldCx && dy === bldCy && ent.alive) {
-                const _bEmoji = ent.isEmoji ?? EmojiSpriteCache._isEmoji(ent.symbol);
-                EmojiSpriteCache.draw(ctx, ent.symbol, '#8888aa', pos.x, pos.y, 0.50, _bEmoji);
-              }
-            }
+          const _fogTL = Camera.tileToScreen(ent.x, ent.y);
+          const _fogW = ent.w * CELL, _fogH = ent.h * CELL;
+          ctx.fillStyle = '#0d1020';
+          ctx.fillRect(_fogTL.x, _fogTL.y, _fogW, _fogH);
+          if (ent.alive) {
+            const _bEmoji = ent.isEmoji ?? EmojiSpriteCache._isEmoji(ent.symbol);
+            EmojiSpriteCache.drawScaled(ctx, ent.symbol, '#8888aa',
+              _fogTL.x + 2, _fogTL.y + 2, _fogW - 4, _fogH - 4, 0.45, _bEmoji);
           }
           ctx.globalAlpha = 1;
           continue;
@@ -4023,36 +4034,26 @@ const Renderer = {
       const bgColor = ent.owner === NEUTRAL_PASSIVE ? '#0d2a1a' : (PLAYER_IDS.includes(ent.owner) ? _pc.bg : '#1a1a1a');
       const borderColor = ent.owner === NEUTRAL_PASSIVE ? '#2a6a4a' : (PLAYER_IDS.includes(ent.owner) ? _pc.border : '#4a4a4a');
 
-      // Draw building footprint
-      for (let dy = 0; dy < ent.h; dy++) {
-        for (let dx = 0; dx < ent.w; dx++) {
-          const pos = Camera.tileToScreen(ent.x + dx, ent.y + dy);
-
-          // Background fill
-          ctx.fillStyle = bgColor;
-          ctx.fillRect(pos.x, pos.y, CELL, CELL);
-
-          // Border characters
-          let ch;
-          if (dy === 0 && dx === 0) ch = BUILDING_BORDER.tl;
-          else if (dy === 0 && dx === ent.w - 1) ch = BUILDING_BORDER.tr;
-          else if (dy === ent.h - 1 && dx === 0) ch = BUILDING_BORDER.bl;
-          else if (dy === ent.h - 1 && dx === ent.w - 1) ch = BUILDING_BORDER.br;
-          else if (dy === 0 || dy === ent.h - 1) ch = BUILDING_BORDER.h;
-          else if (dx === 0 || dx === ent.w - 1) ch = BUILDING_BORDER.v;
-          else ch = BUILDING_BORDER.fill;
-
-          // Center cell gets the building symbol
-          const cx = Math.floor(ent.w / 2), cy = Math.floor(ent.h / 2);
-          if (dx === cx && dy === cy) {
-            const _bEmoji = ent.isEmoji ?? EmojiSpriteCache._isEmoji(ent.symbol);
-            EmojiSpriteCache.draw(ctx, ent.symbol, ownerColor, pos.x, pos.y, 0.62, _bEmoji);
-          } else {
-            ctx.fillStyle = borderColor;
-            ctx.fillText(ch, pos.x + 1, pos.y);
-          }
-        }
-      }
+      // Draw building as scaled icon filling footprint
+      const footW = ent.w * CELL, footH = ent.h * CELL;
+      // Semi-transparent background (terrain shows through)
+      ctx.globalAlpha = 0.5;
+      ctx.fillStyle = bgColor;
+      ctx.fillRect(topLeft.x, topLeft.y, footW, footH);
+      ctx.globalAlpha = 1;
+      // Thin border
+      ctx.strokeStyle = borderColor;
+      ctx.lineWidth = 1;
+      ctx.strokeRect(topLeft.x + 0.5, topLeft.y + 0.5, footW - 1, footH - 1);
+      // Scaled icon (with padding to not touch edges)
+      const _bEmoji = ent.isEmoji ?? EmojiSpriteCache._isEmoji(ent.symbol);
+      const pad = 2;
+      // Incomplete buildings: reduce alpha proportionally
+      if (!ent.completed) ctx.globalAlpha = 0.4 + 0.6 * ent.buildProgress;
+      EmojiSpriteCache.drawScaled(ctx, ent.symbol, ownerColor,
+        topLeft.x + pad, topLeft.y + pad, footW - pad * 2, footH - pad * 2,
+        0, _bEmoji);
+      if (!ent.completed) ctx.globalAlpha = 1;
 
       // HP bar above building (if damaged)
       if (ent.hp < ent.maxHp) {
@@ -4173,7 +4174,7 @@ const Renderer = {
           ownerColor = '#b8860b';
         } else if (ent.state === 'constructing') {
           const animPhase = Math.floor(Game.tick * 0.15 + ent.id) % 3;
-          drawSymbol = ['⛏️', '🪵', '⛏️'][animPhase];
+          drawSymbol = ['⛏️', '🔨', '⛏️'][animPhase];
           ownerColor = '#ffcc44';
         } else if (ent.state === 'gathering') {
           // Chopping/mining animation — alternate symbols
@@ -5378,6 +5379,7 @@ const Selection = {
   clear() {
     this.selected = [];
     CommandPanel.inBuildMenu = false;
+    CommandPanel.inSkillMenu = false;
     CommandPanel.settingRally = false;
     CommandPanel.attackMoveMode = false;
     CommandPanel.abilityTargetMode = null;
@@ -5439,7 +5441,17 @@ const Selection = {
       const defB = (!e.isHero && e.owner !== undefined) ? Upgrades.getDefenseBonus(e.owner) : 0;
       const atkStr = atkB > 0 ? `${e.damage}+${atkB}` : `${e.damage}`;
       const defStr = defB > 0 ? `${e.armor}+${defB}` : `${e.armor}`;
-      statsEl.innerHTML = `HP: ${e.hp}/${e.maxHp} &nbsp; ⚔️ ${atkStr} &nbsp; 🛡️ ${defStr}<br>Speed: ${e.speed} &nbsp; Range: ${e.range}<br>State: ${stateStr}${carryStr}`;
+      // Timed effects
+      let timedStr = '';
+      if (e._isMilitia && e._militiaTimer > 0) timedStr += `<br>⚔ Militia: ${Math.ceil(e._militiaTimer)}s`;
+      if (e.summonTimer > 0) timedStr += `<br>⏳ Summoned: ${Math.ceil(e.summonTimer)}s`;
+      if (e.buffs && e.buffs.length > 0) {
+        for (const b of e.buffs) {
+          const bName = {slow:'❄ Slow', battlecry:'⚔ War Cry', devotion:'🛡 Devotion', inner_fire:'🔥 Inner Fire', brilliance:'💫 Brilliance', avatar:'🦁 Avatar'}[b.type] || b.type;
+          timedStr += `<br>${bName}: ${Math.ceil(b.timer)}s`;
+        }
+      }
+      statsEl.innerHTML = `HP: ${e.hp}/${e.maxHp} &nbsp; ⚔️ ${atkStr} &nbsp; 🛡️ ${defStr}<br>Speed: ${e.speed} &nbsp; Range: ${e.range}<br>State: ${stateStr}${carryStr}${timedStr}`;
       if (e.isHero) {
         const xpNext = HeroSystem.XP_TABLE[e.level] || '∞';
         const invStr = e.inventory.filter(Boolean).map(k => HeroSystem.ITEMS[k]?.icon || '').join(' ') || 'empty';
@@ -5688,7 +5700,8 @@ const Selection = {
       document.getElementById('queue-bar').innerHTML = '';
     } else if (this.selected.length === 1) {
       const e = this.selected[0];
-      const name = e.isHero ? (ENTITY_NAMES[e.heroClass] || 'Hero') : (ENTITY_NAMES[e.type] || CREEP_DATA[e.type]?.name || e.type);
+      let name = e.isHero ? (ENTITY_NAMES[e.heroClass] || 'Hero') : (ENTITY_NAMES[e.type] || CREEP_DATA[e.type]?.name || e.type);
+      if (e._isMilitia) name = 'Militia';
       const ownerTag = e.owner === 0 ? '' : isAlly(0, e.owner) ? ' (Ally)' : isEnemy(0, e.owner) ? ' (Enemy)' : ' (Neutral)';
       const heroTag = e.isHero ? ` Lv.${e.level}` : '';
       nameEl.textContent = name + heroTag + ownerTag;
@@ -5731,7 +5744,17 @@ const Selection = {
         const defB2 = (!e.isHero && e.owner !== undefined) ? Upgrades.getDefenseBonus(e.owner) : 0;
         const atkStr2 = atkB2 > 0 ? `${e.damage}+${atkB2}` : `${e.damage}`;
         const defStr2 = defB2 > 0 ? `${e.armor}+${defB2}` : `${e.armor}`;
-        statsEl.innerHTML = `HP: ${e.hp}/${e.maxHp} &nbsp; ⚔️ ${atkStr2} &nbsp; 🛡️ ${defStr2}<br>Speed: ${e.speed} &nbsp; Range: ${e.range}<br>State: ${stateStr}${carryStr}`;
+        // Timed effects
+        let timedStr = '';
+        if (e._isMilitia && e._militiaTimer > 0) timedStr += `<br>⚔ Militia: ${Math.ceil(e._militiaTimer)}s`;
+        if (e.summonTimer > 0) timedStr += `<br>⏳ Summoned: ${Math.ceil(e.summonTimer)}s`;
+        if (e.buffs && e.buffs.length > 0) {
+          for (const b of e.buffs) {
+            const bName = {slow:'❄ Slow', battlecry:'⚔ War Cry', devotion:'🛡 Devotion', inner_fire:'🔥 Inner Fire', brilliance:'💫 Brilliance', avatar:'🦁 Avatar'}[b.type] || b.type;
+            timedStr += `<br>${bName}: ${Math.ceil(b.timer)}s`;
+          }
+        }
+        statsEl.innerHTML = `HP: ${e.hp}/${e.maxHp} &nbsp; ⚔️ ${atkStr2} &nbsp; 🛡️ ${defStr2}<br>Speed: ${e.speed} &nbsp; Range: ${e.range}<br>State: ${stateStr}${carryStr}${timedStr}`;
         // Hero extra info
         if (e.isHero) {
           const xpNext = HeroSystem.XP_TABLE[e.level] || '∞';
@@ -7615,34 +7638,25 @@ const BuildPlacement = {
     const data = BUILD_DATA[this.buildingType];
     if (!data) return;
 
-    for (let dy = 0; dy < data.h; dy++) {
-      for (let dx = 0; dx < data.w; dx++) {
-        const pos = Camera.tileToScreen(this.ghostX + dx, this.ghostY + dy);
-        // Ghost background
-        ctx.fillStyle = this.valid ? 'rgba(0, 200, 0, 0.25)' : 'rgba(200, 0, 0, 0.25)';
-        ctx.fillRect(pos.x, pos.y, CELL, CELL);
+    const topLeft = Camera.tileToScreen(this.ghostX, this.ghostY);
+    const footW = data.w * CELL, footH = data.h * CELL;
 
-        // Border chars
-        let ch;
-        if (dy === 0 && dx === 0) ch = BUILDING_BORDER.tl;
-        else if (dy === 0 && dx === data.w - 1) ch = BUILDING_BORDER.tr;
-        else if (dy === data.h - 1 && dx === 0) ch = BUILDING_BORDER.bl;
-        else if (dy === data.h - 1 && dx === data.w - 1) ch = BUILDING_BORDER.br;
-        else if (dy === 0 || dy === data.h - 1) ch = BUILDING_BORDER.h;
-        else if (dx === 0 || dx === data.w - 1) ch = BUILDING_BORDER.v;
-        else ch = BUILDING_BORDER.fill;
-
-        const cx = Math.floor(data.w / 2), cy = Math.floor(data.h / 2);
-        if (dx === cx && dy === cy) {
-          const _gHex   = this.valid ? '#64ff64' : '#ff6464';
-          const _gEmoji = data.isEmoji ?? EmojiSpriteCache._isEmoji(data.symbol);
-          EmojiSpriteCache.draw(ctx, data.symbol, _gHex, pos.x, pos.y, 0.55, _gEmoji);
-        } else {
-          ctx.fillStyle = this.valid ? 'rgba(80, 200, 80, 0.5)' : 'rgba(200, 80, 80, 0.5)';
-          ctx.fillText(ch, pos.x + 1, pos.y);
-        }
-      }
-    }
+    // Ghost background
+    ctx.fillStyle = this.valid ? 'rgba(0, 200, 0, 0.2)' : 'rgba(200, 0, 0, 0.2)';
+    ctx.fillRect(topLeft.x, topLeft.y, footW, footH);
+    // Ghost border
+    ctx.strokeStyle = this.valid ? 'rgba(80, 255, 80, 0.6)' : 'rgba(255, 80, 80, 0.6)';
+    ctx.lineWidth = 1;
+    ctx.strokeRect(topLeft.x + 0.5, topLeft.y + 0.5, footW - 1, footH - 1);
+    // Scaled icon
+    const _gHex = this.valid ? '#64ff64' : '#ff6464';
+    const _gEmoji = data.isEmoji ?? EmojiSpriteCache._isEmoji(data.symbol);
+    ctx.globalAlpha = 0.7;
+    const pad = 2;
+    EmojiSpriteCache.drawScaled(ctx, data.symbol, _gHex,
+      topLeft.x + pad, topLeft.y + pad, footW - pad * 2, footH - pad * 2,
+      0.50, _gEmoji);
+    ctx.globalAlpha = 1;
 
     // Cost tooltip near ghost
     const cost = data.cost;
@@ -9115,6 +9129,7 @@ const CommandPanel = {
 
   init() {
     this.inBuildMenu = false;
+    this.inSkillMenu = false;
     this.settingRally = false;
     this.attackMoveMode = false;
     this.abilityTargetMode = null;
@@ -9172,31 +9187,54 @@ const CommandPanel = {
       // ── Hero abilities ──
       const hero = sel.find(e => e.isHero && e.owner === 0);
       if (hero) {
+        // ── Skill learning submenu ──
+        if (this.inSkillMenu && hero.skillPoints > 0) {
+          const abilities = HeroSystem.getAbilities(hero);
+          let si = 0;
+          for (let i = 0; i < abilities.length && si < 8; i++) {
+            const abKey = abilities[i];
+            const ab = HERO_ABILITIES[abKey];
+            if (HeroSystem.canLearnAbility(hero, abKey)) {
+              const rank = hero.abilityRanks[abKey] || 0;
+              const nextRank = rank + 1;
+              btns[si] = { icon: ab.icon,
+                label: `Learn ${ab.name} R${nextRank}`,
+                hotkey: ['Q','W','E','R','T','D','F','G'][si],
+                costStr: ab.isUlt ? 'Ultimate' : '',
+                disabled: false,
+                action: () => {
+                  HeroSystem.learnAbility(hero, abKey);
+                  CommandPanel.inSkillMenu = false;
+                  CommandPanel.refresh();
+                }
+              };
+              si++;
+            }
+          }
+          btns[11] = { icon: '✖️', label: 'Cancel', hotkey: 'Esc',
+            action: () => { CommandPanel.inSkillMenu = false; CommandPanel.refresh(); }
+          };
+          this.setButtons(btns);
+          return;
+        }
+
+        // ── Normal ability display (only learned abilities) ──
         const abilities = HeroSystem.getAbilities(hero);
         const abilityHotkeys = ['Q', 'W', 'E', 'R'];
         for (let i = 0; i < abilities.length && i < 4; i++) {
           const abKey = abilities[i];
           const ab = HERO_ABILITIES[abKey];
           const rank = hero.abilityRanks[abKey] || 0;
-          if (rank === 0 && hero.skillPoints > 0 && HeroSystem.canLearnAbility(hero, abKey)) {
-            // Show as "learn" button
-            btns[4 + i] = { icon: ab.icon, label: `Learn ${ab.name}`, hotkey: abilityHotkeys[i],
-              costStr: `SP:${hero.skillPoints}`, disabled: false,
-              action: () => { HeroSystem.learnAbility(hero, abKey); CommandPanel.refresh(); }
-            };
-          } else if (rank > 0) {
+          if (rank > 0) {
             btns[4 + i] = this._heroAbilityBtn(hero, abKey, ab, rank, abilityHotkeys[i]);
-          } else {
-            // Locked (no skill points or level too low)
-            const lockReason = ab.isUlt ? 'Lv6 req' : 'Need SP';
-            btns[4 + i] = { icon: ab.icon, label: `${ab.name} (${lockReason})`, hotkey: abilityHotkeys[i],
-              costStr: '', disabled: true, action: () => {} };
           }
         }
-        // Skill points indicator if available
+        // Skill points button → opens learn menu
         if (hero.skillPoints > 0) {
-          btns[11] = { icon: '⭐', label: `${hero.skillPoints} Skill Pt${hero.skillPoints > 1 ? 's' : ''}`, hotkey: '',
-            costStr: '', disabled: true, action: () => {} };
+          btns[11] = { icon: '⭐', label: `Learn (${hero.skillPoints} SP)`, hotkey: 'O',
+            costStr: '', disabled: false,
+            action: () => { CommandPanel.inSkillMenu = true; CommandPanel.refresh(); }
+          };
         }
         // Inventory display in slots 8-10 (consumables are clickable)
         for (let i = 0; i < 3; i++) {
