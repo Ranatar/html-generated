@@ -6417,13 +6417,40 @@ const HeroSystem = {
   MAX_LEVEL: 10,
 
   XP_VALUES: {
+    // Human
     [UNIT_TYPE.PEASANT]: 20, [UNIT_TYPE.FOOTMAN]: 40, [UNIT_TYPE.RIFLEMAN]: 60,
     [UNIT_TYPE.KNIGHT]: 80, [UNIT_TYPE.PRIEST]: 50, [UNIT_TYPE.SORCERESS]: 55,
-    [UNIT_TYPE.HERO]: 150,
     [UNIT_TYPE.GRYPHON]: 90, [UNIT_TYPE.MORTAR_TEAM]: 60,
+    // Undead
+    [UNIT_TYPE.ACOLYTE]: 20, [UNIT_TYPE.GHOUL]: 40, [UNIT_TYPE.CRYPT_FIEND]: 55,
+    [UNIT_TYPE.ABOMINATION]: 80, [UNIT_TYPE.BANSHEE]: 55, [UNIT_TYPE.NECROMANCER]: 50,
+    [UNIT_TYPE.MEAT_WAGON]: 60, [UNIT_TYPE.GARGOYLE]: 50, [UNIT_TYPE.SHADE]: 15,
+    // Night Elf
+    [UNIT_TYPE.WISP]: 15, [UNIT_TYPE.ARCHER]: 35, [UNIT_TYPE.HUNTRESS]: 50,
+    [UNIT_TYPE.DRUID_CLAW]: 65, [UNIT_TYPE.DRUID_TALON]: 50, [UNIT_TYPE.DRYAD]: 45,
+    [UNIT_TYPE.GLAIVE_THROWER]: 60, [UNIT_TYPE.HIPPOGRYPH]: 55,
+    // Orc
+    [UNIT_TYPE.PEON]: 20, [UNIT_TYPE.GRUNT]: 45, [UNIT_TYPE.HEADHUNTER]: 40,
+    [UNIT_TYPE.TAUREN]: 90, [UNIT_TYPE.SHAMAN]: 45, [UNIT_TYPE.WITCH_DOCTOR]: 50,
+    [UNIT_TYPE.DEMOLISHER]: 60, [UNIT_TYPE.WIND_RIDER]: 65,
+    // Heroes
+    [UNIT_TYPE.HERO]: 150,
+    // Buildings - Human
     [BUILD_TYPE.FARM]: 15, [BUILD_TYPE.BARRACKS]: 50, [BUILD_TYPE.TOWN_HALL]: 100,
     [BUILD_TYPE.LUMBER_MILL]: 30, [BUILD_TYPE.TOWER]: 40, [BUILD_TYPE.ALTAR]: 50,
-    [BUILD_TYPE.BLACKSMITH]: 35,
+    [BUILD_TYPE.BLACKSMITH]: 35, [BUILD_TYPE.ARCANE_SANCTUM]: 40, [BUILD_TYPE.GRYPHON_AVIARY]: 50,
+    // Buildings - Undead
+    [BUILD_TYPE.NECROPOLIS]: 100, [BUILD_TYPE.CRYPT]: 50, [BUILD_TYPE.ZIGGURAT]: 35,
+    [BUILD_TYPE.GRAVEYARD]: 30, [BUILD_TYPE.SLAUGHTERHOUSE]: 45, [BUILD_TYPE.BONEYARD]: 50,
+    [BUILD_TYPE.TEMPLE_DAMNED]: 40, [BUILD_TYPE.SACRIFICIAL_PIT]: 30,
+    // Buildings - Night Elf
+    [BUILD_TYPE.TREE_LIFE]: 100, [BUILD_TYPE.ANCIENT_WAR]: 50, [BUILD_TYPE.MOON_WELL]: 20,
+    [BUILD_TYPE.HUNTERS_HALL]: 35, [BUILD_TYPE.ANCIENT_LORE]: 40, [BUILD_TYPE.ANCIENT_PROTECT]: 40,
+    [BUILD_TYPE.ALTAR_ELDERS]: 50, [BUILD_TYPE.CHIMAERA_ROOST]: 50,
+    // Buildings - Orc
+    [BUILD_TYPE.GREAT_HALL]: 100, [BUILD_TYPE.ORC_BARRACKS]: 50, [BUILD_TYPE.BURROW]: 15,
+    [BUILD_TYPE.WAR_MILL]: 35, [BUILD_TYPE.SPIRIT_LODGE]: 40, [BUILD_TYPE.WATCH_TOWER]: 40,
+    [BUILD_TYPE.ALTAR_STORMS]: 50, [BUILD_TYPE.BEASTIARY]: 50, [BUILD_TYPE.TAUREN_TOTEM]: 45,
   },
 
   // Max heroes per player
@@ -6713,14 +6740,14 @@ const HeroSystem = {
       case 'sleep': this._castStormBolt(hero, targetX, targetY, rank); break; // reuse stun logic
       case 'inferno': this._castAOEDamage(hero, rank, 'inferno', 'thunderclap'); this.summonUnit(hero.owner, getRaceConfig(hero.owner).heavy, Math.round(hero.vx), Math.round(hero.vy)-1, 45); if(hero.owner===0) Notifications.show('Infernal summoned!',2000); break;
       // Neutral heroes
-      case 'black_arrow': this._castAOEDamage(hero, rank, 'black_arrow', 'frost'); this.summonUnit(hero.owner, UNIT_TYPE.FOOTMAN, Math.round(hero.vx)+1, Math.round(hero.vy), 30); break;
+      case 'black_arrow': this._castAOEDamage(hero, rank, 'black_arrow', 'frost'); this.summonUnit(hero.owner, getRaceConfig(hero.owner).melee, Math.round(hero.vx)+1, Math.round(hero.vy), 30); break;
       case 'silence': this._castWarStomp(hero, rank); if(hero.owner===0) Notifications.show('Silence!',1500); break;
       case 'life_drain': { const ab=HERO_ABILITIES.life_drain; const dmg=ab.damageBase[rank-1]; this._castAOEDamage(hero,rank,'life_drain','frost'); hero.hp=Math.min(hero.maxHp,hero.hp+ab.healBase[rank-1]); break; }
       case 'charm': { let tgt=null,bd=Infinity; for(const e of EntityManager.entities){if(!e.alive||e.owner===hero.owner||e.entityType!=='unit'||e.isHero)continue; const d=Math.hypot(e.vx-targetX,e.vy-targetY); if(d<bd&&d<=3){bd=d;tgt=e;}} if(tgt){tgt.owner=hero.owner;if(hero.owner===0)Notifications.show('Unit charmed!',2000);AbilityFX.spawn(tgt.vx,tgt.vy,'battlecry');}else{hero.mana+=HERO_ABILITIES.charm.manaCost[0];hero.abilityCooldowns.charm=0;if(hero.owner===0)Notifications.show('No target!',1500,'error');} break; }
-      case 'summon_bear': { const dur=HERO_ABILITIES.summon_bear.summonDuration[rank-1]; this.summonUnit(hero.owner,UNIT_TYPE.KNIGHT,Math.round(hero.vx)-1,Math.round(hero.vy),dur); if(hero.owner===0)Notifications.show('Bear summoned!',2000); AbilityFX.spawn(hero.vx,hero.vy,'battlecry'); break; }
+      case 'summon_bear': { const dur=HERO_ABILITIES.summon_bear.summonDuration[rank-1]; this.summonUnit(hero.owner,getRaceConfig(hero.owner).heavy,Math.round(hero.vx)-1,Math.round(hero.vy),dur); if(hero.owner===0)Notifications.show('Bear summoned!',2000); AbilityFX.spawn(hero.vx,hero.vy,'battlecry'); break; }
       case 'axes': this._castAOEDamage(hero, rank, 'axes', 'thunderclap'); break;
       case 'stampede_aura': this._castDevotionAura(hero, rank); break;
-      case 'stampede': this._castAOEDamage(hero, rank, 'stampede', 'thunderclap'); for(let i=0;i<2;i++) this.summonUnit(hero.owner,UNIT_TYPE.KNIGHT,Math.round(hero.vx)-1+i,Math.round(hero.vy)+1,30); break;
+      case 'stampede': this._castAOEDamage(hero, rank, 'stampede', 'thunderclap'); for(let i=0;i<2;i++) this.summonUnit(hero.owner,getRaceConfig(hero.owner).heavy,Math.round(hero.vx)-1+i,Math.round(hero.vy)+1,30); break;
       case 'rain_of_fire': this._castAOEDamage(hero, rank, 'rain_of_fire', 'thunderclap'); break;
       case 'howl_terror': this._castFrostNova(hero, rank); break;
       case 'cleaving': this._castDevotionAura(hero, rank); break;
