@@ -5689,7 +5689,13 @@ const Gathering = {
         if (th && th.alive && this._isAdjacentToBuilding(unit, th)) {
           // Deliver resources
           if (unit.carryType && unit.carryAmount > 0) {
-            Resources.add(unit.owner, unit.carryType, unit.carryAmount);
+            let deliverAmt = unit.carryAmount;
+            // AI difficulty resource bonus
+            if (unit.owner !== 0) {
+              const aiResMult = [0.8, 1.0, 1.2][Game.difficulty] || 1.0;
+              deliverAmt = Math.round(deliverAmt * aiResMult);
+            }
+            Resources.add(unit.owner, unit.carryType, deliverAmt);
             if (unit.owner === 0) {
               if (unit.carryType === 'gold') GameStats.goldGathered += unit.carryAmount;
               else if (unit.carryType === 'lumber') GameStats.lumberGathered += unit.carryAmount;
@@ -8319,6 +8325,11 @@ const Combat = {
           unit._invisible = false; unit._invisTimer = 0;
           unit._windWalkBonus = 0;
           if (unit.owner === 0) Notifications.show('Wind Walk strike!', 800);
+        }
+        // AI difficulty damage modifier (Easy: AI deals 80%, Hard: 120%)
+        if (unit.owner !== 0 && !unit.isCreep) {
+          const aiDmgMult = [0.8, 1.0, 1.2][Game.difficulty] || 1.0;
+          finalRolledDmg = Math.round(finalRolledDmg * aiDmgMult);
         }
         const armor = (tgt.armor || 0) + defBonus;
         const atkType = unit.isHero ? ATTACK_TYPE.HERO : ((UNIT_DATA[unit.type] || CREEP_DATA[unit.type])?.attackType || ATTACK_TYPE.NORMAL);
@@ -11049,6 +11060,10 @@ const AI_PROTO = {
     this.timer += dt;
 
     const speedMult = [0.6, 1.0, 1.5][this.difficulty];
+    this._resourceMult = [0.8, 1.0, 1.2][this.difficulty];
+    this._maxWorkers = [4, 6, 8][this.difficulty];
+    this._attackForce = [8, 6, 4][this.difficulty];
+    this._maxMilitaryMult = [0.5, 0.7, 0.85][this.difficulty];
 
     // ── Send idle peasants to gather (every 1.5s) ──
     this._gatherTimer += dt;
@@ -11225,7 +11240,7 @@ const AI_PROTO = {
     this._attackCooldown -= dt;
     if (this._attackCooldown <= 0) {
       this._attackCooldown = 20.0 / speedMult;
-      if (this.phase === 'attack' || this._getMilitaryCount() >= 6) {
+      if (this.phase === 'attack' || this._getMilitaryCount() >= (this._attackForce || 6)) {
         this._doAttack();
       }
     }
@@ -11427,8 +11442,8 @@ const AI_PROTO = {
     const rc = getRaceConfig(this.OWNER);
     const peasantCount = this._getUnits(rc.worker).length;
 
-    // Train workers (up to 6)
-    if (peasantCount < 6) {
+    // Train workers (up to maxWorkers based on difficulty)
+    if (peasantCount < (this._maxWorkers || 6)) {
       const ths = this._getCompletedBuildings(rc.townhall);
       for (const th of ths) {
         if (th.trainingQueue.length < 2) {
@@ -11477,7 +11492,7 @@ const AI_PROTO = {
     const _aiRes = Resources.players[this.OWNER];
     const maxMilitary = this.phase === 'economy'
       ? 4
-      : Math.max(10, Math.floor(_aiRes.foodMax * 0.7));
+      : Math.max(10, Math.floor(_aiRes.foodMax * (this._maxMilitaryMult || 0.7)));
     if (military >= maxMilitary) return;
 
     // Air units
