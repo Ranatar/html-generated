@@ -313,7 +313,7 @@ html, body {
 #overlay-screen {
   position: absolute;
   top: 0; left: 0; right: 0; bottom: 0;
-  background: rgba(0, 0, 0, 1);
+  background: rgba(0, 0, 0, 0.85);
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -766,6 +766,10 @@ const UNIT_TYPE = {
   OGRE_MERC:   'ogre_merc',
   TROLL_MERC:  'troll_merc',
   ZEPPELIN:    'zeppelin',
+  WISP:'wisp',
+  PEON:'peon', GRUNT:'grunt', HEADHUNTER:'headhunter', TAUREN:'tauren',
+  SHAMAN:'shaman', WITCH_DOCTOR:'witch_doctor', DEMOLISHER:'demolisher', WIND_RIDER:'wind_rider', ARCHER:'archer', HUNTRESS:'huntress', DRUID_CLAW:'druid_claw',
+  DRUID_TALON:'druid_talon', DRYAD:'dryad', GLAIVE_THROWER:'glaive_thrower', HIPPOGRYPH:'hippogryph',
 };
 
 // Hero classes (sub-types of HERO)
@@ -781,6 +785,8 @@ const HERO_CLASS = {
   DARK_RANGER:  'hero_dranger',
   BEASTMASTER:  'hero_beast',
   PIT_LORD:     'hero_pitlord',
+  DEMON_HUNTER:'hero_dh_ne',
+  BLADEMASTER:'hero_bm', FAR_SEER:'hero_fs', TAUREN_CHIEF:'hero_tc', KEEPER_GROVE:'hero_keeper', PRIESTESS_MOON:'hero_potm',
 };
 
 // Hero class definitions: attributes, growth, abilities
@@ -841,6 +847,12 @@ const HERO_CLASS_DATA = {
     baseHp: 650, baseDmg: 25, baseArmor: 2, baseMana: 110, baseSpeed: 2.9,
     abilities: ['carrion_swarm', 'vampiric_aura', 'sleep', 'inferno'],
   },
+  [HERO_CLASS.DEMON_HUNTER]: { name:'Demon Hunter', symbol:'😈', isEmoji:true, primary:'agi', baseStr:17, strGrowth:1.9, baseAgi:24, agiGrowth:2.8, baseInt:14, intGrowth:1.5, baseHp:575, baseDmg:24, baseArmor:3, baseMana:100, baseSpeed:3.5, abilities:['mana_burn','immolation','evasion_ne','metamorphosis'] },
+  [HERO_CLASS.KEEPER_GROVE]: { name:'Keeper of the Grove', symbol:'🌿', isEmoji:true, primary:'int', baseStr:16, strGrowth:1.8, baseAgi:15, agiGrowth:1.5, baseInt:22, intGrowth:3.0, baseHp:550, baseDmg:20, baseArmor:1, baseMana:195, baseSpeed:2.8, abilities:['entangle','force_nature','thorns_aura','tranquility'] },
+  [HERO_CLASS.BLADEMASTER]: { name:'Blademaster', symbol:'⚔', isEmoji:false, primary:'agi', baseStr:18, strGrowth:2.0, baseAgi:24, agiGrowth:3.0, baseInt:14, intGrowth:1.4, baseHp:575, baseDmg:26, baseArmor:3, baseMana:100, baseSpeed:3.5, abilities:['wind_walk','mirror_image','critical_strike','bladestorm'] },
+  [HERO_CLASS.FAR_SEER]: { name:'Far Seer', symbol:'🔮', isEmoji:true, primary:'int', baseStr:15, strGrowth:1.8, baseAgi:16, agiGrowth:1.5, baseInt:22, intGrowth:3.0, baseHp:525, baseDmg:19, baseArmor:1, baseMana:195, baseSpeed:2.8, abilities:['chain_lightning','far_sight','feral_spirit','earthquake'] },
+  [HERO_CLASS.TAUREN_CHIEF]: { name:'Tauren Chieftain', symbol:'🐃', isEmoji:true, primary:'str', baseStr:25, strGrowth:3.2, baseAgi:10, agiGrowth:1.0, baseInt:15, intGrowth:1.5, baseHp:700, baseDmg:28, baseArmor:2, baseMana:100, baseSpeed:2.7, abilities:['shockwave','war_stomp_orc','endurance_aura','reincarnation'] },
+  [HERO_CLASS.PRIESTESS_MOON]: { name:'Priestess of the Moon', symbol:'🌙', isEmoji:true, primary:'agi', baseStr:18, strGrowth:2.0, baseAgi:21, agiGrowth:2.5, baseInt:16, intGrowth:1.8, baseHp:600, baseDmg:22, baseArmor:2, baseMana:120, baseSpeed:3.2, abilities:['owl_scout','searing_arrows','trueshot_aura','starfall'] },
 };
 
 // All hero abilities with per-rank scaling
@@ -976,6 +988,32 @@ const HERO_ABILITIES = {
   doom:          { name: 'Doom',         icon: '☠️', hotkey: 'R', maxRank: 1, isUlt: true, targeting: 'point',
     manaCost: [100], cooldown: [60], range: 6, desc: 'Massive single-target damage + stun',
     damageBase: [300], stunDuration: [5] },
+  // Night Elf
+  mana_burn:     { name:'Mana Burn',     icon:'💜', hotkey:'Q', maxRank:3, isUlt:false, targeting:'point', manaCost:[10,10,10], cooldown:[7,6,5], range:6, desc:'Burns mana, deals equal damage', damageBase:[50,80,110], damagePerLevel:0 },
+  immolation:    { name:'Immolation',    icon:'🔥', hotkey:'W', maxRank:3, isUlt:false, targeting:'self', manaCost:[20,25,30], cooldown:[5,5,5], radius:3, duration:[10,12,14], desc:'AoE fire aura', damageBase:[10,17,25], damagePerLevel:3 },
+  evasion_ne:    { name:'Evasion',       icon:'💨', hotkey:'E', maxRank:3, isUlt:false, targeting:'self', manaCost:[0,0,0], cooldown:[0,0,0], desc:'Passive dodge 10/20/30%', damageBase:[0,0,0] },
+  metamorphosis: { name:'Metamorphosis', icon:'👿', hotkey:'R', maxRank:1, isUlt:true,  targeting:'self', manaCost:[100], cooldown:[90], duration:[45], desc:'Ranged demon form +200HP', damageBase:[0] },
+  entangle:      { name:'Entangling Roots',icon:'🌱',hotkey:'Q', maxRank:3, isUlt:false, targeting:'point', manaCost:[20,25,30], cooldown:[10,10,10], range:6, duration:[4,5,6], desc:'Root target', damageBase:[15,25,35], stunDuration:[4,5,6], damagePerLevel:5 },
+  force_nature:  { name:'Force of Nature',icon:'🌲', hotkey:'W', maxRank:3, isUlt:false, targeting:'point', manaCost:[25,30,35], cooldown:[15,15,15], range:6, desc:'Summon treant', summonDuration:[40,50,60] },
+  thorns_aura:   { name:'Thorns Aura',   icon:'🌹', hotkey:'E', maxRank:3, isUlt:false, targeting:'self', manaCost:[15,20,25], cooldown:[15,15,15], radius:5, duration:[20,25,30], desc:'Return melee damage', armorBonus:[1,2,3] },
+  tranquility:   { name:'Tranquility',   icon:'🌸', hotkey:'R', maxRank:1, isUlt:true,  targeting:'self', manaCost:[100], cooldown:[60], radius:5, duration:[10], desc:'Massive AoE heal', healBase:[30] },
+  owl_scout:     { name:'Owl Scout',     icon:'🦉', hotkey:'Q', maxRank:3, isUlt:false, targeting:'point', manaCost:[20,20,20], cooldown:[15,12,9], range:99, desc:'Reveal area', damageBase:[0,0,0] },
+  searing_arrows:{ name:'Searing Arrows',icon:'🏹', hotkey:'W', maxRank:3, isUlt:false, targeting:'self', manaCost:[5,5,5], cooldown:[0,0,0], desc:'Toggle +10/20/30 fire dmg', damageBase:[10,20,30] },
+  trueshot_aura: { name:'Trueshot Aura', icon:'🎯', hotkey:'E', maxRank:3, isUlt:false, targeting:'self', manaCost:[15,20,25], cooldown:[15,15,15], radius:5, duration:[25,30,35], desc:'+Ranged dmg to allies', armorBonus:[2,3,5] },
+  // Orc hero abilities
+  wind_walk:     { name:'Wind Walk',     icon:'💨', hotkey:'Q', maxRank:3, isUlt:false, targeting:'self', manaCost:[10,10,10], cooldown:[7,6,5], duration:[8,12,16], desc:'Invisibility + bonus damage on next attack', damageBase:[30,50,75], damagePerLevel:0 },
+  mirror_image:  { name:'Mirror Image',  icon:'👥', hotkey:'W', maxRank:3, isUlt:false, targeting:'self', manaCost:[20,20,20], cooldown:[15,15,15], desc:'Create illusions', summonDuration:[30,40,50] },
+  critical_strike:{ name:'Critical Strike',icon:'💥',hotkey:'E', maxRank:3, isUlt:false, targeting:'self', manaCost:[0,0,0], cooldown:[0,0,0], desc:'Passive: 15% chance for 2x/3x/4x damage', damageBase:[0,0,0] },
+  bladestorm:    { name:'Bladestorm',    icon:'🌀', hotkey:'R', maxRank:1, isUlt:true,  targeting:'self', manaCost:[100], cooldown:[60], radius:4, duration:[7], desc:'Spinning AoE damage', damageBase:[100] },
+  chain_lightning:{ name:'Chain Lightning',icon:'⚡',hotkey:'Q', maxRank:3, isUlt:false, targeting:'point', manaCost:[20,25,30], cooldown:[8,8,8], range:6, desc:'Lightning bounces 3 targets', damageBase:[65,100,140], damagePerLevel:5 },
+  far_sight:     { name:'Far Sight',     icon:'👁️', hotkey:'W', maxRank:3, isUlt:false, targeting:'point', manaCost:[20,20,20], cooldown:[15,12,9], range:99, desc:'Reveal area', damageBase:[0,0,0] },
+  feral_spirit:  { name:'Feral Spirit',  icon:'🐺', hotkey:'E', maxRank:3, isUlt:false, targeting:'self', manaCost:[25,30,35], cooldown:[15,15,15], desc:'Summon wolves', summonDuration:[40,50,60] },
+  earthquake:    { name:'Earthquake',    icon:'🌍', hotkey:'R', maxRank:1, isUlt:true,  targeting:'self', manaCost:[100], cooldown:[60], radius:5, duration:[10], desc:'AoE slow + building damage', damageBase:[50] },
+  shockwave:     { name:'Shockwave',     icon:'🌊', hotkey:'Q', maxRank:3, isUlt:false, targeting:'point', manaCost:[20,25,30], cooldown:[8,8,8], range:6, desc:'Line AoE damage', damageBase:[75,120,175], damagePerLevel:5 },
+  war_stomp_orc: { name:'War Stomp',     icon:'🦶', hotkey:'W', maxRank:3, isUlt:false, targeting:'self', manaCost:[20,25,30], cooldown:[10,10,10], radius:3, desc:'AoE stun', stunDuration:[2,3,4], damageBase:[25,50,75] },
+  endurance_aura:{ name:'Endurance Aura',icon:'🏃', hotkey:'E', maxRank:3, isUlt:false, targeting:'self', manaCost:[15,20,25], cooldown:[15,15,15], radius:5, duration:[20,25,30], desc:'+Speed to allies', armorBonus:[1,2,3] },
+  reincarnation: { name:'Reincarnation', icon:'♻️', hotkey:'R', maxRank:1, isUlt:true,  targeting:'self', manaCost:[0], cooldown:[240], desc:'Auto-revive on death', damageBase:[0] },
+  starfall:      { name:'Starfall',      icon:'⭐', hotkey:'R', maxRank:1, isUlt:true,  targeting:'self', manaCost:[100], cooldown:[60], radius:6, duration:[8], desc:'Massive AoE star damage', damageBase:[200] },
 };
 
 // Данные юнитов
@@ -1002,6 +1040,24 @@ const UNIT_DATA = {
   [UNIT_TYPE.OGRE_MERC]:   { symbol: '👹', isEmoji: true,  hp: 700, damage: 28, damageMin: 24, damageMax: 32, armor: 4, speed: 2.5, range: 1, attackSpeed: 1.5, vision: 7, cost: { gold: 220, lumber: 0 }, food: 3, buildTime: 8, attackType: ATTACK_TYPE.NORMAL, armorType: ARMOR_TYPE.HEAVY },
   [UNIT_TYPE.TROLL_MERC]:  { symbol: '🧌', isEmoji: true,  hp: 450, damage: 18, damageMin: 14, damageMax: 22, armor: 1, speed: 2.8, range: 5, attackSpeed: 1.6, vision: 9, cost: { gold: 180, lumber: 0 }, food: 2, buildTime: 8, attackType: ATTACK_TYPE.PIERCE, armorType: ARMOR_TYPE.MEDIUM },
   [UNIT_TYPE.ZEPPELIN]:    { symbol: '🎈', isEmoji: true,  hp: 300, damage: 0,  damageMin: 0,  damageMax: 0,  armor: 0, speed: 4.5, range: 0, attackSpeed: 99, vision: 14, cost: { gold: 150, lumber: 0 }, food: 0, buildTime: 5, attackType: ATTACK_TYPE.NORMAL, armorType: ARMOR_TYPE.LIGHT, isFlying: true, isTransport: true, cargoCapacity: 8 },
+  // Orc
+  [UNIT_TYPE.PEON]:          { symbol:'👷', isEmoji:true, hp:250, damage:6, damageMin:5, damageMax:7, armor:0, speed:2.0, range:1, attackSpeed:1.5, vision:7, cost:{gold:75,lumber:0}, food:1, buildTime:15, attackType:ATTACK_TYPE.NORMAL, armorType:ARMOR_TYPE.UNARMORED, race:'orc' },
+  [UNIT_TYPE.GRUNT]:         { symbol:'👺', isEmoji:true, hp:700, damage:22, damageMin:18, damageMax:26, armor:2, speed:2.7, range:1, attackSpeed:1.4, vision:8, cost:{gold:200,lumber:15}, food:3, buildTime:22, attackType:ATTACK_TYPE.NORMAL, armorType:ARMOR_TYPE.HEAVY, race:'orc' },
+  [UNIT_TYPE.HEADHUNTER]:    { symbol:'🎯', isEmoji:true, hp:350, damage:18, damageMin:15, damageMax:21, armor:0, speed:2.7, range:5, attackSpeed:1.6, vision:9, cost:{gold:135,lumber:20}, food:2, buildTime:20, attackType:ATTACK_TYPE.PIERCE, armorType:ARMOR_TYPE.MEDIUM, race:'orc' },
+  [UNIT_TYPE.TAUREN]:        { symbol:'🐂', isEmoji:true, hp:1300, damage:33, damageMin:28, damageMax:38, armor:3, speed:2.2, range:1, attackSpeed:1.6, vision:7, cost:{gold:280,lumber:80}, food:5, buildTime:35, tierReq:3, attackType:ATTACK_TYPE.NORMAL, armorType:ARMOR_TYPE.HEAVY, race:'orc' },
+  [UNIT_TYPE.SHAMAN]:        { symbol:'⚡', isEmoji:false, hp:300, damage:11, damageMin:9, damageMax:13, armor:0, speed:2.7, range:5, attackSpeed:1.8, vision:9, cost:{gold:130,lumber:20}, food:2, buildTime:22, attackType:ATTACK_TYPE.MAGIC, armorType:ARMOR_TYPE.UNARMORED, race:'orc' },
+  [UNIT_TYPE.WITCH_DOCTOR]:  { symbol:'🧙', isEmoji:true, hp:315, damage:10, damageMin:8, damageMax:12, armor:0, speed:2.7, range:5, attackSpeed:1.8, vision:9, cost:{gold:145,lumber:25}, food:2, buildTime:24, attackType:ATTACK_TYPE.MAGIC, armorType:ARMOR_TYPE.UNARMORED, race:'orc' },
+  [UNIT_TYPE.DEMOLISHER]:    { symbol:'💥', isEmoji:true, hp:425, damage:55, damageMin:43, damageMax:67, armor:2, speed:2.0, range:7, attackSpeed:3.0, vision:10, cost:{gold:220,lumber:50}, food:4, buildTime:30, tierReq:2, attackType:ATTACK_TYPE.SIEGE, armorType:ARMOR_TYPE.HEAVY, race:'orc' },
+  [UNIT_TYPE.WIND_RIDER]:    { symbol:'🦅', isEmoji:true, hp:570, damage:26, damageMin:22, damageMax:30, armor:1, speed:3.8, range:1, attackSpeed:1.5, vision:10, cost:{gold:265,lumber:40}, food:4, buildTime:28, tierReq:2, attackType:ATTACK_TYPE.PIERCE, armorType:ARMOR_TYPE.LIGHT, isFlying:true, canAttackAir:true, race:'orc' },
+  // Night Elf
+  [UNIT_TYPE.WISP]:          { symbol:'🧚', isEmoji:true, hp:120, damage:0, damageMin:0, damageMax:0, armor:0, speed:2.7, range:1, attackSpeed:99, vision:7, cost:{gold:60,lumber:0}, food:1, buildTime:14, attackType:ATTACK_TYPE.NORMAL, armorType:ARMOR_TYPE.UNARMORED, race:'night_elf' },
+  [UNIT_TYPE.ARCHER]:        { symbol:'🏹', isEmoji:true, hp:255, damage:16, damageMin:14, damageMax:18, armor:0, speed:2.7, range:5, attackSpeed:1.5, vision:9, cost:{gold:130,lumber:10}, food:2, buildTime:20, attackType:ATTACK_TYPE.PIERCE, armorType:ARMOR_TYPE.MEDIUM, race:'night_elf' },
+  [UNIT_TYPE.HUNTRESS]:      { symbol:'🐆', isEmoji:true, hp:600, damage:19, damageMin:16, damageMax:22, armor:3, speed:3.5, range:1, attackSpeed:1.4, vision:8, cost:{gold:195,lumber:20}, food:3, buildTime:22, attackType:ATTACK_TYPE.NORMAL, armorType:ARMOR_TYPE.HEAVY, race:'night_elf' },
+  [UNIT_TYPE.DRUID_CLAW]:    { symbol:'🐻', isEmoji:true, hp:795, damage:30, damageMin:26, damageMax:34, armor:3, speed:2.7, range:1, attackSpeed:1.5, vision:8, cost:{gold:255,lumber:80}, food:4, buildTime:30, tierReq:2, attackType:ATTACK_TYPE.NORMAL, armorType:ARMOR_TYPE.HEAVY, race:'night_elf' },
+  [UNIT_TYPE.DRUID_TALON]:   { symbol:'🦉', isEmoji:true, hp:300, damage:12, damageMin:10, damageMax:14, armor:0, speed:2.7, range:5, attackSpeed:1.8, vision:9, cost:{gold:145,lumber:20}, food:2, buildTime:22, attackType:ATTACK_TYPE.MAGIC, armorType:ARMOR_TYPE.UNARMORED, race:'night_elf' },
+  [UNIT_TYPE.DRYAD]:         { symbol:'🧝', isEmoji:true, hp:435, damage:16, damageMin:13, damageMax:19, armor:0, speed:3.0, range:4, attackSpeed:1.6, vision:9, cost:{gold:145,lumber:30}, food:3, buildTime:24, attackType:ATTACK_TYPE.PIERCE, armorType:ARMOR_TYPE.UNARMORED, race:'night_elf', magicImmune:true },
+  [UNIT_TYPE.GLAIVE_THROWER]:{ symbol:'🔱', isEmoji:true, hp:300, damage:48, damageMin:39, damageMax:57, armor:1, speed:2.0, range:7, attackSpeed:3.0, vision:10, cost:{gold:210,lumber:65}, food:3, buildTime:30, tierReq:2, attackType:ATTACK_TYPE.SIEGE, armorType:ARMOR_TYPE.HEAVY, race:'night_elf' },
+  [UNIT_TYPE.HIPPOGRYPH]:    { symbol:'🦄', isEmoji:true, hp:500, damage:24, damageMin:20, damageMax:28, armor:1, speed:3.8, range:1, attackSpeed:1.5, vision:10, cost:{gold:160,lumber:30}, food:2, buildTime:25, tierReq:2, attackType:ATTACK_TYPE.NORMAL, armorType:ARMOR_TYPE.LIGHT, isFlying:true, canAttackAir:true, race:'night_elf' },
 };
 
 // Типы зданий
@@ -1033,6 +1089,12 @@ const BUILD_TYPE = {
   GOBLIN_LAB:    'goblin_lab',
   GOBLIN_SHOP:   'goblin_shop',
   FOUNTAIN:      'fountain',
+  TREE_LIFE:'tree_life',
+  GREAT_HALL:'great_hall', ORC_BARRACKS:'orc_barracks', BURROW:'burrow',
+  WAR_MILL:'war_mill', SPIRIT_LODGE:'spirit_lodge', WATCH_TOWER:'watch_tower',
+  ALTAR_STORMS:'altar_storms', BEASTIARY:'beastiary', VOODOO_LOUNGE:'voodoo_lounge', TAUREN_TOTEM:'tauren_totem', ANCIENT_WAR:'ancient_war', MOON_WELL:'moon_well',
+  HUNTERS_HALL:'hunters_hall', ANCIENT_LORE:'ancient_lore', ANCIENT_PROTECT:'ancient_protect',
+  ALTAR_ELDERS:'altar_elders', CHIMAERA_ROOST:'chimaera_roost', ANCIENT_WONDERS:'ancient_wonders',
 };
 
 // Данные зданий (armorType for all buildings = FORTIFIED)
@@ -1058,6 +1120,27 @@ const BUILD_DATA = {
   [BUILD_TYPE.BONEYARD]:       { symbol: '🦴', isEmoji: true, w: 3, h: 3, hp: 1100, vision: 8,  cost: { gold: 200, lumber: 80  }, buildTime: 65,  foodProvided: 0, requires: [BUILD_TYPE.CRYPT], tierReq: 3, race: 'undead' },
   [BUILD_TYPE.TOMB_RELICS]:    { symbol: '🏺', isEmoji: true, w: 2, h: 2, hp: 500,  vision: 6,  cost: { gold: 130, lumber: 30  }, buildTime: 40,  foodProvided: 0, requires: [BUILD_TYPE.ALTAR_DARKNESS], race: 'undead' },
   [BUILD_TYPE.SACRIFICIAL_PIT]:{ symbol: '🕳️', isEmoji: true, w: 2, h: 2, hp: 600,  vision: 5, cost: { gold: 75, lumber: 25   }, buildTime: 30, foodProvided: 0, requires: [BUILD_TYPE.CRYPT], race: 'undead' },
+  // Orc
+  [BUILD_TYPE.GREAT_HALL]:   { symbol:'🏚️', isEmoji:true, w:3, h:3, hp:1500, vision:10, cost:{gold:400,lumber:150}, buildTime:120, foodProvided:10, race:'orc' },
+  [BUILD_TYPE.ORC_BARRACKS]: { symbol:'⚔️', isEmoji:true, w:3, h:3, hp:1200, vision:8, cost:{gold:180,lumber:50}, buildTime:60, foodProvided:0, race:'orc' },
+  [BUILD_TYPE.BURROW]:       { symbol:'🕳️', isEmoji:true, w:2, h:2, hp:600, vision:5, cost:{gold:80,lumber:20}, buildTime:35, foodProvided:6, race:'orc' },
+  [BUILD_TYPE.WAR_MILL]:     { symbol:'⚒️', isEmoji:true, w:3, h:2, hp:1000, vision:6, cost:{gold:170,lumber:70}, buildTime:55, foodProvided:0, requires:[BUILD_TYPE.ORC_BARRACKS], race:'orc' },
+  [BUILD_TYPE.SPIRIT_LODGE]: { symbol:'🏕️', isEmoji:true, w:3, h:3, hp:1050, vision:8, cost:{gold:155,lumber:45}, buildTime:60, foodProvided:0, requires:[BUILD_TYPE.WAR_MILL], tierReq:2, race:'orc' },
+  [BUILD_TYPE.WATCH_TOWER]:  { symbol:'🗼', isEmoji:true, w:2, h:2, hp:800, vision:12, cost:{gold:170,lumber:80}, buildTime:50, foodProvided:0, requires:[BUILD_TYPE.WAR_MILL], race:'orc' },
+  [BUILD_TYPE.ALTAR_STORMS]: { symbol:'⛈️', isEmoji:true, w:3, h:3, hp:900, vision:8, cost:{gold:180,lumber:50}, buildTime:60, foodProvided:0, requires:[BUILD_TYPE.ORC_BARRACKS], race:'orc' },
+  [BUILD_TYPE.BEASTIARY]:    { symbol:'🐺', isEmoji:true, w:3, h:3, hp:1100, vision:8, cost:{gold:200,lumber:80}, buildTime:65, foodProvided:0, requires:[BUILD_TYPE.ORC_BARRACKS], tierReq:3, race:'orc' },
+  [BUILD_TYPE.VOODOO_LOUNGE]:{ symbol:'🍶', isEmoji:true, w:2, h:2, hp:500, vision:6, cost:{gold:130,lumber:30}, buildTime:40, foodProvided:0, requires:[BUILD_TYPE.ALTAR_STORMS], race:'orc' },
+  [BUILD_TYPE.TAUREN_TOTEM]: { symbol:'🪘', isEmoji:true, w:3, h:3, hp:1100, vision:8, cost:{gold:135,lumber:55}, buildTime:60, foodProvided:0, requires:[BUILD_TYPE.WAR_MILL], tierReq:3, race:'orc' },
+  // Night Elf
+  [BUILD_TYPE.TREE_LIFE]:      { symbol:'🌳', isEmoji:true, w:3, h:3, hp:1400, vision:10, cost:{gold:400,lumber:150}, buildTime:120, foodProvided:10, race:'night_elf' },
+  [BUILD_TYPE.ANCIENT_WAR]:    { symbol:'🗡️', isEmoji:true, w:3, h:3, hp:1100, vision:8, cost:{gold:180,lumber:50}, buildTime:60, foodProvided:0, race:'night_elf' },
+  [BUILD_TYPE.MOON_WELL]:      { symbol:'🌙', isEmoji:true, w:2, h:2, hp:600, vision:5, cost:{gold:85,lumber:30}, buildTime:40, foodProvided:6, race:'night_elf' },
+  [BUILD_TYPE.HUNTERS_HALL]:   { symbol:'🏛️', isEmoji:true, w:3, h:2, hp:1000, vision:6, cost:{gold:140,lumber:60}, buildTime:55, foodProvided:0, requires:[BUILD_TYPE.ANCIENT_WAR], race:'night_elf' },
+  [BUILD_TYPE.ANCIENT_LORE]:   { symbol:'📜', isEmoji:true, w:3, h:3, hp:1050, vision:8, cost:{gold:155,lumber:45}, buildTime:60, foodProvided:0, requires:[BUILD_TYPE.HUNTERS_HALL], tierReq:2, race:'night_elf' },
+  [BUILD_TYPE.ANCIENT_PROTECT]:{ symbol:'🏹', isEmoji:true, w:2, h:2, hp:800, vision:12, cost:{gold:175,lumber:80}, buildTime:50, foodProvided:0, requires:[BUILD_TYPE.HUNTERS_HALL], race:'night_elf' },
+  [BUILD_TYPE.ALTAR_ELDERS]:   { symbol:'⛩️', isEmoji:true, w:3, h:3, hp:900, vision:8, cost:{gold:180,lumber:50}, buildTime:60, foodProvided:0, requires:[BUILD_TYPE.ANCIENT_WAR], race:'night_elf' },
+  [BUILD_TYPE.CHIMAERA_ROOST]: { symbol:'🐲', isEmoji:true, w:3, h:3, hp:1100, vision:8, cost:{gold:200,lumber:80}, buildTime:65, foodProvided:0, requires:[BUILD_TYPE.ANCIENT_WAR], tierReq:3, race:'night_elf' },
+  [BUILD_TYPE.ANCIENT_WONDERS]:{ symbol:'🔮', isEmoji:true, w:2, h:2, hp:500, vision:6, cost:{gold:130,lumber:30}, buildTime:40, foodProvided:0, requires:[BUILD_TYPE.ALTAR_ELDERS], race:'night_elf' },
   // Neutral buildings (not buildable by players, placed by map gen)
   [BUILD_TYPE.MERC_CAMP]:  { symbol: '⚔️', isEmoji: true, w: 3, h: 2, hp: 1500, vision: 10, cost: { gold: 0, lumber: 0 }, buildTime: 0, foodProvided: 0 },
   [BUILD_TYPE.TAVERN]:     { symbol: '🍺', isEmoji: true, w: 3, h: 2, hp: 1500, vision: 10, cost: { gold: 0, lumber: 0 }, buildTime: 0, foodProvided: 0 },
@@ -1074,6 +1157,10 @@ const TH_TIER_DATA = {
   // Undead TH tiers (keys offset by 10 to differentiate)
   12: { name: 'Halls of the Dead', symbol: '🏚️', isEmoji: true, hp: 2000, requires: [BUILD_TYPE.CRYPT] },
   13: { name: 'Black Citadel',     symbol: '🕋', isEmoji: true, hp: 2500, requires: [BUILD_TYPE.GRAVEYARD] },
+  22: { name: 'Tree of Ages',     symbol: '🌲', isEmoji: true, hp: 1900, requires: [BUILD_TYPE.ANCIENT_WAR] },
+  23: { name: 'Tree of Eternity', symbol: '🌳', isEmoji: true, hp: 2400, requires: [BUILD_TYPE.HUNTERS_HALL] },
+  32: { name: 'Stronghold',       symbol: '🏠', isEmoji: true, hp: 2000, requires: [BUILD_TYPE.ORC_BARRACKS] },
+  33: { name: 'Fortress',         symbol: '🏰', isEmoji: true, hp: 2600, requires: [BUILD_TYPE.WAR_MILL] },
 };
 
 // Research / upgrade types (used in training queues)
@@ -1092,6 +1179,14 @@ const RESEARCH_TYPE = {
   UD_DEF_1: 'r_ud_def1', UD_DEF_2: 'r_ud_def2', UD_DEF_3: 'r_ud_def3',
   UD_LUMBER: 'r_ud_lumber', UD_MASONRY: 'r_ud_masonry',
   ZIGGURAT_SPIRIT: 'r_zig_spirit',
+  TH_AGES:'r_th_ages', TH_ETERNITY:'r_th_eternity',
+  NE_ATK_1:'r_ne_atk1', NE_ATK_2:'r_ne_atk2', NE_ATK_3:'r_ne_atk3',
+  NE_DEF_1:'r_ne_def1', NE_DEF_2:'r_ne_def2', NE_DEF_3:'r_ne_def3',
+  NE_LUMBER:'r_ne_lumber', NE_MASONRY:'r_ne_masonry', ANCIENT_PROTECT_UPG:'r_anc_protect',
+  TH_STRONGHOLD:'r_th_strong', TH_FORTRESS:'r_th_fort',
+  ORC_ATK_1:'r_orc_atk1', ORC_ATK_2:'r_orc_atk2', ORC_ATK_3:'r_orc_atk3',
+  ORC_DEF_1:'r_orc_def1', ORC_DEF_2:'r_orc_def2', ORC_DEF_3:'r_orc_def3',
+  ORC_LUMBER:'r_orc_lumber', ORC_MASONRY:'r_orc_masonry', WATCH_TOWER_UPG:'r_watchtower',
 };
 
 // Research data: cost, time, tier requirement
@@ -1122,6 +1217,28 @@ const RESEARCH_DATA = {
   [RESEARCH_TYPE.UD_LUMBER]: { symbol: '🪵', name: 'Ghoul Frenzy',        cost: { gold: 100, lumber: 0   }, buildTime: 45, tierReq: 1 },
   [RESEARCH_TYPE.UD_MASONRY]:{ symbol: '🧱', name: 'Nerubian Masonry',    cost: { gold: 125, lumber: 50  }, buildTime: 50, tierReq: 2 },
   [RESEARCH_TYPE.ZIGGURAT_SPIRIT]: { symbol: '🔮', name: 'Spirit Tower', cost: { gold: 75, lumber: 30 }, buildTime: 30, tierReq: 1 },
+  [RESEARCH_TYPE.TH_AGES]:   { symbol:'🌲', name:'Tree of Ages',    cost:{gold:320,lumber:100}, buildTime:100, tierReq:1 },
+  [RESEARCH_TYPE.TH_ETERNITY]:{symbol:'🌳', name:'Tree of Eternity',cost:{gold:360,lumber:120}, buildTime:120, tierReq:2 },
+  [RESEARCH_TYPE.NE_ATK_1]: { symbol:'⚔️', name:'+1 Strength of Wild', cost:{gold:100,lumber:50},  buildTime:40, tierReq:1 },
+  [RESEARCH_TYPE.NE_ATK_2]: { symbol:'⚔️', name:'+2 Strength of Wild', cost:{gold:175,lumber:100}, buildTime:55, tierReq:2 },
+  [RESEARCH_TYPE.NE_ATK_3]: { symbol:'⚔️', name:'+3 Strength of Wild', cost:{gold:250,lumber:150}, buildTime:70, tierReq:3 },
+  [RESEARCH_TYPE.NE_DEF_1]: { symbol:'🛡️', name:'+1 Reinforced Hides', cost:{gold:100,lumber:75},  buildTime:40, tierReq:1 },
+  [RESEARCH_TYPE.NE_DEF_2]: { symbol:'🛡️', name:'+2 Reinforced Hides', cost:{gold:175,lumber:125}, buildTime:55, tierReq:2 },
+  [RESEARCH_TYPE.NE_DEF_3]: { symbol:'🛡️', name:'+3 Reinforced Hides', cost:{gold:250,lumber:175}, buildTime:70, tierReq:3 },
+  [RESEARCH_TYPE.NE_LUMBER]:{ symbol:'🪵', name:'Improved Wisp Gathering', cost:{gold:100,lumber:0}, buildTime:45, tierReq:1 },
+  [RESEARCH_TYPE.NE_MASONRY]:{symbol:'🧱', name:"Nature's Blessing",     cost:{gold:125,lumber:50}, buildTime:50, tierReq:2 },
+  [RESEARCH_TYPE.ANCIENT_PROTECT_UPG]:{ symbol:'🏹', name:'Protector Upgrade', cost:{gold:75,lumber:30}, buildTime:30, tierReq:1 },
+  [RESEARCH_TYPE.TH_STRONGHOLD]:{symbol:'🏠', name:'Upgrade: Stronghold', cost:{gold:320,lumber:100}, buildTime:100, tierReq:1 },
+  [RESEARCH_TYPE.TH_FORTRESS]:  {symbol:'🏰', name:'Upgrade: Fortress',   cost:{gold:360,lumber:120}, buildTime:120, tierReq:2 },
+  [RESEARCH_TYPE.ORC_ATK_1]:{ symbol:'⚔️', name:'+1 Melee Weapons',  cost:{gold:100,lumber:50},  buildTime:40, tierReq:1 },
+  [RESEARCH_TYPE.ORC_ATK_2]:{ symbol:'⚔️', name:'+2 Melee Weapons',  cost:{gold:175,lumber:100}, buildTime:55, tierReq:2 },
+  [RESEARCH_TYPE.ORC_ATK_3]:{ symbol:'⚔️', name:'+3 Melee Weapons',  cost:{gold:250,lumber:150}, buildTime:70, tierReq:3 },
+  [RESEARCH_TYPE.ORC_DEF_1]:{ symbol:'🛡️', name:'+1 Spiked Barricades',cost:{gold:100,lumber:75},  buildTime:40, tierReq:1 },
+  [RESEARCH_TYPE.ORC_DEF_2]:{ symbol:'🛡️', name:'+2 Spiked Barricades',cost:{gold:175,lumber:125}, buildTime:55, tierReq:2 },
+  [RESEARCH_TYPE.ORC_DEF_3]:{ symbol:'🛡️', name:'+3 Spiked Barricades',cost:{gold:250,lumber:175}, buildTime:70, tierReq:3 },
+  [RESEARCH_TYPE.ORC_LUMBER]:{ symbol:'🪵', name:'Improved Lumber Harvest', cost:{gold:100,lumber:0}, buildTime:45, tierReq:1 },
+  [RESEARCH_TYPE.ORC_MASONRY]:{symbol:'🧱', name:'Reinforced Defenses',    cost:{gold:125,lumber:50}, buildTime:50, tierReq:2 },
+  [RESEARCH_TYPE.WATCH_TOWER_UPG]:{ symbol:'🗼', name:'Watch Tower Upgrade', cost:{gold:75,lumber:30}, buildTime:30, tierReq:1 },
 };
 
 // Display names
@@ -1168,6 +1285,25 @@ const ENTITY_NAMES = {
   [BUILD_TYPE.MERC_CAMP]: 'Mercenary Camp', [BUILD_TYPE.TAVERN]: 'Tavern',
   [BUILD_TYPE.GOBLIN_LAB]: 'Goblin Laboratory', [BUILD_TYPE.GOBLIN_SHOP]: 'Goblin Merchant',
   [BUILD_TYPE.FOUNTAIN]: 'Fountain of Health',
+  [UNIT_TYPE.PEON]:'Peon', [UNIT_TYPE.GRUNT]:'Grunt', [UNIT_TYPE.HEADHUNTER]:'Headhunter',
+  [UNIT_TYPE.TAUREN]:'Tauren', [UNIT_TYPE.SHAMAN]:'Shaman', [UNIT_TYPE.WITCH_DOCTOR]:'Witch Doctor',
+  [UNIT_TYPE.DEMOLISHER]:'Demolisher', [UNIT_TYPE.WIND_RIDER]:'Wind Rider',
+  [HERO_CLASS.BLADEMASTER]:'Blademaster', [HERO_CLASS.FAR_SEER]:'Far Seer', [HERO_CLASS.TAUREN_CHIEF]:'Tauren Chieftain',
+  [BUILD_TYPE.GREAT_HALL]:'Great Hall', [BUILD_TYPE.ORC_BARRACKS]:'Barracks',
+  [BUILD_TYPE.BURROW]:'Burrow', [BUILD_TYPE.WAR_MILL]:'War Mill',
+  [BUILD_TYPE.SPIRIT_LODGE]:'Spirit Lodge', [BUILD_TYPE.WATCH_TOWER]:'Watch Tower',
+  [BUILD_TYPE.ALTAR_STORMS]:'Altar of Storms', [BUILD_TYPE.BEASTIARY]:'Beastiary',
+  [BUILD_TYPE.VOODOO_LOUNGE]:'Voodoo Lounge', [BUILD_TYPE.TAUREN_TOTEM]:'Tauren Totem',
+  [UNIT_TYPE.WISP]:'Wisp', [UNIT_TYPE.ARCHER]:'Archer', [UNIT_TYPE.HUNTRESS]:'Huntress',
+  [UNIT_TYPE.DRUID_CLAW]:'Druid of the Claw', [UNIT_TYPE.DRUID_TALON]:'Druid of the Talon',
+  [UNIT_TYPE.DRYAD]:'Dryad', [UNIT_TYPE.GLAIVE_THROWER]:'Glaive Thrower', [UNIT_TYPE.HIPPOGRYPH]:'Hippogryph',
+  [HERO_CLASS.DEMON_HUNTER]:'Demon Hunter', [HERO_CLASS.KEEPER_GROVE]:'Keeper of the Grove',
+  [HERO_CLASS.PRIESTESS_MOON]:'Priestess of the Moon',
+  [BUILD_TYPE.TREE_LIFE]:'Tree of Life', [BUILD_TYPE.ANCIENT_WAR]:'Ancient of War',
+  [BUILD_TYPE.MOON_WELL]:'Moon Well', [BUILD_TYPE.HUNTERS_HALL]:"Hunter's Hall",
+  [BUILD_TYPE.ANCIENT_LORE]:'Ancient of Lore', [BUILD_TYPE.ANCIENT_PROTECT]:'Ancient Protector',
+  [BUILD_TYPE.ALTAR_ELDERS]:'Altar of Elders', [BUILD_TYPE.CHIMAERA_ROOST]:'Chimaera Roost',
+  [BUILD_TYPE.ANCIENT_WONDERS]:'Ancient of Wonders',
 };
 
 // Building border characters (box-drawing)
@@ -1176,7 +1312,7 @@ const BUILDING_BORDER = {
 };
 
 // ─── RACE CONFIGURATION ──────────────────────
-const RACE = { HUMAN: 'human', UNDEAD: 'undead' };
+const RACE = { HUMAN: 'human', UNDEAD: 'undead', NIGHT_ELF: 'night_elf', ORC: 'orc' };
 
 const RaceConfig = {
   [RACE.HUMAN]: {
@@ -1252,21 +1388,64 @@ const RaceConfig = {
     ],
     requiresBlight: true, // Buildings need Blight
   },
+  [RACE.ORC]: {
+    name: 'Horde', icon: '👺',
+    worker: UNIT_TYPE.PEON, melee: UNIT_TYPE.GRUNT, ranged: UNIT_TYPE.HEADHUNTER,
+    heavy: UNIT_TYPE.TAUREN, caster1: UNIT_TYPE.SHAMAN, caster2: UNIT_TYPE.WITCH_DOCTOR,
+    siege: UNIT_TYPE.DEMOLISHER, flyer: UNIT_TYPE.WIND_RIDER,
+    townhall: BUILD_TYPE.GREAT_HALL, barracks: BUILD_TYPE.ORC_BARRACKS,
+    farm: BUILD_TYPE.BURROW, upgrades: BUILD_TYPE.WAR_MILL,
+    lumbermill: BUILD_TYPE.WAR_MILL, tower: BUILD_TYPE.WATCH_TOWER,
+    altar: BUILD_TYPE.ALTAR_STORMS, casterHall: BUILD_TYPE.SPIRIT_LODGE,
+    airBuilding: BUILD_TYPE.BEASTIARY, shop: BUILD_TYPE.VOODOO_LOUNGE,
+    siegeBuilding: BUILD_TYPE.ORC_BARRACKS,
+    heroes: [HERO_CLASS.BLADEMASTER, HERO_CLASS.FAR_SEER, HERO_CLASS.TAUREN_CHIEF],
+    thUpgrades: [RESEARCH_TYPE.TH_STRONGHOLD, RESEARCH_TYPE.TH_FORTRESS],
+    atkResearch: [RESEARCH_TYPE.ORC_ATK_1, RESEARCH_TYPE.ORC_ATK_2, RESEARCH_TYPE.ORC_ATK_3],
+    defResearch: [RESEARCH_TYPE.ORC_DEF_1, RESEARCH_TYPE.ORC_DEF_2, RESEARCH_TYPE.ORC_DEF_3],
+    lumberResearch: RESEARCH_TYPE.ORC_LUMBER, masonryResearch: RESEARCH_TYPE.ORC_MASONRY,
+    buildMenu: [
+      { type: BUILD_TYPE.BURROW, key: 'f' }, { type: BUILD_TYPE.ORC_BARRACKS, key: 'b' },
+      { type: BUILD_TYPE.WAR_MILL, key: 'l' }, { type: BUILD_TYPE.WATCH_TOWER, key: 't' },
+      { type: BUILD_TYPE.ALTAR_STORMS, key: 'a' }, { type: BUILD_TYPE.SPIRIT_LODGE, key: 'n' },
+      { type: BUILD_TYPE.BEASTIARY, key: 'g' }, { type: BUILD_TYPE.VOODOO_LOUNGE, key: 'v' },
+      { type: BUILD_TYPE.TAUREN_TOTEM, key: 'r' },
+    ],
+  },
+  [RACE.NIGHT_ELF]: {
+    name: 'Sentinels', icon: '🌙',
+    worker: UNIT_TYPE.WISP, melee: UNIT_TYPE.HUNTRESS, ranged: UNIT_TYPE.ARCHER,
+    heavy: UNIT_TYPE.DRUID_CLAW, caster1: UNIT_TYPE.DRUID_TALON, caster2: UNIT_TYPE.DRYAD,
+    siege: UNIT_TYPE.GLAIVE_THROWER, flyer: UNIT_TYPE.HIPPOGRYPH,
+    townhall: BUILD_TYPE.TREE_LIFE, barracks: BUILD_TYPE.ANCIENT_WAR,
+    farm: BUILD_TYPE.MOON_WELL, upgrades: BUILD_TYPE.HUNTERS_HALL,
+    lumbermill: BUILD_TYPE.HUNTERS_HALL, tower: BUILD_TYPE.ANCIENT_PROTECT,
+    altar: BUILD_TYPE.ALTAR_ELDERS, casterHall: BUILD_TYPE.ANCIENT_LORE,
+    airBuilding: BUILD_TYPE.CHIMAERA_ROOST, shop: BUILD_TYPE.ANCIENT_WONDERS,
+    siegeBuilding: BUILD_TYPE.ANCIENT_WAR,
+    heroes: [HERO_CLASS.DEMON_HUNTER, HERO_CLASS.KEEPER_GROVE, HERO_CLASS.PRIESTESS_MOON],
+    thUpgrades: [RESEARCH_TYPE.TH_AGES, RESEARCH_TYPE.TH_ETERNITY],
+    atkResearch: [RESEARCH_TYPE.NE_ATK_1, RESEARCH_TYPE.NE_ATK_2, RESEARCH_TYPE.NE_ATK_3],
+    defResearch: [RESEARCH_TYPE.NE_DEF_1, RESEARCH_TYPE.NE_DEF_2, RESEARCH_TYPE.NE_DEF_3],
+    lumberResearch: RESEARCH_TYPE.NE_LUMBER, masonryResearch: RESEARCH_TYPE.NE_MASONRY,
+    buildMenu: [
+      { type: BUILD_TYPE.MOON_WELL, key: 'f' }, { type: BUILD_TYPE.ANCIENT_WAR, key: 'b' },
+      { type: BUILD_TYPE.HUNTERS_HALL, key: 'l' }, { type: BUILD_TYPE.ANCIENT_PROTECT, key: 't' },
+      { type: BUILD_TYPE.ALTAR_ELDERS, key: 'a' }, { type: BUILD_TYPE.ANCIENT_LORE, key: 'n' },
+      { type: BUILD_TYPE.CHIMAERA_ROOST, key: 'g' }, { type: BUILD_TYPE.ANCIENT_WONDERS, key: 'v' },
+    ],
+  },
 };
 
 // Get race config for an owner (0=player, 1=AI)
-function getRace(owner) {
+const getRace = (owner) => {
   if (Game.playerRaces && Game.playerRaces[owner]) return Game.playerRaces[owner];
   return owner === 0 ? (Game.playerRace || RACE.HUMAN) : (Game.aiRace || RACE.UNDEAD);
-}
-function getRaceConfig(owner) {
-  return RaceConfig[getRace(owner)];
-}
+};
+const getRaceConfig = (owner) => RaceConfig[getRace(owner)];
 // Check if a building type is the town hall for its race
-function isTownHall(type) {
-  return type === BUILD_TYPE.TOWN_HALL || type === BUILD_TYPE.NECROPOLIS;
-}
-function hasUnitNearBuilding(owner, building, radius) {
+const isTownHall = (type) => type === BUILD_TYPE.TOWN_HALL || type === BUILD_TYPE.NECROPOLIS || type === BUILD_TYPE.TREE_LIFE || type === BUILD_TYPE.GREAT_HALL;
+const hasUnitNearBuilding = (owner, building, radius) => {
   if (!building) return false;
   const bcx = building.x + Math.floor(building.w / 2);
   const bcy = building.y + Math.floor(building.h / 2);
@@ -1274,19 +1453,16 @@ function hasUnitNearBuilding(owner, building, radius) {
     e.alive && e.entityType === 'unit' && e.owner === owner &&
     Math.hypot((e.vx||e.x) - bcx, (e.vy||e.y) - bcy) <= radius
   );
-}
-function isNeutralBuilding(type) {
-  return [BUILD_TYPE.MERC_CAMP, BUILD_TYPE.TAVERN, BUILD_TYPE.GOBLIN_LAB, BUILD_TYPE.GOBLIN_SHOP, BUILD_TYPE.FOUNTAIN].includes(type);
-}
+};
+const isNeutralBuilding = (type) => [BUILD_TYPE.MERC_CAMP, BUILD_TYPE.TAVERN, BUILD_TYPE.GOBLIN_LAB, BUILD_TYPE.GOBLIN_SHOP, BUILD_TYPE.FOUNTAIN].includes(type);
 // Check if a building type is a resource drop-off for an owner
-function isDropOff(type, owner) {
+const isDropOff = (type, owner) => {
   const rc = getRaceConfig(owner);
   return type === rc.townhall || type === rc.lumbermill;
-}
+};
 // Check if a unit is a worker (Peasant or Acolyte)
-function isWorkerUnit(unit) {
-  return unit.type === UNIT_TYPE.PEASANT || unit.type === UNIT_TYPE.ACOLYTE;
-}
+const isWorkerUnit = (unit) => unit.type === UNIT_TYPE.PEASANT || unit.type === UNIT_TYPE.ACOLYTE || unit.type === UNIT_TYPE.WISP || unit.type === UNIT_TYPE.PEON;
+const isAncient = (type) => type === BUILD_TYPE.TREE_LIFE || type === BUILD_TYPE.ANCIENT_WAR || type === BUILD_TYPE.ANCIENT_LORE || type === BUILD_TYPE.ANCIENT_PROTECT;
 
 
 
@@ -1453,6 +1629,16 @@ const Audio = {
       padType: 'sawtooth',
       arpeggioType: 'square',
       feel: 'staccato',
+    },
+    night_elf: {
+      tempo: 80, scale: [0,2,3,5,7,9,10], pentatonic: [0,3,5,7,10],
+      chords: [[0,3,7],[5,9,12],[3,7,10],[7,10,14]], root: 65.4, melodyOctave: 4,
+      bassType: 'sine', melodyType: 'sine', padType: 'triangle', arpeggioType: 'sine', feel: 'legato',
+    },
+    orc: {
+      tempo: 105, scale: [0,1,3,5,7,8,10], pentatonic: [0,3,5,7,10],
+      chords: [[0,3,7],[1,5,8],[3,7,10],[5,8,12]], root: 41.2, melodyOctave: 2,
+      bassType: 'sawtooth', melodyType: 'sawtooth', padType: 'square', arpeggioType: 'sawtooth', feel: 'staccato',
     },
   },
 
@@ -1715,19 +1901,19 @@ const START_POSITIONS = [
   {x:15,y:15}, {x:MAP_W-18,y:MAP_H-18}, {x:MAP_W-18,y:15}, {x:15,y:MAP_H-18},
 ];
 const PLAYER_START_MAP = {0:0,1:1,4:2,5:3};
-function getStartPos(owner) { return START_POSITIONS[PLAYER_START_MAP[owner]||0]; }
-function getActivePlayers() { return GAME_MODES[Game.mode]?.players||[0,1]; }
-function isAlly(a,b) {
+const getStartPos = (owner) => START_POSITIONS[PLAYER_START_MAP[owner]||0];
+const getActivePlayers = () => GAME_MODES[Game.mode]?.players||[0,1];
+const isAlly = (a,b) => {
   if(a===b) return true;
   if(a===CREEP_OWNER||b===CREEP_OWNER||a===NEUTRAL_PASSIVE||b===NEUTRAL_PASSIVE) return false;
   const m=GAME_MODES[Game.mode]; return m&&m.teams[a]===m.teams[b];
-}
-function isEnemy(a,b) {
+};
+const isEnemy = (a,b) => {
   if(a===b) return false;
   if(a===NEUTRAL_PASSIVE||b===NEUTRAL_PASSIVE) return false;
   return !isAlly(a,b);
-}
-function getPlayerColor(o) { return PLAYER_COLORS[o]||PLAYER_COLORS[0]; }
+};
+const getPlayerColor = (o) => PLAYER_COLORS[o]||PLAYER_COLORS[0];
 
 const CREEP_TYPE = {
   GNOLL:      'creep_gnoll',
@@ -1868,14 +2054,15 @@ const CreepSystem = {
         const u = EntityManager.entities.find(e => e.id === id && e.alive);
         if (!u) continue;
 
-        // Night: creeps sleep (reset to home, stop attacking)
-        if (isNight && u.state === 'idle' && !u._aggroed) {
+        // Night: creeps sleep (but NOT if they were aggroed this night)
+        if (isNight && u.state === 'idle' && !u._aggroed && !u._wasAggroedThisNight) {
           u.sleeping = true;
         }
 
-        // Day: creeps wake up automatically
+        // Day: creeps wake up automatically, reset night aggro memory
         if (!isNight && u.sleeping && !u._aggroed) {
           u.sleeping = false;
+          u._wasAggroedThisNight = false;
         }
 
         // Check for nearby player/AI units to aggro
@@ -1887,6 +2074,7 @@ const CreepSystem = {
             if (d <= aggroRange) {
               u.sleeping = false;
               u._aggroed = true;
+              u._wasAggroedThisNight = true;
               u.attackTarget = e;
               u.state = 'chasing';
               Combat._pathToTarget(u, e);
@@ -1896,6 +2084,7 @@ const CreepSystem = {
                 if (cu && cu.sleeping) {
                   cu.sleeping = false;
                   cu._aggroed = true;
+                  cu._wasAggroedThisNight = true;
                   cu.attackTarget = e;
                   cu.state = 'chasing';
                   Combat._pathToTarget(cu, e);
@@ -1971,12 +2160,12 @@ const Game = {
     // Resolve per-player race selections BEFORE spawning bases
     // (EntityManager.init spawns bases using getRaceConfig which depends on playerRaces)
     this.playerRaces = {};
-    const _raceOpts = [RACE.HUMAN, RACE.UNDEAD];
+    const _raceOpts = [RACE.HUMAN, RACE.UNDEAD, RACE.NIGHT_ELF, RACE.ORC];
     for (const pid of getActivePlayers()) {
       let choice = this._raceSelections?.[pid];
-      if (choice === undefined || choice === 2) {
+      if (choice === undefined || choice >= _raceOpts.length) {
         // random — pick human or undead with equal probability
-        this.playerRaces[pid] = _raceOpts[Math.random() < 0.5 ? 0 : 1];
+        this.playerRaces[pid] = _raceOpts[Math.floor(Math.random() * _raceOpts.length)];
       } else {
         this.playerRaces[pid] = _raceOpts[choice] || RACE.HUMAN;
       }
@@ -2075,11 +2264,11 @@ const Game = {
     const modeBtn = document.getElementById('btn-mode');
     const modes = ['1v1','ffa','2v2'];
     let modeIdx = 0;
-    const raceOpts = [RACE.HUMAN, RACE.UNDEAD, 'random'];
-    const raceLbl = { [RACE.HUMAN]: '⚔️ Human', [RACE.UNDEAD]: '💀 Undead', random: '🎲 Random' };
+    const raceOpts = [RACE.HUMAN, RACE.UNDEAD, RACE.NIGHT_ELF, RACE.ORC, 'random'];
+    const raceLbl = { [RACE.HUMAN]: '⚔️ Human', [RACE.UNDEAD]: '💀 Undead', [RACE.NIGHT_ELF]: '🌙 Night Elf', [RACE.ORC]: '👺 Orc', random: '🎲 Random' };
     const playerNames = { 0: 'You', 1: 'AI 1', 4: 'AI 2', 5: 'AI 3' };
     // Per-player race indices (default: human for 0, undead for 1, random for 4,5)
-    const raceIdx = { 0: 0, 1: 1, 4: 2, 5: 2 };
+    const raceIdx = { 0: 0, 1: 1, 4: 4, 5: 4 };
 
     const _rebuildRaceUI = () => {
       const container = document.getElementById('race-selectors');
@@ -2233,6 +2422,49 @@ const Game = {
           if (!u.alive || u.entityType !== 'unit' || u.hp >= u.maxHp) continue;
           const d = Math.hypot((u.vx || u.x) - fcx, (u.vy || u.y) - fcy);
           if (d <= 6) u.hp = Math.min(u.maxHp, u.hp + 3);
+        }
+      }
+    }
+
+    // Immolation / Tranquility buff tick (per second)
+    if (this.tick % TICK_RATE === 0) {
+      for (const ent of EntityManager.entities) {
+        if (!ent.alive || !ent.buffs) continue;
+        for (const b of ent.buffs) {
+          if (b.type === 'immolation') {
+            // Damage nearby enemies
+            for (const e of EntityManager.entities) {
+              if (!e.alive || e.owner === ent.owner || e.entityType !== 'unit') continue;
+              if (Math.hypot(e.vx - ent.vx, e.vy - ent.vy) <= b.radius) {
+                e.hp -= b.dmgPerSec; if (e.hp <= 0) Combat.killEntity(e);
+              }
+            }
+          } else if (b.type === 'tranquility') {
+            // Heal nearby allies
+            for (const e of EntityManager.entities) {
+              if (!e.alive || e.entityType !== 'unit' || !isAlly(ent.owner, e.owner)) continue;
+              if (Math.hypot(e.vx - ent.vx, e.vy - ent.vy) <= b.radius) {
+                e.hp = Math.min(e.maxHp, e.hp + b.healPerSec);
+              }
+            }
+          }
+        }
+      }
+    }
+
+    // Moon Well: heals HP and mana of nearby allied units (night = faster regen)
+    if (this.tick % TICK_RATE === 0) {
+      for (const bld of EntityManager.entities) {
+        if (!bld.alive || bld.entityType !== 'building' || bld.type !== BUILD_TYPE.MOON_WELL || !bld.completed) continue;
+        const mcx = bld.x + 1, mcy = bld.y + 1;
+        const nightBonus = DayNight.isNight() ? 2 : 1;
+        for (const u of EntityManager.entities) {
+          if (!u.alive || u.entityType !== 'unit' || !isAlly(bld.owner, u.owner)) continue;
+          const d = Math.hypot((u.vx || u.x) - mcx, (u.vy || u.y) - mcy);
+          if (d <= 5) {
+            if (u.hp < u.maxHp) u.hp = Math.min(u.maxHp, u.hp + 2 * nightBonus);
+            if (u.isHero && u.mana < u.maxMana) u.mana = Math.min(u.maxMana, u.mana + 1.5 * nightBonus);
+          }
         }
       }
     }
@@ -2515,6 +2747,7 @@ const Input = {
       if (CommandPanel.attackMoveMode) { CommandPanel.attackMoveMode = false; return; }
       if (CommandPanel._patrolMode) { CommandPanel._patrolMode = false; return; }
       if (CommandPanel.abilityTargetMode) { CommandPanel.abilityTargetMode = null; CommandPanel.castingHero = null; return; }
+      if (CommandPanel._revealMapMode) { CommandPanel._revealMapMode = false; return; }
       if (Selection.selected.length > 0) { Selection.clear(); return; }
       // Nothing to cancel → toggle pause
       if (Game.running && !Game.paused) {
@@ -2857,6 +3090,24 @@ const Input = {
         CommandPanel.refresh();
         return;
       }
+      // Reveal map targeting mode
+      if (CommandPanel._revealMapMode) {
+        const tile = Camera.screenToTile(x, y);
+        const owner = CommandPanel._revealMapOwner || 0;
+        if (Resources.canAfford(owner, { gold: 100, lumber: 0 })) {
+          Resources.spend(owner, 100, 0);
+          // Reveal only for the purchasing player (and allies via shared vision)
+          if (isAlly(0, owner)) {
+            FogOfWar._revealCircle(tile.tx, tile.ty, 25);
+          }
+          if (owner === 0) Notifications.show('Area revealed!', 3000);
+          Audio.ability();
+        }
+        CommandPanel._revealMapMode = false;
+        CommandPanel._revealMapOwner = null;
+        CommandPanel.refresh();
+        return;
+      }
       this.dragging = true;
       this.dragStartX = x;
       this.dragStartY = y;
@@ -2872,6 +3123,10 @@ const Input = {
       if (CommandPanel.abilityTargetMode) {
         CommandPanel.abilityTargetMode = null;
         CommandPanel.castingHero = null;
+        return;
+      }
+      if (CommandPanel._revealMapMode) {
+        CommandPanel._revealMapMode = false;
         return;
       }
       const tile = Camera.screenToTile(x, y);
@@ -3082,6 +3337,7 @@ const TouchInput = {
       if (CommandPanel.inBuildMenu) { CommandPanel.inBuildMenu = false; CommandPanel.refresh(); return; }
       if (CommandPanel.attackMoveMode) { CommandPanel.attackMoveMode = false; return; }
       if (CommandPanel.abilityTargetMode) { CommandPanel.abilityTargetMode = null; CommandPanel.castingHero = null; return; }
+      if (CommandPanel._revealMapMode) { CommandPanel._revealMapMode = false; return; }
       Selection.clear();
     });
 
@@ -3248,7 +3504,7 @@ const TouchInput = {
     if (dx > this.DRAG_THRESHOLD || dy > this.DRAG_THRESHOLD || elapsed > 600) return;
 
     // Immediate-mode taps: build placement, attack-move, ability targeting — no defer needed
-    if (BuildPlacement.active || CommandPanel.attackMoveMode || CommandPanel.abilityTargetMode) {
+    if (BuildPlacement.active || CommandPanel.attackMoveMode || CommandPanel.abilityTargetMode || CommandPanel._revealMapMode) {
       this._lastTap = 0;
       this._onSingleTap(pos.x, pos.y);
       return;
@@ -3314,6 +3570,23 @@ const TouchInput = {
       }
       CommandPanel.abilityTargetMode = null;
       CommandPanel.castingHero = null;
+      CommandPanel.refresh();
+      return;
+    }
+
+    // Reveal map targeting mode
+    if (CommandPanel._revealMapMode) {
+      const owner = CommandPanel._revealMapOwner || 0;
+      if (Resources.canAfford(owner, { gold: 100, lumber: 0 })) {
+        Resources.spend(owner, 100, 0);
+        if (isAlly(0, owner)) {
+          FogOfWar._revealCircle(tile.tx, tile.ty, 25);
+        }
+        if (owner === 0) Notifications.show('Area revealed!', 3000);
+        Audio.ability();
+      }
+      CommandPanel._revealMapMode = false;
+      CommandPanel._revealMapOwner = null;
       CommandPanel.refresh();
       return;
     }
@@ -4055,6 +4328,22 @@ const Renderer = {
         0, _bEmoji);
       if (!ent.completed) ctx.globalAlpha = 1;
 
+      // Uprooted ancient indicator (pulsing green circle + "UPROOTED" text)
+      if (ent._uprooted) {
+        const pulse = 0.5 + 0.3 * Math.sin(Game.tick * 0.15);
+        ctx.strokeStyle = `rgba(100, 255, 100, ${pulse})`;
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.arc(topLeft.x + footW / 2, topLeft.y + footH / 2, footW / 2 + 2, 0, Math.PI * 2);
+        ctx.stroke();
+        ctx.fillStyle = `rgba(100, 255, 100, ${pulse})`;
+        ctx.font = '9px "Noto Sans Mono", monospace';
+        ctx.textAlign = 'center';
+        ctx.fillText('UPROOTED', topLeft.x + footW / 2, topLeft.y - 8);
+        ctx.textAlign = 'left';
+        ctx.font = FONT;
+      }
+
       // HP bar above building (if damaged)
       if (ent.hp < ent.maxHp) {
         const barW = ent.w * CELL;
@@ -4106,8 +4395,10 @@ const Renderer = {
 
       // Skip units inside a transport
       if (ent._inTransport) continue;
+      // Skip units in garrison
+      if (ent._inGarrison) continue;
       // Fog check: ally/own units always visible, enemies only if in fog
-      if (!isAlly(0, ent.owner)) {
+      if (!isAlly(0, ent.owner) && !FogOfWar._revealAll) {
         if (!FogOfWar.isVisible(Math.round(ent.vx), Math.round(ent.vy))) continue;
         if (ent.alive && ent._invisible) {
           const detected = EntityManager.entities.some(e =>
@@ -4123,27 +4414,35 @@ const Renderer = {
         ctx.globalAlpha = 0.4;
       }
 
-      // ── Death animation (enhanced) ──
+      // ── Death animation + corpse ──
       if (!ent.alive) {
-        const progress = 1 - ent.deathTimer; // 0→1
-        const alpha = Math.max(0, 1 - progress * 1.3);
-        ctx.globalAlpha = alpha;
-        // Skull sinks and fades
-        const sinkY = pos.y + progress * 6;
-        EmojiSpriteCache.draw(ctx, '💀', '#888888', pos.x, Math.round(sinkY), 0.12, true);
-        // Particle burst (3 particles drifting outward)
-        if (progress < 0.7) {
-          for (let p = 0; p < 3; p++) {
-            const angle = (p / 3) * Math.PI * 2 + progress * 2;
-            const dist = progress * 12;
-            const px = pos.x + CELL / 2 + Math.cos(angle) * dist;
-            const py = pos.y + CELL / 2 + Math.sin(angle) * dist - progress * 8;
-            ctx.globalAlpha = alpha * 0.6;
-            ctx.fillStyle = ent.isCreep ? '#cc8833' : (ent.owner === 0 ? '#6688bb' : '#bb4444');
-            ctx.fillRect(px, py, 3 - progress * 3, 3 - progress * 3);
+        const timeSinceDeath = (ent.entityType === 'unit' ? 30.0 : 1.0) - ent.deathTimer;
+        if (timeSinceDeath < 1.0) {
+          // First 1s: skull sinks and fades
+          const progress = timeSinceDeath;
+          const alpha = Math.max(0, 1 - progress * 1.3);
+          ctx.globalAlpha = alpha;
+          const sinkY = pos.y + progress * 6;
+          EmojiSpriteCache.draw(ctx, '💀', '#888888', pos.x, Math.round(sinkY), 0.12, true);
+          if (progress < 0.7) {
+            for (let p = 0; p < 3; p++) {
+              const angle = (p / 3) * Math.PI * 2 + progress * 2;
+              const dist = progress * 12;
+              const px = pos.x + CELL / 2 + Math.cos(angle) * dist;
+              const py = pos.y + CELL / 2 + Math.sin(angle) * dist - progress * 8;
+              ctx.globalAlpha = alpha * 0.6;
+              ctx.fillStyle = ent.isCreep ? '#cc8833' : (ent.owner === 0 ? '#6688bb' : '#bb4444');
+              ctx.fillRect(px, py, 3 - progress * 3, 3 - progress * 3);
+            }
           }
+          ctx.globalAlpha = 1;
+        } else if (ent.entityType === 'unit' && ent.deathTimer > 0) {
+          // Corpse: small bone marker, slowly fading
+          const fadeAlpha = Math.min(0.5, ent.deathTimer / 5);
+          ctx.globalAlpha = fadeAlpha;
+          EmojiSpriteCache.draw(ctx, '🦴', '#aaaaaa', pos.x + 2, pos.y + 2, 0.08, true);
+          ctx.globalAlpha = 1;
         }
-        ctx.globalAlpha = 1;
         continue;
       }
 
@@ -4164,8 +4463,8 @@ const Renderer = {
       let drawY = pos.y;
       let drawSymbol = ent.symbol;
 
-      // Worker carrying resources → change symbol
-      if (isWorkerUnit(ent)) {
+      // Worker carrying resources → change symbol (but not when militia)
+      if (isWorkerUnit(ent) && !ent._isMilitia) {
         if (ent.carryType === 'gold' && ent.carryAmount > 0) {
           drawSymbol = '⛏️'; // same but we'll tint gold
           ownerColor = '#ffd700';
@@ -4733,15 +5032,67 @@ const EntityManager = {
             this._origDamage = this.damage;
             this._origArmor = this.armor;
             this._origMaxHp = this.maxHp;
+            // Save gather/carry state for restoration after revert
+            this._savedCarryType = this.carryType;
+            this._savedCarryAmount = this.carryAmount;
+            this._savedGatherTarget = this.gatherTarget;
+            this._savedGatherType = this.gatherType;
+            // Clear carry visuals during militia (so carry icon doesn't override militia icon)
+            this.carryType = null;
+            this.carryAmount = 0;
+            this.gatherTarget = null;
+            this.gatherType = null;
             this.symbol = '🗡️';
             this.damage += 8;
             this.armor += 3;
             this.maxHp += 100;
             this.hp = Math.min(this.maxHp, this.hp + 100);
             if (this.owner === 0) Notifications.show('Worker became Militia!', 1500);
+            // Force portrait refresh if selected
+            if (Selection.selected.includes(this)) Selection.updateUI();
           }
           this._pendingMilitia = false;
           this._militiaTarget = null;
+        }
+
+        // ── Burrow Garrison: Peon arrived → enter burrow ──
+        if (this._garrisonTarget && this.state === 'idle') {
+          const bld = this._garrisonTarget;
+          if (bld && bld.alive && bld.completed && bld.type === BUILD_TYPE.BURROW &&
+              Gathering._isAdjacentToBuilding(this, bld)) {
+            if (!bld._garrison) bld._garrison = [];
+            if (bld._garrison.length < 4) {
+              bld._garrison.push(this.id);
+              this._inGarrison = bld.id;
+              this.state = 'idle'; this.path = [];
+              // Hide unit
+              this.vx = bld.x + 1; this.vy = bld.y + 1;
+              this.x = bld.x + 1; this.y = bld.y + 1;
+              if (this.owner === 0) Notifications.show(`Peon garrisoned (${bld._garrison.length}/4)`, 1500);
+            }
+          }
+          this._garrisonTarget = null;
+        }
+
+        // ── Sacrifice at Sacrificial Pit: Acolyte → Shade ──
+        if (this._sacrificeTarget && this.state === 'idle') {
+          const pit = this._sacrificeTarget;
+          if (pit && pit.alive && pit.completed && Gathering._isAdjacentToBuilding(this, pit)) {
+            // Sacrifice this acolyte
+            this.alive = false; this.hp = 0; this.deathTimer = 0.3;
+            Resources.recalcFood(this.owner);
+            // Spawn Shade
+            const spot = UnitCollision.findFreeTile(pit.x + 1, pit.y + pit.h, 0);
+            const shade = EntityManager.createUnit(UNIT_TYPE.SHADE, spot.x, spot.y, this.owner);
+            if (shade) {
+              shade._invisible = true; shade._invisTimer = 99999;
+              shade._detectsInvisible = true; shade.damage = 0;
+              Resources.recalcFood(this.owner);
+              if (this.owner === 0) Notifications.show('Shade created! Invisible scout with True Sight.', 3000);
+              Audio.train();
+            }
+          }
+          this._sacrificeTarget = null;
         }
 
         // ── Transport boarding: arrived near transport → load ──
@@ -4765,7 +5116,68 @@ const EntityManager = {
             this.maxHp = this._origMaxHp || 230;
             this.hp = Math.min(this.hp, this.maxHp);
             this.type = UNIT_TYPE.PEASANT; // ensure type is worker
+            // Restore carry/gather state and resume work
+            if (this._savedCarryType && this._savedCarryAmount > 0) {
+              this.carryType = this._savedCarryType;
+              this.carryAmount = this._savedCarryAmount;
+              this.gatherTarget = this._savedGatherTarget;
+              this.gatherType = this._savedGatherType;
+              // Return resources first, then auto-resume gathering
+              Gathering.startReturn(this);
+            } else if (this._savedGatherTarget) {
+              // Was gathering but hadn't picked up yet — resume gathering
+              Gathering.startGather(this, this._savedGatherTarget.x, this._savedGatherTarget.y);
+            }
+            this._savedCarryType = null;
+            this._savedCarryAmount = 0;
+            this._savedGatherTarget = null;
+            this._savedGatherType = null;
             if (this.owner === 0) Notifications.show('Militia reverted to worker.', 2000);
+            // Force portrait refresh if selected
+            if (Selection.selected.includes(this)) Selection.updateUI();
+          }
+        }
+
+        // ── Polymorph revert timer ──
+        if (this._polymorphed) {
+          this._polyTimer -= dt;
+          if (this._polyTimer <= 0) {
+            this._polymorphed = false;
+            this.symbol = this._polyOrigSymbol;
+            this.damage = this._polyOrigDamage;
+            this.armor = this._polyOrigArmor;
+            this.speed = this._polyOrigSpeed;
+            this.range = this._polyOrigRange;
+            this.maxHp = this._polyOrigMaxHp;
+            this.hp = Math.min(this.hp, this.maxHp);
+            if (this.hp < 1) this.hp = 1;
+            if (Selection.selected.includes(this)) Selection.updateUI();
+          }
+        }
+
+        // ── Cannibalize: Ghoul arrived at corpse → consume ──
+        if (this._cannibalizeTarget && this.state === 'idle') {
+          const corpse = this._cannibalizeTarget;
+          if (!corpse.alive && corpse.deathTimer > 0 &&
+              Math.hypot(this.vx - corpse.vx, this.vy - corpse.vy) < 2) {
+            // Consume corpse — heal 50% of corpse's max HP
+            const healAmt = Math.floor((corpse.maxHp || 100) * 0.5);
+            this.hp = Math.min(this.maxHp, this.hp + healAmt);
+            corpse.deathTimer = 0; // remove corpse
+            if (this.owner === 0) Notifications.show(`Cannibalized! +${healAmt} HP`, 1500);
+            AbilityFX.spawn(this.vx, this.vy, 'heal');
+          }
+          this._cannibalizeTarget = null;
+        }
+
+        // ── Shadowmeld: Night Elf units idle at night → invisible ──
+        if (getRace(this.owner) === RACE.NIGHT_ELF && !isWorkerUnit(this) && !this.isHero) {
+          if (this.state === 'idle' && DayNight.isNight()) {
+            this._invisible = true;
+            this._shadowmeld = true;
+          } else if (this._shadowmeld && this.state !== 'idle') {
+            this._invisible = false;
+            this._shadowmeld = false;
           }
         }
 
@@ -4836,12 +5248,87 @@ const EntityManager = {
       trainingQueue: [],
       trainingProgress: 0,
       update(dt) {
-        // Training queue processing
-        if (this.completed && this.trainingQueue.length > 0) {
+        // ── Uproot movement (NE ancients) ──
+        if (this._uprooted && this._uprootTarget) {
+          const tcx = this._uprootTarget.x, tcy = this._uprootTarget.y;
+          const cx = this.x + Math.floor(this.w / 2), cy = this.y + Math.floor(this.h / 2);
+          const dx = tcx - cx, dy = tcy - cy;
+          const dist = Math.hypot(dx, dy);
+          if (dist < 1.5) {
+            this._uprootTarget = null; // arrived
+          } else {
+            // Move slowly (1 tile/sec)
+            const speed = 1.0 * dt;
+            const mx = (dx / dist) * speed, my = (dy / dist) * speed;
+            // Clear old occupancy
+            for (let oy = 0; oy < this.h; oy++) for (let ox = 0; ox < this.w; ox++) {
+              if (GameMap.isInBounds(this.x+ox, this.y+oy)) EntityManager.occupancy[this.y+oy][this.x+ox] = 0;
+            }
+            this._vx = (this._vx || this.x) + mx;
+            this._vy = (this._vy || this.y) + my;
+            this.x = Math.round(this._vx);
+            this.y = Math.round(this._vy);
+            // Re-mark occupancy
+            for (let oy = 0; oy < this.h; oy++) for (let ox = 0; ox < this.w; ox++) {
+              if (GameMap.isInBounds(this.x+ox, this.y+oy)) EntityManager.occupancy[this.y+oy][this.x+ox] = this.id;
+            }
+          }
+        }
+        // ── Uproot auto-attack (melee, 2 range) ──
+        if (this._uprooted && this.completed) {
+          this._uprootAtkCd = (this._uprootAtkCd || 0) - dt;
+          if (this._uprootAtkCd <= 0) {
+            const cx = this.x + Math.floor(this.w / 2), cy = this.y + Math.floor(this.h / 2);
+            let bestE = null, bestD = Infinity;
+            for (const e of EntityManager.entities) {
+              if (!e.alive || isAlly(this.owner, e.owner) || e.owner === NEUTRAL_PASSIVE) continue;
+              const d = Combat.dist(this, e);
+              if (d <= 3 && d < bestD) { bestD = d; bestE = e; }
+            }
+            if (bestE) {
+              const dmg = 25;
+              const armor = bestE.armor || 0;
+              const finalDmg = Combat.calcDamage(dmg, armor, ATTACK_TYPE.NORMAL, ARMOR_TYPE.UNARMORED);
+              if (!(Game._godMode && bestE.owner === 0)) {
+                bestE.hp -= finalDmg;
+                if (bestE.hp <= 0) Combat.killEntity(bestE);
+              }
+              this._uprootAtkCd = 2.0;
+              CombatFX.spawn((cx + (bestE.entityType === 'unit' ? bestE.vx : bestE.x)) / 2,
+                (cy + (bestE.entityType === 'unit' ? bestE.vy : bestE.y)) / 2, 'melee');
+            }
+          }
+        }
+        // Training queue processing (blocked when uprooted)
+        if (this.completed && this.trainingQueue.length > 0 && !this._uprooted) {
           Training.updateBuilding(this, dt);
         }
+        // Burrow garrison auto-attack (Orc: garrisoned Peons make Burrow shoot)
+        if (this.completed && this.type === BUILD_TYPE.BURROW && this._garrison && this._garrison.length > 0) {
+          this._burrowAtkCd = (this._burrowAtkCd || 0) - dt;
+          if (this._burrowAtkCd <= 0) {
+            const cx = this.x + 1, cy = this.y + 1;
+            let bestE = null, bestD = Infinity;
+            for (const e of EntityManager.entities) {
+              if (!e.alive || isAlly(this.owner, e.owner) || e.owner === NEUTRAL_PASSIVE) continue;
+              const d = Combat.dist(this, e);
+              if (d <= 7 && d < bestD) { bestD = d; bestE = e; }
+            }
+            if (bestE) {
+              const dmg = 10 * this._garrison.length; // more peons = more damage
+              const finalDmg = Combat.calcDamage(dmg, bestE.armor || 0, ATTACK_TYPE.PIERCE, ARMOR_TYPE.UNARMORED);
+              if (!(Game._godMode && bestE.owner === 0)) {
+                bestE.hp -= finalDmg;
+                if (bestE.hp <= 0) Combat.killEntity(bestE);
+              }
+              this._burrowAtkCd = 1.5;
+              const tx = bestE.entityType === 'unit' ? bestE.vx : bestE.x;
+              CombatFX.spawn((cx + tx) / 2, (cy + (bestE.entityType === 'unit' ? bestE.vy : bestE.y)) / 2, 'ranged');
+            }
+          }
+        }
         // Tower auto-attack
-        if (this.completed && (this.type === BUILD_TYPE.TOWER || this.type === BUILD_TYPE.ZIGGURAT) && this._towerType) {
+        if (this.completed && (this.type === BUILD_TYPE.TOWER || this.type === BUILD_TYPE.ZIGGURAT || this.type === BUILD_TYPE.ANCIENT_PROTECT || this.type === BUILD_TYPE.WATCH_TOWER) && this._towerType) {
           this._towerAtkCd = (this._towerAtkCd || 0) - dt;
           if (this._towerAtkCd <= 0) {
             const range = this._towerType === 'cannon' ? 8 : this._towerType === 'arcane' ? 9 : 7;
@@ -4876,6 +5363,10 @@ const EntityManager = {
       },
     };
     this.entities.push(building);
+    // Ancient Protector attacks by default (no upgrade needed for base attack)
+    if (type === BUILD_TYPE.ANCIENT_PROTECT && completed) {
+      building._towerType = 'protector';
+    }
     // Mark footprint on occupancy and clear terrain
     this._markOccupancy(building);
     for (let dy = 0; dy < building.h; dy++) {
@@ -5164,10 +5655,15 @@ const Gathering = {
         // Check if resource is depleted
         if (GameMap.resourceData[gt.y][gt.x] <= 0) {
           if (unit.gatherType === 'lumber') {
-            // Tree disappears
-            GameMap.tiles[gt.y][gt.x] = TILE.GRASS;
-            GameMap.resourceData[gt.y][gt.x] = 0;
-            Minimap.invalidate();
+            if (unit.type === UNIT_TYPE.WISP) {
+              // Wisp: tree stays, slowly regrows (50 lumber replenish)
+              GameMap.resourceData[gt.y][gt.x] = 50;
+            } else {
+              // Non-wisp: Tree disappears
+              GameMap.tiles[gt.y][gt.x] = TILE.GRASS;
+              GameMap.resourceData[gt.y][gt.x] = 0;
+              Minimap.invalidate();
+            }
           } else {
             // Gold mine depleted
             GameMap.tiles[gt.y][gt.x] = TILE.GRASS_DARK;
@@ -5180,6 +5676,12 @@ const Gathering = {
         this.startReturn(unit);
       }
     } else if (unit.state === 'returning') {
+      // If return target got uprooted, stop with resources
+      if (unit.returnTarget && unit.returnTarget._uprooted) {
+        unit.state = 'idle';
+        unit.path = [];
+        return;
+      }
       this._doMovement(unit, dt);
       if (unit.path.length === 0) {
         // Check if near Town Hall
@@ -5253,7 +5755,7 @@ const Gathering = {
       // Town Hall (or Necropolis) accepts all resources; Lumber Mill (or Graveyard for undead) accepts lumber
       if (!isTownHall(e.type) &&
           !(isDropOff(e.type, unit.owner) && unit.gatherType === 'lumber')) continue;
-      if (!e.completed) continue;
+      if (!e.completed || e._uprooted) continue;
       const dx = (e.x + e.w / 2) - unit.vx;
       const dy = (e.y + e.h / 2) - unit.vy;
       const d = dx * dx + dy * dy;
@@ -5407,6 +5909,18 @@ const Selection = {
     const e = this.selected[0];
     if (!e.alive) return;
 
+    // Refresh portrait symbol and name (handles militia/buff transformations)
+    const symbolEl = document.getElementById('portrait-symbol');
+    const nameEl = document.getElementById('unit-name');
+    symbolEl.textContent = e.symbol;
+    const _selC = getPlayerColor(e.owner);
+    symbolEl.style.color = e.isHero ? '#ff9800' : (_selC ? _selC.main : '#cccccc');
+    let _uiName = e.isHero ? (ENTITY_NAMES[e.heroClass] || 'Hero') : (ENTITY_NAMES[e.type] || CREEP_DATA[e.type]?.name || e.type);
+    if (e._isMilitia) _uiName = 'Militia';
+    const _uiOwnerTag = e.owner === 0 ? '' : isAlly(0, e.owner) ? ' (Ally)' : isEnemy(0, e.owner) ? ' (Enemy)' : ' (Neutral)';
+    const _uiHeroTag = e.isHero ? ` Lv.${e.level}` : '';
+    nameEl.textContent = _uiName + _uiHeroTag + _uiOwnerTag;
+
     const hpBar = document.getElementById('hp-bar');
     hpBar.style.width = `${(e.hp / e.maxHp) * 100}%`;
     const manaBar = document.getElementById('mana-bar');
@@ -5480,9 +5994,19 @@ const Selection = {
     if (this.selected.length === 0) return;
     if (this.selected[0].owner !== 0) return;
 
-    // ── Building selected → set rally point ──
+    // ── Building selected → set rally point or move uprooted ancient ──
     const buildings = this.selected.filter(e => e.entityType === 'building');
     if (buildings.length > 0 && this.selected.every(e => e.entityType === 'building')) {
+      // Uprooted ancients: move to target
+      const uprooted = buildings.filter(b => b._uprooted);
+      if (uprooted.length > 0) {
+        for (const bld of uprooted) {
+          bld._uprootTarget = { x: tx, y: ty };
+        }
+        RightClickFX.spawn(tx, ty, 'move');
+        Audio.move();
+        return;
+      }
       for (const bld of buildings) {
         bld.rallyPoint = { x: tx, y: ty };
       }
@@ -5500,10 +6024,10 @@ const Selection = {
 
     if (targetEnt && isEnemy(0, targetEnt.owner) && targetEnt.alive) {
       // Fog check: can't knowingly attack what player can't see
-      let canSeeTarget = false;
-      if (targetEnt.entityType === 'unit') {
+      let canSeeTarget = FogOfWar._revealAll; // map hack bypasses fog
+      if (!canSeeTarget && targetEnt.entityType === 'unit') {
         canSeeTarget = FogOfWar.isVisible(Math.round(targetEnt.vx), Math.round(targetEnt.vy));
-      } else if (targetEnt.entityType === 'building') {
+      } else if (!canSeeTarget && targetEnt.entityType === 'building') {
         // Buildings seen before remain visible in explored fog — OK to attack
         const cx = targetEnt.x + Math.floor(targetEnt.w / 2);
         const cy = targetEnt.y + Math.floor(targetEnt.h / 2);
@@ -5517,6 +6041,37 @@ const Selection = {
         return;
       }
       // Can't see enemy — treat as plain move (fall through)
+    }
+
+    // Right-click own Burrow with Peons → garrison
+    if (targetEnt && targetEnt.entityType === 'building' && targetEnt.type === BUILD_TYPE.BURROW &&
+        targetEnt.owner === 0 && targetEnt.alive && targetEnt.completed) {
+      const peons = units.filter(u => u.type === UNIT_TYPE.PEON);
+      if (peons.length > 0) {
+        if (!targetEnt._garrison) targetEnt._garrison = [];
+        const cap = 4; // max 4 peons per burrow
+        for (const p of peons) {
+          if (targetEnt._garrison.length >= cap) break;
+          p._garrisonTarget = targetEnt;
+          UnitMovement._moveOne(p, targetEnt.x + 1, targetEnt.y + targetEnt.h);
+        }
+        RightClickFX.spawn(tx, ty, 'move');
+        return;
+      }
+    }
+
+    // Right-click own Sacrificial Pit with Acolyte → walk there to sacrifice into Shade
+    if (targetEnt && targetEnt.entityType === 'building' && targetEnt.type === BUILD_TYPE.SACRIFICIAL_PIT &&
+        targetEnt.owner === 0 && targetEnt.alive && targetEnt.completed) {
+      const acolytes = units.filter(u => u.type === UNIT_TYPE.ACOLYTE);
+      if (acolytes.length > 0) {
+        const acol = acolytes[0];
+        acol._sacrificeTarget = targetEnt;
+        UnitMovement._moveOne(acol, targetEnt.x + 1, targetEnt.y + targetEnt.h);
+        RightClickFX.spawn(tx, ty, 'move');
+        if (acolytes.length > 1) Notifications.show('Only one Acolyte will be sacrificed.', 2000);
+        return;
+      }
     }
 
     // Right-click own transport (zeppelin) → load selected units
@@ -6053,6 +6608,17 @@ const HeroSystem = {
       unit._shieldTimer -= dt;
       if (unit._shieldTimer <= 0) unit.invulnerable = false;
     }
+    // Metamorphosis timer (NE Demon Hunter)
+    if (unit._metamorphTimer > 0) {
+      unit._metamorphTimer -= dt;
+      if (unit._metamorphTimer <= 0) {
+        unit._metamorph = false;
+        unit.range = unit._savedRange || 1;
+        unit.maxHp -= 200; unit.hp = Math.min(unit.hp, unit.maxHp);
+        unit.symbol = unit._origSymbol || '😈';
+        if (unit.owner === 0) Notifications.show('Metamorphosis ended.', 2000);
+      }
+    }
     // Buffs
     for (let i = unit.buffs.length - 1; i >= 0; i--) {
       unit.buffs[i].timer -= dt;
@@ -6159,6 +6725,170 @@ const HeroSystem = {
       case 'howl_terror': this._castFrostNova(hero, rank); break;
       case 'cleaving': this._castDevotionAura(hero, rank); break;
       case 'doom': this._castStormBolt(hero, targetX, targetY, rank); break;
+      // ── Night Elf ──
+      case 'mana_burn': {
+        let tgt = null, bd = Infinity;
+        for (const e of EntityManager.entities) {
+          if (!e.alive || e.owner === hero.owner || e.entityType !== 'unit') continue;
+          const d = Math.hypot(e.vx - targetX, e.vy - targetY);
+          if (d < bd && d <= 3) { bd = d; tgt = e; }
+        }
+        if (tgt) {
+          const burn = ab.damageBase[ri] || 50;
+          const actualBurn = tgt.mana ? Math.min(tgt.mana, burn) : 0;
+          if (tgt.mana) tgt.mana -= actualBurn;
+          tgt.hp -= burn; if (tgt.hp <= 0) Combat.killEntity(tgt);
+          AbilityFX.spawn(tgt.vx, tgt.vy, 'frost');
+          if (hero.owner === 0) Notifications.show(`Mana Burn! ${burn} damage`, 1500);
+        } else { hero.mana += manaCost; hero.abilityCooldowns[abilityKey] = 0; }
+        break;
+      }
+      case 'immolation': {
+        const dur = ab.duration[ri] || 10;
+        const dmgPerSec = ab.damageBase[ri] || 10;
+        hero.buffs.push({ type: 'immolation', timer: dur, dmgPerSec, radius: ab.radius || 3 });
+        AbilityFX.spawn(hero.vx, hero.vy, 'battlecry');
+        if (hero.owner === 0) Notifications.show(`Immolation! ${dmgPerSec} DPS for ${dur}s`, 2000);
+        break;
+      }
+      case 'evasion_ne': break; // passive, handled in combat
+      case 'metamorphosis': {
+        const dur = ab.duration[0] || 45;
+        hero._metamorph = true;
+        hero._metamorphTimer = dur;
+        hero._savedRange = hero.range;
+        hero.range = 6; // become ranged
+        hero.maxHp += 200; hero.hp += 200;
+        hero._origSymbol = hero.symbol; hero.symbol = '👿';
+        AbilityFX.spawn(hero.vx, hero.vy, 'battlecry');
+        if (hero.owner === 0) Notifications.show(`Metamorphosis! Ranged demon form (${dur}s)`, 2500);
+        break;
+      }
+      case 'entangle': {
+        let tgt = null, bd = Infinity;
+        for (const e of EntityManager.entities) {
+          if (!e.alive || e.owner === hero.owner || e.entityType !== 'unit') continue;
+          const d = Math.hypot(e.vx - targetX, e.vy - targetY);
+          if (d < bd && d <= 3) { bd = d; tgt = e; }
+        }
+        if (tgt) {
+          const stunDur = ab.stunDuration[ri] || 4;
+          tgt.stunTimer = (tgt.stunTimer || 0) + stunDur;
+          tgt.state = 'idle'; tgt.path = [];
+          const dmg = ab.damageBase[ri] || 15;
+          tgt.hp -= dmg; if (tgt.hp <= 0) Combat.killEntity(tgt);
+          AbilityFX.spawn(tgt.vx, tgt.vy, 'heal');
+          if (hero.owner === 0) Notifications.show(`Entangling Roots! ${stunDur}s`, 1500);
+        } else { hero.mana += manaCost; hero.abilityCooldowns[abilityKey] = 0; }
+        break;
+      }
+      case 'force_nature': {
+        const dur = ab.summonDuration ? ab.summonDuration[ri] : 40;
+        this.summonUnit(hero.owner, UNIT_TYPE.DRUID_CLAW, Math.round(targetX), Math.round(targetY), dur);
+        AbilityFX.spawn(targetX, targetY, 'heal');
+        if (hero.owner === 0) Notifications.show(`Treant summoned! (${dur}s)`, 2000);
+        break;
+      }
+      case 'thorns_aura': this._castDevotionAura(hero, rank); break;
+      case 'tranquility': {
+        const dur = ab.duration[0] || 10;
+        const healPerSec = ab.healBase[0] || 30;
+        hero.buffs.push({ type: 'tranquility', timer: dur, healPerSec, radius: ab.radius || 5 });
+        AbilityFX.spawn(hero.vx, hero.vy, 'heal');
+        if (hero.owner === 0) Notifications.show(`Tranquility! Healing ${healPerSec}/s for ${dur}s`, 2500);
+        break;
+      }
+      case 'owl_scout': {
+        FogOfWar._revealCircle(Math.round(targetX), Math.round(targetY), 15);
+        AbilityFX.spawn(targetX, targetY, 'heal');
+        if (hero.owner === 0) Notifications.show('Owl Scout! Area revealed', 2000);
+        break;
+      }
+      case 'searing_arrows': {
+        const bonusDmg = ab.damageBase[ri] || 10;
+        hero._searingArrows = !hero._searingArrows;
+        hero._searingBonus = bonusDmg;
+        if (hero.owner === 0) Notifications.show(`Searing Arrows ${hero._searingArrows ? 'ON' : 'OFF'} (+${bonusDmg})`, 1500);
+        if (!hero._searingArrows) { hero.mana += manaCost; hero.abilityCooldowns[abilityKey] = 0; }
+        break;
+      }
+      case 'trueshot_aura': this._castDevotionAura(hero, rank); break;
+      case 'starfall': this._castAOEDamage(hero, rank, 'starfall', 'thunderclap'); break;
+      // Orc
+      case 'wind_walk': {
+        const dur = ab.duration[ri] || 8;
+        hero._invisible = true; hero._invisTimer = dur;
+        hero._windWalkBonus = ab.damageBase[ri] || 30;
+        AbilityFX.spawn(hero.vx, hero.vy, 'shield');
+        if (hero.owner === 0) Notifications.show(`Wind Walk! Invisible (${dur}s), +${hero._windWalkBonus} next attack`, 2000);
+        break;
+      }
+      case 'mirror_image': {
+        const dur = ab.summonDuration ? ab.summonDuration[ri] : 30;
+        for (let i = 0; i < 2; i++) {
+          this.summonUnit(hero.owner, getRaceConfig(hero.owner).melee, Math.round(hero.vx) - 1 + i * 2, Math.round(hero.vy) + 1, dur);
+        }
+        AbilityFX.spawn(hero.vx, hero.vy, 'battlecry');
+        if (hero.owner === 0) Notifications.show('Mirror Images created!', 2000);
+        break;
+      }
+      case 'critical_strike': break; // passive, handled in combat
+      case 'bladestorm': this._castAOEDamage(hero, rank, 'bladestorm', 'thunderclap'); break;
+      case 'chain_lightning': {
+        // Bouncing damage: hit target + 2 more nearby
+        let tgt = null, bd = Infinity;
+        for (const e of EntityManager.entities) {
+          if (!e.alive || e.owner === hero.owner || e.entityType !== 'unit') continue;
+          const d = Math.hypot(e.vx - targetX, e.vy - targetY);
+          if (d < bd && d <= 3) { bd = d; tgt = e; }
+        }
+        if (tgt) {
+          const dmg = ab.damageBase[ri] + hero.level * (ab.damagePerLevel || 0);
+          let bounceTarget = tgt;
+          for (let bounce = 0; bounce < 3 && bounceTarget; bounce++) {
+            const bDmg = Math.floor(dmg * (bounce === 0 ? 1 : 0.5));
+            bounceTarget.hp -= Combat.calcDamage(bDmg, bounceTarget.armor || 0);
+            if (bounceTarget.hp <= 0) Combat.killEntity(bounceTarget);
+            AbilityFX.spawn(bounceTarget.vx, bounceTarget.vy, 'frost');
+            // Find next bounce target
+            let nextT = null, nextD = Infinity;
+            for (const e2 of EntityManager.entities) {
+              if (!e2.alive || e2 === bounceTarget || e2.owner === hero.owner) continue;
+              const d2 = Math.hypot(e2.vx - bounceTarget.vx, e2.vy - bounceTarget.vy);
+              if (d2 <= 5 && d2 < nextD) { nextD = d2; nextT = e2; }
+            }
+            bounceTarget = nextT;
+          }
+          if (hero.owner === 0) Notifications.show('Chain Lightning!', 1500);
+        } else { hero.mana += manaCost; hero.abilityCooldowns[abilityKey] = 0; }
+        break;
+      }
+      case 'far_sight': {
+        FogOfWar._revealCircle(Math.round(targetX), Math.round(targetY), 20);
+        AbilityFX.spawn(targetX, targetY, 'heal');
+        if (hero.owner === 0) Notifications.show('Far Sight! Area revealed', 2000);
+        break;
+      }
+      case 'feral_spirit': {
+        const dur = ab.summonDuration ? ab.summonDuration[ri] : 40;
+        for (let i = 0; i < 2; i++) {
+          this.summonUnit(hero.owner, UNIT_TYPE.GRUNT, Math.round(hero.vx) - 1 + i * 2, Math.round(hero.vy) + 1, dur);
+        }
+        AbilityFX.spawn(hero.vx, hero.vy, 'battlecry');
+        if (hero.owner === 0) Notifications.show(`Spirit Wolves summoned! (${dur}s)`, 2000);
+        break;
+      }
+      case 'earthquake': this._castAOEDamage(hero, rank, 'earthquake', 'thunderclap'); break;
+      case 'shockwave': this._castAOEDamage(hero, rank, 'shockwave', 'thunderclap'); break;
+      case 'war_stomp_orc': this._castWarStomp(hero, rank); break;
+      case 'endurance_aura': this._castDevotionAura(hero, rank); break;
+      case 'reincarnation': {
+        // Mark hero for auto-revive
+        hero._reincarnation = true;
+        AbilityFX.spawn(hero.vx, hero.vy, 'heal');
+        if (hero.owner === 0) Notifications.show('Reincarnation ready! Will auto-revive on death.', 3000);
+        break;
+      }
     }
     return true;
   },
@@ -6372,6 +7102,9 @@ const HeroSystem = {
       unit.armor -= buff.bonusArmor;
       unit.maxHp -= buff.bonusHp; unit.hp = Math.min(unit.hp, unit.maxHp);
     }
+    else if (buff.type === 'faerie_fire') { unit.armor += buff.armorReduction; }
+    else if (buff.type === 'immolation') { /* no stat cleanup needed */ }
+    else if (buff.type === 'tranquility') { /* no stat cleanup needed */ }
   },
 
   // ── RESURRECTION ──
@@ -6849,6 +7582,21 @@ const UnitAbilities = {
     slow: { name: 'Slow', icon: '🐢', hotkey: 'D', forType: UNIT_TYPE.SORCERESS, range: 5, manaCost: 0, cooldown: 6, duration: 8, slowFactor: 0.5 },
     // Sorceress: Invisibility (active) — makes ally invisible until it attacks
     invisibility: { name: 'Invisibility', icon: '🌫️', hotkey: 'F', forType: UNIT_TYPE.SORCERESS, range: 5, manaCost: 0, cooldown: 15, duration: 30 },
+    // Sorceress: Polymorph (active) — temporarily transforms enemy into critter
+    polymorph: { name: 'Polymorph', icon: '🐑', hotkey: 'G', forType: UNIT_TYPE.SORCERESS, range: 5, manaCost: 0, cooldown: 20, duration: 15 },
+    // Night Elf
+    faerie_fire: { name: 'Faerie Fire', icon: '✨', hotkey: 'D', forType: UNIT_TYPE.DRUID_TALON, range: 5, manaCost: 0, cooldown: 8, duration: 15, armorReduction: 3 },
+    cyclone: { name: 'Cyclone', icon: '🌪️', hotkey: 'F', forType: UNIT_TYPE.DRUID_TALON, range: 5, manaCost: 0, cooldown: 12, duration: 5 },
+    sentinel: { name: 'Sentinel', icon: '🦉', hotkey: 'D', forType: UNIT_TYPE.HUNTRESS, range: 6, manaCost: 0, cooldown: 20, duration: 60 },
+    // Orc
+    purge: { name: 'Purge', icon: '✴️', hotkey: 'D', forType: UNIT_TYPE.SHAMAN, range: 5, manaCost: 0, cooldown: 8, duration: 5, slowFactor: 0.4 },
+    lightning_shield: { name: 'Lightning Shield', icon: '⚡', hotkey: 'F', forType: UNIT_TYPE.SHAMAN, range: 5, manaCost: 0, cooldown: 15, duration: 15, dps: 8 },
+    healing_ward: { name: 'Healing Ward', icon: '💚', hotkey: 'D', forType: UNIT_TYPE.WITCH_DOCTOR, range: 3, manaCost: 0, cooldown: 30, duration: 20, healPerSec: 10 },
+    berserker: { name: 'Berserker', icon: '😡', hotkey: 'D', toggle: true, forType: UNIT_TYPE.GRUNT },
+    // Undead
+    cannibalize: { name: 'Cannibalize', icon: '🍖', hotkey: 'D', forType: UNIT_TYPE.GHOUL, range: 8, healPercent: 0.5 },
+    cripple: { name: 'Cripple', icon: '💀', hotkey: 'D', forType: UNIT_TYPE.BANSHEE, range: 5, manaCost: 0, cooldown: 10, duration: 10, slowFactor: 0.4 },
+    web: { name: 'Web', icon: '🕸️', hotkey: 'D', forType: UNIT_TYPE.CRYPT_FIEND, range: 5, manaCost: 0, cooldown: 12, duration: 8 },
   },
 
   // Get available abilities for a unit type
@@ -6885,6 +7633,92 @@ const UnitAbilities = {
         }
       }
     }
+
+    // Ghoul auto-cannibalize: when damaged and idle, find nearby corpse
+    if (unit.type === UNIT_TYPE.GHOUL && unit.state === 'idle' && unit.hp < unit.maxHp * 0.6 && !unit._cannibalizeTarget) {
+      let bestCorpse = null, bestD = Infinity;
+      for (const e of EntityManager.entities) {
+        if (e.alive || e.entityType !== 'unit' || e.deathTimer <= 0) continue;
+        const d = Math.hypot(e.vx - unit.vx, e.vy - unit.vy);
+        if (d < bestD && d <= 8) { bestD = d; bestCorpse = e; }
+      }
+      if (bestCorpse) {
+        unit._cannibalizeTarget = bestCorpse;
+        UnitMovement._moveOne(unit, Math.round(bestCorpse.vx), Math.round(bestCorpse.vy));
+      }
+    }
+
+    // Sorceress AI: cast polymorph on nearby enemy in combat (not autocast — only AI units)
+    if (unit.type === UNIT_TYPE.SORCERESS && unit.owner !== 0 &&
+        (unit.state === 'attacking' || unit.state === 'chasing' || unit.state === 'attack_moving')) {
+      if ((unit._abilityCds?.polymorph || 0) <= 0) {
+        let tgt = null, bestD = Infinity;
+        for (const e of EntityManager.entities) {
+          if (!e.alive || isAlly(unit.owner, e.owner) || e.entityType !== 'unit' || e.isHero || e._polymorphed) continue;
+          const d = Combat.dist(unit, e);
+          if (d <= 5 && d < bestD) { bestD = d; tgt = e; }
+        }
+        if (tgt) {
+          this.cast(unit, 'polymorph', tgt.vx, tgt.vy);
+        }
+      }
+    }
+
+    // Shaman AI: purge enemy buff or lightning shield on ally in combat
+    if (unit.type === UNIT_TYPE.SHAMAN && unit.owner !== 0 &&
+        (unit.state === 'attacking' || unit.state === 'chasing' || unit.state === 'attack_moving')) {
+      // Lightning shield on nearest ally
+      if ((unit._abilityCds?.lightning_shield || 0) <= 0) {
+        let ally = null, bestD = Infinity;
+        for (const e of EntityManager.entities) {
+          if (!e.alive || e.entityType !== 'unit' || e.owner !== unit.owner || e === unit) continue;
+          if (e.buffs?.some(b => b.type === 'immolation')) continue; // already has shield
+          const d = Combat.dist(unit, e);
+          if (d <= 5 && d < bestD) { bestD = d; ally = e; }
+        }
+        if (ally) this.cast(unit, 'lightning_shield', ally.vx, ally.vy);
+      }
+      // Purge on nearby enemy
+      if ((unit._abilityCds?.purge || 0) <= 0) {
+        let tgt = null, bestD = Infinity;
+        for (const e of EntityManager.entities) {
+          if (!e.alive || isAlly(unit.owner, e.owner) || e.entityType !== 'unit') continue;
+          const d = Combat.dist(unit, e);
+          if (d <= 5 && d < bestD) { bestD = d; tgt = e; }
+        }
+        if (tgt) this.cast(unit, 'purge', tgt.vx, tgt.vy);
+      }
+    }
+
+    // Witch Doctor AI: place healing ward when allies nearby are damaged
+    if (unit.type === UNIT_TYPE.WITCH_DOCTOR && unit.owner !== 0 &&
+        (unit.state === 'attacking' || unit.state === 'chasing' || unit.state === 'idle')) {
+      if ((unit._abilityCds?.healing_ward || 0) <= 0) {
+        let damagedCount = 0;
+        for (const e of EntityManager.entities) {
+          if (!e.alive || e.entityType !== 'unit' || e.owner !== unit.owner) continue;
+          if (e.hp < e.maxHp * 0.7 && Combat.dist(unit, e) <= 5) damagedCount++;
+        }
+        if (damagedCount >= 2) {
+          this.cast(unit, 'healing_ward', unit.vx, unit.vy);
+        }
+      }
+    }
+
+    // Druid of the Talon AI: faerie fire on enemy in combat
+    if (unit.type === UNIT_TYPE.DRUID_TALON && unit.owner !== 0 &&
+        (unit.state === 'attacking' || unit.state === 'chasing' || unit.state === 'attack_moving')) {
+      if ((unit._abilityCds?.faerie_fire || 0) <= 0) {
+        let tgt = null, bestD = Infinity;
+        for (const e of EntityManager.entities) {
+          if (!e.alive || isAlly(unit.owner, e.owner) || e.entityType !== 'unit') continue;
+          if (e.buffs?.some(b => b.type === 'faerie_fire')) continue;
+          const d = Combat.dist(unit, e);
+          if (d <= 5 && d < bestD) { bestD = d; tgt = e; }
+        }
+        if (tgt) this.cast(unit, 'faerie_fire', tgt.vx, tgt.vy);
+      }
+    }
   },
 
   // Cast active ability
@@ -6897,6 +7731,201 @@ const UnitAbilities = {
       return false;
     }
 
+    if (abilityKey === 'faerie_fire') {
+      // Reduce target armor for duration
+      let tgt = null, bd = Infinity;
+      for (const e of EntityManager.entities) {
+        if (!e.alive || isAlly(unit.owner, e.owner) || e.entityType !== 'unit') continue;
+        const d = Math.hypot(e.vx - tx, e.vy - ty);
+        if (d < bd && d <= ab.range) { bd = d; tgt = e; }
+      }
+      if (tgt) {
+        if (!tgt.buffs) tgt.buffs = [];
+        tgt.armor -= ab.armorReduction;
+        tgt.buffs.push({ type: 'faerie_fire', timer: ab.duration, armorReduction: ab.armorReduction });
+        unit._abilityCds[abilityKey] = ab.cooldown;
+        AbilityFX.spawn(tgt.vx, tgt.vy, 'frost');
+        if (unit.owner === 0) Notifications.show(`Faerie Fire! -${ab.armorReduction} armor`, 1500);
+      }
+      return true;
+    }
+    if (abilityKey === 'cyclone') {
+      let tgt = null, bd = Infinity;
+      for (const e of EntityManager.entities) {
+        if (!e.alive || e.owner === unit.owner || e.entityType !== 'unit') continue;
+        const d = Math.hypot(e.vx - tx, e.vy - ty);
+        if (d < bd && d <= ab.range) { bd = d; tgt = e; }
+      }
+      if (tgt) {
+        tgt.stunTimer = (tgt.stunTimer || 0) + ab.duration;
+        tgt.state = 'idle'; tgt.path = [];
+        tgt._invisible = false;
+        unit._abilityCds[abilityKey] = ab.cooldown;
+        AbilityFX.spawn(tgt.vx, tgt.vy, 'shield');
+        if (unit.owner === 0) Notifications.show(`Cyclone! ${ab.duration}s`, 1500);
+      }
+      return true;
+    }
+    if (abilityKey === 'sentinel') {
+      // Reveal area around target for duration
+      FogOfWar._revealCircle(Math.round(tx), Math.round(ty), 10);
+      unit._abilityCds[abilityKey] = ab.cooldown;
+      AbilityFX.spawn(tx, ty, 'heal');
+      if (unit.owner === 0) Notifications.show('Sentinel owl deployed!', 2000);
+      return true;
+    }
+    if (abilityKey === 'purge') {
+      let tgt = null, bd = Infinity;
+      for (const e of EntityManager.entities) {
+        if (!e.alive || isAlly(unit.owner, e.owner) || e.entityType !== 'unit') continue;
+        const d = Math.hypot(e.vx - tx, e.vy - ty);
+        if (d < bd && d <= ab.range) { bd = d; tgt = e; }
+      }
+      if (tgt) {
+        // Remove all buffs from target
+        if (tgt.buffs) {
+          for (const b of tgt.buffs) HeroSystem._removeBuff(tgt, b);
+          tgt.buffs = [];
+        }
+        // Slow target
+        if (!tgt.buffs) tgt.buffs = [];
+        const newSpeed = tgt.speed * ab.slowFactor;
+        tgt.buffs.push({ type: 'slow', timer: ab.duration, origSpeed: tgt.speed });
+        tgt.speed = newSpeed;
+        unit._abilityCds[abilityKey] = ab.cooldown;
+        AbilityFX.spawn(tgt.vx, tgt.vy, 'frost');
+        if (unit.owner === 0) Notifications.show('Purge! Buffs removed + slowed', 1500);
+      }
+      return true;
+    }
+    if (abilityKey === 'lightning_shield') {
+      // Apply shield buff to nearby ally (or self)
+      let tgt = unit;
+      for (const e of EntityManager.entities) {
+        if (!e.alive || e.entityType !== 'unit' || e.owner !== unit.owner) continue;
+        const d = Math.hypot(e.vx - tx, e.vy - ty);
+        if (d <= 2) { tgt = e; break; }
+      }
+      if (!tgt.buffs) tgt.buffs = [];
+      tgt.buffs.push({ type: 'immolation', timer: ab.duration, dmgPerSec: ab.dps, radius: 2 });
+      unit._abilityCds[abilityKey] = ab.cooldown;
+      AbilityFX.spawn(tgt.vx, tgt.vy, 'battlecry');
+      if (unit.owner === 0) Notifications.show(`Lightning Shield on ${ENTITY_NAMES[tgt.type] || 'unit'}!`, 1500);
+      return true;
+    }
+    if (abilityKey === 'healing_ward') {
+      // Place a healing aura at the target location (reuse tranquility buff on a virtual entity)
+      // Simplified: just heal all allies in radius for duration
+      const cx = Math.round(tx), cy = Math.round(ty);
+      // Create a temporary 'ward' as a summoned unit
+      const ward = EntityManager.createUnit(UNIT_TYPE.PEON, cx, cy, unit.owner);
+      if (ward) {
+        ward.symbol = '💚'; ward.hp = 50; ward.maxHp = 50; ward.damage = 0;
+        ward.speed = 0; ward.range = 0; ward.summonTimer = ab.duration;
+        ward.buffs = [{ type: 'tranquility', timer: ab.duration, healPerSec: ab.healPerSec, radius: ab.range }];
+      }
+      unit._abilityCds[abilityKey] = ab.cooldown;
+      AbilityFX.spawn(tx, ty, 'heal');
+      if (unit.owner === 0) Notifications.show('Healing Ward placed!', 2000);
+      return true;
+    }
+    if (abilityKey === 'berserker') {
+      unit._berserker = !unit._berserker;
+      if (unit._berserker) {
+        unit.damage = Math.floor(unit.damage * 1.25);
+        unit.armor = Math.max(0, unit.armor - 2);
+      } else {
+        unit.damage = Math.floor(unit.damage / 1.25);
+        unit.armor += 2;
+      }
+      if (unit.owner === 0) Notifications.show(`Berserker ${unit._berserker ? 'ON (+25% dmg, -2 armor)' : 'OFF'}`, 1500);
+      return true;
+    }
+    if (abilityKey === 'cannibalize') {
+      // Find nearest corpse within range
+      let bestCorpse = null, bestD = Infinity;
+      for (const e of EntityManager.entities) {
+        if (e.alive || e.entityType !== 'unit' || e.deathTimer <= 0) continue;
+        const d = Math.hypot(e.vx - unit.vx, e.vy - unit.vy);
+        if (d < bestD && d <= (ab.range || 8)) { bestD = d; bestCorpse = e; }
+      }
+      if (!bestCorpse) {
+        if (unit.owner === 0) Notifications.show('No corpses nearby!', 1500, 'error');
+        return false;
+      }
+      // Walk to corpse, then consume on arrival
+      unit._cannibalizeTarget = bestCorpse;
+      UnitMovement._moveOne(unit, Math.round(bestCorpse.vx), Math.round(bestCorpse.vy));
+      if (unit.owner === 0) Notifications.show('Moving to corpse...', 1500);
+      return true;
+    }
+    if (abilityKey === 'cripple') {
+      let tgt = null, bd = Infinity;
+      for (const e of EntityManager.entities) {
+        if (!e.alive || isAlly(unit.owner, e.owner) || e.entityType !== 'unit') continue;
+        const d = Math.hypot(e.vx - tx, e.vy - ty);
+        if (d < bd && d <= ab.range) { bd = d; tgt = e; }
+      }
+      if (tgt) {
+        if (!tgt.buffs) tgt.buffs = [];
+        const newSpeed = tgt.speed * ab.slowFactor;
+        tgt.buffs.push({ type: 'slow', timer: ab.duration, origSpeed: tgt.speed });
+        tgt.speed = newSpeed;
+        unit._abilityCds[abilityKey] = ab.cooldown;
+        AbilityFX.spawn(tgt.vx, tgt.vy, 'frost');
+        if (unit.owner === 0) Notifications.show('Cripple! Target slowed', 1500);
+      }
+      return true;
+    }
+    if (abilityKey === 'web') {
+      // Ground a flying unit or stun ground unit briefly
+      let tgt = null, bd = Infinity;
+      for (const e of EntityManager.entities) {
+        if (!e.alive || isAlly(unit.owner, e.owner) || e.entityType !== 'unit') continue;
+        const d = Math.hypot(e.vx - tx, e.vy - ty);
+        if (d < bd && d <= ab.range) { bd = d; tgt = e; }
+      }
+      if (tgt) {
+        tgt.stunTimer = (tgt.stunTimer || 0) + ab.duration * 0.5;
+        tgt.state = 'idle'; tgt.path = [];
+        unit._abilityCds[abilityKey] = ab.cooldown;
+        AbilityFX.spawn(tgt.vx, tgt.vy, 'frost');
+        if (unit.owner === 0) Notifications.show('Web! Target ensnared', 1500);
+      }
+      return true;
+    }
+    if (abilityKey === 'polymorph') {
+      // Find nearest enemy unit at target
+      let tgt = null, bd = Infinity;
+      for (const e of EntityManager.entities) {
+        if (!e.alive || isAlly(unit.owner, e.owner) || e.entityType !== 'unit' || e.isHero) continue;
+        const d = Math.hypot(e.vx - tx, e.vy - ty);
+        if (d < bd && d <= ab.range) { bd = d; tgt = e; }
+      }
+      if (tgt && !tgt._polymorphed) {
+        // Save original state
+        tgt._polymorphed = true;
+        tgt._polyOrigSymbol = tgt.symbol;
+        tgt._polyOrigDamage = tgt.damage;
+        tgt._polyOrigArmor = tgt.armor;
+        tgt._polyOrigSpeed = tgt.speed;
+        tgt._polyOrigRange = tgt.range;
+        tgt._polyOrigMaxHp = tgt.maxHp;
+        tgt._polyTimer = ab.duration;
+        // Transform into critter
+        tgt.symbol = '🐑';
+        tgt.damage = 0;
+        tgt.armor = 0;
+        tgt.speed = 1.0;
+        tgt.range = 0;
+        // Keep current HP — sheep is defenseless but not one-shot
+        tgt.state = 'idle'; tgt.path = []; tgt.attackTarget = null;
+        unit._abilityCds[abilityKey] = ab.cooldown;
+        AbilityFX.spawn(tgt.vx, tgt.vy, 'shield');
+        if (unit.owner === 0) Notifications.show(`Polymorphed into a sheep! (${ab.duration}s)`, 2000);
+      }
+      return true;
+    }
     if (abilityKey === 'defend') {
       // Toggle
       unit._defendActive = !unit._defendActive;
@@ -7014,7 +8043,11 @@ const Combat = {
     if (data?.damageMin !== undefined && data?.damageMax !== undefined) {
       const base = data.damageMin + Math.random() * (data.damageMax - data.damageMin);
       // For heroes, use unit.damage (includes attribute bonuses) as center
-      if (unit.isHero) return unit.damage + (Math.random() - 0.5) * 6;
+      if (unit.isHero) {
+        let heroDmg = unit.damage + (Math.random() - 0.5) * 6;
+        if (unit._searingArrows) heroDmg += (unit._searingBonus || 0);
+        return heroDmg;
+      }
       return Math.round(base);
     }
     return unit.damage;
@@ -7047,7 +8080,7 @@ const Combat = {
     const canHitAir = unit.canAttackAir || unit.isFlying || unit.isHero ||
       (unit.entityType === 'building' && unit.type === BUILD_TYPE.TOWER);
     for (const e of EntityManager.entities) {
-      if (!e.alive || isAlly(unit.owner, e.owner) || e.owner === NEUTRAL_PASSIVE || e._inTransport) continue;
+      if (!e.alive || isAlly(unit.owner, e.owner) || e.owner === NEUTRAL_PASSIVE || e._inTransport || e._inGarrison) continue;
       // Can't target flying units without anti-air
       if (e.isFlying && !canHitAir) continue;
       // Can't auto-target invisible units (unless detector nearby)
@@ -7234,7 +8267,32 @@ const Combat = {
         // Deal damage (with upgrade bonuses, type matrix, variance)
         const atkBonus = (unit.entityType === 'unit' && !unit.isHero) ? Upgrades.getAttackBonus(unit.owner) : 0;
         const defBonus = (tgt.entityType === 'unit' && !tgt.isHero) ? Upgrades.getDefenseBonus(tgt.owner) : 0;
+        // Evasion check (NE Demon Hunter passive)
+        if (tgt && tgt.isHero && tgt.abilityRanks?.evasion_ne > 0) {
+          const evadeChance = tgt.abilityRanks.evasion_ne * 10;
+          if (Math.random() * 100 < evadeChance) {
+            if (tgt.owner === 0) Notifications.show('Evaded!', 800);
+            unit.attackCooldown = atkSpeed;
+            return; // attack missed
+          }
+        }
         const rolledDmg = this.rollDamage(unit) + atkBonus;
+        // Critical Strike passive (Orc Blademaster)
+        let finalRolledDmg = rolledDmg;
+        if (unit.isHero && unit.abilityRanks?.critical_strike > 0) {
+          const critMulti = 1 + unit.abilityRanks.critical_strike; // 2x/3x/4x
+          if (Math.random() < 0.15) {
+            finalRolledDmg = rolledDmg * critMulti;
+            if (unit.owner === 0) Notifications.show(`Critical Strike! x${critMulti}`, 800);
+          }
+        }
+        // Wind Walk bonus (first attack after invisibility)
+        if (unit._windWalkBonus && unit._invisible) {
+          finalRolledDmg += unit._windWalkBonus;
+          unit._invisible = false; unit._invisTimer = 0;
+          unit._windWalkBonus = 0;
+          if (unit.owner === 0) Notifications.show('Wind Walk strike!', 800);
+        }
         const armor = (tgt.armor || 0) + defBonus;
         const atkType = unit.isHero ? ATTACK_TYPE.HERO : ((UNIT_DATA[unit.type] || CREEP_DATA[unit.type])?.attackType || ATTACK_TYPE.NORMAL);
         const armType = tgt.entityType === 'building' ? ARMOR_TYPE.FORTIFIED : ((UNIT_DATA[tgt.type] || CREEP_DATA[tgt.type])?.armorType || ARMOR_TYPE.UNARMORED);
@@ -7243,10 +8301,10 @@ const Combat = {
           // Skip damage entirely — true invulnerability
         } else if (tgt._defendActive && atkType === ATTACK_TYPE.PIERCE) {
           // Footman Defend: halve pierce damage
-          const dmg = Math.max(1, Math.round(this.calcDamage(rolledDmg, armor, atkType, armType) * 0.5));
+          const dmg = Math.max(1, Math.round(this.calcDamage(finalRolledDmg, armor, atkType, armType) * 0.5));
           tgt.hp -= dmg;
         } else {
-          const dmg = this.calcDamage(rolledDmg, armor, atkType, armType);
+          const dmg = this.calcDamage(finalRolledDmg, armor, atkType, armType);
           tgt.hp -= dmg;
         }
         // Use hero attackSpeedMod if applicable
@@ -7407,6 +8465,17 @@ const Combat = {
 
     // Register hero death for resurrection
     if (ent.isHero) {
+      // Reincarnation (Tauren Chieftain): auto-revive instead of dying
+      if (ent._reincarnation && (!ent.abilityCooldowns?.reincarnation || ent.abilityCooldowns.reincarnation <= 0)) {
+        ent.hp = Math.floor(ent.maxHp * 0.5);
+        ent.mana = Math.floor(ent.maxMana * 0.5);
+        ent._reincarnation = false; // one-time use per cast
+        ent.abilityCooldowns.reincarnation = 240;
+        ent.invulnerable = true; ent._shieldTimer = 3; // brief invulnerability
+        AbilityFX.spawn(ent.vx, ent.vy, 'heal');
+        if (ent.owner === 0) Notifications.show('Reincarnation! Hero revived!', 3000);
+        return; // don't die
+      }
       HeroSystem.registerDeath(ent);
       if (ent.owner === 0) Notifications.show(`${ENTITY_NAMES[ent.heroClass] || 'Hero'} has fallen! Revive at the Altar.`, 4000, 'error');
     }
@@ -7415,9 +8484,22 @@ const Combat = {
     if (Transport.isTransport(ent) && ent._cargo && ent._cargo.length > 0) {
       Transport.killPassengers(ent);
     }
+    // Eject/kill garrison if Burrow destroyed
+    if (ent.type === BUILD_TYPE.BURROW && ent._garrison && ent._garrison.length > 0) {
+      for (const uid of ent._garrison) {
+        const u = EntityManager.entities.find(e => e.id === uid);
+        if (u && u.alive) {
+          u._inGarrison = null;
+          u.hp = Math.floor(u.hp * 0.5); // survive but damaged
+          const spot = UnitCollision.findFreeTile(ent.x + 1, ent.y + ent.h, u.id);
+          u.vx = spot.x; u.vy = spot.y; u.x = spot.x; u.y = spot.y;
+        }
+      }
+      ent._garrison = [];
+    }
     ent.alive = false;
     ent.hp = 0;
-    ent.deathTimer = 1.0;
+    ent.deathTimer = ent.entityType === 'unit' ? 30.0 : 1.0; // units leave corpses for 30s
     // Stats tracking
     if (isEnemy(0, ent.owner) || ent.isCreep) GameStats.kills++;
     else if (ent.owner === 0) GameStats.losses++;
@@ -8023,6 +9105,64 @@ const Upgrades = {
         if (zig) { zig._towerType = 'spirit'; zig.symbol = '🔮'; zig.isEmoji = true; zig.maxHp = 800; zig.hp = 800; }
         break;
       }
+      // Night Elf research
+      case RESEARCH_TYPE.NE_ATK_1: u.attackLevel = 1; break;
+      case RESEARCH_TYPE.NE_ATK_2: u.attackLevel = 2; break;
+      case RESEARCH_TYPE.NE_ATK_3: u.attackLevel = 3; break;
+      case RESEARCH_TYPE.NE_DEF_1: u.defenseLevel = 1; break;
+      case RESEARCH_TYPE.NE_DEF_2: u.defenseLevel = 2; break;
+      case RESEARCH_TYPE.NE_DEF_3: u.defenseLevel = 3; break;
+      case RESEARCH_TYPE.NE_LUMBER: u.lumberHarvesting = true; break;
+      case RESEARCH_TYPE.NE_MASONRY:
+        u.masonry = true;
+        for (const e of EntityManager.entities) {
+          if (e.alive && e.entityType === 'building' && e.owner === owner && e.completed) {
+            const data = BUILD_DATA[e.type];
+            if (data && data.race === 'night_elf') { const bonus = Math.floor(data.hp * 0.2); e.maxHp = data.hp + bonus; e.hp = Math.min(e.hp + bonus, e.maxHp); }
+          }
+        }
+        break;
+      case RESEARCH_TYPE.TH_AGES:
+        Resources.players[owner].tier = 2;
+        this._upgradeTownHalls(owner, 2);
+        break;
+      case RESEARCH_TYPE.TH_ETERNITY:
+        Resources.players[owner].tier = 3;
+        this._upgradeTownHalls(owner, 3);
+        break;
+      // Orc
+      case RESEARCH_TYPE.ORC_ATK_1: u.attackLevel = 1; break;
+      case RESEARCH_TYPE.ORC_ATK_2: u.attackLevel = 2; break;
+      case RESEARCH_TYPE.ORC_ATK_3: u.attackLevel = 3; break;
+      case RESEARCH_TYPE.ORC_DEF_1: u.defenseLevel = 1; break;
+      case RESEARCH_TYPE.ORC_DEF_2: u.defenseLevel = 2; break;
+      case RESEARCH_TYPE.ORC_DEF_3: u.defenseLevel = 3; break;
+      case RESEARCH_TYPE.ORC_LUMBER: u.lumberHarvesting = true; break;
+      case RESEARCH_TYPE.ORC_MASONRY:
+        u.masonry = true;
+        for (const e of EntityManager.entities) {
+          if (e.alive && e.entityType === 'building' && e.owner === owner && e.completed) {
+            const data = BUILD_DATA[e.type];
+            if (data && data.race === 'orc') { const bonus = Math.floor(data.hp * 0.2); e.maxHp = data.hp + bonus; e.hp = Math.min(e.hp + bonus, e.maxHp); }
+          }
+        }
+        break;
+      case RESEARCH_TYPE.TH_STRONGHOLD:
+        Resources.players[owner].tier = 2; this._upgradeTownHalls(owner, 2); break;
+      case RESEARCH_TYPE.TH_FORTRESS:
+        Resources.players[owner].tier = 3; this._upgradeTownHalls(owner, 3); break;
+      case RESEARCH_TYPE.WATCH_TOWER_UPG: {
+        const wt = (sourceBuilding && sourceBuilding.type === BUILD_TYPE.WATCH_TOWER) ? sourceBuilding :
+          EntityManager.entities.find(e => e.alive && e.entityType === 'building' && e.owner === owner && e.type === BUILD_TYPE.WATCH_TOWER && !e._towerType);
+        if (wt) { wt._towerType = 'watch'; wt.maxHp = 900; wt.hp = 900; }
+        break;
+      }
+      case RESEARCH_TYPE.ANCIENT_PROTECT_UPG: {
+        const ap = (sourceBuilding && sourceBuilding.type === BUILD_TYPE.ANCIENT_PROTECT) ? sourceBuilding :
+          EntityManager.entities.find(e => e.alive && e.entityType === 'building' && e.owner === owner && e.type === BUILD_TYPE.ANCIENT_PROTECT && !e._towerType);
+        if (ap) { ap._towerType = 'protector'; ap.maxHp = 1000; ap.hp = 1000; }
+        break;
+      }
     }
     if (owner === 0) {
       const data = RESEARCH_DATA[researchType];
@@ -8034,7 +9174,7 @@ const Upgrades = {
   // Upgrade all TH buildings for an owner to the new tier
   _upgradeTownHalls(owner, tier) {
     const race = getRace(owner);
-    const tierKey = race === RACE.UNDEAD ? (tier + 10) : tier;
+    const tierKey = race === RACE.UNDEAD ? (tier + 10) : race === RACE.NIGHT_ELF ? (tier + 20) : race === RACE.ORC ? (tier + 30) : tier;
     const tierData = TH_TIER_DATA[tierKey];
     if (!tierData) return;
     const thType = getRaceConfig(owner).townhall;
@@ -8174,6 +9314,48 @@ const Upgrades = {
         );
         if (meetsReqs) result.push(RESEARCH_TYPE.TH_CASTLE);
       }
+    } else if (buildingType === BUILD_TYPE.TREE_LIFE) {
+      // Night Elf TH upgrades
+      if (tier === 1) {
+        const thData = TH_TIER_DATA[22];
+        const meetsReqs = thData.requires.every(req =>
+          EntityManager.entities.some(e => e.alive && e.entityType === 'building' && e.owner === owner && e.type === req && e.completed));
+        if (meetsReqs) result.push(RESEARCH_TYPE.TH_AGES);
+      } else if (tier === 2) {
+        const thData = TH_TIER_DATA[23];
+        const meetsReqs = thData.requires.every(req =>
+          EntityManager.entities.some(e => e.alive && e.entityType === 'building' && e.owner === owner && e.type === req && e.completed));
+        if (meetsReqs) result.push(RESEARCH_TYPE.TH_ETERNITY);
+      }
+    } else if (buildingType === BUILD_TYPE.GREAT_HALL) {
+      if (tier === 1) {
+        const thData = TH_TIER_DATA[32];
+        const meetsReqs = thData.requires.every(req => EntityManager.entities.some(e => e.alive && e.entityType === 'building' && e.owner === owner && e.type === req && e.completed));
+        if (meetsReqs) result.push(RESEARCH_TYPE.TH_STRONGHOLD);
+      } else if (tier === 2) {
+        const thData = TH_TIER_DATA[33];
+        const meetsReqs = thData.requires.every(req => EntityManager.entities.some(e => e.alive && e.entityType === 'building' && e.owner === owner && e.type === req && e.completed));
+        if (meetsReqs) result.push(RESEARCH_TYPE.TH_FORTRESS);
+      }
+    } else if (buildingType === BUILD_TYPE.WAR_MILL) {
+      const atkLvl = this.players[owner].attackLevel;
+      const atkMap = [RESEARCH_TYPE.ORC_ATK_1, RESEARCH_TYPE.ORC_ATK_2, RESEARCH_TYPE.ORC_ATK_3];
+      if (atkLvl < 3) { const next = atkMap[atkLvl]; const d = RESEARCH_DATA[next]; if (tier >= d.tierReq) result.push(next); }
+      const defLvl = this.players[owner].defenseLevel;
+      const defMap = [RESEARCH_TYPE.ORC_DEF_1, RESEARCH_TYPE.ORC_DEF_2, RESEARCH_TYPE.ORC_DEF_3];
+      if (defLvl < 3) { const next = defMap[defLvl]; const d = RESEARCH_DATA[next]; if (tier >= d.tierReq) result.push(next); }
+      if (!this.players[owner].lumberHarvesting) { const d = RESEARCH_DATA[RESEARCH_TYPE.ORC_LUMBER]; if (tier >= d.tierReq) result.push(RESEARCH_TYPE.ORC_LUMBER); }
+      if (!this.players[owner].masonry) { const d = RESEARCH_DATA[RESEARCH_TYPE.ORC_MASONRY]; if (tier >= d.tierReq) result.push(RESEARCH_TYPE.ORC_MASONRY); }
+    } else if (buildingType === BUILD_TYPE.HUNTERS_HALL) {
+      // Night Elf attack/defense/lumber/masonry upgrades
+      const atkLvl = this.players[owner].attackLevel;
+      const atkMap = [RESEARCH_TYPE.NE_ATK_1, RESEARCH_TYPE.NE_ATK_2, RESEARCH_TYPE.NE_ATK_3];
+      if (atkLvl < 3) { const next = atkMap[atkLvl]; const d = RESEARCH_DATA[next]; if (tier >= d.tierReq) result.push(next); }
+      const defLvl = this.players[owner].defenseLevel;
+      const defMap = [RESEARCH_TYPE.NE_DEF_1, RESEARCH_TYPE.NE_DEF_2, RESEARCH_TYPE.NE_DEF_3];
+      if (defLvl < 3) { const next = defMap[defLvl]; const d = RESEARCH_DATA[next]; if (tier >= d.tierReq) result.push(next); }
+      if (!this.players[owner].lumberHarvesting) { const d = RESEARCH_DATA[RESEARCH_TYPE.NE_LUMBER]; if (tier >= d.tierReq) result.push(RESEARCH_TYPE.NE_LUMBER); }
+      if (!this.players[owner].masonry) { const d = RESEARCH_DATA[RESEARCH_TYPE.NE_MASONRY]; if (tier >= d.tierReq) result.push(RESEARCH_TYPE.NE_MASONRY); }
     }
     return result;
   },
@@ -8742,12 +9924,93 @@ const Training = {
         return ['shop_potion_hp', 'shop_potion_mana', 'shop_scroll_tp', 'shop_claws', 'shop_ring_prot', 'shop_pendant', 'shop_sword'];
       }
       case BUILD_TYPE.SACRIFICIAL_PIT: {
-        return ['convert_shade'];
+        return []; // Sacrifice Acolyte by right-clicking this building
       }
       case BUILD_TYPE.ZIGGURAT: {
         const list = [];
         const bld = specificBuilding || EntityManager.entities.find(e => e.alive && e.entityType === 'building' && e.owner === owner && e.type === BUILD_TYPE.ZIGGURAT && e.completed);
         if (bld && !bld._towerType) list.push(RESEARCH_TYPE.ZIGGURAT_SPIRIT);
+        return list;
+      }
+      // ── Night Elf ──
+      case BUILD_TYPE.TREE_LIFE: {
+        const list = [UNIT_TYPE.WISP];
+        const thRes = Upgrades.getAvailable(BUILD_TYPE.TREE_LIFE, owner);
+        return list.concat(thRes);
+      }
+      case BUILD_TYPE.ANCIENT_WAR: {
+        const list = [UNIT_TYPE.ARCHER, UNIT_TYPE.HUNTRESS];
+        if (tier >= 2) list.push(UNIT_TYPE.GLAIVE_THROWER);
+        return list;
+      }
+      case BUILD_TYPE.ANCIENT_LORE: {
+        const list = [UNIT_TYPE.DRUID_CLAW, UNIT_TYPE.DRUID_TALON, UNIT_TYPE.DRYAD];
+        return list;
+      }
+      case BUILD_TYPE.ALTAR_ELDERS: {
+        const list = [];
+        const deadCount = HeroSystem.getDeadHeroCount(owner);
+        for (let i = 0; i < deadCount; i++) list.push('revive_hero');
+        const totalHeroes = HeroSystem.countHeroes(owner);
+        if (totalHeroes < HeroSystem.MAX_HEROES) {
+          const takenClasses = new Set();
+          for (const e of EntityManager.entities) { if (e.alive && e.isHero && e.owner === owner) takenClasses.add(e.heroClass); }
+          for (const d of (HeroSystem.deadHeroes[owner] || [])) takenClasses.add(d.heroClass);
+          for (const e of EntityManager.entities) { if (e.alive && e.entityType === 'building' && e.owner === owner) for (const qt of e.trainingQueue) if (Object.values(HERO_CLASS).includes(qt)) takenClasses.add(qt); }
+          const raceHeroes = getRaceConfig(owner).heroes || [];
+          for (const cls of raceHeroes) { if (!takenClasses.has(cls)) list.push(cls); }
+        }
+        return list;
+      }
+      case BUILD_TYPE.CHIMAERA_ROOST: {
+        return [UNIT_TYPE.HIPPOGRYPH];
+      }
+      case BUILD_TYPE.HUNTERS_HALL: {
+        return Upgrades.getAvailable(BUILD_TYPE.HUNTERS_HALL, owner);
+      }
+      case BUILD_TYPE.ANCIENT_WONDERS: {
+        return ['shop_potion_hp', 'shop_potion_mana', 'shop_scroll_tp'];
+      }
+      case BUILD_TYPE.ANCIENT_PROTECT: {
+        return []; // Attacks by default, no upgrade needed
+      }
+      // Orc
+      case BUILD_TYPE.GREAT_HALL: {
+        const list = [UNIT_TYPE.PEON];
+        const thRes = Upgrades.getAvailable(BUILD_TYPE.GREAT_HALL, owner);
+        return list.concat(thRes);
+      }
+      case BUILD_TYPE.ORC_BARRACKS: {
+        const list = [UNIT_TYPE.GRUNT, UNIT_TYPE.HEADHUNTER];
+        if (tier >= 2) list.push(UNIT_TYPE.DEMOLISHER);
+        return list;
+      }
+      case BUILD_TYPE.SPIRIT_LODGE: {
+        return [UNIT_TYPE.SHAMAN, UNIT_TYPE.WITCH_DOCTOR];
+      }
+      case BUILD_TYPE.ALTAR_STORMS: {
+        const list = [];
+        const deadCount = HeroSystem.getDeadHeroCount(owner);
+        for (let i = 0; i < deadCount; i++) list.push('revive_hero');
+        const totalHeroes = HeroSystem.countHeroes(owner);
+        if (totalHeroes < HeroSystem.MAX_HEROES) {
+          const takenClasses = new Set();
+          for (const e of EntityManager.entities) { if (e.alive && e.isHero && e.owner === owner) takenClasses.add(e.heroClass); }
+          for (const d of (HeroSystem.deadHeroes[owner] || [])) takenClasses.add(d.heroClass);
+          for (const e of EntityManager.entities) { if (e.alive && e.entityType === 'building' && e.owner === owner) for (const qt of e.trainingQueue) if (Object.values(HERO_CLASS).includes(qt)) takenClasses.add(qt); }
+          const raceHeroes = getRaceConfig(owner).heroes || [];
+          for (const cls of raceHeroes) { if (!takenClasses.has(cls)) list.push(cls); }
+        }
+        return list;
+      }
+      case BUILD_TYPE.BEASTIARY: { return [UNIT_TYPE.WIND_RIDER]; }
+      case BUILD_TYPE.TAUREN_TOTEM: { return [UNIT_TYPE.TAUREN]; }
+      case BUILD_TYPE.WAR_MILL: { return Upgrades.getAvailable(BUILD_TYPE.WAR_MILL, owner); }
+      case BUILD_TYPE.VOODOO_LOUNGE: { return ['shop_potion_hp', 'shop_potion_mana', 'shop_scroll_tp']; }
+      case BUILD_TYPE.WATCH_TOWER: {
+        const list = [];
+        const bld = specificBuilding || EntityManager.entities.find(e => e.alive && e.entityType === 'building' && e.owner === owner && e.type === BUILD_TYPE.WATCH_TOWER && e.completed);
+        if (bld && !bld._towerType) list.push(RESEARCH_TYPE.WATCH_TOWER_UPG);
         return list;
       }
       default: return [];
@@ -9342,7 +10605,88 @@ const CommandPanel = {
         Notifications.show('Right-click to set rally point.', 2000);
       }};
 
+      // Orc Burrow: Unload garrison
+      if (bld.owner === 0 && bld.type === BUILD_TYPE.BURROW && bld._garrison && bld._garrison.length > 0) {
+        btns[7] = { icon: '📤', label: `Unload (${bld._garrison.length})`, hotkey: 'U',
+          action: () => {
+            for (const uid of bld._garrison) {
+              const u = EntityManager.entities.find(e => e.id === uid && e.alive);
+              if (u) {
+                u._inGarrison = null;
+                const spot = UnitCollision.findFreeTile(bld.x + 1, bld.y + bld.h, u.id);
+                u.vx = spot.x; u.vy = spot.y; u.x = spot.x; u.y = spot.y;
+              }
+            }
+            bld._garrison = [];
+            Notifications.show('Garrison emptied.', 1500);
+            CommandPanel.refresh();
+          }
+        };
+      }
+
+      // NE Ancient: Uproot/Root/Eat Tree
+      if (bld.owner === 0 && isAncient(bld.type)) {
+        if (bld._uprooted) {
+          btns[7] = { icon: '🌱', label: 'Root', hotkey: 'R',
+            action: () => {
+              bld._uprooted = false; bld._uprootTarget = null;
+              bld._vx = null; bld._vy = null;
+              // Re-snap occupancy
+              for (let oy = 0; oy < bld.h; oy++) for (let ox = 0; ox < bld.w; ox++) {
+                if (GameMap.isInBounds(bld.x+ox, bld.y+oy)) EntityManager.occupancy[bld.y+oy][bld.x+ox] = bld.id;
+              }
+              if (bld.owner === 0) Notifications.show('Ancient rooted.', 1500);
+              CommandPanel.refresh();
+            }
+          };
+          // Eat tree: check adjacent trees
+          const cx = bld.x + Math.floor(bld.w / 2), cy = bld.y + Math.floor(bld.h / 2);
+          let hasAdjacentTree = false;
+          for (let dy = -2; dy <= bld.h + 1; dy++) {
+            for (let dx = -2; dx <= bld.w + 1; dx++) {
+              const nx = bld.x + dx, ny = bld.y + dy;
+              if (GameMap.isInBounds(nx, ny) && GameMap.tiles[ny][nx] === TILE.TREE) { hasAdjacentTree = true; break; }
+            }
+            if (hasAdjacentTree) break;
+          }
+          if (hasAdjacentTree && bld.hp < bld.maxHp) {
+            btns[8] = { icon: '🌲', label: 'Eat Tree (+200HP)', hotkey: 'E',
+              action: () => {
+                for (let dy = -2; dy <= bld.h + 1; dy++) {
+                  for (let dx = -2; dx <= bld.w + 1; dx++) {
+                    const nx = bld.x + dx, ny = bld.y + dy;
+                    if (GameMap.isInBounds(nx, ny) && GameMap.tiles[ny][nx] === TILE.TREE) {
+                      GameMap.tiles[ny][nx] = TILE.GRASS; GameMap.resourceData[ny][nx] = 0;
+                      bld.hp = Math.min(bld.maxHp, bld.hp + 200);
+                      Minimap.invalidate();
+                      Notifications.show('Ate tree! +200 HP', 1500);
+                      CommandPanel.refresh();
+                      return;
+                    }
+                  }
+                }
+              }
+            };
+          }
+        } else {
+          btns[7] = { icon: '🌿', label: 'Uproot', hotkey: 'R',
+            action: () => {
+              bld._uprooted = true;
+              bld._vx = bld.x; bld._vy = bld.y;
+              // Clear occupancy (building can now move)
+              for (let oy = 0; oy < bld.h; oy++) for (let ox = 0; ox < bld.w; ox++) {
+                if (GameMap.isInBounds(bld.x+ox, bld.y+oy)) EntityManager.occupancy[bld.y+oy][bld.x+ox] = 0;
+              }
+              if (bld.owner === 0) Notifications.show('Ancient uprooted! Double-tap to move.', 2000);
+              CommandPanel.refresh();
+            }
+          };
+        }
+      }
+
       // For neutral buildings, pass player 0 as effective owner
+      // Skip training/research for uprooted ancients
+      if (!bld._uprooted) {
       const _trainOwner = bld.owner === NEUTRAL_PASSIVE ? 0 : bld.owner;
       const trainable = Training.canTrain(bld.type, _trainOwner, bld);
       const hotkeys = ['Q', 'W', 'E', 'R', 'T', 'D'];
@@ -9353,13 +10697,23 @@ const CommandPanel = {
         const isHeroClass = Object.values(HERO_CLASS).includes(uType);
         const isRevive = uType === 'revive_hero';
         const isShopItem = typeof uType === 'string' && uType.startsWith('shop_');
-        const isSpecialAction = uType === 'call_militia' || uType === 'convert_shade' || uType === 'tavern_revive' || uType === 'reveal_map';
-        if (isSpecialAction) {
+        const isSpecialAction = uType === 'call_militia' || uType === 'convert_shade' || uType === 'tavern_revive';
+        const isRevealMap = uType === 'reveal_map';
+        if (isRevealMap) {
+          const canAfford = Resources.canAfford(bld.owner === NEUTRAL_PASSIVE ? 0 : bld.owner, { gold: 100, lumber: 0 });
+          btns[btnIdx] = { icon: '🗺️', label: 'Reveal Map (100g)', hotkey: hotkeys[btnIdx], costStr: '🪙100',
+            disabled: !canAfford,
+            action: () => {
+              CommandPanel._revealMapMode = true;
+              CommandPanel._revealMapOwner = bld.owner === NEUTRAL_PASSIVE ? 0 : bld.owner;
+              Notifications.show('Click on the map to reveal an area.', 3000);
+            }
+          };
+        } else if (isSpecialAction) {
           const specialLabels = {
             call_militia: { icon: '⚔️', name: 'Call to Arms', cost: '' },
             convert_shade: { icon: '👁️', name: 'Create Shade (costs Acolyte)', cost: '' },
             tavern_revive: { icon: '✝️', name: 'Revive Hero (50% HP)', cost: '' },
-            reveal_map: { icon: '🗺️', name: 'Reveal Map (100g)', cost: '🪙100' },
           };
           const sl = specialLabels[uType];
           btns[btnIdx] = { icon: sl.icon, label: sl.name, hotkey: hotkeys[btnIdx], costStr: sl.cost,
@@ -9380,6 +10734,7 @@ const CommandPanel = {
 
       // Update queue bar
       Training.updateQueueUI(bld);
+      } // end if (!bld._uprooted)
     }
 
     this.setButtons(btns);
@@ -9584,6 +10939,35 @@ const CommandPanel = {
           btn.addEventListener('click', def.action);
         }
         btn.title = def.tooltip || `${def.label}${def.hotkey ? ` (${def.hotkey})` : ''}`;
+        // Show tooltip popup on hover (desktop) and long-press (mobile)
+        if (def.tooltip) {
+          btn.addEventListener('mouseenter', () => {
+            const tooltipEl = document.getElementById('tooltip');
+            const rect = btn.getBoundingClientRect();
+            tooltipEl.textContent = def.tooltip;
+            tooltipEl.style.whiteSpace = 'pre';
+            tooltipEl.style.display = 'block';
+            tooltipEl.style.left = Math.min(rect.left, window.innerWidth - 200) + 'px';
+            tooltipEl.style.top = (rect.top - 50) + 'px';
+          });
+          btn.addEventListener('mouseleave', () => {
+            document.getElementById('tooltip').style.display = 'none';
+          });
+          let _ttTimer = null;
+          btn.addEventListener('touchstart', () => {
+            _ttTimer = setTimeout(() => {
+              const tooltipEl = document.getElementById('tooltip');
+              const rect = btn.getBoundingClientRect();
+              tooltipEl.textContent = def.tooltip;
+              tooltipEl.style.whiteSpace = 'pre';
+              tooltipEl.style.display = 'block';
+              tooltipEl.style.left = Math.min(rect.left, window.innerWidth - 200) + 'px';
+              tooltipEl.style.top = (rect.top - 50) + 'px';
+              setTimeout(() => { tooltipEl.style.display = 'none'; }, 2500);
+            }, 400);
+          });
+          btn.addEventListener('touchend', () => { if (_ttTimer) clearTimeout(_ttTimer); });
+        }
       }
       panel.appendChild(btn);
     }
@@ -9848,7 +11232,7 @@ const AI_PROTO = {
       e.alive && e.entityType === 'unit' && e.owner === this.OWNER && (!type || e.type === type));
   },
   _getMilitaryCount() { const w = getRaceConfig(this.OWNER).worker; return this._getUnits().filter(u => u.type !== w).length; },
-  _hasBuilding(type) { return this._getCompletedBuildings(type).length > 0; },
+  _hasBuilding(type) { return this._getBuildings(type).length > 0; }, // includes under-construction
   _countBuildings(type) { return this._getBuildings(type).length; },
   _hasIncompleteBuilding() {
     return EntityManager.entities.some(e =>
@@ -9926,6 +11310,12 @@ const AI_PROTO = {
     else if (getRace(this.OWNER) === RACE.UNDEAD && this._hasBuilding(rc.barracks) &&
              !this._hasBuilding(BUILD_TYPE.SACRIFICIAL_PIT) && this.timer > 180) {
       toBuild = BUILD_TYPE.SACRIFICIAL_PIT;
+    }
+    // 5de. Tauren Totem (Orc, Tier 3, after War Mill)
+    else if (getRace(this.OWNER) === RACE.ORC && this._hasBuilding(BUILD_TYPE.WAR_MILL) &&
+             !this._hasBuilding(BUILD_TYPE.TAUREN_TOTEM) &&
+             Resources.players[this.OWNER].tier >= 3 && this.timer > 360) {
+      toBuild = BUILD_TYPE.TAUREN_TOTEM;
     }
     // 5d. Tower/Ziggurat
     else if ((this._hasBuilding(rc.lumbermill) || this._hasBuilding(rc.upgrades)) && this._countBuildings(rc.tower) < 2 && this.timer > 240) {
@@ -10087,6 +11477,15 @@ const AI_PROTO = {
       }
     }
 
+    // Tauren Totem (Orc heavy units)
+    if (getRace(this.OWNER) === RACE.ORC) {
+      const totems = this._getCompletedBuildings(BUILD_TYPE.TAUREN_TOTEM);
+      for (const tt of totems) {
+        if (tt.trainingQueue.length >= 2 || military >= maxMilitary) continue;
+        Training.enqueue(tt, UNIT_TYPE.TAUREN);
+      }
+    }
+
     for (const bar of barracks) {
       if (bar.trainingQueue.length >= 2) continue;
       if (military >= maxMilitary) break;
@@ -10095,22 +11494,25 @@ const AI_PROTO = {
       const aiTier = Resources.players[this.OWNER].tier;
       const roll = Math.random();
       const cp = this._counterPriority;
+      const trainable = Training.canTrain(bar.type, this.OWNER, bar);
+      const canTrainHere = (utype) => trainable.includes(utype);
 
       // Counter-strategy adjustments
-      if (cp === 'anti_air' && roll < 0.4) {
-        Training.enqueue(bar, rc.ranged); // ranged can hit air
-      } else if (cp === 'heavy_melee' && roll < 0.4) {
-        if (aiTier >= 2 && hasUpgrades) Training.enqueue(bar, rc.heavy);
-        else Training.enqueue(bar, rc.melee);
-      } else if (cp === 'ranged' && roll < 0.4) {
-        Training.enqueue(bar, rc.melee); // melee closes gap on ranged
-      } else if (aiTier >= 2 && rc.siegeBuilding === rc.barracks && roll < 0.15) {
-        Training.enqueue(bar, rc.siege);
-      } else if (hasUpgrades && aiTier >= 2 && roll < 0.35) {
-        Training.enqueue(bar, rc.heavy);
-      } else if (roll < 0.55) {
+      if (cp === 'anti_air' && roll < 0.4 && canTrainHere(rc.ranged)) {
         Training.enqueue(bar, rc.ranged);
-      } else {
+      } else if (cp === 'heavy_melee' && roll < 0.4 && canTrainHere(rc.heavy)) {
+        Training.enqueue(bar, rc.heavy);
+      } else if (cp === 'heavy_melee' && roll < 0.4) {
+        Training.enqueue(bar, rc.melee);
+      } else if (cp === 'ranged' && roll < 0.4 && canTrainHere(rc.melee)) {
+        Training.enqueue(bar, rc.melee);
+      } else if (aiTier >= 2 && canTrainHere(rc.siege) && roll < 0.15) {
+        Training.enqueue(bar, rc.siege);
+      } else if (hasUpgrades && aiTier >= 2 && canTrainHere(rc.heavy) && roll < 0.35) {
+        Training.enqueue(bar, rc.heavy);
+      } else if (roll < 0.55 && canTrainHere(rc.ranged)) {
+        Training.enqueue(bar, rc.ranged);
+      } else if (canTrainHere(rc.melee)) {
         Training.enqueue(bar, rc.melee);
       }
     }
@@ -10155,6 +11557,12 @@ const AI_PROTO = {
         if (getRace(this.OWNER) === RACE.UNDEAD) {
           // Undead: Ziggurat → Spirit Tower
           Training.enqueue(tw, RESEARCH_TYPE.ZIGGURAT_SPIRIT);
+        } else if (getRace(this.OWNER) === RACE.NIGHT_ELF) {
+          // Ancient Protectors attack by default, no upgrade needed
+          break;
+        } else if (getRace(this.OWNER) === RACE.ORC) {
+          Training.enqueue(tw, RESEARCH_TYPE.WATCH_TOWER_UPG);
+          break;
         } else {
           // Human: Guard → Cannon/Arcane at Tier 2+
           let twUpgrade = RESEARCH_TYPE.TOWER_GUARD;
@@ -10686,6 +12094,18 @@ const SpeechBubble = {
       [UNIT_TYPE.PRIEST]: ['Blessings upon you.', 'Light guide us.', 'I shall heal.'],
       [UNIT_TYPE.SORCERESS]: ['Magic awaits.', 'What would you ask?', 'Power is ready.'],
       [UNIT_TYPE.ACOLYTE]: ['The graves call...', 'I serve.', 'Darkness beckons.'],
+      [UNIT_TYPE.WISP]: ['...', 'The forest calls.', 'I am here.'],
+      [UNIT_TYPE.ARCHER]: ['Ready to strike.', 'By Elune!', 'My aim is true.'],
+      [UNIT_TYPE.HUNTRESS]: ['For Kalimdor!', 'The hunt begins.', 'Swift as the wind.'],
+      [UNIT_TYPE.DRUID_CLAW]: ['Nature guides me.', 'I am ready.', 'The wilds protect.'],
+      [UNIT_TYPE.DRUID_TALON]: ['Wisdom of the Ancients.', 'I see all.', 'The wind speaks.'],
+      [UNIT_TYPE.DRYAD]: ["Nature's grace!", 'I am immune!', 'Fall before me!'],
+      [UNIT_TYPE.PEON]: ['Ready to work!', 'Zug zug.', 'Something need doing?'],
+      [UNIT_TYPE.GRUNT]: ['My blade thirsts!', 'For the Horde!', 'Blood and thunder!'],
+      [UNIT_TYPE.HEADHUNTER]: ['Want axe?', 'Say hello to my spear.', 'I see dead people.'],
+      [UNIT_TYPE.TAUREN]: ['May the Earth Mother guide us.', 'For the tribe!', 'I will serve.'],
+      [UNIT_TYPE.SHAMAN]: ['The spirits guide me.', 'Storm, Earth, Fire!', 'Ancestors watch.'],
+      [UNIT_TYPE.WITCH_DOCTOR]: ['Look at me. I am da captain now.', 'Want some voodoo?', 'How you like my juju?'],
       [UNIT_TYPE.GHOUL]: ['*snarl*', 'Hungry...', 'Fresh meat?'],
       [UNIT_TYPE.CRYPT_FIEND]: ['Spinner awaits.', 'The web is ready.'],
       [UNIT_TYPE.ABOMINATION]: ['Us hear and obey.', 'More... bones!'],
