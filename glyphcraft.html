@@ -570,10 +570,32 @@ html, body {
    ═══════════════════════════════════════════════ */
 
 // ─── CONSTANTS ─────────────────────────────────
-const CELL = 16;                // Размер ячейки в пикселях
+let CELL = 16;                  // Размер ячейки в пикселях (adaptive)
 const MAP_W = 120;              // Ширина карты в тайлах
 const MAP_H = 120;              // Высота карты в тайлах
-const FONT = `${CELL}px "Noto Sans Mono", "Consolas", "Lucida Console", monospace`;
+let FONT = `${CELL}px "Noto Sans Mono", "Consolas", "Lucida Console", monospace`;
+const TARGET_COLS = 80;         // Целевое кол-во колонок на экране
+const MIN_CELL = 14;
+const MAX_CELL = 32;
+
+const recalcCell = () => {
+  const w = window.innerWidth || 1920;
+  const newCell = Math.max(MIN_CELL, Math.min(MAX_CELL, Math.floor(w / TARGET_COLS)));
+  if (newCell === CELL) return false;
+  CELL = newCell;
+  FONT = `${CELL}px "Noto Sans Mono", "Consolas", "Lucida Console", monospace`;
+  // Update EmojiSpriteCache fonts and clear cached sprites
+  if (typeof EmojiSpriteCache !== 'undefined') {
+    EmojiSpriteCache.EMOJI_FONT = `${CELL + 2}px "Noto Color Emoji", "Apple Color Emoji", "Segoe UI Emoji", serif`;
+    EmojiSpriteCache.TEXT_FONT = `${CELL}px "Noto Sans Mono", "Consolas", "Lucida Console", monospace`;
+    EmojiSpriteCache.clear();
+  }
+  // Rebuild TerrainBuffer if initialized
+  if (typeof TerrainBuffer !== 'undefined' && TerrainBuffer._canvas) {
+    TerrainBuffer.init();
+  }
+  return true;
+};
 // ─── EMOJI SPRITE CACHE ────────────────────────
 const EmojiSpriteCache = {
   _cache: new Map(),
@@ -2152,6 +2174,8 @@ const Game = {
   start() {
     Audio.init();
     GameMap.generate();
+    recalcCell(); // Compute adaptive CELL before building terrain buffer
+    TerrainBuffer.init();
     Camera.init();
     Resources.init();
     Upgrades.init();
@@ -2204,6 +2228,7 @@ const Game = {
     const viewport = document.getElementById('viewport');
     this.canvas.width = viewport.clientWidth;
     this.canvas.height = viewport.clientHeight;
+    recalcCell();
     const z = Camera.zoom || 1;
     this.viewCols = Math.ceil(this.canvas.width / (CELL * z)) + 1;
     this.viewRows = Math.ceil(this.canvas.height / (CELL * z)) + 1;
@@ -2693,10 +2718,10 @@ const Camera = {
 
   // Конвертация: тайл → экранные пиксели
   tileToScreen(tx, ty) {
-    const z = this.zoom || 1;
+    // Returns logical (pre-zoom) coordinates. ctx.scale(zoom) in render() handles physical scaling.
     return {
-      x: Math.round((tx - this.x) * CELL * z),
-      y: Math.round((ty - this.y) * CELL * z),
+      x: Math.round((tx - this.x) * CELL),
+      y: Math.round((ty - this.y) * CELL),
     };
   },
 
@@ -4119,6 +4144,7 @@ const GameMap = {
         // Blight replaces grass and dark grass
         if (t === TILE.GRASS || t === TILE.GRASS_DARK || t === TILE.DIRT) {
           this.tiles[y][x] = TILE.BLIGHT;
+          TerrainBuffer.markDirty(x, y);
         }
       }
     }
@@ -4141,83 +4167,142 @@ const GameMap = {
 };
 
 
+// ─── TERRAIN BUFFER (offscreen canvas for static tiles) ───
+const TerrainBuffer = {
+  _canvas: null,
+  _ctx: null,
+  _dirty: null,
+  _ANIMATED: null,
+
+  init() {
+    this._canvas = document.createElement('canvas');
+    this._canvas.width = MAP_W * CELL;
+    this._canvas.height = MAP_H * CELL;
+    this._ctx = this._canvas.getContext('2d');
+    this._dirty = new Set();
+    this._ANIMATED = new Set([TILE.WATER, TILE.SHALLOW_WATER, TILE.GOLD, TILE.BLIGHT]);
+    this._ctx.font = FONT;
+    this._ctx.textBaseline = 'top';
+    for (let ty = 0; ty < MAP_H; ty++) {
+      for (let tx = 0; tx < MAP_W; tx++) {
+        this._drawTile(tx, ty);
+      }
+    }
+  },
+
+  markDirty(tx, ty) {
+    if (this._dirty) this._dirty.add(ty * MAP_W + tx);
+  },
+
+  _drawTile(tx, ty) {
+    const ctx = this._ctx;
+    const tile = GameMap.tiles[ty][tx];
+    const variant = GameMap.tileVariant[ty][tx];
+    const chars = TILE_CHARS[tile];
+    const px = tx * CELL, py = ty * CELL;
+
+    ctx.fillStyle = TILE_BG[tile] || '#111';
+    ctx.fillRect(px, py, CELL, CELL);
+
+    if (this._ANIMATED && this._ANIMATED.has(tile)) {
+      if (tile === TILE.WATER || tile === TILE.SHALLOW_WATER) ctx.fillStyle = tile === TILE.WATER ? '#3a7ecf' : '#5a9ecf';
+      else if (tile === TILE.GOLD) ctx.fillStyle = '#d4a800';
+      else if (tile === TILE.BLIGHT) ctx.fillStyle = '#5a2d78';
+      ctx.fillRect(px, py, CELL, CELL);
+      return;
+    }
+
+    let ch = chars[variant % chars.length];
+    if (tile === TILE.TREE) {
+      const shade = 0.85 + 0.15 * ((variant * 7 + tx * 3 + ty * 11) % 10) / 10;
+      ctx.fillStyle = `rgb(${Math.round(45*shade)},${Math.round(90*shade)},${Math.round(30*shade)})`;
+    } else if (tile === TILE.BARREL || tile === TILE.CRATE) {
+      ch = chars[0];
+      ctx.fillStyle = tile === TILE.BARREL ? '#b8860b' : '#a08050';
+    } else {
+      ctx.fillStyle = TILE_COLORS[tile] || '#888';
+    }
+    ctx.fillText(ch, px + 1, py);
+
+    if (GameMap.elevation) {
+      const elev = GameMap.elevation[ty]?.[tx] ?? 1;
+      if (elev === 2) { ctx.fillStyle = 'rgba(255,255,200,0.08)'; ctx.fillRect(px, py, CELL, CELL); }
+      else if (elev === 0) { ctx.fillStyle = 'rgba(0,0,30,0.12)'; ctx.fillRect(px, py, CELL, CELL); }
+    }
+  },
+
+  flush() {
+    if (!this._dirty || this._dirty.size === 0) return;
+    this._ctx.font = FONT;
+    this._ctx.textBaseline = 'top';
+    for (const idx of this._dirty) {
+      const tx = idx % MAP_W, ty = (idx / MAP_W) | 0;
+      this._drawTile(tx, ty);
+    }
+    this._dirty.clear();
+  },
+};
+
+
 // ─── RENDERER ──────────────────────────────────
 const Renderer = {
   drawTerrain(ctx) {
-    ctx.font = FONT;
-    ctx.textBaseline = 'top';
+    TerrainBuffer.flush();
 
     const startX = Math.floor(Camera.x);
     const startY = Math.floor(Camera.y);
     const endX = Math.min(startX + Game.viewCols, MAP_W);
     const endY = Math.min(startY + Game.viewRows, MAP_H);
 
+    // Blit static terrain from offscreen buffer (ONE drawImage call)
+    const srcX = startX * CELL, srcY = startY * CELL;
+    const srcW = (endX - startX) * CELL, srcH = (endY - startY) * CELL;
+    const dstPos = Camera.tileToScreen(startX, startY);
+    if (srcW > 0 && srcH > 0) {
+      ctx.drawImage(TerrainBuffer._canvas, srcX, srcY, srcW, srcH, dstPos.x, dstPos.y, srcW, srcH);
+    }
+
+    // Overdraw animated tiles per-frame
+    ctx.font = FONT;
+    ctx.textBaseline = 'top';
     for (let ty = startY; ty < endY; ty++) {
       for (let tx = startX; tx < endX; tx++) {
         const tile = GameMap.tiles[ty][tx];
+        if (!TerrainBuffer._ANIMATED.has(tile)) continue;
+
         const variant = GameMap.tileVariant[ty][tx];
         const chars = TILE_CHARS[tile];
         const pos = Camera.tileToScreen(tx, ty);
+        let ch;
 
-        // Фон
         ctx.fillStyle = TILE_BG[tile] || '#111';
         ctx.fillRect(pos.x, pos.y, CELL, CELL);
 
-        // Water animation: shift variant over time
-        let ch;
         if (tile === TILE.WATER) {
           const animIdx = (variant + waterAnimFrame + ((tx + ty) & 3)) % chars.length;
           ch = chars[animIdx];
-          // Vary water color slightly by position
           const brightness = 0.85 + 0.15 * Math.sin((tx * 0.5 + ty * 0.3 + waterAnimFrame * 0.7));
-          const r = Math.round(58 * brightness);
-          const g = Math.round(126 * brightness);
-          const b = Math.round(207 * brightness);
-          ctx.fillStyle = `rgb(${r},${g},${b})`;
+          ctx.fillStyle = `rgb(${Math.round(58*brightness)},${Math.round(126*brightness)},${Math.round(207*brightness)})`;
         } else if (tile === TILE.GOLD) {
           ch = chars[variant % chars.length];
-          // Gold shimmer
           const shimmer = 0.8 + 0.2 * Math.sin(Game.tick * 0.1 + tx * 2 + ty * 3);
-          const r = Math.round(255 * shimmer);
-          const g = Math.round(215 * shimmer);
-          ctx.fillStyle = `rgb(${r},${g},0)`;
-        } else if (tile === TILE.TREE) {
-          ch = chars[variant % chars.length];
-          // Slight green variation per tree
-          const shade = 0.85 + 0.15 * ((variant * 7 + tx * 3 + ty * 11) % 10) / 10;
-          const r = Math.round(45 * shade);
-          const g = Math.round(90 * shade);
-          const b = Math.round(30 * shade);
-          ctx.fillStyle = `rgb(${r},${g},${b})`;
+          ctx.fillStyle = `rgb(${Math.round(255*shimmer)},${Math.round(215*shimmer)},0)`;
         } else if (tile === TILE.SHALLOW_WATER) {
           const animIdx = (variant + waterAnimFrame + ((tx + ty) & 3)) % chars.length;
           ch = chars[animIdx];
           const brightness = 0.88 + 0.12 * Math.sin((tx * 0.4 + ty * 0.3 + waterAnimFrame * 0.5));
-          ctx.fillStyle = `rgb(${Math.round(90 * brightness)},${Math.round(158 * brightness)},${Math.round(207 * brightness)})`;
-        } else if (tile === TILE.BARREL || tile === TILE.CRATE) {
-          ch = chars[0];
-          ctx.fillStyle = tile === TILE.BARREL ? '#b8860b' : '#a08050';
+          ctx.fillStyle = `rgb(${Math.round(90*brightness)},${Math.round(158*brightness)},${Math.round(207*brightness)})`;
         } else if (tile === TILE.BLIGHT) {
           ch = chars[variant % chars.length];
           const pulse = 0.85 + 0.15 * Math.sin(Game.tick * 0.05 + tx * 0.3 + ty * 0.2);
           ctx.fillStyle = `rgb(${Math.round(90*pulse)},${Math.round(45*pulse)},${Math.round(120*pulse)})`;
-        } else {
-          ch = chars[variant % chars.length];
-          ctx.fillStyle = TILE_COLORS[tile] || '#888';
         }
-
         ctx.fillText(ch, pos.x + 1, pos.y);
 
-        // Elevation visual overlay
         if (GameMap.elevation) {
           const elev = GameMap.elevation[ty]?.[tx] ?? 1;
-          if (elev === 2) {
-            ctx.fillStyle = 'rgba(255,255,200,0.08)';
-            ctx.fillRect(pos.x, pos.y, CELL, CELL);
-          } else if (elev === 0) {
-            ctx.fillStyle = 'rgba(0,0,30,0.12)';
-            ctx.fillRect(pos.x, pos.y, CELL, CELL);
-          }
+          if (elev === 2) { ctx.fillStyle = 'rgba(255,255,200,0.08)'; ctx.fillRect(pos.x, pos.y, CELL, CELL); }
+          else if (elev === 0) { ctx.fillStyle = 'rgba(0,0,30,0.12)'; ctx.fillRect(pos.x, pos.y, CELL, CELL); }
         }
       }
     }
@@ -4226,7 +4311,8 @@ const Renderer = {
   drawEntities(ctx) {
     ctx.font = FONT;
     ctx.textBaseline = 'top';
-    const cw = Game.canvas.width, ch = Game.canvas.height;
+    const _z = Camera.zoom || 1;
+    const cw = Game.canvas.width / _z, ch = Game.canvas.height / _z;
 
     // ── Draw buildings first (below units) ──
     for (const ent of EntityManager.entities) {
@@ -4431,7 +4517,7 @@ const Renderer = {
               const px = pos.x + CELL / 2 + Math.cos(angle) * dist;
               const py = pos.y + CELL / 2 + Math.sin(angle) * dist - progress * 8;
               ctx.globalAlpha = alpha * 0.6;
-              ctx.fillStyle = ent.isCreep ? '#cc8833' : (ent.owner === 0 ? '#6688bb' : '#bb4444');
+              ctx.fillStyle = ent.isCreep ? '#cc8833' : (isAlly(0, ent.owner) ? '#6688bb' : '#bb4444');
               ctx.fillRect(px, py, 3 - progress * 3, 3 - progress * 3);
             }
           }
@@ -4456,7 +4542,7 @@ const Renderer = {
 
       // Hero special color
       if (ent.isHero) {
-        ownerColor = ent.owner === 0 ? '#ff9800' : '#ff4444';
+        ownerColor = isAlly(0, ent.owner) ? '#ff9800' : '#ff4444';
       }
 
       // Movement animation: bob and brighten
@@ -4498,8 +4584,8 @@ const Renderer = {
         // Vertical bob (±1.5 pixel, fast oscillation based on tick)
         const bob = Math.sin(Game.tick * 0.4 + ent.id * 2.7) * 1.5;
         drawY += bob;
-        // Brighten slightly when moving (unless carrying, which has own color)
-        if (!ent.carryType || ent.carryAmount === 0) {
+        // Brighten slightly when moving (unless carrying or creep)
+        if (!ent.isCreep && (!ent.carryType || ent.carryAmount === 0)) {
           const _mvC = getPlayerColor(ent.owner);
           ownerColor = _mvC ? _mvC.main : '#dddddd';
         }
@@ -4707,8 +4793,9 @@ const Renderer = {
   drawNightOverlay(ctx) {
     const intensity = DayNight.getNightIntensity();
     if (intensity <= 0) return;
+    const _z = Camera.zoom || 1;
     ctx.fillStyle = `rgba(5, 5, 30, ${intensity * 0.45})`;
-    ctx.fillRect(0, 0, Game.canvas.width, Game.canvas.height);
+    ctx.fillRect(0, 0, Game.canvas.width / _z + CELL, Game.canvas.height / _z + CELL);
   },
 
   drawSelectionMarkers(ctx) {
@@ -5299,6 +5386,8 @@ const EntityManager = {
             }
           }
         }
+        // Neutral building cooldown tick
+        if (this._neutralCooldown > 0) this._neutralCooldown -= dt;
         // Training queue processing (blocked when uprooted)
         if (this.completed && this.trainingQueue.length > 0 && !this._uprooted) {
           Training.updateBuilding(this, dt);
@@ -5375,6 +5464,7 @@ const EntityManager = {
         if (GameMap.isInBounds(nx, ny)) {
           if (GameMap.tiles[ny][nx] === TILE.TREE || GameMap.tiles[ny][nx] === TILE.GRASS_DARK) {
             GameMap.tiles[ny][nx] = TILE.GRASS;
+            TerrainBuffer.markDirty(nx, ny);
             GameMap.resourceData[ny][nx] = 0;
           }
         }
@@ -5661,12 +5751,14 @@ const Gathering = {
             } else {
               // Non-wisp: Tree disappears
               GameMap.tiles[gt.y][gt.x] = TILE.GRASS;
+              TerrainBuffer.markDirty(gt.x, gt.y);
               GameMap.resourceData[gt.y][gt.x] = 0;
               Minimap.invalidate();
             }
           } else {
             // Gold mine depleted
             GameMap.tiles[gt.y][gt.x] = TILE.GRASS_DARK;
+              TerrainBuffer.markDirty(gt.x, gt.y);
             GameMap.resourceData[gt.y][gt.x] = 0;
             Minimap.invalidate();
           }
@@ -5690,9 +5782,10 @@ const Gathering = {
           // Deliver resources
           if (unit.carryType && unit.carryAmount > 0) {
             let deliverAmt = unit.carryAmount;
-            // AI difficulty resource bonus
+            // AI difficulty resource bonus (enemies only, ally plays Normal)
             if (unit.owner !== 0) {
-              const aiResMult = [0.8, 1.0, 1.2][Game.difficulty] || 1.0;
+              const _isAllyAI = isAlly(0, unit.owner);
+              const aiResMult = _isAllyAI ? 1.0 : ([0.8, 1.0, 1.2][Game.difficulty] || 1.0);
               deliverAmt = Math.round(deliverAmt * aiResMult);
             }
             Resources.add(unit.owner, unit.carryType, deliverAmt);
@@ -5870,7 +5963,8 @@ const Selection = {
 
   _isOnScreen(vx, vy) {
     const pos = Camera.tileToScreen(vx, vy);
-    return pos.x >= 0 && pos.x <= Game.canvas.width && pos.y >= 0 && pos.y <= Game.canvas.height;
+    const _z = Camera.zoom || 1;
+    return pos.x >= 0 && pos.x <= Game.canvas.width / _z && pos.y >= 0 && pos.y <= Game.canvas.height / _z;
   },
 
   selectInBox(sx1, sy1, sx2, sy2) {
@@ -6206,6 +6300,7 @@ const Selection = {
       // Destroy it
       const itemDrop = GameMap.resourceData[ty]?.[tx] > 0;
       GameMap.tiles[ty][tx] = TILE.GRASS;
+      TerrainBuffer.markDirty(tx, ty);
       GameMap.resourceData[ty][tx] = 0;
       Minimap.invalidate();
       CombatFX.spawn(tx, ty, 'melee');
@@ -6358,7 +6453,7 @@ const Selection = {
         const icon = document.createElement('div');
         icon.className = 'multi-select-icon';
         icon.textContent = e.symbol;
-        icon.style.color = e.owner === 0 ? '#66aaff' : '#ff6666';
+        icon.style.color = isAlly(0, e.owner) ? '#66aaff' : '#ff6666';
         // HP background indicator
         const hpRatio = e.hp / e.maxHp;
         if (hpRatio < 0.5) {
@@ -6514,7 +6609,7 @@ const HeroSystem = {
     unit.symbol = HERO_CLASS_DATA[heroClass].symbol;
     unit.xp = 0;
     unit.level = 1;
-    unit.skillPoints = 0;
+    unit.skillPoints = 1; // WC3: heroes start with 1 skill point
     unit.str = 0; unit.agi = 0; unit.int = 0;
     unit.hpRegen = 0.5;
     unit.attackSpeedMod = 1.3;
@@ -6546,6 +6641,7 @@ const HeroSystem = {
     this.initHero(unit, saved.heroClass);
     unit.level = saved.level;
     unit.xp = saved.xp;
+    unit.skillPoints = saved.skillPoints ?? 0; // restore saved SP (not the 1 from initHero)
     unit.abilityRanks = { ...saved.abilityRanks };
     unit.inventory = [...saved.inventory];
     this._applyLevelStats(unit);
@@ -6620,6 +6716,8 @@ const HeroSystem = {
         Audio.levelUp();
       }
       AbilityFX.spawn(hero.vx, hero.vy, 'levelup');
+      // Refresh command panel if this hero is currently selected
+      if (Selection.selected.includes(hero)) Selection.updateUI();
     }
   },
 
@@ -7148,6 +7246,7 @@ const HeroSystem = {
     if (!this.deadHeroes[hero.owner]) this.deadHeroes[hero.owner] = [];
     this.deadHeroes[hero.owner].push({
       heroClass: hero.heroClass, level: hero.level, xp: hero.xp,
+      skillPoints: hero.skillPoints,
       abilityRanks: { ...hero.abilityRanks }, inventory: [...hero.inventory],
       deathTime: Game.tick,
     });
@@ -7478,8 +7577,9 @@ const GroundItems = {
       // Fog check: only draw if tile is visible
       if (!FogOfWar.isVisible(it.x, it.y)) continue;
       const pos = Camera.tileToScreen(it.x, it.y);
-      if (pos.x < -CELL || pos.x > Game.canvas.width + CELL ||
-          pos.y < -CELL || pos.y > Game.canvas.height + CELL) continue;
+      const _giZ = Camera.zoom || 1;
+      if (pos.x < -CELL || pos.x > Game.canvas.width / _giZ + CELL ||
+          pos.y < -CELL || pos.y > Game.canvas.height / _giZ + CELL) continue;
       // Pulsing glow effect
       const pulse = 0.7 + 0.3 * Math.sin(performance.now() / 300 + it.id);
       ctx.globalAlpha = pulse;
@@ -8326,9 +8426,10 @@ const Combat = {
           unit._windWalkBonus = 0;
           if (unit.owner === 0) Notifications.show('Wind Walk strike!', 800);
         }
-        // AI difficulty damage modifier (Easy: AI deals 80%, Hard: 120%)
+        // AI difficulty damage modifier (enemies only, ally plays Normal)
         if (unit.owner !== 0 && !unit.isCreep) {
-          const aiDmgMult = [0.8, 1.0, 1.2][Game.difficulty] || 1.0;
+          const _isAllyUnit = isAlly(0, unit.owner);
+          const aiDmgMult = _isAllyUnit ? 1.0 : ([0.8, 1.0, 1.2][Game.difficulty] || 1.0);
           finalRolledDmg = Math.round(finalRolledDmg * aiDmgMult);
         }
         const armor = (tgt.armor || 0) + defBonus;
@@ -10185,6 +10286,17 @@ const Training = {
     }
     if (!data) return false;
 
+    // Neutral building cooldown check
+    if (building.owner === NEUTRAL_PASSIVE && building._neutralCooldown > 0) {
+      if (_effectiveOwner === 0) Notifications.show(`Cooldown: ${Math.ceil(building._neutralCooldown)}s`, 1500, 'error');
+      return false;
+    }
+    // Neutral building proximity check (must have unit nearby)
+    if (building.owner === NEUTRAL_PASSIVE && !hasUnitNearBuilding(_effectiveOwner, building, 4)) {
+      if (_effectiveOwner === 0) Notifications.show('Move a unit near this building!', 2000, 'error');
+      return false;
+    }
+
     // Research: only 1 in queue, can't duplicate
     if (isResearch) {
       if (Upgrades.isResearched(_effectiveOwner, unitType) || Upgrades.isInProgress(_effectiveOwner, unitType)) {
@@ -10267,6 +10379,11 @@ const Training = {
 
     building.trainingProgress += dt / buildTime * (Game._instantBuild && (building.owner === 0 || (building.owner === NEUTRAL_PASSIVE && building._lastEnqueuedBy === 0)) ? 100 : 1);
 
+    // Neutral buildings: instant training (WC3 style)
+    if (building.owner === NEUTRAL_PASSIVE) {
+      building.trainingProgress = 1.0;
+    }
+
     if (building.trainingProgress >= 1.0) {
       building.trainingProgress = 0;
       building.trainingQueue.shift();
@@ -10284,6 +10401,10 @@ const Training = {
 
       if (building.trainingQueue.length > 0) {
         building.trainingProgress = 0;
+      }
+      // Neutral building cooldown (WC3: can't buy again immediately)
+      if (building.owner === NEUTRAL_PASSIVE) {
+        building._neutralCooldown = 15; // 15 second cooldown between purchases
       }
     }
   },
@@ -10387,7 +10508,7 @@ const Training = {
         } else {
           const data = UNIT_DATA[unitType];
           sym = data ? data.symbol : '?';
-          color = building.owner === 0 ? '#66aaff' : '#ff6666';
+          color = isAlly(0, building.owner) ? '#66aaff' : '#ff6666';
         }
         slot.textContent = sym;
         slot.style.color = color;
@@ -10695,6 +10816,7 @@ const CommandPanel = {
                     const nx = bld.x + dx, ny = bld.y + dy;
                     if (GameMap.isInBounds(nx, ny) && GameMap.tiles[ny][nx] === TILE.TREE) {
                       GameMap.tiles[ny][nx] = TILE.GRASS; GameMap.resourceData[ny][nx] = 0;
+                      TerrainBuffer.markDirty(nx, ny);
                       bld.hp = Math.min(bld.maxHp, bld.hp + 200);
                       Minimap.invalidate();
                       Notifications.show('Ate tree! +200 HP', 1500);
@@ -11052,7 +11174,8 @@ const AI_PROTO = {
     this._researchCooldown = 10;
     this._gatherTimer = 0;
     this._heroTrained = false;
-    this.difficulty = Game.difficulty;
+    // Allies of player 0 always play at Normal; enemies use selected difficulty
+    this.difficulty = isAlly(0, this.OWNER) ? 1 : Game.difficulty;
   },
 
   update(dt) {
