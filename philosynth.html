@@ -1701,6 +1701,83 @@
         display: block;
         margin-bottom: 3px;
       }
+      /* ── Раскрывающиеся поля шапки документа ── */
+      .header-disclosure {
+      border: 1px solid rgba(255, 255, 255, 0.2);
+      margin-bottom: 0;
+      }
+      .header-disclosure summary {
+      padding: 6px 14px;
+      cursor: pointer;
+      color: rgba(255, 255, 255, 0.55);
+      font-family: var(--mono);
+      font-size: 9px;
+      letter-spacing: 2px;
+      text-transform: uppercase;
+      background: rgba(255, 255, 255, 0.06);
+      list-style: none;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      user-select: none;
+      }
+      .header-disclosure summary::-webkit-details-marker { display: none; }
+      .header-disclosure summary::before {
+      content: "▶";
+      font-size: 7px;
+      transition: transform 0.2s;
+      display: inline-block;
+      }
+      .header-disclosure[open] summary::before { transform: rotate(90deg); }
+      .header-disclosure .disclosure-body {
+      padding: 10px 14px;
+      font-size: 12px;
+      line-height: 1.7;
+      color: rgba(255, 255, 255, 0.75);
+      font-family: var(--sans);
+      white-space: pre-wrap;
+      background: rgba(0, 0, 0, 0.12);
+      border-top: 1px solid rgba(255, 255, 255, 0.1);
+      }
+
+      /* ── Раскрывающийся контекст раздела в документе ── */
+      .sec-disclosure {
+      border: 1px solid var(--blue-corp);
+      margin-bottom: 12px;
+      }
+      .sec-disclosure summary {
+      padding: 6px 14px;
+      cursor: pointer;
+      color: var(--blue-corp);
+      font-family: var(--mono);
+      font-size: 9px;
+      letter-spacing: 2px;
+      text-transform: uppercase;
+      background: var(--blue-light);
+      list-style: none;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      user-select: none;
+      }
+      .sec-disclosure summary::-webkit-details-marker { display: none; }
+      .sec-disclosure summary::before {
+      content: "▶";
+      font-size: 7px;
+      transition: transform 0.2s;
+      display: inline-block;
+      }
+      .sec-disclosure[open] summary::before { transform: rotate(90deg); }
+      .sec-disclosure .disclosure-body {
+      padding: 10px 14px;
+      font-size: 12px;
+      line-height: 1.7;
+      color: var(--ink-mid);
+      font-family: var(--sans);
+      white-space: pre-wrap;
+      background: var(--white);
+      border-top: 1px solid var(--blue-corp);
+      }
     </style>
   </head>
   <body>
@@ -2175,6 +2252,7 @@
             <div class="doc-type">PhiloSynth Pro™ · Синтез Философской Концепции</div>
             <div class="doc-title" id="docTitle">Синтез Философской Концепции</div>
             <div class="doc-subtitle" id="docSubtitle">—</div>
+            <div id="docHeaderExtras" style="margin-top:14px;display:flex;flex-direction:column;gap:6px;"></div>
             <div class="doc-meta-grid">
               <div class="doc-meta-item">
                 <span class="doc-meta-key">Документ №</span>
@@ -3921,9 +3999,23 @@
       }
 
       function extractNameTitle(containerEl) {
-        const firstStrong = containerEl.querySelector("strong");
-        const title = firstStrong?.textContent?.trim();
-        const rationale = extractSection(containerEl, "обоснован");
+        // Ищем секцию "Итоговая рекомендация" (новый формат промпта)
+        const recSection = (() => {
+          const divs = containerEl.querySelectorAll("div[data-section]");
+          for (const div of divs) {
+            const sec = div.getAttribute("data-section").toLowerCase();
+            if (sec.includes("итогов") || sec.includes("рекоменд")) return div;
+          }
+          return null;
+        })();
+        // Берём strong из секции рекомендации; фолбэк — первый strong вообще (старый формат)
+        const strong = recSection
+          ? recSection.querySelector("strong")
+          : containerEl.querySelector("strong");
+        const title = strong?.textContent?.trim();
+        const rationale = recSection
+          ? recSection.innerText?.trim()
+          : extractSection(containerEl, "обоснован");
         let result = "";
         if (title) result += "НАЗВАНИЕ КОНЦЕПЦИИ: «" + title + "»";
         if (rationale) result += "\n" + rationale;
@@ -4717,24 +4809,16 @@ ${LEVEL_THESES_NOVELTY[thesesLevel]}
 
 Оформи ТОЧНО следующие секции (каждую — в <div data-section="..."> согласно правилам форматирования):
 
-«Предложенное название»
-Лаконичное, содержательное, узнаваемое в философской традиции. Выдели жирным (<strong>). Название должно отражать сущность концепции.
+«Таблица вариантов названия»
+Предложи 5–7 вариантов названия концепции. Оформи как таблицу с колонками:
+Название | Плюсы | Минусы | Что подчёркивает | Что теряет | Оценка (1–10).
+Каждый вариант — лаконичный, содержательный, узнаваемый в философской традиции.
 
-«Обоснование названия»
-Почему именно это название, какие аспекты концепции оно схватывает, какие традиции отражает. Как оно соотносится с существующей философской терминологией.
-
-«Лингвистический анализ»
-Этимология, коннотации, потенциальные ассоциации, однозначность vs двусмысленность, звучание на разных языках.
-
-«Что подчёркивает и что теряет»
-Какие аспекты концепции подчёркиваются в названии, а какие остаются в тени? Насколько точно название отражает суть?
-
-«Альтернативные названия»
-Предложи 3–5 альтернатив с развёрнутым анализом каждой.
-Таблица: Название | Плюсы | Минусы | Что подчёркивает | Что теряет.
+«Сравнительный анализ вариантов»
+Для каждого варианта из таблицы — развёрнутый анализ: этимология, коннотации, потенциальные ассоциации, однозначность vs двусмысленность, звучание на разных языках, соответствие традициям выбранных философов, точность отражения сути концепции.
 
 «Итоговая рекомендация»
-Какое название принять и почему. Отдельно: соответствие названия историческому контексту, методу и уровню синтеза.
+На основании проведённого сравнительного анализа определи оптимальное название. Выдели итоговое название жирным (<strong>). Обоснуй выбор: почему именно этот вариант превосходит конкурентов, какие аспекты концепции он схватывает наилучшим образом, как соотносится с существующей философской терминологией. Отдельно: соответствие историческому контексту, методу и уровню синтеза.
 
 Мин. ${mw(p)} слов.`,
           });
@@ -4969,6 +5053,64 @@ ${METHOD_CRITIQUE(p)[p.method] || ""}
       }
 
       // ════════════════════════════════════════
+      // HELPER: раскрывающиеся поля шапки и разделов
+      // ════════════════════════════════════════
+
+      /** Создаёт <details> для шапки документа (светлый текст на тёмном фоне) */
+      function makeHeaderDisclosure(label, text) {
+        const details = document.createElement("details");
+        details.className = "header-disclosure";
+        const summary = document.createElement("summary");
+        summary.textContent = label;
+        const body = document.createElement("div");
+        body.className = "disclosure-body";
+        body.textContent = text;
+        details.appendChild(summary);
+        details.appendChild(body);
+        return details;
+      }
+
+      /** Заполняет контейнер docHeaderExtras раскрывающимися полями зерна и контекста */
+      function buildDocHeaderExtras(seed, ctx) {
+        const container = document.getElementById("docHeaderExtras");
+        if (!container) return;
+        container.innerHTML = "";
+        if (seed) container.appendChild(makeHeaderDisclosure("Зерно концепции", seed));
+        if (ctx)  container.appendChild(makeHeaderDisclosure("Дополнительный контекст", ctx));
+      }
+
+      /** Создаёт <details> для вставки доп. контекста в начало раздела документа */
+      function makeSectionCtxDisclosure(text) {
+        const details = document.createElement("details");
+        details.className = "sec-disclosure";
+        const summary = document.createElement("summary");
+        summary.textContent = "Дополнительный контекст раздела";
+        const body = document.createElement("div");
+        body.className = "disclosure-body";
+        body.textContent = text;
+        details.appendChild(summary);
+        details.appendChild(body);
+        return details;
+      }
+
+      /** Ищет итоговое название в сгенерированном разделе "name" и обновляет docTitle */
+      function updateDocTitleFromName(nameContainer) {
+        const divs = nameContainer.querySelectorAll("div[data-section]");
+        let recSection = null;
+        for (const div of divs) {
+          const sec = div.getAttribute("data-section").toLowerCase();
+          if (sec.includes("итогов") || sec.includes("рекоменд")) { recSection = div; break; }
+        }
+        const strong = recSection
+          ? recSection.querySelector("strong")
+          : nameContainer.querySelector("strong");
+        const nameText = strong?.textContent?.trim();
+        if (nameText) {
+          document.getElementById("docTitle").textContent = nameText;
+        }
+      }
+
+      // ════════════════════════════════════════
       // GENERATION
       // ════════════════════════════════════════
       async function generateDoc() {
@@ -5042,6 +5184,9 @@ ${METHOD_CRITIQUE(p)[p.method] || ""}
           ? `«${seed.substring(0, 90)}${seed.length > 90 ? "..." : ""}»`
           : `На основе: ${phil.join(", ")}`;
         document.getElementById("sessionId").textContent = docNum;
+
+        // Заполняем раскрывающиеся поля шапки (зерно, контекст)
+        buildDocHeaderExtras(seed, ctx);
         document.getElementById("footerPhil").textContent = phil.join(", ");
 
         const effectiveDeps = buildEffectiveDeps(p.sec, resolveContextDeps(p));
@@ -5188,6 +5333,21 @@ ${METHOD_CRITIQUE(p)[p.method] || ""}
 
             st.className = "progress-step done";
             st.querySelector(".step-icon").textContent = "✓";
+
+            // Вставить блок доп. контекста раздела в начало раздела (если задан)
+            for (const def of pass) {
+              const ctxText = p.secCtx?.[def.key];
+              if (ctxText) {
+                const disc = makeSectionCtxDisclosure(ctxText);
+                ct.insertBefore(disc, ct.firstChild);
+              }
+            }
+
+            // Обновить docTitle из итогового названия (если это раздел "name")
+            if (pass.some(d => d.key === "name")) {
+              updateDocTitleFromName(ct);
+            }
+
             if (i === graphBodyIdx) {
               try {
                 G = parseGraph(ct);
@@ -6395,6 +6555,11 @@ ${METHOD_CRITIQUE(p)[p.method] || ""}
             m.material.opacity           = m.userData.baseOpacity;
             m.material.emissiveIntensity = 0.15;
             m.scale.setScalar(1);
+            // Восстанавливаем торические кольца
+            m.children.forEach(c => {
+              if (c.geometry?.type === 'TorusGeometry' && c.material)
+                c.material.opacity = 0.55;
+            });
           });
           edgeMaterials.forEach(mat => {
             mat.opacity = mat.userData?.baseOp ?? mat.opacity;
@@ -6490,6 +6655,11 @@ ${METHOD_CRITIQUE(p)[p.method] || ""}
             if (!visSet.has(idx)) {
               m.material.opacity           = DIM_OPACITY;
               m.material.emissiveIntensity = DIM_EMISSIVE;
+              // Затеняем торические кольца вместе с узлом
+              m.children.forEach(c => {
+                if (c.geometry?.type === 'TorusGeometry' && c.material)
+                  c.material.opacity = DIM_OPACITY;
+              });
             }
           });
           scene.children.forEach(c => {
@@ -7627,7 +7797,7 @@ ${METHOD_CRITIQUE(p)[p.method] || ""}
   var renderer3d = null;
   var scene3d = null;
   var sim2d = null;
-  var clusterVisible   = true;   
+  var clusterVisible   = false;   
   var clusterObjects3d = null;   
   var clusterObjects2d = null;
 
@@ -7657,6 +7827,37 @@ ${METHOD_CRITIQUE(p)[p.method] || ""}
 <script src="https://cdnjs.cloudflare.com/ajax/libs/d3/7.8.5/d3.min.js"><\/script>
 <script>${initScript}<\/script>`;
       }
+
+      // ── CSS pretty-print ────────────────────────────────────────────
+      function formatStyleBlock(header, styleObj, indent) {
+        indent = indent || '';
+        const props = [];
+        for (let i = 0; i < styleObj.length; i++) {
+          const prop = styleObj[i];
+          const val  = styleObj.getPropertyValue(prop);
+          const prio = styleObj.getPropertyPriority(prop);
+          props.push(`${indent}  ${prop}: ${val}${prio ? ' !important' : ''};`);
+        }
+        return `${indent}${header} {\n${props.join('\n')}\n${indent}}`;
+      }
+
+      // Обычное правило: .foo { ... }
+      function formatRule(rule, indent) {
+        return formatStyleBlock(rule.selectorText, rule.style, indent || '');
+      }
+
+      // @font-face { ... }
+      function formatFontFace(rule) {
+        return formatStyleBlock('@font-face', rule.style);
+      }
+
+      // @keyframes name { from { ... } to { ... } }
+      function formatKeyframes(rule) {
+        const frames = Array.from(rule.cssRules).map(frame =>
+          formatStyleBlock(frame.keyText, frame.style, '  ')
+        );
+        return `@keyframes ${rule.name} {\n${frames.join('\n')}\n}`;
+      }
  
       function buildFilteredStyles(contentHTML) {
         const tempDoc = new DOMParser().parseFromString(
@@ -7667,7 +7868,10 @@ ${METHOD_CRITIQUE(p)[p.method] || ""}
         // Классы, добавляемые через JS — не видны в статическом HTML
         const DYNAMIC_RE = /\.(?:visible|active|loading|open|done|_checked)\b/g;
 
+        const D3_SVG_RE = /\.(?:node-label|node-circle|node-g|edge-line|edge-arc(?:-hit)?|edge-hit|cluster-ring|cluster-hull|cluster-label)\b/;
+
         function selectorHits(selectorText) {
+          if (D3_SVG_RE.test(selectorText)) return true;
           const variants = [selectorText];
           const withoutDynamic = selectorText.replace(DYNAMIC_RE, '').replace(/\s+/g, ' ').trim();
           if (withoutDynamic && withoutDynamic !== selectorText)
@@ -7704,13 +7908,13 @@ ${METHOD_CRITIQUE(p)[p.method] || ""}
 
           for (const rule of rules) {
             if (rule.type === CSSRule.STYLE_RULE) {
-              if (selectorHits(rule.selectorText)) out.push(rule.cssText);
+              if (selectorHits(rule.selectorText)) out.push(formatRule(rule));
 
             } else if (rule.type === CSSRule.MEDIA_RULE) {
               const subOut = [];
               for (const sub of rule.cssRules) {
                 if (sub.type === CSSRule.STYLE_RULE) {
-                  if (selectorHits(sub.selectorText)) subOut.push('  ' + sub.cssText);
+                  if (selectorHits(sub.selectorText)) subOut.push(formatRule(sub, '  '));
                 } else {
                   subOut.push('  ' + sub.cssText);
                 }
@@ -7719,8 +7923,9 @@ ${METHOD_CRITIQUE(p)[p.method] || ""}
                 out.push(`@media ${rule.conditionText} {\n${subOut.join('\n')}\n}`);
 
             } else {
-              // @keyframes, @font-face, @supports — всегда оставить
-              out.push(rule.cssText);
+              if (rule.type === CSSRule.KEYFRAMES_RULE)      out.push(formatKeyframes(rule));
+              else if (rule.type === CSSRule.FONT_FACE_RULE) out.push(formatFontFace(rule));
+              else out.push(rule.cssText); // неизвестный @-тип — как есть, на всякий случай
             }
           }
         }
