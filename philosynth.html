@@ -903,7 +903,7 @@
         overflow: hidden;
       }
       .gm-body canvas,
-      .gm-body < svg {
+      .gm-body > svg {
         display: block;
         width: 100%;
         height: 100%;
@@ -2234,6 +2234,7 @@
         <div class="gm-actions">
           <div class="gm-tabs">
             <button class="gm-btn active" id="tab3d" onclick="switchView('3d')">3D</button>
+            <button class="gm-btn" id="tabClusters" onclick="toggleClusters()">◎ Кластеры</button>
             <button class="gm-btn" id="tab2d" onclick="switchView('2d')">2D</button>
           </div>
           <button class="gm-btn gold" onclick="exportMMD()">↓ .mmd</button>
@@ -2293,7 +2294,10 @@
         anim3d = null,
         renderer3d = null,
         scene3d = null,
-        sim2d = null;
+        sim2d = null,
+        clusterVisible   = false,
+        clusterObjects3d = null,
+        clusterObjects2d = null;
 
       const ML = {
         dialectical: "Диалектический",
@@ -6034,6 +6038,27 @@ ${METHOD_CRITIQUE(p)[p.method] || ""}
           sp.position.set(n.x, n.y + r + 2.5, n.z);
           sp.userData = { labelFor: n.id };
           scene.add(sp);
+
+          // Торические кольца кластеров — одно кольцо на каждый кластер узла.
+          // Дочерние объекты mesh → следуют за узлом без ручного обновления.
+          const clusterList = G.topology?.clusters?.[n.name] || [];
+          clusterList.forEach((clIdx) => {
+            const clColor = parseInt(
+              (CPAL[clIdx % CPAL.length] || "#555555").replace("#", ""), 16
+            );
+            const torusR = r + 2.5;   // фиксированный: чуть больше тела узла
+            const torus = new THREE.Mesh(
+              new THREE.TorusGeometry(torusR, 0.5, 6, 24),
+              new THREE.LineBasicMaterial({
+                color: clColor, transparent: true,
+                opacity: 0.55, depthWrite: false,
+              }),
+            );
+            // Уникальный угол наклона для каждого кластера → различимы при пересечении
+            torus.rotation.x = (clIdx * 1.3) % Math.PI;
+            torus.rotation.z = (clIdx * 0.9) % Math.PI;
+            m.add(torus);
+          });
         }
 
         const edgeGeos      = [];  // { geo, si, ti }
@@ -6194,9 +6219,10 @@ ${METHOD_CRITIQUE(p)[p.method] || ""}
           }
         }
 
-        // A3 — кластерные оболочки
-        // Строим после создания рёбер; позиции ns уже установлены warmup().
-        const clusterShells = [];  // { mesh, clusterIdx } — обновляем в updateAllVisuals
+        // A3 — кластерные оболочки (wireframe-эллипсоид) + спрайты-метки кластеров
+        // Позиция и масштаб обновляются в updateAllVisuals по bounding box.
+        const clusterShells      = [];  // { mesh, clusterIdx }
+        const clusterLabelSprites = []; // { sprite, clusterIdx }
         {
           const topo   = G.topology;
           const labels = topo?.clusterLabels || [];
@@ -6213,17 +6239,27 @@ ${METHOD_CRITIQUE(p)[p.method] || ""}
             for (const [idxStr, members] of Object.entries(clusterNodes)) {
               const idx   = Number(idxStr);
               const color = parseInt((CPAL[idx % CPAL.length] || "#555555").replace("#", ""), 16);
-              // Создаём оболочку; позиция и радиус будут обновлены в updateAllVisuals
-              const shell = new THREE.Mesh(
-                new THREE.SphereGeometry(1, 16, 16),
-                new THREE.MeshBasicMaterial({
-                  color, transparent: true, opacity: 0.04,
-                  side: THREE.BackSide, depthWrite: false,
+
+              // Wireframe-эллипсоид: EdgesGeometry поверх SphereGeometry(1,…)
+              // Итоговая форма задаётся через mesh.scale в updateAllVisuals
+              const sphereGeo = new THREE.SphereGeometry(1, 10, 8);
+              const shell = new THREE.LineSegments(
+                new THREE.EdgesGeometry(sphereGeo),
+                new THREE.LineBasicMaterial({
+                  color, transparent: true, opacity: 0.18, depthWrite: false,
                 }),
               );
               shell.userData = { clusterIdx: idx };
               scene.add(shell);
               clusterShells.push({ mesh: shell, clusterIdx: idx });
+
+              // Спрайт-метка кластера (имя без римского префикса)
+              const rawLabel = labels[idx] || `Кластер ${idx + 1}`;
+              const labelText = rawLabel.replace(/^[IVXLCDM]+\s*[-–—]\s*/i, "").trim();
+              const labelSpr = mkSprite(labelText);
+              labelSpr.userData = { clusterLabelIdx: idx };
+              scene.add(labelSpr);
+              clusterLabelSprites.push({ sprite: labelSpr, clusterIdx: idx });
             }
           }
         }
@@ -6284,24 +6320,51 @@ ${METHOD_CRITIQUE(p)[p.method] || ""}
               }
             }
           }
-          // A3: кластерные оболочки — пересчитываем центроид и радиус
+          // A3: wireframe-эллипсоиды — bounding box по осям + спрайты-метки
           if (clusterShells.length) {
             const topo = G.topology;
-            for (const { mesh, clusterIdx } of clusterShells) {
-              const members = ns.filter(n => (topo.clusters?.[n.name] || []).includes(clusterIdx));
+            const PAD  = 12;  // отступ вокруг крайних узлов
+
+            // Общий расчёт центроидов (нужен и для оболочек, и для меток)
+            const centroids = {};
+            for (const { clusterIdx } of clusterShells) {
+              const members = ns.filter(n =>
+                (topo.clusters?.[n.name] || []).includes(clusterIdx)
+              );
               if (!members.length) continue;
-              // Центроид
-              const cx = members.reduce((s, n) => s + n.x, 0) / members.length;
-              const cy = members.reduce((s, n) => s + n.y, 0) / members.length;
-              const cz = members.reduce((s, n) => s + n.z, 0) / members.length;
+              centroids[clusterIdx] = {
+                cx: members.reduce((s, n) => s + n.x, 0) / members.length,
+                cy: members.reduce((s, n) => s + n.y, 0) / members.length,
+                cz: members.reduce((s, n) => s + n.z, 0) / members.length,
+                members,
+              };
+            }
+
+            // Wireframe-эллипсоиды: scale по полуосям bounding box
+            for (const { mesh, clusterIdx } of clusterShells) {
+              const c = centroids[clusterIdx];
+              if (!c) continue;
+              const { cx, cy, cz, members } = c;
               mesh.position.set(cx, cy, cz);
-              // Радиус = максимальное расстояние от центроида + отступ 12
-              const maxDist = members.reduce((mx, n) => {
-                const d = Math.sqrt((n.x-cx)**2 + (n.y-cy)**2 + (n.z-cz)**2);
-                return Math.max(mx, d);
-              }, 0);
-              const r = maxDist + 12;
-              mesh.scale.setScalar(r);
+
+              const xs = members.map(n => n.x);
+              const ys = members.map(n => n.y);
+              const zs = members.map(n => n.z);
+              // Полуось = (max - min) / 2 + отступ; минимум PAD (для одиночных узлов)
+              mesh.scale.set(
+                Math.max(PAD, (Math.max(...xs) - Math.min(...xs)) / 2 + PAD),
+                Math.max(PAD, (Math.max(...ys) - Math.min(...ys)) / 2 + PAD),
+                Math.max(PAD, (Math.max(...zs) - Math.min(...zs)) / 2 + PAD),
+              );
+            }
+
+            // Спрайты-метки: позиционируем над верхней границей эллипсоида
+            for (const { sprite, clusterIdx } of clusterLabelSprites) {
+              const c = centroids[clusterIdx];
+              if (!c) continue;
+              const ys     = c.members.map(n => n.y);
+              const topY   = Math.max(...ys) + PAD + 6;
+              sprite.position.set(c.cx, topY, c.cz);
             }
           }
         }
@@ -6814,6 +6877,10 @@ ${METHOD_CRITIQUE(p)[p.method] || ""}
           cam.updateProjectionMatrix();
           renderer3d.setSize(w, h);
         }).observe(ct);
+
+        // Сохраняем ссылки для toggleClusters и применяем текущее состояние
+        clusterObjects3d = { shells: clusterShells, labelSprites: clusterLabelSprites };
+        applyClusters3D();
       }
 
       function build2D() {
@@ -6859,6 +6926,17 @@ ${METHOD_CRITIQUE(p)[p.method] || ""}
         const ringData = nodes.flatMap(n =>
           n.cluster.map((clIdx, offset) => ({ node: n, clIdx, offset }))
         );
+
+        // Группировка узлов по кластерам (для hull и меток)
+        const clusterGroups = {};
+        nodes.forEach(n => {
+          n.cluster.forEach(clIdx => {
+            if (!clusterGroups[clIdx]) clusterGroups[clIdx] = [];
+            clusterGroups[clIdx].push(n);
+          });
+        });
+        const clusterGroupEntries = Object.entries(clusterGroups)
+          .map(([idxStr, members]) => ({ clIdx: Number(idxStr), members }));
        
         // ── SVG-сцена ─────────────────────────────────────────────────────────
         const svg = d3.select(ct).append("svg")
@@ -6979,6 +7057,34 @@ ${METHOD_CRITIQUE(p)[p.method] || ""}
           .attr("stroke-width",    1.5)
           .attr("stroke-dasharray","3,2")
           .attr("pointer-events",  "none");
+
+        // ── Выпуклые оболочки кластеров (под узлами) ──────────────────────────
+        const clusterHull = g.selectAll(".cluster-hull").data(clusterGroupEntries).enter()
+          .append("path").attr("class", "cluster-hull")
+          .attr("fill",           d => CPAL[d.clIdx % CPAL.length])
+          .attr("fill-opacity",   0.06)
+          .attr("stroke",         d => CPAL[d.clIdx % CPAL.length])
+          .attr("stroke-opacity", 0.30)
+          .attr("stroke-width",   1.5)
+          .attr("stroke-dasharray", "6,3")
+          .attr("stroke-linejoin", "round")
+          .attr("pointer-events", "none")
+          .attr("d", "");
+
+        // ── Текстовые метки кластеров ──────────────────────────────────────────
+        const clusterLabel2d = g.selectAll(".cluster-label").data(clusterGroupEntries).enter()
+          .append("text").attr("class", "cluster-label")
+          .attr("font-family",  "IBM Plex Mono, monospace")
+          .attr("font-size",    "9px")
+          .attr("letter-spacing", "1px")
+          .attr("fill",         d => CPAL[d.clIdx % CPAL.length])
+          .attr("fill-opacity", 0.55)
+          .attr("text-anchor",  "middle")
+          .attr("pointer-events", "none")
+          .text(d => {
+            const raw = topo.clusterLabels?.[d.clIdx] || `Кластер ${d.clIdx + 1}`;
+            return raw.replace(/^[IVXLCDM]+\s*[-–—]\s*/i, "").trim();
+          });
        
         // ── Узлы ──────────────────────────────────────────────────────────────
         const nodeEnter = g.selectAll(".node-g").data(nodes).enter()
@@ -7057,9 +7163,12 @@ ${METHOD_CRITIQUE(p)[p.method] || ""}
             if (t === d.id) nbrIds.add(s);
           });
           const DIM = 0.08;
-          node.attr("opacity",        n => nbrIds.has(n.id) ? 1 : DIM);
-          label.attr("opacity",       n => nbrIds.has(n.id) ? 1 : DIM);
-          clusterRing.attr("opacity", d => nbrIds.has(d.node.id) ? 1 : DIM);
+          node.attr("opacity",         n => nbrIds.has(n.id) ? 1 : DIM);
+          label.attr("opacity",        n => nbrIds.has(n.id) ? 1 : DIM);
+          clusterRing.attr("opacity",  d => nbrIds.has(d.node.id) ? 1 : DIM);
+          // Hull и метки: диммируем кластеры, не содержащие выбранный узел
+          clusterHull.attr("opacity",     d => d.members.some(m => nbrIds.has(m.id)) ? 1 : DIM);
+          clusterLabel2d.attr("opacity",  d => d.members.some(m => nbrIds.has(m.id)) ? 1 : DIM);
           link.attr("opacity", l => {
             const s = typeof l.source === "object" ? l.source.id : l.source;
             const t = typeof l.target === "object" ? l.target.id : l.target;
@@ -7076,6 +7185,8 @@ ${METHOD_CRITIQUE(p)[p.method] || ""}
           node.attr("opacity", 1);
           label.attr("opacity", 1);
           clusterRing.attr("opacity", 1);
+          clusterHull.attr("opacity", 1);
+          clusterLabel2d.attr("opacity", 1);
           link.attr("opacity", null);
           arc.attr("opacity", null);
         }
@@ -7157,7 +7268,70 @@ ${METHOD_CRITIQUE(p)[p.method] || ""}
           node.attr("transform", d => `translate(${d.x},${d.y})`);   // ← заменяет cx/cy
           clusterRing.attr("cx", d => d.node.x).attr("cy", d => d.node.y);    // остаётся
           label.attr("x",        d => d.x).attr("y", d => d.y);
+
+          // Hull-оболочки и метки кластеров
+          clusterHull.attr("d", d => {
+            // Отступ вокруг каждого узла — чтобы hull не прилипал вплотную к точкам
+            const PAD = 22;
+            // Набираем точки с «подушкой»: для каждого узла добавляем 8 смещённых точек
+            const pts = [];
+            d.members.forEach(n => {
+              const r = 6 + (n.cen || 0) * 14 + PAD;
+              for (let i = 0; i < 8; i++) {
+                const a = (i / 8) * 2 * Math.PI;
+                pts.push([n.x + Math.cos(a) * r, n.y + Math.sin(a) * r]);
+              }
+            });
+            const hull = d3.polygonHull(pts);
+            if (!hull) return "";
+            return "M" + hull.map(p => p.join(",")).join("L") + "Z";
+          });
+
+          clusterLabel2d.each(function(d) {
+            // Позиция метки — над самой верхней точкой hull (минимальный y)
+            const PAD = 22;
+            const pts = [];
+            d.members.forEach(n => {
+              const r = 6 + (n.cen || 0) * 14 + PAD;
+              for (let i = 0; i < 8; i++) {
+                const a = (i / 8) * 2 * Math.PI;
+                pts.push([n.x + Math.cos(a) * r, n.y + Math.sin(a) * r]);
+              }
+            });
+            const hull = d3.polygonHull(pts);
+            if (!hull) return;
+            const topPt = hull.reduce((a, b) => b[1] < a[1] ? b : a);
+            d3.select(this).attr("x", topPt[0]).attr("y", topPt[1] - 5);
+          });
         });
+        // Сохраняем ссылки для toggleClusters и применяем текущее состояние
+        clusterObjects2d = { hull: clusterHull, label: clusterLabel2d };
+        applyClusters2D();
+      }
+
+      // ── Применяет clusterVisible к объектам 3D-вида ──────────────────────────
+      function applyClusters3D() {
+        if (!clusterObjects3d) return;
+        const v = clusterVisible;
+        clusterObjects3d.shells.forEach(({ mesh }) => { mesh.visible = v; });
+        clusterObjects3d.labelSprites.forEach(({ sprite }) => { sprite.visible = v; });
+      }
+
+      // ── Применяет clusterVisible к объектам 2D-вида ──────────────────────────
+      function applyClusters2D() {
+        if (!clusterObjects2d) return;
+        const d = clusterVisible ? null : "none";
+        clusterObjects2d.hull.attr("display",  d);
+        clusterObjects2d.label.attr("display", d);
+      }
+
+      // ── Переключатель: вызывается кнопкой ◎ Кластеры ─────────────────────────
+      function toggleClusters() {
+        clusterVisible = !clusterVisible;
+        const btn = document.getElementById("tabClusters");
+        if (btn) btn.classList.toggle("active", clusterVisible);
+        applyClusters3D();
+        applyClusters2D();
       }
 
       function buildLegend(nodeTypes, edgeTypes, clusterLabels, mode) {
@@ -7396,6 +7570,10 @@ ${METHOD_CRITIQUE(p)[p.method] || ""}
         // ── 2. Сериализуем все функции графа через .toString() ──
         // Порядок важен: хелперы — перед потребителями.
         const fnBundle = [
+          normalizeName,
+          normalizeType,
+          parseTopology,
+          parseGraph,
            _hexToHSL,
           _hslToHex,
           _blendHex,
@@ -7412,75 +7590,57 @@ ${METHOD_CRITIQUE(p)[p.method] || ""}
           tick,
           warmup,
           mkSprite,
+          applyClusters3D, 
+          applyClusters2D, 
+          toggleClusters,
           build3D,
           build2D,
           buildLegend,
           switchView,
           openGraph,
           closeGraph,
-          exportMMD,
+          getDocFilename,
           downloadFile,
+          exportMMD,
         ]
           .map((fn) => fn.toString())
           .join("\n\n");
+
+        const constBundle = [
+          ["TC",                  TC],
+          ["EC",                  EC],
+          ["CPAL",                CPAL],
+          ["ROLE_SHAPE_PRIORITY", ROLE_SHAPE_PRIORITY],
+        ].map(([name, val]) => `const ${name} = ${JSON.stringify(val)};`).join("\n");
  
         // ── 3. Собираем самодостаточный скрипт ──
         // getDocFilename фиксируется по базовому имени на момент сохранения.
         // Все функции экспортируются в window, чтобы работали onclick-атрибуты
         // внутри клонированного модального HTML.
+
         const initScript = `
 (function () {
-  var G = ${JSON.stringify(graphData, (key, value) => value instanceof Set ? [...value] : value, 2)};
+
+  ${constBundle}
+
+  var G = { nodes: [], edges: [], topology: { clusters: {}, roles: {}, clusterLabels: [] } };
   var anim3d = null;
   var renderer3d = null;
   var scene3d = null;
   var sim2d = null;
+  var clusterVisible   = true;   
+  var clusterObjects3d = null;   
+  var clusterObjects2d = null;
+
+  document.addEventListener('DOMContentLoaded', function () {
+    var ct = document.getElementById('docOutput') || document.body;
+    var parsed = parseGraph(ct);
+    if (parsed.nodes.length) G = parsed;
+  });
  
   function getDocFilename(ext) {
     return ${JSON.stringify(filenameBase)} + (ext ? "." + ext : "");
   }
-
-  const TC = {
-    онтологическ: 0x4a90d9,
-    эпистемологическ: 0x50c878,
-    этическ: 0xe8a838,
-    аксиологическ: 0xe8a838,
-    метафизическ: 0x9b59b6,
-    логическ: 0x1abc9c,
-    практическ: 0xe67e22,
-    эстетическ: 0xe91e63,
-    антропологическ: 0xf39c12,
-    феноменологическ: 0x8e44ad,
-    экзистенциальн: 0xc0392b,
-    социальн: 0x27ae60,
-    политическ: 0x2980b9,
-    теологическ: 0x7f8c8d,
-  };
-
-  const EC = {
-    иерархическ:      { color: "#7f8c8d", dash: null   },
-    диалектическ:     { color: "#e74c3c", dash: null   },
-    каузальн:         { color: "#4a90d9", dash: null   },
-    корреляционн:     { color: "#aaaaaa", dash: "5,3"  },
-    дополнительност:  { color: "#2ecc71", dash: null   },
-    противоречи:      { color: "#c0392b", dash: "7,3"  },
-    эмерджентн:       { color: "#f1c40f", dash: null   },
-    часть:            { color: "#8e44ad", dash: null   },
-    средство:         { color: "#e67e22", dash: null   },
-    основани:         { color: "#1abc9c", dash: null   },
-    определяющ:       { color: "#d35400", dash: "9,3"  },
-    развити:          { color: "#27ae60", dash: null   },
-  };
-
-  const CPAL = [
-    "#4a90d9","#e8a838","#50c878","#e74c3c",
-    "#9b59b6","#1abc9c","#f39c12","#e91e63",
-  ];
-
-  const ROLE_SHAPE_PRIORITY = [
-    "synthesis", "thesis", "antithesis", "generative", "core",
-    "bridge", "central", "deconstructed", "reassembled", "peripheral"
-  ];
  
   ${fnBundle}
  
@@ -7489,6 +7649,7 @@ ${METHOD_CRITIQUE(p)[p.method] || ""}
   window.closeGraph  = closeGraph;
   window.switchView  = switchView;
   window.exportMMD   = exportMMD;
+  window.toggleClusters = toggleClusters;
 })();`;
  
         // ── 4. Кнопки-контролы встраиваются в saveHTML() в начало раздела графа ──
@@ -7498,71 +7659,80 @@ ${METHOD_CRITIQUE(p)[p.method] || ""}
 <script>${initScript}<\/script>`;
       }
  
-      /*
-      function buildFilteredStyles() {
-        const docOutput = document.getElementById("docOutput");
+      function buildFilteredStyles(contentHTML) {
+        const tempDoc = new DOMParser().parseFromString(
+          `<!DOCTYPE html><html><body>${contentHTML}</body></html>`,
+          'text/html'
+        );
 
-        function selectorKept(selectorText) {
-          // Проверяем каждую часть составного селектора (через запятую)
-          return selectorText.split(",").map(s => s.trim()).some(sel => {
-            // 1. Общие селекторы страницы
-            if (/^(\*|html|body|:root)/.test(sel)) return true;
-            // 2. Модальные окна: .gm-* и .raw-*
-            if (/\.(gm|raw)-/.test(sel)) return true;
-            // 3. Используется в docOutput — убираем псевдоклассы/псевдоэлементы перед querySelector
-            const stripped = sel
-              .replace(/::?[\w-]+(\([^)]*\))?/g, "")
-              .trim();
-            if (!stripped) return true; // был только псевдокласс — оставляем
+        // Классы, добавляемые через JS — не видны в статическом HTML
+        const DYNAMIC_RE = /\.(?:visible|active|loading|open|done|_checked)\b/g;
+
+        function selectorHits(selectorText) {
+          const variants = [selectorText];
+          const withoutDynamic = selectorText.replace(DYNAMIC_RE, '').replace(/\s+/g, ' ').trim();
+          if (withoutDynamic && withoutDynamic !== selectorText)
+            variants.push(withoutDynamic);
+
+          for (const variant of variants) {
+            // Убираем псевдоэлементы и псевдоклассы: ::before, :hover, :nth-child(n)
+            const bare = variant
+              .split(',')
+              .map(s =>
+                s.replace(/::[\w-]+/g, '')
+                 .replace(/:[\w-]+(\([^)]*\))?/g, '')
+                 .replace(/\s+/g, ' ')
+                 .trim()
+              )
+              .filter(Boolean)
+              .join(',');
+
+            if (!bare) return true; // был только псевдо (:root и т.п.) — оставить
             try {
-              return docOutput.querySelector(stripped) !== null;
-            } catch (e) {
-              return false; // невалидный селектор после стрипа — пропускаем
-            }
-          });
-        }
-
-        function processRules(rules) {
-          const kept = [];
-          for (const rule of rules) {
-            if (rule instanceof CSSStyleRule) {
-              if (selectorKept(rule.selectorText)) kept.push(rule.cssText);
-            } else if (rule instanceof CSSMediaRule) {
-              const inner = processRules(rule.cssRules);
-              if (inner.length)
-                kept.push(`@media ${rule.conditionText} {\n${inner.join("\n")}\n}`);
-            } else if (rule instanceof CSSSupportsRule) {
-              const inner = processRules(rule.cssRules);
-              if (inner.length)
-                kept.push(`@supports ${rule.conditionText} {\n${inner.join("\n")}\n}`);
-            } else {
-              // @keyframes, @font-face и прочее — сохраняем всегда
-              kept.push(rule.cssText);
+              if (tempDoc.querySelector(bare) !== null) return true;
+            } catch {
+              return true; // невалидный селектор — оставить на всякий случай
             }
           }
-          return kept;
+          return false;
         }
 
-        const result = [];
+        const out = [];
         for (const sheet of document.styleSheets) {
-          try {
-            const rules = processRules(sheet.cssRules);
-            if (rules.length)
-              result.push(`<style>\n${rules.join("\n\n")}\n</style>`);
-          } catch (e) {
-            // cross-origin таблицы (внешние CDN) — пропускаем
+          let rules;
+          try { rules = Array.from(sheet.cssRules || []); }
+          catch { continue; }
+
+          for (const rule of rules) {
+            if (rule.type === CSSRule.STYLE_RULE) {
+              if (selectorHits(rule.selectorText)) out.push(rule.cssText);
+
+            } else if (rule.type === CSSRule.MEDIA_RULE) {
+              const subOut = [];
+              for (const sub of rule.cssRules) {
+                if (sub.type === CSSRule.STYLE_RULE) {
+                  if (selectorHits(sub.selectorText)) subOut.push('  ' + sub.cssText);
+                } else {
+                  subOut.push('  ' + sub.cssText);
+                }
+              }
+              if (subOut.length)
+                out.push(`@media ${rule.conditionText} {\n${subOut.join('\n')}\n}`);
+
+            } else {
+              // @keyframes, @font-face, @supports — всегда оставить
+              out.push(rule.cssText);
+            }
           }
         }
-        return result.join("\n");
+
+        return `<style>\n${out.join('\n\n')}\n</style>`;
       }
-      */
 
       function saveHTML() {
-        const styles = Array.from(document.querySelectorAll("style"))
-          .map((s) => s.outerHTML)
-          .join("\n");
-
-        // const styles = buildFilteredStyles();
+        //const styles = Array.from(document.querySelectorAll("style"))
+        //  .map((s) => s.outerHTML)
+        //  .join("\n");
 
         // Базовое имя файла фиксируется на момент сохранения (без расширения)
         const filenameBase = getDocFilename("html").replace(/\.html$/, "");
@@ -7589,6 +7759,9 @@ ${METHOD_CRITIQUE(p)[p.method] || ""}
               docHTML.slice(closeAngle + 1);
           }
         }
+
+        // Фильтруем стили только после того, как оба куска финальные
+        const styles = buildFilteredStyles(docHTML + graphSection);
 
         const html = `<!DOCTYPE html><html lang="ru"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0"><title>${document.getElementById("docTitle").textContent}</title><link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700;900&family=IBM+Plex+Mono:wght@300;400;500;600&family=IBM+Plex+Sans:ital,wght@0,300;0,400;0,500;0,600;1,400&display=swap" rel="stylesheet">${styles}<style>body{background:#f2f0eb;padding:32px}#docOutput{max-width:1100px;margin:0 auto}</style></head><body><div id="docOutput">${docHTML}</div>${graphSection}</body></html>`;
         downloadFile(html, getDocFilename("html"), "text/html");
@@ -7784,11 +7957,13 @@ ${METHOD_CRITIQUE(p)[p.method] || ""}
         });
         document.getElementById("synthesisMethod")?.addEventListener("change", () => {
           updateCostEstimate();
+          updateSectionWarnings();
           updateCompatAdvisor();
         });
         document.getElementById("depthLevel")?.addEventListener("change", updateCostEstimate);
         document.getElementById("synthesisLevel")?.addEventListener("change", () => {
           updateCostEstimate();
+          updateSectionWarnings();
           updateCompatAdvisor();
         });
         document.getElementById("seedInput")?.addEventListener("input", updateCostEstimate);
