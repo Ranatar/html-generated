@@ -1050,6 +1050,20 @@
         color: rgba(255,255,255,.55);
         letter-spacing: 0.3px;
       }
+      .gm-panel-role-group { 
+        display:flex; 
+        flex-wrap:wrap; 
+        align-items:center; 
+        gap:4px; 
+        margin-bottom:2px 
+      }
+      .gm-panel-role-group-label {
+        font-size:9px; 
+        letter-spacing:.5px; 
+        text-transform:uppercase;
+        color:rgba(255,255,255,.35); 
+        margin-right:4px;
+      }
       /* ── Определение ──────────────────────────────────────────────────────────── */
       .gm-panel-def {
         color: rgba(255,255,255,.65);
@@ -2313,6 +2327,7 @@
           <div class="gm-tabs">
             <button class="gm-btn active" id="tab3d" onclick="switchView('3d')">3D</button>
             <button class="gm-btn" id="tabClusters" onclick="toggleClusters()">◎ Кластеры</button>
+            <button class="gm-btn" id="tabRoleMode" onclick="toggleRoleMode()">⚙ Структурные</button>
             <button class="gm-btn" id="tab2d" onclick="switchView('2d')">2D</button>
           </div>
           <button class="gm-btn gold" onclick="exportMMD()">↓ .mmd</button>
@@ -2367,13 +2382,18 @@
         ctxLog = [],
         genLog = [],
         genCommon = null,
-        G = { nodes: [], edges: [], topology: { clusters: {}, roles: {}, clusterLabels: [] } };
+        G = {
+          nodes: [], edges: [],
+          topology: { clusters: {}, roles: { structural: {}, procedural: {} }, clusterLabels: [] }
+        };
+        //G = { nodes: [], edges: [], topology: { clusters: {}, roles: {}, clusterLabels: [] } };
         graphBodyIdx = -1,
         anim3d = null,
         renderer3d = null,
         scene3d = null,
         sim2d = null,
         clusterVisible   = false,
+        roleMode         = "structural",
         clusterObjects3d = null,
         clusterObjects2d = null;
 
@@ -4353,6 +4373,60 @@
         creative:
           "Требование метода к графу: ТВОРЧЕСКИЙ. Разрешены нестандартные типы связей (ассоциативная, метафорическая, генеративная) — указывай явно в столбце «Тип». Поощряй неочевидные пары категорий: чем менее предсказуема связь, тем подробнее обоснование её продуктивности. В топологии выдели «генеративные узлы» — категории с наибольшим числом нестандартных связей. Слабые и предположительные связи допустимы при явном указании гипотетического характера.",
       };
+      
+      const METHOD_TOPOLOGY = {
+        dialectical:
+          "Каждое упоминание противоречия между категориями ОБЯЗАНО оформляться как диалектическая тройка с явным указанием, какая категория является тезисом, какая — антитезисом, и какая снимает противоречие. Использование терминов «деконструированная», «пересобранная», «слепое пятно», «предпосылка» в смысле деконструктивного метода — ЗАПРЕЩЕНО. Снятие противоречия — не разбор предпосылок, а порождение нового единства.",
+        integrative:
+          "Категории описываются через общие основания, которые они интегрируют, — НЕ через противоречия, которые они снимают. Термины «тезис», «антитезис», «снятие», «деконструированная», «пересобранная» — ЗАПРЕЩЕНЫ. Вместо «снятие противоречия» — «обнаружение общего основания» или «схождение традиций». Кластеры описываются как «ядра пересечений» и «периферия», а не как диалектические стадии.",
+        deconstructive:
+          "Связи типа «противоречие» описывай как производительное напряжение между предпосылками — НЕ как диалектическую тройку «тезис—антитезис—синтез». Термины «тезис», «антитезис», «снятие» (в гегелевском смысле Aufhebung) — ЗАПРЕЩЕНЫ. Вместо «снятие» — «пересборка» или «деконструкция предпосылки». Вместо «тезис/антитезис» — «исходное допущение» / «скрытая предпосылка» / «напряжение между традициями».",
+        hermeneutical:
+          "Категории описываются через горизонты понимания и точки их слияния — НЕ через противоречия или деконструкцию. Термины «тезис», «антитезис», «снятие», «деконструированная», «пересобранная» — ЗАПРЕЩЕНЫ. Мосты между кластерами описывать как «точки слияния горизонтов»; центральные категории — как «расширенный горизонт», а не как «синтетические узлы снятия».",
+        analytical:
+          "Отношения между категориями описываются через логические зависимости (импликация, основание, определяющая связь) — НЕ через диалектические движения или деконструктивные разборы. Термины «тезис», «антитезис», «снятие», «деконструированная», «пересобранная», «горизонт» — ЗАПРЕЩЕНЫ. Противоречие между категориями (если фиксируется) — это логическая несовместимость, устраняемая уточнением определений, а не диалектическое или деконструктивное движение.",
+        creative:
+          "Допустимы термины из любых методических традиций, но каждое нестандартное использование требует явного пояснения. Если в описании применяется диалектический язык («тезис», «антитезис») — укажи, какое именно движение этим оформляется и почему диалектический фрейм уместен для данной пары категорий. Смешение языков разных методов на одном узле без пояснения — ЗАПРЕЩЕНО.",
+      };
+      
+      const TOPOLOGY_ROLES_STRUCTURAL =
+        "центральная | периферийная | мост | генеративная | ядро";
+      
+      const TOPOLOGY_ROLES_PROCEDURAL = {
+        dialectical:
+      `тезис | антитезис | синтез
+      Правило: «тезис» и «антитезис» не могут одновременно принадлежать одному
+      узлу в рамках одного диалектического движения. Каждая синтетическая
+      категория, снимающая противоречие, обязана иметь роль «синтез».`,
+      
+        deconstructive:
+      `деконструированная | пересобранная
+      Правило: роли «тезис», «антитезис», «синтез» — ЗАПРЕЩЕНЫ.
+      Связи типа «противоречие» не порождают этих ролей.`,
+      
+        integrative:
+      `синтез
+      Правило: роли «тезис», «антитезис», «деконструированная», «пересобранная»
+      — ЗАПРЕЩЕНЫ. Каждая интегративная категория, опирающаяся на общее основание
+      ≥ 2 традиций, маркируется как «синтез».`,
+      
+        hermeneutical:
+      `синтез
+      Правило: роли «тезис», «антитезис», «деконструированная», «пересобранная»
+      — ЗАПРЕЩЕНЫ. Слияние горизонтов описывается через структурную роль «мост»,
+      не через отдельные процессуальные роли.`,
+      
+        analytical:
+      `синтез
+      Правило: роли «тезис», «антитезис», «деконструированная», «пересобранная»
+      — ЗАПРЕЩЕНЫ. Процессуальные отношения выражаются через типы связей,
+      не через роли узлов.`,
+      
+        creative:
+      `тезис | антитезис | синтез | деконструированная | пересобранная
+      Правило: при использовании терминов из разных методических словарей
+      на одном узле — обоснование в описательной части обязательно.`,
+      };
 
       const METHOD_GLOSSARY = {
         dialectical:
@@ -4407,7 +4481,7 @@
       // обычные объекты там, где p не требуется.
       // ════════════════════════════════════════
 
-      // ── Граф: методология построения (зависит от p.phil) ──
+      // ── Граф: методология построения 
       const LEVEL_GRAPH_METHODOLOGY = (p) => ({
         comparative:
           `«Методология построения графа»
@@ -4442,6 +4516,22 @@
           "- Генеалогия: из какого напряжения между какими философами возникла (формат: «Философ A ↔ Философ B: суть напряжения → механизм разрешения»)",
         generative:
           "- Преодолённые ограничения: какие слепые пятна каких исходных философов данная категория компенсирует",
+      };
+      
+      const LEVEL_TOPOLOGY_NOTE = {
+        comparative:
+          `На сравнительном уровне «деконструированная» (если метод её допускает)
+      означает переопределённую категорию философа, а не полный разбор предпосылок.`,
+      
+        transformative:
+          `На преобразующем уровне роль «генеративная» (Слой 1) обязательна для
+      узлов, из которых исходят ≥ 2 связей типа «эмерджентность» или «порождение».`,
+      
+        generative:
+          `На порождающем уровне «деконструированная» (если метод её допускает)
+      означает категорию, вскрывающую слепое пятно исходных традиций;
+      «пересобранная» — категорию, предлагающую то, чего не мог сформулировать
+      ни один из исходных философов.`,
       };
 
       // ── Резюме: дополнение к «Портрету философов» (не зависит от p) ──
@@ -4719,22 +4809,30 @@ ${LEVEL_GRAPH_LAST_COL_SPEC[graphLevel]}
 
 «Топология графа»
 Кластеры и их содержательная характеристика, генеративные узлы, центральные и периферийные категории, мосты между кластерами, рефлексивные связи, верификация связности.
+${METHOD_TOPOLOGY[p.method]}
 
-  «Топологическая таблица»
-  ОБЯЗАТЕЛЬНАЯ итоговая таблица. Оформить строго как <table class="doc-table">.
-  Столбцы СТРОГО: Категория | Кластер | Роли | Рефлексивная связь
-  — Категория: ТОЧНОЕ название из таблицы категорий — без кавычек, без скобок, без пояснений.
-    Каждая категория из таблицы категорий — ОБЯЗАТЕЛЬНО в отдельной строке. Пропуски недопустимы.
-  — Кластер: краткое название кластера, к которому принадлежит категория.
-    Если категория является универсальным мостом и не принадлежит ни одному кластеру — значение «мост».
-    Если категория связана с двумя кластерами — указать оба через «/», например «I / II»; первый — основной.
-  — Роли: одна или несколько через запятую — СТРОГО из следующего списка:
-      центральная | периферийная | мост | синтез | тезис | антитезис |
-      генеративная | ядро | деконструированная | пересобранная
-    Если у категории нет особой роли — оставить ячейку пустой.
-    Роль «мост» в столбце «Роли» допустима одновременно с любой другой.
-  — Рефлексивная связь: «да» если категория имеет рефлексивную связь с самой собой
-    (т.е. есть строка в таблице связей с Источник = Цель = эта категория), иначе — пусто.
+«Топологическая таблица»
+ОБЯЗАТЕЛЬНАЯ итоговая таблица. Оформить строго как <table class="doc-table">.
+Столбцы СТРОГО: Категория | Кластер | Структурные роли | Процессуальные роли | Рефлексивная связь
+
+— Категория: ТОЧНОЕ название из таблицы категорий — без кавычек, без скобок, без пояснений.
+  Каждая категория — ОБЯЗАТЕЛЬНО в отдельной строке. Пропуски недопустимы.
+
+— Кластер: краткое название кластера. Мост без кластера — «мост». Два кластера — «I / II».
+
+— Структурные роли: одна или несколько через запятую — СТРОГО из списка:
+  ${TOPOLOGY_ROLES_STRUCTURAL}
+  Если у категории нет структурной роли — ячейку оставить пустой.
+  Роли из столбца «Процессуальные» в этом столбце — ЗАПРЕЩЕНЫ.
+
+— Процессуальные роли: одна или несколько через запятую — СТРОГО из списка метода ${ML[p.method]}:
+  ${TOPOLOGY_ROLES_PROCEDURAL[p.method]}
+  ${LEVEL_TOPOLOGY_NOTE[graphLevel] || ""}
+  Если у категории нет процессуальной роли — ячейку оставить пустой.
+  Структурные роли в этом столбце — ЗАПРЕЩЕНЫ.
+  Роли из словаря другого метода — ЗАПРЕЩЕНЫ.
+
+— Рефлексивная связь: «да» если категория имеет рефлексивную связь с самой собой, иначе — пусто.
 
 ПОВТОРЯЮ: граф ОБЯЗАН быть связным. Названия категорий в таблице связей и топологии ТОЧНО совпадают с таблицей категорий. 
 Минимум ${mw(p)} слов.`,
@@ -5165,7 +5263,10 @@ ${METHOD_CRITIQUE(p)[p.method] || ""}
         btn.classList.add("loading");
         document.getElementById("btnText").textContent = "Синтез...";
         document.getElementById("btnGraph").style.display = "none";
-        G = { nodes: [], edges: [], topology: { clusters: {}, roles: {}, clusterLabels: [] } };
+        G = {
+          nodes: [], edges: [],
+          topology: { clusters: {}, roles: { structural: {}, procedural: {} }, clusterLabels: [] }
+        };
         graphBodyIdx = -1;
         totalInputTokens = 0;
         totalOutputTokens = 0;
@@ -5497,7 +5598,7 @@ ${METHOD_CRITIQUE(p)[p.method] || ""}
       function parseTopology(container, nodeNames) {
         const result = {
           clusters:      {},  // nodeName → number[]  (массив индексов кластеров)
-          roles:         {},
+          roles:         { structural: {}, procedural: {} },
           clusterLabels: [],
         };
         if (!nodeNames.length) return result;
@@ -5518,9 +5619,15 @@ ${METHOD_CRITIQUE(p)[p.method] || ""}
           "пересобранная":      "reassembled",
         };
 
-        function addRole(name, role) {
-          if (!result.roles[name]) result.roles[name] = [];
-          if (!result.roles[name].includes(role)) result.roles[name].push(role);
+        function addStructural(name, role) {
+          if (!result.roles.structural[name]) result.roles.structural[name] = [];
+          if (!result.roles.structural[name].includes(role))
+            result.roles.structural[name].push(role);
+        }
+        function addProcedural(name, role) {
+          if (!result.roles.procedural[name]) result.roles.procedural[name] = [];
+          if (!result.roles.procedural[name].includes(role))
+            result.roles.procedural[name].push(role);
         }
 
         // ── Извлекает «именную часть» метки, отбрасывая римский номер-префикс ──────
@@ -5594,7 +5701,7 @@ ${METHOD_CRITIQUE(p)[p.method] || ""}
               if (!label) return;
 
               if (/^мост$/i.test(label)) {
-                addRole(name, "bridge");                        // роль — да
+                addStructural(name, "bridge");                         // роль — да
                 // кластер — не назначаем (мост сам по себе не входит в кластер)
               } else {
                 assignCluster(name, findOrCreateCluster(label)); // кластер — да
@@ -5602,12 +5709,21 @@ ${METHOD_CRITIQUE(p)[p.method] || ""}
             });
           }
 
-          // ── Столбец 2: Роли ───────────────────────────────────────────────────────
-          const rolesRaw = (td[2] || "").trim();
-          if (rolesRaw) {
-            rolesRaw.split(/[,\/]+/).forEach(part => {
+          // ── Столбец 2: Структурные роли ───────────────────────────────────────────
+          const strRaw = (td[2] || "").trim();
+          if (strRaw) {
+            strRaw.split(/[,\/]+/).forEach(part => {
               const key = ROLE_MAP[part.trim().toLowerCase()];
-              if (key) addRole(name, key);
+              if (key) addStructural(name, key);
+            });
+          }
+
+          // ── Столбец 3: Процессуальные роли ────────────────────────────────────────
+          const procRaw = (td[3] || "").trim();
+          if (procRaw) {
+            procRaw.split(/[,\/]+/).forEach(part => {
+              const key = ROLE_MAP[part.trim().toLowerCase()];
+              if (key) addProcedural(name, key);
             });
           }
         });
@@ -5722,9 +5838,11 @@ ${METHOD_CRITIQUE(p)[p.method] || ""}
         "#9b59b6","#1abc9c","#f39c12","#e91e63",
       ];
 
-      const ROLE_SHAPE_PRIORITY = [
-        "synthesis", "thesis", "antithesis", "generative", "core",
-        "bridge", "central", "deconstructed", "reassembled", "peripheral"
+      const STRUCTURAL_PRIORITY = [
+        "core", "generative", "bridge", "central", "peripheral"
+      ];
+      const PROCEDURAL_PRIORITY = [
+        "synthesis", "thesis", "antithesis", "deconstructed", "reassembled"
       ];
   
       // ── HSL-утилиты для смешивания нескольких цветов ────────────────────────────
@@ -5848,9 +5966,21 @@ ${METHOD_CRITIQUE(p)[p.method] || ""}
           deconstructed:"Деконструированная",
           reassembled:  "Пересобранная",
         };
-        const roleTags = [...(d.roles || new Set())]
-          .map(r => `<span class="gm-role-tag">${ROLE_LABELS[r] || r}</span>`)
-          .join("");
+
+        function roleTagsHTML(rolesSet, groupLabel) {
+          const arr = [...(rolesSet || new Set())];
+          if (!arr.length) return "";
+          const tags = arr.map(r =>
+            `<span class="gm-role-tag">${ROLE_LABELS[r] || r}</span>`
+          ).join("");
+          return `<div class="gm-panel-role-group">
+            <span class="gm-panel-role-group-label">${groupLabel}</span>${tags}
+          </div>`;
+        }
+
+        const roleTags =
+          roleTagsHTML(d.structuralRoles || d.roles, "Структурные") +
+          roleTagsHTML(d.proceduralRoles, "Процессуальные");
        
         function edgeRow(l, dir) {
           let other;
@@ -5954,9 +6084,32 @@ ${METHOD_CRITIQUE(p)[p.method] || ""}
       }
 
       function getTopRole(roles) {
-        for (const r of ROLE_SHAPE_PRIORITY)
+        const list = roleMode === "structural"
+          ? STRUCTURAL_PRIORITY
+          : PROCEDURAL_PRIORITY;
+        for (const r of list)
           if (roles.has(r)) return r;
         return null;
+      }
+
+      // ── Чтение ролей из двухслойной топологии ─────────────────────────────
+      function getRolesFromLayer(layer, name) {
+        const map = G.topology?.roles?.[layer] || {};
+        const r = map[name];
+        if (!r) return new Set();
+        if (r instanceof Set) return r;
+        if (Array.isArray(r)) return new Set(r);
+        return new Set();
+      }
+
+      function getRolesForMode(name) {
+        return getRolesFromLayer(roleMode, name);
+      }
+
+      function getAllRoles(name) {
+        const s = getRolesFromLayer("structural", name);
+        const p = getRolesFromLayer("procedural", name);
+        return new Set([...s, ...p]);
       }
 
       // Восьмиугольник и шестиугольник — кастомные, остальные через D3
@@ -6108,11 +6261,7 @@ ${METHOD_CRITIQUE(p)[p.method] || ""}
         const { ns, es } = warmup(G.nodes, G.edges, 3);
 
         function getRoles(n) {
-          const r = G.topology?.roles?.[n.name];
-          if (!r) return new Set();
-          if (r instanceof Set) return r;
-          if (Array.isArray(r)) return new Set(r);
-          return new Set(); // защита от {} после JSON
+          return getRolesForMode(n.name);
         }
 
         const scene = new THREE.Scene();
@@ -6811,9 +6960,9 @@ ${METHOD_CRITIQUE(p)[p.method] || ""}
                   ...G.nodes[nodeIdx],
                   id:      nodeIdx,
                   cluster: G.topology?.clusters?.[n.name] ?? [],
-                  roles:   G.topology?.roles?.[n.name] instanceof Set
-                    ? G.topology.roles[n.name]
-                    : new Set(G.topology?.roles?.[n.name] || []),
+                  roles:   getRolesForMode(n.name),
+                  structuralRoles: getRolesFromLayer("structural", n.name),
+                  proceduralRoles: getRolesFromLayer("procedural", n.name),
                 };
                 const nm = Object.fromEntries(G.nodes.map((nd, i) => [nd.name.toLowerCase(), i]));
                 const links3d = G.edges.map(ed => ({
@@ -6973,9 +7122,9 @@ ${METHOD_CRITIQUE(p)[p.method] || ""}
                   ...G.nodes[nodeIdx],
                   id:      nodeIdx,
                   cluster: G.topology?.clusters?.[n.name] ?? [],
-                  roles:   G.topology?.roles?.[n.name] instanceof Set
-                    ? G.topology.roles[n.name]
-                    : new Set(G.topology?.roles?.[n.name] || []),
+                  roles:   getRolesForMode(n.name),
+                  structuralRoles: getRolesFromLayer("structural", n.name),
+                  proceduralRoles: getRolesFromLayer("procedural", n.name),
                 };
                 const nm = Object.fromEntries(G.nodes.map((nd, i) => [nd.name.toLowerCase(), i]));
                 const links3d = G.edges.map(ed => ({
@@ -7074,13 +7223,9 @@ ${METHOD_CRITIQUE(p)[p.method] || ""}
           ...n,
           id:      i,
           cluster: topo.clusters[n.name] ?? [],
-          roles: (() => {
-            const r = topo.roles[n.name];
-            if (!r) return new Set();
-            if (r instanceof Set) return r;
-            if (Array.isArray(r)) return new Set(r);
-            return new Set();
-          })(),
+          roles:   getRolesForMode(n.name),
+          structuralRoles: getRolesFromLayer("structural", n.name),
+          proceduralRoles: getRolesFromLayer("procedural", n.name),
         }));
        
         const links = G.edges
@@ -7511,6 +7656,30 @@ ${METHOD_CRITIQUE(p)[p.method] || ""}
         applyClusters2D();
       }
 
+      // ── Переключатель: вызывается кнопкой ⚙ ─────────────────────────────────
+      function toggleRoleMode() {
+        roleMode = roleMode === "structural" ? "procedural" : "structural";
+
+        const btn = document.getElementById("tabRoleMode");
+        if (btn) {
+          btn.textContent = roleMode === "structural"
+            ? "⚙ Структурные" : "⚙ Процессуальные";
+          btn.classList.toggle("active", roleMode === "procedural");
+        }
+
+        // Перестроить текущий вид (формы узлов зависят от roleMode)
+        const is3d = document.getElementById("view3d").classList.contains("active");
+        if (is3d) build3D(); else build2D();
+
+        // Обновить легенду
+        buildLegend(
+          new Set(G.nodes.map(n => n.type || "другое")),
+          new Set(G.edges.map(e => e.type).filter(Boolean)),
+          G.topology?.clusterLabels || [],
+          is3d ? "3d" : "2d"
+        );
+      }
+
       function buildLegend(nodeTypes, edgeTypes, clusterLabels, mode) {
         const l = document.getElementById("gmLegend");
       
@@ -7530,8 +7699,8 @@ ${METHOD_CRITIQUE(p)[p.method] || ""}
       
         // ── Какие роли реально присутствуют в текущем графе ──────────────────────
         const activeRoles = new Set();
-        const rolesMap = G.topology?.roles || {};
-        for (const roleList of Object.values(rolesMap)) {
+        const rolesLayer = G.topology?.roles?.[roleMode] || {};
+        for (const roleList of Object.values(rolesLayer)) {
           const arr = roleList instanceof Set ? [...roleList]
                     : Array.isArray(roleList)  ? roleList
                     : [];
@@ -7554,7 +7723,11 @@ ${METHOD_CRITIQUE(p)[p.method] || ""}
         // ── Секция 2: роли — вариативная по режиму ────────────────────────────────
         const visibleRoles = ROLE_REGISTRY.filter(r => activeRoles.has(r.key));
         if (visibleRoles.length) {
-          h += secTitle(mode === "2d" ? "РОЛИ (ФОРМА)" : "РОЛИ (ГЕОМЕТРИЯ)", 10);
+          const roleModeLabel = roleMode === "structural"
+            ? "СТРУКТУРНЫЕ РОЛИ" : "ПРОЦЕССУАЛЬНЫЕ РОЛИ";
+          h += secTitle(mode === "2d"
+            ? `${roleModeLabel} (ФОРМА)`
+            : `${roleModeLabel} (ГЕОМЕТРИЯ)`, 10);
           for (const r of visibleRoles) {
             if (mode === "2d") {
               h += `<div class="gm-legend-item">
@@ -7767,9 +7940,13 @@ ${METHOD_CRITIQUE(p)[p.method] || ""}
           tick,
           warmup,
           mkSprite,
+          getRolesFromLayer,
+          getRolesForMode,
+          getAllRoles,
           applyClusters3D, 
           applyClusters2D, 
           toggleClusters,
+          toggleRoleMode,
           build3D,
           build2D,
           buildLegend,
@@ -7786,7 +7963,8 @@ ${METHOD_CRITIQUE(p)[p.method] || ""}
           ["TC",                  TC],
           ["EC",                  EC],
           ["CPAL",                CPAL],
-          ["ROLE_SHAPE_PRIORITY", ROLE_SHAPE_PRIORITY],
+          ["STRUCTURAL_PRIORITY", STRUCTURAL_PRIORITY],
+          ["PROCEDURAL_PRIORITY", PROCEDURAL_PRIORITY],
         ].map(([name, val]) => `const ${name} = ${JSON.stringify(val)};`).join("\n");
  
         // ── 3. Собираем самодостаточный скрипт ──
@@ -7799,12 +7977,16 @@ ${METHOD_CRITIQUE(p)[p.method] || ""}
 
   ${constBundle}
 
-  var G = { nodes: [], edges: [], topology: { clusters: {}, roles: {}, clusterLabels: [] } };
+  var G = {
+          nodes: [], edges: [],
+          topology: { clusters: {}, roles: { structural: {}, procedural: {} }, clusterLabels: [] }
+        };
   var anim3d = null;
   var renderer3d = null;
   var scene3d = null;
   var sim2d = null;
-  var clusterVisible   = false;   
+  var clusterVisible   = false;
+  var roleMode         = "structural";
   var clusterObjects3d = null;   
   var clusterObjects2d = null;
 
@@ -7826,6 +8008,7 @@ ${METHOD_CRITIQUE(p)[p.method] || ""}
   window.switchView  = switchView;
   window.exportMMD   = exportMMD;
   window.toggleClusters = toggleClusters;
+  window.toggleRoleMode = toggleRoleMode;
 })();`;
  
         // ── 4. Кнопки-контролы встраиваются в saveHTML() в начало раздела графа ──
@@ -8127,7 +8310,10 @@ ${METHOD_CRITIQUE(p)[p.method] || ""}
         document.getElementById("contextInput").value = "";
         document.getElementById("docFooter").style.display = "none";
         document.getElementById("btnGraph").style.display = "none";
-        G = { nodes: [], edges: [], topology: { clusters: {}, roles: {}, clusterLabels: [] } };
+        G = {
+          nodes: [], edges: [],
+          topology: { clusters: {}, roles: { structural: {}, procedural: {} }, clusterLabels: [] }
+        };
         window.scrollTo({ top: 0, behavior: "smooth" });
       }
       function copyDoc() {
