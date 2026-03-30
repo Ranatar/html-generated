@@ -4820,7 +4820,7 @@ ${LEVEL_THESES_NOVELTY[thesesLevel]}
 Для каждого варианта из таблицы — развёрнутый анализ: этимология, коннотации, потенциальные ассоциации, однозначность vs двусмысленность, звучание на разных языках, соответствие традициям выбранных философов, точность отражения сути концепции.
 
 «Итоговая рекомендация»
-На основании проведённого сравнительного анализа определи оптимальное название. Выдели итоговое название жирным (<strong>). Обоснуй выбор: почему именно этот вариант превосходит конкурентов, какие аспекты концепции он схватывает наилучшим образом, как соотносится с существующей философской терминологией. Отдельно: соответствие историческому контексту, методу (${ML[p.method]} — ${MD[p.method]}) и уровню (${SL[p.synthLevel]} — ${SD[p.synthLevel]}) синтеза.
+На основании проведённого сравнительного анализа определи оптимальное название. Выдели итоговое название жирным (<strong>) тегом — строго только само название, без каких-либо сопроводительных слов: правильно — `<strong>Экспрессивная Гармониология</strong>`, неправильно — `<strong>Итоговая рекомендация: «Экспрессивная Гармониология»</strong>`. Обоснуй выбор: почему именно этот вариант превосходит конкурентов, какие аспекты концепции он схватывает наилучшим образом, как соотносится с существующей философской терминологией. Отдельно: соответствие историческому контексту, методу (${ML[p.method]} — ${MD[p.method]}) и уровню (${SL[p.synthLevel]} — ${SD[p.synthLevel]}) синтеза.
 
 Мин. ${mw(p)} слов.`,
           });
@@ -5106,9 +5106,15 @@ ${METHOD_CRITIQUE(p)[p.method] || ""}
         const strong = recSection
           ? recSection.querySelector("strong")
           : nameContainer.querySelector("strong");
-        const nameText = strong?.textContent?.trim();
+        let nameText = strong?.textContent?.trim();
         if (nameText) {
-          document.getElementById("docTitle").textContent = nameText;
+          // Защитная зачистка: убрать возможный префикс вида «Итоговая рекомендация: »,
+          // а также окружающие кавычки «», "", "" если модель их добавила
+          nameText = nameText
+            .replace(/^[^:：]+[:：]\s*/, "")  // всё до первого двоеточия включительно
+            .replace(/^[«""]|[»""]$/g, "")    // внешние кавычки
+            .trim();
+          if (nameText) document.getElementById("docTitle").textContent = nameText;
         }
       }
 
@@ -5182,9 +5188,8 @@ ${METHOD_CRITIQUE(p)[p.method] || ""}
         document.getElementById("docDepth").textContent = DL[depth];
         document.getElementById("docSynthLevel").textContent = SL[synthLevel];
         document.getElementById("docTitle").textContent = "Синтез Философской Концепции";
-        document.getElementById("docSubtitle").textContent = seed
-          ? `«${seed.substring(0, 90)}${seed.length > 90 ? "..." : ""}»`
-          : `На основе: ${phil.join(", ")}`;
+        // Подзаголовок — всегда перечень философов; зерно уходит только в раскрывающееся поле
+        document.getElementById("docSubtitle").textContent = `На основе: ${phil.join(", ")}`;
         document.getElementById("sessionId").textContent = docNum;
 
         // Заполняем раскрывающиеся поля шапки (зерно, контекст)
@@ -7936,9 +7941,9 @@ ${METHOD_CRITIQUE(p)[p.method] || ""}
       }
 
       function saveHTML() {
-        //const styles = Array.from(document.querySelectorAll("style"))
-        //  .map((s) => s.outerHTML)
-        //  .join("\n");
+        const styles = Array.from(document.querySelectorAll("style"))
+          .map((s) => s.outerHTML)
+          .join("\n");
 
         // Базовое имя файла фиксируется на момент сохранения (без расширения)
         const filenameBase = getDocFilename("html").replace(/\.html$/, "");
@@ -7967,7 +7972,7 @@ ${METHOD_CRITIQUE(p)[p.method] || ""}
         }
 
         // Фильтруем стили только после того, как оба куска финальные
-        const styles = buildFilteredStyles(docHTML + graphSection);
+        //const styles = buildFilteredStyles(docHTML + graphSection);
 
         const html = `<!DOCTYPE html><html lang="ru"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0"><title>${document.getElementById("docTitle").textContent}</title><link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700;900&family=IBM+Plex+Mono:wght@300;400;500;600&family=IBM+Plex+Sans:ital,wght@0,300;0,400;0,500;0,600;1,400&display=swap" rel="stylesheet">${styles}<style>body{background:#f2f0eb;padding:32px}#docOutput{max-width:1100px;margin:0 auto}</style></head><body><div id="docOutput">${docHTML}</div>${graphSection}</body></html>`;
         downloadFile(html, getDocFilename("html"), "text/html");
