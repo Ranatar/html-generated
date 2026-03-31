@@ -5211,11 +5211,12 @@ ${METHOD_CRITIQUE(p)[p.method] || ""}
           : nameContainer.querySelector("strong");
         let nameText = strong?.textContent?.trim();
         if (nameText) {
-          // Защитная зачистка: убрать возможный префикс вида «Итоговая рекомендация: »,
-          // а также окружающие кавычки «», "", "" если модель их добавила
           nameText = nameText
-            .replace(/^[^:：]+[:：]\s*/, "")  // всё до первого двоеточия включительно
-            .replace(/^[«""]|[»""]$/g, "")    // внешние кавычки
+            // Шаг 1: убрать известные служебные префиксы модели
+            .replace(/^(?:итогов\w+\s+рекомендаци\w*|рекомендуем\w+\s+названи\w*|названи\w+\s*концепци\w*)\s*[:：]\s*/i, "")
+            .replace(/^[«""]|[»""]$/g, "")
+            // Шаг 2: оставить только основную часть до двоеточия (подзаголовок — в шапку не нужен)
+            .split(/\s*[:：]\s*/)[0]
             .trim();
           if (nameText) document.getElementById("docTitle").textContent = nameText;
         }
@@ -5637,6 +5638,17 @@ ${METHOD_CRITIQUE(p)[p.method] || ""}
           "пересобранная":      "reassembled",
         };
 
+        // FIX 2: нечёткий маппинг ролей — покрывает мужской/женский/средний род
+        function matchRole(raw) {
+          const s = raw.trim().toLowerCase();
+          if (ROLE_MAP[s]) return ROLE_MAP[s];                       // точное совпадение
+          for (const [pattern, key] of Object.entries(ROLE_MAP)) {
+            const stem = pattern.replace(/(ая|ый|ое|ий|ой)$/, "");   // «центральн», «генеративн»…
+            if (s.startsWith(stem)) return key;
+          }
+          return null;
+        }
+
         function addStructural(name, role) {
           if (!result.roles.structural[name]) result.roles.structural[name] = [];
           if (!result.roles.structural[name].includes(role))
@@ -5737,7 +5749,9 @@ ${METHOD_CRITIQUE(p)[p.method] || ""}
           return rawName;
         }
 
-        const topoSection = sec.querySelector('[data-section="Топологическая таблица"]');
+        // FIX 1: таблица может быть сиблингом «Топология графа», а не потомком
+        const topoSection = sec.querySelector('[data-section="Топологическая таблица"]')
+                         || container.querySelector('[data-section="Топологическая таблица"]');
         const tableScope  = topoSection || sec;
 
         tableScope.querySelectorAll("table.doc-table tbody tr").forEach(tr => {
@@ -5768,7 +5782,7 @@ ${METHOD_CRITIQUE(p)[p.method] || ""}
           const strRaw = (td[2] || "").trim();
           if (strRaw) {
             strRaw.split(/[,\/]+/).forEach(part => {
-              const key = ROLE_MAP[part.trim().toLowerCase()];
+              const key = matchRole(part);       // FIX 2: было ROLE_MAP[part.trim().toLowerCase()]
               if (key) addStructural(name, key);
             });
           }
@@ -5777,7 +5791,7 @@ ${METHOD_CRITIQUE(p)[p.method] || ""}
           const procRaw = (td[3] || "").trim();
           if (procRaw) {
             procRaw.split(/[,\/]+/).forEach(part => {
-              const key = ROLE_MAP[part.trim().toLowerCase()];
+              const key = matchRole(part);       // FIX 2: было ROLE_MAP[part.trim().toLowerCase()]
               if (key) addProcedural(name, key);
             });
           }
