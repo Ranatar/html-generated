@@ -2860,12 +2860,11 @@
 
       function buildDynamicOrder(effectiveDeps, selectedSections, resolvedDeps) {
         const preds = computePredecessors(effectiveDeps);
-        resolveCircularDeps(preds, effectiveDeps, resolvedDeps);
 
-        // ── НОВОЕ: разрываем циклы перед топосортировкой ──────────────────────
+        // ── Разрываем циклы перед топосортировкой ──────────────────────
         // Мутирует и preds, и effectiveDeps (удаляет weakest optional-ключи).
         // После возврата effectiveDeps актуален для buildContextForSection.
-        resolveCircularDeps(preds, effectiveDeps);
+        resolveCircularDeps(preds, effectiveDeps, resolvedDeps);
         // ─────────────────────────────────────────────────────────────────────
 
         const inDegree = {};
@@ -4818,7 +4817,11 @@ ${METHOD_TOPOLOGY[p.method]}
 — Категория: ТОЧНОЕ название из таблицы категорий — без кавычек, без скобок, без пояснений.
   Каждая категория — ОБЯЗАТЕЛЬНО в отдельной строке. Пропуски недопустимы.
 
-— Кластер: краткое название кластера. Мост без кластера — «мост». Два кластера — «I / II».
+— Кластер: ПОЛНОЕ содержательное название кластера — ТОЧНО как в описательной секции «Топология графа».
+  Римские цифры, сокращения и аббревиатуры вместо полных названий — ЗАПРЕЩЕНЫ.
+  Если категория принадлежит нескольким кластерам — перечислить все полные названия через « / ».
+  Например: «Онтологическое ядро / Эпистемический мост», НЕ «I / II».
+  Мост без кластера — «мост».
 
 — Структурные роли: одна или несколько через запятую — СТРОГО из списка:
   ${TOPOLOGY_ROLES_STRUCTURAL}
@@ -4834,7 +4837,9 @@ ${METHOD_TOPOLOGY[p.method]}
 
 — Рефлексивная связь: «да» если категория имеет рефлексивную связь с самой собой, иначе — пусто.
 
-ПОВТОРЯЮ: граф ОБЯЗАН быть связным. Названия категорий в таблице связей и топологии ТОЧНО совпадают с таблицей категорий. 
+ПОВТОРЯЮ: граф ОБЯЗАН быть связным. Названия категорий в таблице связей и топологии ТОЧНО совпадают с таблицей категорий.
+
+СТРОГОЕ СООТВЕТСТВИЕ: Топологическая таблица ОБЯЗАНА точно отражать описательную секцию «Топология графа». Каждый кластер, упомянутый в описании, должен фигурировать в таблице под тем же полным названием. Каждая роль, приписанная категории в описании, должна присутствовать в соответствующей ячейке таблицы. Расхождения между описанием и таблицей — НЕДОПУСТИМЫ.
 Минимум ${mw(p)} слов.`,
           });
         }
@@ -5371,6 +5376,7 @@ ${METHOD_CRITIQUE(p)[p.method] || ""}
             st = document.getElementById("ps" + i);
           st.className = "progress-step active";
           st.querySelector(".step-icon").textContent = "⟳";
+          try {
           let prior = "";
           if (i > 0) {
             const generated = {};
@@ -5383,7 +5389,12 @@ ${METHOD_CRITIQUE(p)[p.method] || ""}
             }
             for (const def of pass) {
               if (def.key === "sum") continue;
-              prior = buildContextForSection(def.key, generated, p.depth, effectiveDeps, resolveContextDeps(p));
+              try {
+                prior = buildContextForSection(def.key, generated, p.depth, effectiveDeps, resolveContextDeps(p));
+              } catch (ctxErr) {
+                console.warn("Ошибка построения контекста для", def.key, ctxErr);
+                prior = "";  // Продолжаем генерацию без контекста
+              }
               break;
             }
           }
@@ -5471,6 +5482,13 @@ ${METHOD_CRITIQUE(p)[p.method] || ""}
             st.className = "progress-step done";
             st.querySelector(".step-icon").textContent = "✓";
             ct.innerHTML = `<div class="doc-section"><div class="callout warning"><span class="callout-label">⚠ Ошибка</span>${e.message}</div></div>`;
+          }
+          } catch (outerErr) {
+            // Ошибка при построении контекста — не должна останавливать генерацию
+            console.error("Ошибка построения контекста/промпта для раздела:", pass.map(d => d.key), outerErr);
+            st.className = "progress-step done";
+            st.querySelector(".step-icon").textContent = "⚠";
+            ct.innerHTML = `<div class="doc-section"><div class="callout warning"><span class="callout-label">⚠ Ошибка контекста</span>Не удалось подготовить контекст для раздела: ${outerErr.message || outerErr}</div></div>`;
           }
         }
         document.getElementById("docFooter").style.display = "flex";
@@ -5639,11 +5657,14 @@ ${METHOD_CRITIQUE(p)[p.method] || ""}
           return m ? m[1].trim() : label;
         }
 
+        // ── Проверяет, является ли строка голой римской цифрой ────────────────────
+        function isBareRoman(s) {
+          return /^[IVXLCDM]+$/i.test(s.trim());
+        }
+
         // ── Ищет кластер по метке; если не найден — создаёт новый ──────────────────
-        // Поддерживает три варианта совпадения:
-        //   1. Точное:           "I — Логика"  ↔  "I — Логика"
-        //   2. Префиксное:       "I"           ↔  "I — Логика"  (и обратно)
-        //   3. По именной части: "Логика"      ↔  "I — Логика"
+        // Голые римские цифры ("I", "II") НЕ создают новый кластер —
+        // они пытаются найти существующий по префиксу, иначе игнорируются.
         function findOrCreateCluster(label) {
           if (!label) return -1;
 
@@ -5655,9 +5676,7 @@ ${METHOD_CRITIQUE(p)[p.method] || ""}
 
           // 2. Префиксное совпадение (в обе стороны)
           idx = result.clusterLabels.findIndex(existing => {
-            // label является префиксом existing: "I" → "I — Логика"
             if (SEPS.some(s => existing.startsWith(label + s))) return true;
-            // existing является префиксом label: "I" ← "I — Логика"
             if (SEPS.some(s => label.startsWith(existing + s))) return true;
             return false;
           });
@@ -5670,7 +5689,15 @@ ${METHOD_CRITIQUE(p)[p.method] || ""}
           );
           if (idx !== -1) return idx;
 
-          // 4. Не найден → регистрируем новый
+          // 4. Голая римская цифра — НЕ создаём новый кластер.
+          //    Попытка найти не удалась → пропускаем (console.warn).
+          if (isBareRoman(label)) {
+            console.warn("parseTopology: голая римская цифра «" + label +
+              "» без совпадения с существующим кластером — пропущена");
+            return -1;
+          }
+
+          // 5. Полноценная метка — регистрируем новый кластер
           idx = result.clusterLabels.length;
           result.clusterLabels.push(label);
           return idx;
@@ -5683,6 +5710,33 @@ ${METHOD_CRITIQUE(p)[p.method] || ""}
           if (!result.clusters[name].includes(idx)) result.clusters[name].push(idx);
         }
 
+        // ── Нечёткое сопоставление имён из топологической таблицы с каноническими ─
+        // Модель может писать имена категорий чуть иначе (пробелы, регистр, суффиксы).
+        // Ищем ближайшее совпадение среди nodeNames, чтобы роли и кластеры записывались
+        // под теми же ключами, по которым они потом ищутся при рендеринге.
+        const _nodeNamesLower = nodeNames.map(n => n.toLowerCase().trim());
+        function matchNodeName(rawName) {
+          const norm = rawName.toLowerCase().trim();
+          // 1. Точное совпадение
+          const exactIdx = _nodeNamesLower.indexOf(norm);
+          if (exactIdx !== -1) return nodeNames[exactIdx];
+          // 2. Одно имя содержит другое (после normalizeName модель может
+          //    добавить суффикс или убрать часть скобок)
+          for (let i = 0; i < nodeNames.length; i++) {
+            const cn = _nodeNamesLower[i];
+            if (norm.includes(cn) || cn.includes(norm)) return nodeNames[i];
+          }
+          // 3. Совпадение по первому слову (покрывает «Категория Х» vs «Категория X: пояснение»)
+          const firstWord = norm.split(/[\s,;:–—]+/)[0];
+          if (firstWord.length >= 4) {
+            for (let i = 0; i < nodeNames.length; i++) {
+              if (_nodeNamesLower[i].startsWith(firstWord)) return nodeNames[i];
+            }
+          }
+          // 4. Не найден — возвращаем как есть (fallback)
+          return rawName;
+        }
+
         const topoSection = sec.querySelector('[data-section="Топологическая таблица"]');
         const tableScope  = topoSection || sec;
 
@@ -5690,8 +5744,9 @@ ${METHOD_CRITIQUE(p)[p.method] || ""}
           const td = Array.from(tr.querySelectorAll("td")).map(c => c.textContent.trim());
           if (td.length < 2) return;
 
-          const name = normalizeName(td[0]);
-          if (!name) return;
+          const rawName = normalizeName(td[0]);
+          if (!rawName) return;
+          const name = matchNodeName(rawName);
 
           // ── Столбец 1: Кластер(ы) ────────────────────────────────────────────────
           const clusterRaw = (td[1] || "").trim();
