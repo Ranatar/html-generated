@@ -4,12 +4,12 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>PhiloSynth Pro — Система Синтеза Философских Концепций</title>
-    <link
+    <!--link
       href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700;900&family=IBM+Plex+Mono:wght@300;400;500;600&family=IBM+Plex+Sans:ital,wght@0,300;0,400;0,500;0,600;1,400&display=swap"
       rel="stylesheet"
-    />
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/d3/7.8.5/d3.min.js"></script>
+    /-->
+    <script src="three.min.js"></script>
+    <script src="d3.min.js"></script>
     <style>
       :root {
         --white: #fafaf8;
@@ -1828,6 +1828,589 @@
       background: var(--white);
       border-top: 1px solid var(--blue-corp);
       }
+
+      /* ── EDIT MODAL ── */
+      .edit-overlay {
+        display: none;
+        position: fixed;
+        inset: 0;
+        background: rgba(10, 10, 15, 0.80);
+        z-index: 9998;
+        align-items: center;
+        justify-content: center;
+        padding: 24px;
+      }
+      .edit-overlay.visible {
+        display: flex;
+      }
+      .edit-modal {
+        background: var(--paper);
+        border: 1px solid var(--rule);
+        border-top: 4px solid var(--gold);
+        width: 100%;
+        max-width: 780px;
+        max-height: 88vh;
+        display: flex;
+        flex-direction: column;
+      }
+      .edit-modal-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 16px 24px;
+        border-bottom: 1px solid var(--rule);
+        flex-shrink: 0;
+      }
+      .edit-modal-title {
+        font-family: var(--mono);
+        font-size: 11px;
+        font-weight: 600;
+        letter-spacing: 2.5px;
+        text-transform: uppercase;
+        color: var(--gold);
+      }
+      .edit-modal-body {
+        overflow-y: auto;
+        flex: 1;
+        padding: 20px 24px;
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
+      }
+      .edit-modal-footer {
+        display: flex;
+        align-items: center;
+        justify-content: flex-end;
+        padding: 12px 24px;
+        border-top: 1px solid var(--rule);
+        flex-shrink: 0;
+        gap: 8px;
+      }
+      .edit-sec-card {
+        border: 1px solid var(--rule);
+        background: var(--white);
+        padding: 14px 18px;
+        transition: border-color 0.15s;
+      }
+      .edit-sec-card:hover {
+        border-color: var(--blue-corp);
+      }
+      .edit-sec-card-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
+        margin-bottom: 6px;
+      }
+      .edit-sec-title {
+        font-family: var(--mono);
+        font-size: 11px;
+        font-weight: 600;
+        letter-spacing: 1.5px;
+        text-transform: uppercase;
+        color: var(--blue-corp);
+      }
+      .edit-sec-num {
+        font-family: var(--mono);
+        font-size: 9px;
+        color: var(--ink-dim);
+        letter-spacing: 1px;
+      }
+      .edit-sec-ctx-row {
+        margin-top: 8px;
+      }
+      .edit-sec-ctx-label {
+        font-family: var(--mono);
+        font-size: 9px;
+        letter-spacing: 1px;
+        text-transform: uppercase;
+        color: var(--ink-dim);
+        margin-bottom: 4px;
+      }
+      .edit-sec-ctx-field {
+        width: 100%;
+        border: 1px solid var(--rule-strong);
+        background: var(--white);
+        padding: 8px 12px;
+        font-family: var(--sans);
+        font-size: 12px;
+        color: var(--ink);
+        line-height: 1.5;
+        height: 48px;
+        min-height: 32px;
+        resize: vertical;
+        outline: none;
+        box-sizing: border-box;
+        transition: border-color 0.15s;
+      }
+      .edit-sec-ctx-field:focus {
+        border-color: var(--gold);
+        box-shadow: 0 0 0 3px rgba(184, 134, 11, 0.10);
+      }
+      .edit-sec-actions {
+        display: flex;
+        gap: 6px;
+        flex-wrap: wrap;
+        margin-top: 10px;
+      }
+      .edit-sec-btn {
+        font-family: var(--mono);
+        font-size: 9px;
+        font-weight: 500;
+        letter-spacing: 1px;
+        text-transform: uppercase;
+        padding: 6px 14px;
+        cursor: pointer;
+        border: 1px solid var(--rule-strong);
+        background: transparent;
+        color: var(--ink-mid);
+        transition: all 0.15s;
+      }
+      .edit-sec-btn:hover {
+        border-color: var(--blue-corp);
+        color: var(--blue-corp);
+      }
+      .edit-sec-btn.primary {
+        background: var(--blue-corp);
+        color: #fff;
+        border-color: var(--blue-corp);
+      }
+      .edit-sec-btn.primary:hover {
+        background: var(--blue-mid);
+      }
+      .edit-sec-btn:disabled {
+        opacity: 0.4;
+        cursor: not-allowed;
+      }
+
+      /* Панель предупреждений внутри карточки */
+      .edit-dep-warnings {
+        margin-top: 8px;
+        display: flex;
+        flex-direction: column;
+        gap: 4px;
+      }
+      .edit-dep-warn {
+        font-family: var(--mono);
+        font-size: 10px;
+        padding: 6px 12px;
+        line-height: 1.5;
+        display: flex;
+        align-items: flex-start;
+        gap: 6px;
+      }
+      .edit-dep-warn.info {
+        color: var(--blue-corp);
+        background: var(--blue-light);
+        border: 1px solid rgba(26, 40, 85, 0.2);
+      }
+      .edit-dep-warn.caution {
+        color: var(--gold);
+        background: #fffbee;
+        border: 1px solid var(--gold);
+      }
+      .edit-dep-warn.danger {
+        color: var(--red);
+        background: #fff5f5;
+        border: 1px solid var(--red);
+      }
+      .edit-dep-warn .dep-icon {
+        flex-shrink: 0;
+        font-size: 12px;
+      }
+
+      /* Прогресс-бар перегенерации */
+      .edit-regen-progress {
+        font-family: var(--mono);
+        font-size: 10px;
+        color: var(--blue-corp);
+        padding: 8px 0;
+        display: none;
+      }
+      .edit-regen-progress.active {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+      }
+      .edit-regen-spinner {
+        width: 12px;
+        height: 12px;
+        border: 2px solid var(--rule);
+        border-top-color: var(--blue-corp);
+        border-radius: 50%;
+        animation: spin 0.8s linear infinite;
+      }
+      /* ── EDIT: кнопка удаления ── */
+      .edit-sec-btn.danger {
+        border-color: var(--red);
+        color: var(--red);
+      }
+      .edit-sec-btn.danger:hover {
+        background: var(--red);
+        color: #fff;
+      }
+
+      /* ── EDIT: панель добавления раздела ── */
+      .edit-add-panel {
+        border: 2px dashed var(--rule-strong);
+        padding: 18px;
+        background: var(--off);
+        transition: border-color 0.15s;
+      }
+      .edit-add-panel:hover {
+        border-color: var(--blue-corp);
+      }
+      .edit-add-title {
+        font-family: var(--mono);
+        font-size: 10px;
+        font-weight: 600;
+        letter-spacing: 2px;
+        text-transform: uppercase;
+        color: var(--ink-dim);
+        margin-bottom: 12px;
+      }
+      .edit-add-grid {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 6px;
+      }
+      .edit-add-btn {
+        font-family: var(--mono);
+        font-size: 10px;
+        font-weight: 500;
+        letter-spacing: 1px;
+        padding: 7px 14px;
+        cursor: pointer;
+        border: 1px solid var(--blue-corp);
+        background: var(--blue-light);
+        color: var(--blue-corp);
+        transition: all 0.15s;
+      }
+      .edit-add-btn:hover {
+        background: var(--blue-corp);
+        color: #fff;
+      }
+      .edit-add-btn:disabled {
+        opacity: 0.4;
+        cursor: not-allowed;
+      }
+
+      /* ── EDIT: форма добавления (раскрывается после выбора раздела) ── */
+      .edit-add-form {
+        display: none;
+        margin-top: 14px;
+        padding: 16px;
+        border: 1px solid var(--blue-corp);
+        background: var(--white);
+      }
+      .edit-add-form.visible {
+        display: block;
+      }
+      .edit-add-form-title {
+        font-family: var(--mono);
+        font-size: 11px;
+        font-weight: 600;
+        letter-spacing: 1.5px;
+        text-transform: uppercase;
+        color: var(--blue-corp);
+        margin-bottom: 10px;
+      }
+      .edit-add-dep-info {
+        font-family: var(--mono);
+        font-size: 10px;
+        line-height: 1.6;
+        color: var(--ink-mid);
+        background: var(--off);
+        border: 1px solid var(--rule);
+        padding: 8px 12px;
+        margin: 10px 0;
+      }
+
+      /* ── EDIT: бейдж удалённого раздела (перечёркнутый) ── */
+      .edit-deleted-badge {
+        font-family: var(--mono);
+        font-size: 9px;
+        letter-spacing: 1px;
+        text-transform: uppercase;
+        color: var(--red);
+        background: #fff5f5;
+        border: 1px solid var(--red);
+        padding: 2px 8px;
+        margin-left: 8px;
+      }
+
+      /* ── IMPORT ── */
+      .import-row {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        margin-top: 12px;
+        padding-top: 14px;
+        border-top: 1px dashed var(--rule);
+      }
+      .import-btn {
+        font-family: var(--mono);
+        font-size: 10px;
+        font-weight: 500;
+        letter-spacing: 1.5px;
+        text-transform: uppercase;
+        background: transparent;
+        border: 1px solid var(--rule-strong);
+        padding: 8px 18px;
+        cursor: pointer;
+        color: var(--ink-mid);
+        transition: all 0.15s;
+      }
+      .import-btn:hover {
+        border-color: var(--violet);
+        color: var(--violet);
+      }
+      .import-status {
+        font-family: var(--mono);
+        font-size: 10px;
+        color: var(--ink-dim);
+        letter-spacing: 0.5px;
+      }
+      .import-status.ok {
+        color: var(--green-check);
+      }
+      .import-status.err {
+        color: var(--red);
+      }
+
+      /* ── CASCADE PANEL ── */
+      .cascade-panel {
+        border: 2px solid var(--gold);
+        background: #fffbee;
+        padding: 18px;
+        display: none;
+        flex-direction: column;
+        gap: 10px;
+      }
+      .cascade-panel.visible {
+        display: flex;
+      }
+      .cascade-title {
+        font-family: var(--mono);
+        font-size: 11px;
+        font-weight: 600;
+        letter-spacing: 2px;
+        text-transform: uppercase;
+        color: var(--gold);
+        display: flex;
+        align-items: center;
+        gap: 8px;
+      }
+      .cascade-desc {
+        font-size: 12px;
+        color: var(--ink-mid);
+        line-height: 1.65;
+      }
+      .cascade-list {
+        display: flex;
+        flex-direction: column;
+        gap: 5px;
+      }
+      .cascade-item {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        font-family: var(--mono);
+        font-size: 11px;
+        color: var(--ink-mid);
+        padding: 6px 10px;
+        background: var(--white);
+        border: 1px solid var(--rule);
+        cursor: pointer;
+        user-select: none;
+        transition: border-color 0.15s, background 0.15s;
+      }
+      .cascade-item:hover {
+        border-color: var(--blue-corp);
+      }
+      .cascade-item input[type="checkbox"] {
+        accent-color: var(--blue-corp);
+        cursor: pointer;
+      }
+      .cascade-item.done {
+        border-color: var(--green-check);
+        background: #f0fff4;
+        color: var(--green-check);
+      }
+      .cascade-item.processing {
+        border-color: var(--blue-corp);
+        background: var(--blue-light);
+        color: var(--blue-corp);
+      }
+      .cascade-item.error {
+        border-color: var(--red);
+        background: #fff5f5;
+        color: var(--red);
+      }
+      .cascade-item-status {
+        margin-left: auto;
+        font-size: 9px;
+        letter-spacing: 0.5px;
+        opacity: 0.7;
+      }
+      .cascade-actions {
+        display: flex;
+        gap: 8px;
+        align-items: center;
+        margin-top: 4px;
+      }
+      .cascade-progress-text {
+        font-family: var(--mono);
+        font-size: 10px;
+        color: var(--ink-dim);
+        letter-spacing: 0.5px;
+      }
+
+      /* ── IMPORT INDICATOR ── */
+      .import-indicator {
+        font-family: var(--mono);
+        font-size: 9px;
+        letter-spacing: 1.5px;
+        text-transform: uppercase;
+        color: var(--violet);
+        background: var(--violet-light);
+        border: 1px solid rgba(107, 0, 170, 0.25);
+        padding: 3px 10px;
+        display: none;
+      }
+      .import-indicator.visible {
+        display: inline-block;
+      }
+
+      /* ── URL IMPORT ── */
+      .import-url-row {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        margin-top: 8px;
+      }
+      .import-url-input {
+        flex: 1;
+        border: 1px solid var(--rule-strong);
+        background: var(--white);
+        padding: 7px 12px;
+        font-family: var(--mono);
+        font-size: 12px;
+        color: var(--ink);
+        outline: none;
+        transition: border-color 0.15s;
+      }
+      .import-url-input:focus {
+        border-color: var(--violet);
+        box-shadow: 0 0 0 3px rgba(107, 0, 170, 0.08);
+      }
+      .import-url-input::placeholder {
+        color: var(--ink-dim);
+        font-size: 11px;
+      }
+      .import-url-btn {
+        font-family: var(--mono);
+        font-size: 10px;
+        font-weight: 500;
+        letter-spacing: 1.5px;
+        text-transform: uppercase;
+        background: transparent;
+        border: 1px solid var(--rule-strong);
+        padding: 8px 16px;
+        cursor: pointer;
+        color: var(--ink-mid);
+        transition: all 0.15s;
+        white-space: nowrap;
+      }
+      .import-url-btn:hover {
+        border-color: var(--violet);
+        color: var(--violet);
+      }
+      .import-url-btn:disabled {
+        opacity: 0.4;
+        cursor: not-allowed;
+      }
+
+      /* ── EDIT: checkbox-actions на карточке ── */
+      .edit-sec-checks {
+        display: flex;
+        gap: 14px;
+        margin-top: 8px;
+      }
+      .edit-sec-check {
+        display: flex;
+        align-items: center;
+        gap: 5px;
+        font-family: var(--mono);
+        font-size: 10px;
+        letter-spacing: 0.5px;
+        color: var(--ink-mid);
+        cursor: pointer;
+        user-select: none;
+      }
+      .edit-sec-check input {
+        accent-color: var(--blue-corp);
+        cursor: pointer;
+      }
+      .edit-sec-check.delete-check input {
+        accent-color: var(--red);
+      }
+      .edit-sec-check.delete-check {
+        color: var(--red);
+      }
+
+      /* ── EDIT: add-section checkbox list ── */
+      .edit-add-checks {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 6px;
+      }
+      .edit-add-check {
+        display: flex;
+        align-items: center;
+        gap: 5px;
+        font-family: var(--mono);
+        font-size: 10px;
+        letter-spacing: 0.5px;
+        color: var(--blue-corp);
+        cursor: pointer;
+        user-select: none;
+        padding: 5px 10px;
+        border: 1px solid var(--blue-corp);
+        background: var(--blue-light);
+        transition: all 0.15s;
+      }
+      .edit-add-check:hover {
+        background: var(--blue-corp);
+        color: #fff;
+      }
+      .edit-add-check input {
+        accent-color: var(--blue-corp);
+        cursor: pointer;
+      }
+
+      /* ── EDIT: cascade-item for live cascade (no checkbox, info-only) ── */
+      .cascade-item-info {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        font-family: var(--mono);
+        font-size: 10px;
+        color: var(--ink-mid);
+        padding: 5px 10px;
+        background: var(--white);
+        border: 1px solid var(--rule);
+      }
+      .cascade-item-info.covered {
+        border-color: var(--green-check);
+        color: var(--green-check);
+        background: #f0fff4;
+      }
+      .cascade-item-info.exposed {
+        border-color: var(--gold);
+        color: var(--gold);
+        background: #fffbee;
+      }
     </style>
   </head>
   <body>
@@ -2260,6 +2843,24 @@
             <div id="costEstimate" style="font-family: var(--mono); font-size: 9px; color: var(--ink-dim); letter-spacing: 0.5px; text-align: right"></div>
           </div>
         </div>
+        <div class="import-row">
+          <button class="import-btn" onclick="document.getElementById('importFileInput').click()">
+            ↑ Файл
+          </button>
+          <span class="import-status" id="importStatus"></span>
+        </div>
+        <div class="import-url-row">
+          <input class="import-url-input" id="importUrlInput" type="url"
+                 placeholder="https://example.com/document.html"
+                 onkeydown="if(event.key==='Enter'){importFromUrl();}">
+          <button class="import-url-btn" id="importUrlBtn" onclick="importFromUrl()">
+            ↑ Импорт по URL
+          </button>
+        </div>
+        <div style="font-family:var(--mono);font-size:9px;color:var(--ink-dim);margin-top:4px;line-height:1.5;letter-spacing:0.3px">
+          ⚠ При кросс-доменной загрузке содержимое страницы может пройти через сторонний CORS-прокси.
+          Для конфиденциальных документов используйте импорт из файла.
+        </div>
       </div>
 
       <div class="progress-panel" id="progressPanel">
@@ -2278,6 +2879,7 @@
             "
           >
             ДОКУМЕНТ СГЕНЕРИРОВАН
+            <span class="import-indicator" id="importIndicator"></span>
           </div>
           <div class="actions-bar-btns">
             <button
@@ -2291,6 +2893,7 @@
             <button class="action-btn" onclick="window.print()">Распечатать</button>
             <button class="action-btn" onclick="viewRawHTML()">Raw HTML</button>
             <button class="action-btn" onclick="viewCtxLog()">Лог контекста</button>
+            <button class="action-btn gold-btn" id="btnEdit" onclick="openEditModal()">Изменить</button>
             <button class="action-btn" onclick="saveHTML()">Сохранить HTML</button>
             <button class="action-btn" onclick="saveMD()">Сохранить MD</button>
             <button class="action-btn" onclick="resetForm()">Новый Синтез</button>
@@ -2415,6 +3018,46 @@
       </div>
     </div>
 
+    <!-- EDIT MODAL -->
+    <div class="edit-overlay" id="editOverlay" onclick="if (event.target === this) closeEditModal();">
+      <div class="edit-modal">
+        <div class="edit-modal-header">
+          <div class="edit-modal-title">✎ Редактирование Разделов</div>
+          <button class="raw-close" onclick="closeEditModal()">✕ Закрыть</button>
+        </div>
+        <div class="edit-modal-body" id="editModalBody">
+          <!-- Каскадная панель (live-обновляется при изменении галочек) -->
+          <div class="cascade-panel" id="cascadePanel">
+            <div class="cascade-title">
+              <span>⚡</span>
+              <span id="cascadeTitle">Каскад зависимостей</span>
+            </div>
+            <div class="cascade-desc" id="cascadeDesc"></div>
+            <div class="cascade-list" id="cascadeList"></div>
+          </div>
+          <!-- Карточки разделов + панель добавления генерируются динамически -->
+        </div>
+        <div class="edit-modal-footer">
+          <div style="flex:1;display:flex;flex-direction:column;gap:4px">
+            <div style="font-family:var(--mono);font-size:9px;color:var(--ink-dim);letter-spacing:1px" id="editFooterInfo"></div>
+            <div style="font-family:var(--mono);font-size:10px;color:var(--gold);letter-spacing:0.5px" id="editCostEstimate"></div>
+          </div>
+          <div class="edit-regen-progress" id="editPlanProgress">
+            <div class="edit-regen-spinner"></div>
+            <span id="editPlanProgressText"></span>
+          </div>
+          <button class="edit-sec-btn primary" id="editRunBtn" onclick="executeEditPlan()" disabled
+                  style="padding:10px 24px;font-size:11px;letter-spacing:2px">
+            ▶ Пуск
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- IMPORT FILE INPUT (скрыт) -->
+    <input type="file" id="importFileInput" accept=".html,.htm"
+           style="display:none" onchange="handleImportFile(this)">
+
     <script>
       // ════════════════════════════════════════
       // STATE
@@ -2428,7 +3071,7 @@
         G = {
           nodes: [], edges: [],
           topology: { clusters: {}, roles: { structural: {}, procedural: {} }, clusterLabels: [] }
-        };
+        },
         //G = { nodes: [], edges: [], topology: { clusters: {}, roles: {}, clusterLabels: [] } };
         graphBodyIdx = -1,
         anim3d = null,
@@ -2440,7 +3083,7 @@
         clusterObjects3d = null,
         clusterObjects2d = null;
 
-      const ML = {
+        const ML = {
         dialectical: "Диалектический",
         integrative: "Интегративный",
         deconstructive: "Деконструктивный",
@@ -2448,6 +3091,7 @@
         analytical: "Аналитический",
         creative: "Творческий",
       };
+
       const MD = {
         dialectical:
           "Движение от тезиса к антитезису и к синтезу — обнаружение внутренних противоречий между традициями и их снятие в новом единстве",
@@ -2462,17 +3106,20 @@
         creative:
           "Свободная комбинаторика идей с упором на оригинальность, неожиданные связи и порождающий потенциал",
       };
+
       const DL = {
         overview: "Обзорная",
         standard: "Стандартная",
         deep: "Глубокая",
         exhaustive: "Исчерпывающая",
       };
+
       const SL = {
         comparative: "Сравнительный",
         transformative: "Преобразующий",
         generative: "Порождающий",
       };
+
       const SD = {
         comparative:
           "Категории заимствуются из исходных философов с переопределением, дополняются синтетическими",
@@ -2481,6 +3128,508 @@
         generative:
           "Категории порождаются проблемой, а не философами; философы — источники ограничений, которые синтез преодолевает",
       };
+
+      // ════════════════════════════════════════
+      // DOC_STATE — состояние сгенерированного документа
+      // ════════════════════════════════════════
+      const DOC_STATE = {
+        /** Признак наличия завершённой генерации */
+        ready: false,
+
+        /** Параметры, с которыми был сгенерирован документ */
+        params: null,  // { seed, phil, sec, method, depth, synthLevel, ctx, secCtx }
+
+        /** Порядок разделов (включая "sum") */
+        sectionOrder: [],
+
+        /** Маппинг sectionKey → индекс DOM-контейнера db{N} */
+        sectionDbIdx: {},
+
+        /** Маппинг sectionKey → innerHTML контейнера (кэш последнего содержимого) */
+        sectionHTML: {},
+
+        /** Маппинг sectionKey → { key, num, title, prompt } из buildSectionDefs */
+        sectionDefs: {},
+
+        /** effectiveDeps на момент генерации */
+        effectiveDeps: null,
+
+        /** resolvedDeps на момент генерации */
+        resolvedDeps: null,
+
+        /** Номер документа */
+        docNum: "",
+
+        /** Разделы, перегенерированные после исходной генерации */
+        editedSections: new Set(),
+
+        factualDeps: {},        
+        incomplete: false,      
+        importWarnings: [],     
+      };
+
+      /** Заполняет DOC_STATE после завершения генерации */
+      function populateDocState(p, defs, dynamicOrder, effectiveDeps, resolvedDeps, passes) {
+        DOC_STATE.ready = true;
+        DOC_STATE.params = {
+          seed: p.seed,
+          phil: [...p.phil],
+          sec: [...p.sec],
+          method: p.method,
+          depth: p.depth,
+          synthLevel: p.synthLevel,
+          ctx: p.ctx,
+          secCtx: { ...p.secCtx },
+        };
+        DOC_STATE.sectionOrder = [...dynamicOrder];
+        DOC_STATE.sectionDbIdx = {};
+        DOC_STATE.sectionDefs = {};
+        DOC_STATE.sectionHTML = {};
+        DOC_STATE.editedSections = new Set();
+
+        // Маппинг key → dbIdx: проходим по passes, каждый pass занимает один db{i}
+        for (let i = 0; i < passes.length; i++) {
+          for (const def of passes[i]) {
+            DOC_STATE.sectionDbIdx[def.key] = i;
+            DOC_STATE.sectionDefs[def.key] = { ...def };
+          }
+          // Помечаем DOM-контейнер ключом раздела для rebuildDbMapping
+          const el = document.getElementById("db" + i);
+          if (el) {
+            el.setAttribute("data-section-key", passes[i].map(d => d.key).join("+"));
+          }
+        }
+
+        // Кэшируем HTML каждого раздела
+        for (const key of dynamicOrder) {
+          const idx = DOC_STATE.sectionDbIdx[key];
+          const el = document.getElementById("db" + idx);
+          if (el) DOC_STATE.sectionHTML[key] = el.innerHTML;
+        }
+
+        DOC_STATE.effectiveDeps = effectiveDeps;
+        DOC_STATE.resolvedDeps = resolvedDeps;
+        DOC_STATE.factualDeps = buildFactualDepsMap(ctxLog);
+        DOC_STATE.docNum = document.getElementById("docNum")?.textContent || "";
+      }
+
+      /** Сбрасывает DOC_STATE */
+      function resetDocState() {
+        DOC_STATE.ready = false;
+        DOC_STATE.params = null;
+        DOC_STATE.sectionOrder = [];
+        DOC_STATE.sectionDbIdx = {};
+        DOC_STATE.sectionHTML = {};
+        DOC_STATE.sectionDefs = {};
+        DOC_STATE.effectiveDeps = null;
+        DOC_STATE.resolvedDeps = null;
+        DOC_STATE.docNum = "";
+        DOC_STATE.editedSections = new Set();
+        DOC_STATE.factualDeps = {};
+        DOC_STATE.incomplete = false;
+        DOC_STATE.importWarnings = [];
+      }
+
+      // ════════════════════════════════════════
+      // EDIT — зависимости, утилиты
+      // ════════════════════════════════════════
+
+      /** Полные метки разделов по ключу (не по secId) */
+      const KEY_LABELS = {
+        sum: "Исполнительное резюме",
+        graph: "Граф категорий",
+        glossary: "Глоссарий терминов",
+        theses: "Корпус тезисов",
+        name: "Анализ названия",
+        history: "Историческая контекстуализация",
+        origin: "Анализ происхождения",
+        practical: "Практическое применение",
+        dialogue: "Диалог между традициями",
+        evolution: "Эволюция и перспективы",
+        critique: "Критический анализ",
+      };
+
+      // ── Обратные маппинги: отображаемое название → внутренний ключ ──
+      const REVERSE_ML = Object.fromEntries(Object.entries(ML).map(([k, v]) => [v, k]));
+      const REVERSE_DL = Object.fromEntries(Object.entries(DL).map(([k, v]) => [v, k]));
+      const REVERSE_SL = Object.fromEntries(Object.entries(SL).map(([k, v]) => [v, k]));
+
+      /**
+       * Маппинг заголовка раздела из .section-title → ключ раздела.
+       * Ключи — нижний регистр, без лишних пробелов.
+       */
+      const TITLE_TO_KEY = {
+        "исполнительное резюме синтеза":               "sum",
+        "исполнительное резюме":                       "sum",
+        "граф категорий концепции":                    "graph",
+        "граф категорий и концептуальных связей":      "graph",
+        "граф категорий":                              "graph",
+        "глоссарий категорий и определений":           "glossary",
+        "глоссарий терминов":                          "glossary",
+        "глоссарий":                                   "glossary",
+        "корпус тезисов":                              "theses",
+        "название концепции и его анализ":             "name",
+        "анализ названия":                             "name",
+        "название концепции":                          "name",
+        "историческая контекстуализация":              "history",
+        "анализ происхождения":                        "origin",
+        "анализ происхождения и генеалогия идей":      "origin",
+        "практическое применение":                     "practical",
+        "диалог между традициями":                     "dialogue",
+        "эволюция и перспективы":                      "evolution",
+        "эволюция и перспективы концепции":            "evolution",
+        "критический анализ":                          "critique",
+        "критический анализ синтеза":                  "critique",
+      };
+
+      /**
+       * Определяет ключ раздела по тексту заголовка .section-title.
+       * Сначала точное совпадение, затем поиск по ключевым словам.
+       */
+      function titleToKey(titleText) {
+        const norm = titleText.toLowerCase().trim()
+          .replace(/\s+/g, " ")
+          .replace(/^§\s*\d+\s*[-–—]\s*/, ""); // убираем "§ 3 — "
+
+        // 1. Точное совпадение
+        if (TITLE_TO_KEY[norm]) return TITLE_TO_KEY[norm];
+
+        // 2. Совпадение по вхождению (заголовок может содержать доп. текст)
+        for (const [pattern, key] of Object.entries(TITLE_TO_KEY)) {
+          if (norm.includes(pattern) || pattern.includes(norm)) return key;
+        }
+
+        // 3. Ключевые слова
+        const KW = {
+          "резюме": "sum", "граф": "graph", "глоссар": "glossary",
+          "тезис": "theses", "назван": "name", "историч": "history",
+          "происхожден": "origin", "практическ": "practical",
+          "диалог": "dialogue", "эволюц": "evolution", "критическ": "critique",
+        };
+        for (const [kw, key] of Object.entries(KW)) {
+          if (norm.includes(kw)) return key;
+        }
+
+        return null; // не удалось распознать
+      }
+
+      /**
+       * Инверсия computePredecessors: для каждого раздела возвращает
+       * множество разделов, которые ЗАВИСЯТ от него (будут затронуты его изменением).
+       * @returns {{ [sectionKey: string]: Set<string> }}
+       */
+      function computeDependents(effectiveDeps) {
+        const preds = computePredecessors(effectiveDeps);
+        const dependents = {};
+        for (const sec of Object.keys(effectiveDeps)) {
+          dependents[sec] = new Set();
+        }
+        // Если B ∈ preds[A], значит A зависит от B → B влияет на A → A ∈ dependents[B]
+        for (const [sec, predSet] of Object.entries(preds)) {
+          for (const pred of predSet) {
+            if (!dependents[pred]) dependents[pred] = new Set();
+            dependents[pred].add(sec);
+          }
+        }
+        return dependents;
+      }
+
+      // ════════════════════════════════════════
+      // FACTUAL DEPS — карта реально использованных зависимостей из ctxLog
+      // ════════════════════════════════════════
+
+      /**
+       * Строит карту фактических зависимостей из ctxLog.
+       * Для каждого раздела-потребителя — какие разделы-источники он реально использовал
+       * и сколько символов контекста получил.
+       *
+       * @param {Array} log — массив ctxLog
+       * @returns {{ [consumer: string]: { [source: string]: { chars: number, keys: string[], statuses: string[] } } }}
+       */
+      function buildFactualDepsMap(log) {
+        if (!log || !log.length) return {};
+
+        // При мультисессионном логе для одного sectionKey может быть
+        // несколько записей (оригинал + перегенерации). Берём ПОСЛЕДНЮЮ:
+        // она отражает актуальное состояние зависимостей раздела.
+        const latestByKey = {};
+        for (const entry of log) {
+          latestByKey[entry.sectionKey] = entry; // перезаписывает → остаётся последняя
+        }
+
+        const map = {};
+        for (const entry of Object.values(latestByKey)) {
+          const consumer = entry.sectionKey;
+          if (!map[consumer]) map[consumer] = {};
+
+          for (const e of entry.entries) {
+            const source = sourceOf(e.key);
+            if (source === "sum" || source === consumer) continue;
+            if (e.status === "missing") continue;
+
+            if (!map[consumer][source]) {
+              map[consumer][source] = { chars: 0, keys: [], statuses: [] };
+            }
+
+            const info = map[consumer][source];
+            info.keys.push(e.key);
+            info.statuses.push(e.status);
+
+            if (e.status === "found" || e.status === "truncated") {
+              info.chars += e.len || 0;
+            }
+          }
+        }
+        return map;
+      }
+
+      /**
+       * Инверсия buildFactualDepsMap: для каждого раздела-источника —
+       * кто реально получал его контекст и сколько.
+       *
+       * @returns {{ [source: string]: { consumers: { key: string, chars: number, keys: string[] }[], totalChars: number } }}
+       */
+      function computeFactualDependents(factualDeps) {
+        const result = {};
+
+        for (const [consumer, sources] of Object.entries(factualDeps)) {
+          for (const [source, info] of Object.entries(sources)) {
+            if (!result[source]) result[source] = { consumers: [], totalChars: 0 };
+            result[source].consumers.push({
+              key: consumer,
+              chars: info.chars,
+              keys: info.keys,
+            });
+            result[source].totalChars += info.chars;
+          }
+        }
+
+        // Сортируем потребителей по убыванию chars
+        for (const data of Object.values(result)) {
+          data.consumers.sort((a, b) => b.chars - a.chars);
+        }
+
+        return result;
+      }
+
+      /**
+       * Для раздела возвращает оценку качества контекста на основе ctxLog.
+       * @returns {{ score: number, reqFound: number, reqTotal: number, optIncluded: number, optTotal: number, issues: string[] }}
+       */
+      function getSectionContextQuality(sectionKey) {
+        // Ищем последний ctxLog для этого раздела (может быть несколько при перегенерациях)
+        const entries = ctxLog.filter(e => e.sectionKey === sectionKey);
+        if (!entries.length) return null;
+
+        const entry = entries[entries.length - 1]; // последний
+        const issues = [];
+
+        // Отсутствующие обязательные
+        const missingReq = entry.entries.filter(e =>
+          e.priority === "required" && (e.status === "missing" || e.status === "dropped")
+        );
+        if (missingReq.length > 0) {
+          const names = missingReq.map(e => CTX_LABELS[e.key] || e.key);
+          issues.push("Отсутствовали обязательные: " + names.join(", "));
+        }
+
+        // Пропущенные из-за бюджета
+        const skipped = entry.entries.filter(e => e.status === "skipped_budget");
+        if (skipped.length > 0) {
+          issues.push(skipped.length + " контекст(ов) пропущено из-за бюджета");
+        }
+
+        // Обрезанные
+        const truncated = entry.entries.filter(e => e.status === "truncated");
+        if (truncated.length > 0) {
+          issues.push(truncated.length + " контекст(ов) обрезано");
+        }
+
+        // Заменители
+        const substitutes = entry.entries.filter(e => e.isSubstitute && e.status === "found");
+        if (substitutes.length > 0) {
+          issues.push(substitutes.length + " подстановок(ки)");
+        }
+
+        // Общий score: 0-100
+        const reqScore = entry.reqTotal > 0 ? (entry.reqFound / entry.reqTotal) : 1;
+        const budgetUsage = entry.budget > 0 ? Math.min(1, entry.totalUsed / entry.budget) : 0;
+        const score = Math.round(reqScore * 70 + budgetUsage * 30);
+
+        return {
+          score,
+          reqFound: entry.reqFound,
+          reqTotal: entry.reqTotal,
+          optIncluded: entry.optIncluded,
+          optTotal: entry.optTotal,
+          budgetUsed: entry.totalUsed,
+          budget: entry.budget,
+          issues,
+        };
+      }
+
+      /**
+       * Обновляет ссылки §N в текстовых узлах DOM после изменения нумерации.
+       * @param {Object} renumberMap — { старый_номер: новый_номер }
+       * @param {number[]} [deletedNums] — номера §§ удалённых разделов
+       */
+      function renumberSectionRefs(renumberMap, deletedNums) {
+        const hasRenumber = Object.keys(renumberMap).length > 0;
+        const deletedSet = new Set(deletedNums || []);
+        if (!hasRenumber && !deletedSet.size) return;
+
+        const db = document.getElementById("docBodies");
+        if (!db) return;
+
+        // Обходим все текстовые узлы внутри .doc-content
+        const walker = document.createTreeWalker(db, NodeFilter.SHOW_TEXT);
+        const textNodes = [];
+        while (walker.nextNode()) textNodes.push(walker.currentNode);
+
+        const regex = /§\s*(\d+)/g;
+        for (const node of textNodes) {
+          const original = node.nodeValue;
+          const replaced = original.replace(regex, (match, num) => {
+            const oldNum = parseInt(num, 10);
+            // Ссылка на удалённый раздел
+            if (deletedSet.has(oldNum)) {
+              return match + " [удалён]";
+            }
+            // Перенумерация
+            if (renumberMap[oldNum] !== undefined && renumberMap[oldNum] !== oldNum) {
+              return match.replace(num, String(renumberMap[oldNum]));
+            }
+            return match;
+          });
+          if (replaced !== original) node.nodeValue = replaced;
+        }
+
+        // Обновляем .section-num внутри каждого раздела
+        for (const key of DOC_STATE.sectionOrder) {
+          const def = DOC_STATE.sectionDefs[key];
+          if (!def) continue;
+          const idx = DOC_STATE.sectionDbIdx[key];
+          const el = document.getElementById("db" + idx);
+          if (!el) continue;
+          const numEl = el.querySelector(".section-num");
+          if (numEl) numEl.textContent = "§ " + def.num;
+        }
+      }
+
+      /** Обновляет текст стоимости в футере после перегенерации */
+      function updateFooterCost() {
+        const costIn = totalInputTokens * 3 / 1e6;
+        const costOut = totalOutputTokens * 15 / 1e6;
+        const costTotal = costIn + costOut;
+        const el = document.getElementById("footerCost");
+        if (el) {
+          el.textContent =
+            "Токены: " + totalInputTokens.toLocaleString("ru") + " вх. + " +
+            totalOutputTokens.toLocaleString("ru") + " вых. · Стоимость: $" +
+            costTotal.toFixed(4) + " (" + (costTotal * 100).toFixed(2) + "¢)";
+        }
+      }
+
+      /**
+       * Пересобирает db-индексы после структурного изменения (удаление/добавление).
+       * Проходит по потомкам #docBodies, переназначает id="db{N}",
+       * обновляет DOC_STATE.sectionDbIdx и graphBodyIdx.
+       */
+      function rebuildDbMapping() {
+        const db = document.getElementById("docBodies");
+        if (!db) return;
+        const children = Array.from(db.children);
+        DOC_STATE.sectionDbIdx = {};
+        graphBodyIdx = -1;
+
+        children.forEach((el, i) => {
+          el.id = "db" + i;
+          if (i > 0) el.style.borderTop = "none";
+          else el.style.borderTop = "";
+
+          const keyAttr = el.getAttribute("data-section-key");
+          if (keyAttr) {
+            const keys = keyAttr.split("+");
+            for (const k of keys) {
+              DOC_STATE.sectionDbIdx[k] = i;
+              if (k === "graph") graphBodyIdx = i;
+            }
+          }
+        });
+      }
+
+      /**
+       * Пересчитывает номера §§ всех разделов по текущему DOC_STATE.sectionOrder.
+       * Обновляет DOC_STATE.sectionDefs[key].num и элементы .section-num в DOM.
+       * Возвращает маппинг { старый_номер → новый_номер } для перезаписи ссылок.
+       */
+      function recalcSectionNumbers() {
+        const renumberMap = {};
+        let num = 1;
+
+        for (const key of DOC_STATE.sectionOrder) {
+          const def = DOC_STATE.sectionDefs[key];
+          if (!def) { num++; continue; }
+
+          const oldNum = def.num;
+          def.num = num;
+          if (oldNum !== num) renumberMap[oldNum] = num;
+
+          // Обновляем .section-num в DOM
+          const idx = DOC_STATE.sectionDbIdx[key];
+          const el = document.getElementById("db" + idx);
+          if (el) {
+            const numEl = el.querySelector(".section-num");
+            if (numEl) numEl.textContent = "§ " + num;
+          }
+          num++;
+        }
+
+        return renumberMap;
+      }
+
+      /**
+       * Определяет позицию вставки нового раздела в текущий порядок.
+       * Возвращает индекс в DOC_STATE.sectionOrder (0-based), ПОСЛЕ которого
+       * следует вставить новый раздел.
+       * Если раздел должен быть первым (после sum) — возвращает 0.
+       */
+      function findInsertPosition(newKey) {
+        const currentSections = DOC_STATE.sectionOrder.filter(k => k !== "sum");
+        const allSections = [...currentSections, newKey];
+
+        // Пересчитываем эффективные зависимости с новым разделом
+        const p = DOC_STATE.params;
+        const resolvedDeps = resolveContextDeps(p);
+        const effDeps = buildEffectiveDeps(allSections, resolvedDeps);
+        const newOrder = buildDynamicOrder(effDeps, allSections, resolvedDeps);
+        // newOrder включает "sum" первым
+
+        // Находим позицию newKey в новом порядке
+        const posInNew = newOrder.indexOf(newKey);
+
+        // Находим ближайший предшествующий раздел, который есть в текущем порядке
+        for (let i = posInNew - 1; i >= 0; i--) {
+          const prevKey = newOrder[i];
+          const posInCurrent = DOC_STATE.sectionOrder.indexOf(prevKey);
+          if (posInCurrent !== -1) return posInCurrent;
+        }
+
+        // Если предшественников нет — вставляем после sum (позиция 0 в sectionOrder → после sum)
+        return 0;
+      }
+
+      /**
+       * Пересчитывает effectiveDeps и resolvedDeps после изменения набора разделов.
+       */
+      function recalcDependencies() {
+        const p = DOC_STATE.params;
+        if (!p) return;
+        const currentSections = DOC_STATE.sectionOrder.filter(k => k !== "sum");
+        p.sec = [...currentSections];
+        DOC_STATE.resolvedDeps = resolveContextDeps(p);
+        DOC_STATE.effectiveDeps = buildEffectiveDeps(currentSections, DOC_STATE.resolvedDeps);
+      }
 
       // ════════════════════════════════════════
       // API KEY
@@ -3129,7 +4278,7 @@
             };
           }
           const predsClone = computePredecessors(effDepsClone);
-          resolveCircularDeps(predsClone, effDepsClone);
+          resolveCircularDeps(predsClone, effDepsClone, _resolvedForWarnings);
 
           // Используем effDepsClone (после разрешения циклов) для уведомлений
           const resolvedEffDeps = effDepsClone;
@@ -4843,8 +5992,6 @@
           "Интеграция с современной наукой",
           "Временная карта развития",
         ],
-        // critique — после ручной унификации промпта:
-        // пункты 2 и 3 зависят от synthLevel — вставляются динамически в buildSubsectionMap
         critique: [
           "Внутренняя когерентность",
           // ← сюда buildSubsectionMap вставит пункты 2 и 3
@@ -4881,7 +6028,6 @@
 
       /**
        * Пункт 2 критики — зависит от synthLevel.
-       * Название секции совпадает с заголовком, выносимым в `«...»`.
        */
       const SUBSECTION_CRITIQUE_NOVELTY = {
         comparative:    "Философская новизна",
@@ -4891,9 +6037,6 @@
 
       /**
        * Пункт 3 критики — зависит от synthLevel.
-       *
-       * ВАЖНО: названия в этих константах ОБЯЗАНЫ точно совпадать
-       * с текстом в «...» в соответствующих промптах (после их ручной унификации).
        */
       const SUBSECTION_CRITIQUE_CHECK = {
         comparative:    "Верность источникам",
@@ -5024,7 +6167,7 @@ ${METHOD_SUM[p.method] || ""}
 «Оценка сложности»
 Насколько трудным является данный синтез? Какие главные препятствия предстоит преодолеть?
 
-ВАЖНО: по завершению генерации сеции «Оценка сложности» запрос считается выполненным. 
+ВАЖНО: по завершению генерации секции «Оценка сложности» запрос считается выполненным. 
 
 Минимум ${mw(p)} слов.`,
         });
@@ -5047,6 +6190,11 @@ ${LEVEL_GRAPH_METHODOLOGY(p)[graphLevel]}${METHOD_GRAPH[p.method] ? METHOD_GRAPH
 
 «Таблица категорий»
 8–15 категорий.
+ТРЕБОВАНИЕ К НАЗВАНИЯМ КАТЕГОРИЙ:
+- Название — строго 1–4 слова (4 - крайний максимум, лучше меньше), именное словосочетание или существительное
+- ЗАПРЕЩЕНЫ: придаточные конструкции («как», «через», «посредством»), причастные и деепричастные обороты, любые описательные фразы
+- Эталон краткости: «вечное возвращение», «воля к власти», «онтическое напряжение», «трансфинитное единство»
+- Название — указатель на понятие, а НЕ его определение. Определение — в столбце «Определение»
 Столбцы СТРОГО: Категория | Тип | Определение | Центральность | Определённость | ${LEVEL_GRAPH_LAST_COL_NAME[graphLevel]}
 - Тип: онтологическая / эпистемологическая / этическая / аксиологическая / метафизическая / логическая / практическая / эстетическая / антропологическая / феноменологическая / экзистенциальная / социальная / политическая / теологическая
 - Центральность и Определённость: числа 0.0–1.0
@@ -5792,6 +6940,8 @@ ${METHOD_CRITIQUE(p)[p.method] || ""}
         btn.disabled = false;
         btn.classList.remove("loading");
         document.getElementById("btnText").textContent = "Синтезировать Концепцию";
+        // ── Заполнить DOC_STATE для системы редактирования ──
+        populateDocState(p, defs, dynamicOrder, effectiveDeps, resolveContextDeps(p), passes);
       }
 
       async function streamResp(prompt, container, sys, onDelta) {
@@ -8874,9 +10024,85 @@ ${METHOD_CRITIQUE(p)[p.method] || ""}
         setTimeout(() => { document.body.removeChild(a); URL.revokeObjectURL(url); }, 100);
       }
 
+      const PHIL_FILENAME = {
+        "Пифагор": "Pythagoras",
+        "Гераклит": "Heraclitus",
+        "Парменид": "Parmenides",
+        "Сократ": "Socrates",
+        "Платон": "Plato",
+        "Аристотель": "Aristotle",
+        "Эпикур": "Epicurus",
+        "Марк Аврелий": "Aurelius",
+        "Плотин": "Plotinus",
+        "Августин": "Augustine",
+        "Ансельм Кентерберийский": "Anselm",
+        "Фома Аквинский": "Aquinas",
+        "Дунс Скот": "Scotus",
+        "Николай Кузанский": "Cusanus",
+        "Фрэнсис Бэкон": "Bacon",
+        "Декарт": "Descartes",
+        "Спиноза": "Spinoza",
+        "Локк": "Locke",
+        "Лейбниц": "Leibniz",
+        "Беркли": "Berkeley",
+        "Юм": "Hume",
+        "Руссо": "Rousseau",
+        "Кант": "Kant",
+        "Фихте": "Fichte",
+        "Шеллинг": "Schelling",
+        "Гегель": "Hegel",
+        "Шопенгауэр": "Schopenhauer",
+        "Огюст Конт": "Comte",
+        "Кьеркегор": "Kierkegaard",
+        "Маркс": "Marx",
+        "Дильтей": "Dilthey",
+        "Брентано": "Brentano",
+        "Пирс": "Peirce",
+        "Ницше": "Nietzsche",
+        "Фреге": "Frege",
+        "Мейнонг": "Meinong",
+        "Фрейд": "Freud",
+        "Гуссерль": "Husserl",
+        "Бергсон": "Bergson",
+        "Дьюи": "Dewey",
+        "Уайтхед": "Whitehead",
+        "Рассел": "Russell",
+        "Кассирер": "Cassirer",
+        "Витгенштейн": "Wittgenstein",
+        "Хайдеггер": "Heidegger",
+        "Карнап": "Carnap",
+        "Батай": "Bataille",
+        "Гадамер": "Gadamer",
+        "Лакан": "Lacan",
+        "Адорно": "Adorno",
+        "Сартр": "Sartre",
+        "Левинас": "Levinas",
+        "Мерло-Понти": "Merleau-Ponty",
+        "Куайн": "Quine",
+        "Камю": "Camus",
+        "Делёз": "Deleuze",
+        "Фуко": "Foucault",
+        "Деррида": "Derrida",
+        "Рорти": "Rorty",
+        "Хабермас": "Habermas",
+        "Жижек": "Zizek",
+        "Конфуций": "Confucius",
+        "Лао-цзы": "Laozi",
+        "Нагарджуна": "Nagarjuna",
+        "Шанкара": "Shankara",
+        "Соловьёв": "Solovyov",
+        "Бердяев": "Berdyaev",
+        "Лосев": "Losev",
+      };
+
       function getDocFilename(ext) {
         const num = document.getElementById("docNum")?.textContent?.trim() || "synthesis";
-        return num + (ext ? "." + ext : "");
+        const phil = DOC_STATE.ready && DOC_STATE.params?.phil
+          ? DOC_STATE.params.phil
+          : getPhil();
+        const names = phil.map(p => PHIL_FILENAME[p] || p).join("-");
+        const base = names ? num + "-" + names : num;
+        return base + (ext ? "." + ext : "");
       }
       
       // ════════════════════════════════════════
@@ -8964,6 +10190,7 @@ ${METHOD_CRITIQUE(p)[p.method] || ""}
           ["CPAL",                CPAL],
           ["STRUCTURAL_PRIORITY", STRUCTURAL_PRIORITY],
           ["PROCEDURAL_PRIORITY", PROCEDURAL_PRIORITY],
+
         ].map(([name, val]) => `const ${name} = ${JSON.stringify(val)};`).join("\n");
  
         // ── 3. Собираем самодостаточный скрипт ──
@@ -9027,115 +10254,203 @@ ${METHOD_CRITIQUE(p)[p.method] || ""}
 <script>${initScript}<\/script>`;
       }
 
-      // ── CSS pretty-print ────────────────────────────────────────────
-      function formatStyleBlock(header, styleObj, indent) {
-        indent = indent || '';
-        const props = [];
-        for (let i = 0; i < styleObj.length; i++) {
-          const prop = styleObj[i];
-          const val  = styleObj.getPropertyValue(prop);
-          const prio = styleObj.getPropertyPriority(prop);
-          props.push(`${indent}  ${prop}: ${val}${prio ? ' !important' : ''};`);
-        }
-        return `${indent}${header} {\n${props.join('\n')}\n${indent}}`;
-      }
-
-      // Обычное правило: .foo { ... }
-      function formatRule(rule, indent) {
-        return formatStyleBlock(rule.selectorText, rule.style, indent || '');
-      }
-
-      // @font-face { ... }
-      function formatFontFace(rule) {
-        return formatStyleBlock('@font-face', rule.style);
-      }
-
-      // @keyframes name { from { ... } to { ... } }
-      function formatKeyframes(rule) {
-        const frames = Array.from(rule.cssRules).map(frame =>
-          formatStyleBlock(frame.keyText, frame.style, '  ')
-        );
-        return `@keyframes ${rule.name} {\n${frames.join('\n')}\n}`;
-      }
+      function auditCSS(cssText, contentToCheck) {
  
-      function buildFilteredStyles(contentHTML) {
-        const tempDoc = new DOMParser().parseFromString(
-          `<!DOCTYPE html><html><body>${contentHTML}</body></html>`,
-          'text/html'
-        );
-
-        // Классы, добавляемые через JS — не видны в статическом HTML
-        const DYNAMIC_RE = /\.(?:visible|active|loading|open|done|_checked)\b/g;
-
-        const D3_SVG_RE = /\.(?:node-label|node-circle|node-g|edge-line|edge-arc(?:-hit)?|edge-hit|cluster-ring|cluster-hull|cluster-label)\b/;
-
-        function selectorHits(selectorText) {
-          if (D3_SVG_RE.test(selectorText)) return true;
-          const variants = [selectorText];
-          const withoutDynamic = selectorText.replace(DYNAMIC_RE, '').replace(/\s+/g, ' ').trim();
-          if (withoutDynamic && withoutDynamic !== selectorText)
-            variants.push(withoutDynamic);
-
-          for (const variant of variants) {
-            // Убираем псевдоэлементы и псевдоклассы: ::before, :hover, :nth-child(n)
-            const bare = variant
-              .split(',')
-              .map(s =>
-                s.replace(/::[\w-]+/g, '')
-                 .replace(/:[\w-]+(\([^)]*\))?/g, '')
-                 .replace(/\s+/g, ' ')
-                 .trim()
-              )
-              .filter(Boolean)
-              .join(',');
-
-            if (!bare) return true; // был только псевдо (:root и т.п.) — оставить
-            try {
-              if (tempDoc.querySelector(bare) !== null) return true;
-            } catch {
-              return true; // невалидный селектор — оставить на всякий случай
+        // ── 1. Парсер CSS ──────────────────────────────────────────────
+        // Нужен только чтобы найти границы правил.
+        // Возвращает плоское дерево: rule / keyframes / at-cond / at-block / at-simple / comment
+        function parseCSS(css) {
+          let i = 0;
+          const len = css.length;
+       
+          function readComment() {
+            let s = '/*'; i += 2;
+            while (i < len - 1) {
+              if (css[i] === '*' && css[i+1] === '/') { s += '*/'; i += 2; return s; }
+              s += css[i++];
             }
+            return s;
           }
-          return false;
-        }
-
-        const out = [];
-        for (const sheet of document.styleSheets) {
-          let rules;
-          try { rules = Array.from(sheet.cssRules || []); }
-          catch { continue; }
-
-          for (const rule of rules) {
-            if (rule.type === CSSRule.STYLE_RULE) {
-              if (selectorHits(rule.selectorText)) out.push(formatRule(rule));
-
-            } else if (rule.type === CSSRule.MEDIA_RULE) {
-              const subOut = [];
-              for (const sub of rule.cssRules) {
-                if (sub.type === CSSRule.STYLE_RULE) {
-                  if (selectorHits(sub.selectorText)) subOut.push(formatRule(sub, '  '));
+       
+          function readUntil(stops) {
+            let s = '';
+            while (i < len) {
+              if (css[i] === '/' && css[i+1] === '*') { readComment(); continue; }
+              if (stops.indexOf(css[i]) !== -1) return s;
+              s += css[i++];
+            }
+            return s;
+          }
+       
+          function readBlock() {
+            let depth = 1, s = '';
+            while (i < len) {
+              if (css[i] === '/' && i+1 < len && css[i+1] === '*') { s += readComment(); continue; }
+              if (css[i] === '{') depth++;
+              if (css[i] === '}') { if (!--depth) { i++; return s; } }
+              s += css[i++];
+            }
+            return s;
+          }
+       
+          const rules = [];
+       
+          while (i < len) {
+            while (i < len && /\s/.test(css[i])) i++;
+            if (i >= len) break;
+       
+            if (css[i] === '/' && css[i+1] === '*') {
+              rules.push({ type: 'comment', raw: readComment() }); continue;
+            }
+       
+            if (css[i] === '@') {
+              i++;
+              let kw = '';
+              while (i < len && /[a-zA-Z-]/.test(css[i])) kw += css[i++];
+              while (i < len && /\s/.test(css[i])) i++;
+              const prelude = readUntil(['{', ';']).trim();
+       
+              if (i < len && css[i] === ';') {
+                i++;
+                rules.push({ type: 'at-simple', kw, prelude }); continue;
+              }
+              if (i < len && css[i] === '{') {
+                i++;
+                const body = readBlock();
+                if (/^(-\w+-)?keyframes$/.test(kw)) {
+                  rules.push({ type: 'keyframes', name: prelude, body });
+                } else if (kw === 'media' || kw === 'supports' || kw === 'layer') {
+                  rules.push({ type: 'at-cond', kw, prelude, inner: parseCSS(body) });
                 } else {
-                  subOut.push('  ' + sub.cssText);
+                  rules.push({ type: 'at-block', kw, prelude, body });
                 }
               }
-              if (subOut.length)
-                out.push(`@media ${rule.conditionText} {\n${subOut.join('\n')}\n}`);
-
-            } else {
-              if (rule.type === CSSRule.KEYFRAMES_RULE)      out.push(formatKeyframes(rule));
-              else if (rule.type === CSSRule.FONT_FACE_RULE) out.push(formatFontFace(rule));
-              else out.push(rule.cssText); // неизвестный @-тип — как есть, на всякий случай
+              continue;
             }
+       
+            const selector = readUntil(['{', '}']).trim();
+            if (i >= len) break;
+            if (css[i] === '}') { i++; continue; }
+            i++;
+            const body = readBlock();
+            if (selector) rules.push({ type: 'rule', selector, body });
           }
+       
+          return rules;
         }
-
-        return `<style>\n${out.join('\n\n')}\n</style>`;
+       
+        // ── 2. Консервативная проверка «точно не используется» ────────
+        //
+        // Используем indexOf по сырой строке контента — это намеренно
+        // избыточно: если «foo» встречается где угодно (даже в комментарии
+        // или строковом литерале JS), правило НЕ удаляется.
+        // Это цена безопасности: лишние стили лучше, чем сломанные.
+       
+        function classesFromSelector(sel) {
+          const out = [];
+          const re = /\.(-?[a-zA-Z_][a-zA-Z0-9_-]*)/g;
+          let m;
+          while ((m = re.exec(sel)) !== null) out.push(m[1]);
+          return out;
+        }
+       
+        function definitelyUnused(r) {
+          // Комментарии, @font-face, @import, @charset и т.п. — никогда не удаляем
+          if (r.type === 'comment')   return false;
+          if (r.type === 'at-simple') return false;
+          if (r.type === 'at-block')  return false;
+       
+          // @keyframes: удаляем только если имя анимации нигде не встречается
+          if (r.type === 'keyframes') {
+            return contentToCheck.indexOf(r.name) === -1;
+          }
+       
+          // @media / @supports: удаляем только если ВСЕ вложенные правила точно не нужны
+          if (r.type === 'at-cond') {
+            return r.inner.length > 0 && r.inner.every(definitelyUnused);
+          }
+       
+          if (r.type === 'rule') {
+            const sel = r.selector;
+       
+            // Глобальные и элементные — никогда не удаляем
+            if (/^(\*|:root|html|body)(\s*[,{]|$)/.test(sel)) return false;
+       
+            const classes = classesFromSelector(sel);
+       
+            // Нет класс-селекторов → элементный / атрибутный / псевдо → оставляем
+            if (classes.length === 0) return false;
+       
+            // Удаляем только если НИ ОДИН класс не найден как подстрока
+            return classes.every(function(c) {
+              return contentToCheck.indexOf(c) === -1;
+            });
+          }
+       
+          // Неизвестный тип — оставляем
+          return false;
+        }
+       
+        // ── 3. Сериализация с удалением «точно ненужных» ──────────────
+        function serializeRules(rules, indent) {
+          indent = indent || '';
+          const parts = [];
+       
+          rules.forEach(function(r) {
+            // Удаляем только если УВЕРЕНЫ
+            if (definitelyUnused(r)) return;
+       
+            if (r.type === 'comment')   { parts.push(r.raw); return; }
+            if (r.type === 'at-simple') { parts.push('@' + r.kw + ' ' + r.prelude + ';'); return; }
+            if (r.type === 'rule')      { parts.push(r.selector + ' {' + r.body + '}'); return; }
+            if (r.type === 'keyframes') { parts.push('@keyframes ' + r.name + ' {' + r.body + '}'); return; }
+            if (r.type === 'at-block')  { parts.push('@' + r.kw + ' ' + r.prelude + ' {' + r.body + '}'); return; }
+       
+            if (r.type === 'at-cond') {
+              // Фильтруем вложенные, но только если внутри что-то осталось
+              const inner = serializeRules(r.inner, indent + '  ');
+              if (inner.trim())
+                parts.push('@' + r.kw + ' ' + r.prelude + ' {\n' + inner + '\n' + indent + '}');
+              return;
+            }
+          });
+       
+          return parts.map(function(p) { return indent + p; }).join('\n');
+        }
+       
+        // ── 4. Статистика ──────────────────────────────────────────────
+        function collectStats(rules) {
+          let total = 0, removed = 0;
+          const removedList = [];
+       
+          function walk(list) {
+            list.forEach(function(r) {
+              if (r.type === 'comment' || r.type === 'at-simple') return;
+              if (r.type === 'at-cond') { walk(r.inner); return; }
+              total++;
+              if (definitelyUnused(r)) {
+                removed++;
+                const label =
+                  r.type === 'keyframes' ? '@keyframes ' + r.name :
+                  r.type === 'rule'      ? r.selector :
+                  '@' + r.kw + (r.prelude ? ' ' + r.prelude : '');
+                removedList.push(label);
+              }
+            });
+          }
+          walk(rules);
+          return { total, removed, removedList };
+        }
+       
+        // ── 5. Запуск ──────────────────────────────────────────────────
+        const rules      = parseCSS(cssText);
+        const cleanedCSS = serializeRules(rules, '');
+        const stats      = collectStats(rules);
+       
+        return { cleanedCSS, stats };
       }
 
       function saveHTML() {
-        const styles = Array.from(document.querySelectorAll("style"))
-          .map((s) => s.outerHTML)
-          .join("\n");
 
         // Базовое имя файла фиксируется на момент сохранения (без расширения)
         const filenameBase = getDocFilename("html").replace(/\.html$/, "");
@@ -9162,10 +10477,70 @@ ${METHOD_CRITIQUE(p)[p.method] || ""}
           }
         }
 
-        // Фильтруем стили только после того, как оба куска финальные
-        //const styles = buildFilteredStyles(docHTML + graphSection);
+        // CSS-аудит: контент = всё что уйдёт в файл
+        const contentToCheck = docHTML + graphSection;
+       
+        const rawCSS = Array.from(document.querySelectorAll("style"))
+          .map(function(s) { return s.textContent; })
+          .join("\n");
+       
+        const { cleanedCSS, stats } = auditCSS(rawCSS, contentToCheck);
+       
+        if (stats.removed > 0) {
+          console.groupCollapsed(
+            "[CSS audit] удалено " + stats.removed + " из " + stats.total +
+            " правил (" + (stats.removed / stats.total * 100).toFixed(1) + "%)"
+          );
+          stats.removedList.forEach(function(s) { console.log("  ✗", s); });
+          console.groupEnd();
+        }
+       
+        const styles =
+          "<style>\n" + cleanedCSS + "\n</style>";
 
-        const html = `<!DOCTYPE html><html lang="ru"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0"><title>${document.getElementById("docTitle").textContent}</title><link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700;900&family=IBM+Plex+Mono:wght@300;400;500;600&family=IBM+Plex+Sans:ital,wght@0,300;0,400;0,500;0,600;1,400&display=swap" rel="stylesheet">${styles}<style>body{background:#f2f0eb;padding:32px}#docOutput{max-width:1100px;margin:0 auto}</style></head><body><div id="docOutput">${docHTML}</div>${graphSection}</body></html>`;
+        // ── Встраиваем состояние для импорта ──
+        let stateJSON = "";
+        try {
+          const stateData = {
+            version: 1,
+            genLog: genLog,
+            ctxLog: ctxLog,
+            genCommon: genCommon,
+            params: DOC_STATE.ready ? DOC_STATE.params : null,
+            sectionOrder: DOC_STATE.ready ? DOC_STATE.sectionOrder : null,
+            editedSections: DOC_STATE.ready ? [...DOC_STATE.editedSections] : [],
+          };
+          stateJSON = `\n<script type="application/json" id="philosynth-state">${JSON.stringify(stateData)}<\/script>`;
+
+          // ── Видимый лог контекста ──
+          const logHTML = typeof formatCtxLogHTML === "function" ? formatCtxLogHTML() : "";
+          if (logHTML && !logHTML.includes("Лог пуст")) {
+            stateJSON += `\n<details style="
+              max-width:1100px; margin:20px auto 0; 
+              border:1px solid #d8d4cc; background:#1a1814;
+            ">
+              <summary style="
+                padding:10px 18px; cursor:pointer;
+                font-family:'IBM Plex Mono',monospace; font-size:10px;
+                letter-spacing:2px; text-transform:uppercase;
+                color:#8a8278; background:#f2f0eb;
+                list-style:none; display:flex; align-items:center; gap:6px;
+                user-select:none;
+              ">◈ Лог контекста и генерации</summary>
+              <div style="padding:20px; overflow-x:auto;">
+                <pre style="
+                  font-family:'IBM Plex Mono',monospace; font-size:11px;
+                  line-height:1.7; color:#c8c0b0; white-space:pre-wrap;
+                  word-break:break-all; margin:0;
+                ">${logHTML}</pre>
+              </div>
+            </details>`;
+          }
+        } catch (e) {
+          console.warn("Не удалось сериализовать состояние:", e);
+        }
+
+        const html = `<!DOCTYPE html><html lang="ru"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0"><title>${document.getElementById("docTitle").textContent}</title><link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700;900&family=IBM+Plex+Mono:wght@300;400;500;600&family=IBM+Plex+Sans:ital,wght@0,300;0,400;0,500;0,600;1,400&display=swap" rel="stylesheet">${styles}<style>body{background:#f2f0eb;padding:32px}#docOutput{max-width:1100px;margin:0 auto}</style></head><body><div id="docOutput">${docHTML}</div>${graphSection}${stateJSON}</body></html>`;
         downloadFile(html, getDocFilename("html"), "text/html");
       }
 
@@ -9311,6 +10686,1840 @@ ${METHOD_CRITIQUE(p)[p.method] || ""}
           closeCtxLog();
         }
       });
+
+      // ════════════════════════════════════════
+      // EDIT MODAL — пакетный режим
+      // ════════════════════════════════════════
+
+      function openEditModal() {
+        if (!DOC_STATE.ready) {
+          alert("Документ ещё не сгенерирован.");
+          return;
+        }
+        if (!API_KEY) {
+          alert("API-ключ не задан.");
+          return;
+        }
+        if (DOC_STATE.incomplete) {
+          let msg = "Редактирование ограничено: при импорте не удалось извлечь список философов.\n\n";
+          for (const w of (DOC_STATE.importWarnings || [])) {
+            if (w.critical) msg += "⚠ " + w.message + "\n";
+          }
+          msg += "\nЗаполните поле «Философы» в форме ввода.\nОткрыть для просмотра?";
+          if (!confirm(msg)) return;
+        }
+        renderEditSections();
+        document.getElementById("editOverlay").classList.add("visible");
+        document.body.style.overflow = "hidden";
+      }
+
+      function closeEditModal() {
+        document.getElementById("editOverlay").classList.remove("visible");
+        document.body.style.overflow = "";
+      }
+
+      function esc(s) {
+        if (typeof s !== "string") return "";
+        return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")
+               .replace(/"/g, "&quot;");
+      }
+
+      /** Текущий план изменений (пересчитывается при каждом тике галочки) */
+      let _editPlan = { regen: [], remove: [], add: [] };
+
+      function renderEditSections() {
+        const body = document.getElementById("editModalBody");
+        // Сохраняем каскадную панель (она стоит первой и не пересоздаётся)
+        const cascadePanel = document.getElementById("cascadePanel");
+        body.innerHTML = "";
+        if (cascadePanel) body.appendChild(cascadePanel);
+
+        const order = DOC_STATE.sectionOrder.filter(k => k !== "sum");
+
+        // ── Карточки существующих разделов ──
+        for (const key of order) {
+          const def = DOC_STATE.sectionDefs[key];
+          if (!def) continue;
+          const label = KEY_LABELS[key] || key;
+          const currentCtx = DOC_STATE.params.secCtx[key] || "";
+          const isEdited = DOC_STATE.editedSections.has(key);
+
+          // Индикатор качества
+          let qualityBadge = "";
+          const quality = typeof getSectionContextQuality === "function"
+            ? getSectionContextQuality(key) : null;
+          if (quality) {
+            const badgeColor = quality.score >= 90 ? "var(--green-check)"
+              : quality.score >= 60 ? "var(--gold)" : "var(--red)";
+            const tooltip = [
+              `Контекст: ${quality.reqFound}/${quality.reqTotal} обяз., ${quality.optIncluded}/${quality.optTotal} опц.`,
+              `Бюджет: ${quality.budgetUsed.toLocaleString("ru")}/${quality.budget.toLocaleString("ru")} симв.`,
+              ...quality.issues,
+            ].join("&#10;");
+            qualityBadge = ` <span title="${tooltip}" style="font-family:var(--mono);font-size:9px;color:${badgeColor};border:1px solid ${badgeColor};padding:1px 5px;margin-left:6px;cursor:help">${quality.score}%</span>`;
+          }
+
+          // Предупреждение о деградации
+          let degradationHTML = "";
+          if (quality && quality.issues.length > 0 && quality.score < 70) {
+            degradationHTML = `<div class="edit-dep-warn caution" style="margin-top:6px">
+              <span class="dep-icon">⚡</span>
+              <span>Сгенерирован с неполным контекстом (${quality.score}%). ${quality.issues.join("; ")}.</span>
+            </div>`;
+          }
+
+          const card = document.createElement("div");
+          card.className = "edit-sec-card";
+          card.id = "editCard-" + key;
+          card.innerHTML = `
+            <div class="edit-sec-card-header">
+              <div class="edit-sec-title">${isEdited ? "⟳ " : ""}§ ${def.num} — ${esc(label)}${qualityBadge}</div>
+              <div class="edit-sec-num">${key}</div>
+            </div>${degradationHTML}
+            <div class="edit-sec-ctx-row">
+              <div class="edit-sec-ctx-label">Дополнительный контекст раздела</div>
+              <textarea class="edit-sec-ctx-field" id="editCtx-${key}"
+                        placeholder="Особые требования, акценты, ограничения...">${esc(currentCtx)}</textarea>
+            </div>
+            <div class="edit-sec-checks">
+              <label class="edit-sec-check">
+                <input type="checkbox" id="editRegen-${key}" onchange="onEditCheckChange('${key}','regen')">
+                Перегенерировать
+              </label>
+              <label class="edit-sec-check delete-check">
+                <input type="checkbox" id="editDelete-${key}" onchange="onEditCheckChange('${key}','delete')">
+                Удалить
+              </label>
+            </div>`;
+          body.appendChild(card);
+        }
+
+        // ── Панель добавления ──
+        const available = typeof getAvailableSectionsToAdd === "function"
+          ? getAvailableSectionsToAdd() : [];
+        if (available.length > 0) {
+          const addPanel = document.createElement("div");
+          addPanel.className = "edit-add-panel";
+          let checksHTML = available.map(k =>
+            `<label class="edit-add-check">
+              <input type="checkbox" id="editAdd-${k}" onchange="onEditCheckChange('${k}','add')">
+              + ${esc(KEY_LABELS[k] || k)}
+            </label>`
+          ).join("");
+
+          // Поля контекста для добавляемых разделов (скрыты, появляются при установке галочки)
+          let addCtxHTML = available.map(k =>
+            `<div class="edit-sec-ctx-row" id="editAddCtxWrap-${k}" style="display:none;margin-top:8px">
+              <div class="edit-sec-ctx-label">Контекст для «${esc(KEY_LABELS[k] || k)}»</div>
+              <textarea class="edit-sec-ctx-field" id="editAddCtx-${k}"
+                        placeholder="Особые требования..."></textarea>
+            </div>`
+          ).join("");
+
+          addPanel.innerHTML = `
+            <div class="edit-add-title">+ Добавить разделы</div>
+            <div class="edit-add-checks">${checksHTML}</div>
+            ${addCtxHTML}`;
+          body.appendChild(addPanel);
+        }
+
+        // Сброс плана
+        _editPlan = { regen: [], remove: [], add: [] };
+        updateEditPlanUI();
+      }
+
+      /** Обработчик изменения любой галочки в модальном окне */
+      function onEditCheckChange(key, action) {
+        if (action === "regen") {
+          const regenCb = document.getElementById("editRegen-" + key);
+          const delCb = document.getElementById("editDelete-" + key);
+          // Взаимоисключение
+          if (regenCb?.checked && delCb) { delCb.checked = false; delCb.disabled = true; }
+          else if (delCb) { delCb.disabled = false; }
+        }
+        if (action === "delete") {
+          const delCb = document.getElementById("editDelete-" + key);
+          const regenCb = document.getElementById("editRegen-" + key);
+          if (delCb?.checked && regenCb) { regenCb.checked = false; regenCb.disabled = true; }
+          else if (regenCb) { regenCb.disabled = false; }
+        }
+        if (action === "add") {
+          // Показать/скрыть поле контекста
+          const cb = document.getElementById("editAdd-" + key);
+          const ctxWrap = document.getElementById("editAddCtxWrap-" + key);
+          if (ctxWrap) ctxWrap.style.display = cb?.checked ? "block" : "none";
+        }
+
+        recalcEditPlan();
+      }
+
+      /** Пересчитывает план на основе текущих галочек */
+      function recalcEditPlan() {
+        const plan = { regen: [], remove: [], add: [] };
+        const order = DOC_STATE.sectionOrder.filter(k => k !== "sum");
+
+        for (const key of order) {
+          if (document.getElementById("editRegen-" + key)?.checked) plan.regen.push(key);
+          if (document.getElementById("editDelete-" + key)?.checked) plan.remove.push(key);
+        }
+        const available = typeof getAvailableSectionsToAdd === "function"
+          ? getAvailableSectionsToAdd() : [];
+        for (const key of available) {
+          if (document.getElementById("editAdd-" + key)?.checked) plan.add.push(key);
+        }
+
+        _editPlan = plan;
+        updateEditPlanUI();
+      }
+
+      /** Обновляет каскадную панель, стоимость, кнопку ▶ */
+      function updateEditPlanUI() {
+        const plan = _editPlan;
+        const totalActions = plan.regen.length + plan.remove.length + plan.add.length;
+        const runBtn = document.getElementById("editRunBtn");
+        if (runBtn) runBtn.disabled = totalActions === 0 || DOC_STATE.incomplete;
+
+        // ── Информация ──
+        const infoEl = document.getElementById("editFooterInfo");
+        if (infoEl) {
+          const parts = [];
+          if (plan.regen.length) parts.push(plan.regen.length + " перегенер.");
+          if (plan.remove.length) parts.push(plan.remove.length + " удал.");
+          if (plan.add.length) parts.push(plan.add.length + " добавл.");
+          infoEl.textContent = parts.length ? parts.join(" · ") : "Выберите действия";
+        }
+
+        // ── Стоимость ──
+        const costEl = document.getElementById("editCostEstimate");
+        if (costEl) {
+          if (plan.regen.length + plan.add.length > 0) {
+            const est = estimateEditPlanCost(plan);
+            costEl.textContent = est
+              ? `≈ $${est.cost.toFixed(4)} (${(est.cost * 100).toFixed(2)}¢) · ${est.requests} запр.`
+              : "";
+          } else {
+            costEl.textContent = plan.remove.length > 0 ? "Удаление бесплатно" : "";
+          }
+        }
+
+        // ── Каскад: какие разделы будут затронуты, но НЕ включены в план ──
+        updateLiveCascade(plan);
+      }
+
+      /** Оценка стоимости плана */
+      function estimateEditPlanCost(plan) {
+        const depth = DOC_STATE.params?.depth || "standard";
+        const sections = [...plan.regen, ...plan.add];
+        if (!sections.length) return null;
+
+        let totalIn = 0, totalOut = 0;
+        for (const key of sections) {
+          // Грубая оценка: фиксированная часть + средний контекст + средний выход
+          const fixedIn = (genCommon?.totalChars || 10000) / (CHARS_PER_TOKEN || 2);
+          const ctxIn = (CONTEXT_BUDGET[depth] || 24000) * 0.5 / (CHARS_PER_TOKEN || 2);
+          const outMult = SECTION_OUTPUT_MULT?.[key] || 3.5;
+          const mwVal = { overview: 150, standard: 250, deep: 400, exhaustive: 600 }[depth] || 250;
+          const outTokens = Math.round(mwVal * outMult * 7 * 1.5 / (CHARS_PER_TOKEN || 2));
+          totalIn += fixedIn + ctxIn;
+          totalOut += outTokens;
+        }
+
+        const cost = totalIn * (PRICE_IN || 3e-6) + totalOut * (PRICE_OUT || 15e-6);
+        return { cost, inTokens: Math.round(totalIn), outTokens: Math.round(totalOut), requests: sections.length };
+      }
+
+      /** Каскадная панель: live-обновление при изменении галочек */
+      function updateLiveCascade(plan) {
+        const panel = document.getElementById("cascadePanel");
+        const descEl = document.getElementById("cascadeDesc");
+        const listEl = document.getElementById("cascadeList");
+        if (!panel || !listEl) return;
+
+        // Собираем множество всех «активных» ключей (перегенерация + добавление)
+        const activeSet = new Set([...plan.regen, ...plan.add]);
+        const removeSet = new Set(plan.remove);
+
+        // Все разделы, которые будут затронуты
+        const dependents = computeDependents(DOC_STATE.effectiveDeps);
+        const factDeps = DOC_STATE.factualDeps || {};
+        const factReverse = typeof computeFactualDependents === "function"
+          ? computeFactualDependents(factDeps) : {};
+
+        const affected = new Set();
+        // Затронутые перегенерацией
+        for (const key of plan.regen) {
+          for (const dep of (dependents[key] || new Set())) {
+            if (dep !== "sum") affected.add(dep);
+          }
+        }
+        // Затронутые удалением
+        for (const key of plan.remove) {
+          for (const dep of (dependents[key] || new Set())) {
+            if (dep !== "sum") affected.add(dep);
+          }
+        }
+        // Затронутые добавлением (потенциальные бенефициары)
+        // Для добавляемых разделов — вычисляем временные зависимости
+        if (plan.add.length > 0) {
+          const tempSections = [
+            ...DOC_STATE.sectionOrder.filter(k => k !== "sum" && !removeSet.has(k)),
+            ...plan.add
+          ];
+          const tempResolved = resolveContextDeps({ ...DOC_STATE.params, sec: tempSections });
+          const tempEffDeps = buildEffectiveDeps(tempSections, tempResolved);
+          const tempDeps = computeDependents(tempEffDeps);
+          for (const key of plan.add) {
+            for (const dep of (tempDeps[key] || new Set())) {
+              if (dep !== "sum") affected.add(dep);
+            }
+          }
+        }
+
+        // Убираем: сами активные, удаляемые, и те, кто уже в плане на перегенерацию
+        for (const key of activeSet) affected.delete(key);
+        for (const key of removeSet) affected.delete(key);
+
+        // Убираем разделы, которых не будет после удаления
+        const remainingAfterRemove = new Set(
+          DOC_STATE.sectionOrder.filter(k => !removeSet.has(k))
+        );
+        for (const key of affected) {
+          if (!remainingAfterRemove.has(key)) affected.delete(key);
+        }
+
+        if (affected.size === 0 && (plan.regen.length + plan.remove.length + plan.add.length) === 0) {
+          panel.classList.remove("visible");
+          return;
+        }
+        if (affected.size === 0) {
+          panel.classList.remove("visible");
+          return;
+        }
+
+        // Формируем описание
+        let desc = "Следующие разделы будут затронуты выбранными действиями, но не включены в план. ";
+        desc += "Рекомендуется отметить их для перегенерации:";
+        if (descEl) descEl.textContent = desc;
+
+        // Список затронутых
+        listEl.innerHTML = "";
+        const sorted = sortInTopoOrder([...affected]);
+        for (const depKey of sorted) {
+          const depLabel = KEY_LABELS[depKey] || depKey;
+          const def = DOC_STATE.sectionDefs[depKey];
+          const num = def ? def.num : "?";
+
+          // Фактический вес
+          let weightHint = "";
+          for (const srcKey of [...plan.regen, ...plan.remove]) {
+            const fi = factReverse[srcKey];
+            if (fi) {
+              const consumer = fi.consumers.find(c => c.key === depKey);
+              if (consumer && consumer.chars > 0) {
+                weightHint += ` <span style="font-size:9px;color:var(--gold)">${consumer.chars.toLocaleString("ru")} симв. от ${KEY_LABELS[srcKey] || srcKey}</span>`;
+              }
+            }
+          }
+
+          // Проверяем, есть ли уже галочка перегенерации для этого раздела
+          const regenCb = document.getElementById("editRegen-" + depKey);
+          const isCovered = regenCb?.checked;
+
+          const item = document.createElement("div");
+          item.className = "cascade-item-info " + (isCovered ? "covered" : "exposed");
+          item.innerHTML = `<span>${isCovered ? "✓" : "⚡"} § ${num} — ${esc(depLabel)}${weightHint}</span>`;
+          if (!isCovered) {
+            // Кнопка-ссылка «отметить»
+            const markBtn = document.createElement("button");
+            markBtn.style.cssText = "font-family:var(--mono);font-size:9px;border:1px solid var(--gold);background:transparent;color:var(--gold);padding:2px 8px;cursor:pointer;margin-left:auto";
+            markBtn.textContent = "отметить ↑";
+            markBtn.onclick = () => {
+              if (regenCb) { regenCb.checked = true; onEditCheckChange(depKey, "regen"); }
+            };
+            item.appendChild(markBtn);
+          }
+          listEl.appendChild(item);
+        }
+
+        panel.classList.add("visible");
+      }
+
+      // ════════════════════════════════════════
+      // EXECUTE EDIT PLAN
+      // ════════════════════════════════════════
+
+      /**
+       * Выполняет весь план: удаления → перегенерации → добавления.
+       */
+      async function executeEditPlan() {
+        const plan = { ..._editPlan };
+        const total = plan.regen.length + plan.remove.length + plan.add.length;
+        if (total === 0) return;
+        if (DOC_STATE.incomplete) {
+          alert("Редактирование заблокировано: не все параметры восстановлены.");
+          return;
+        }
+
+        // Собираем доп. контексты
+        const regenCtx = {};
+        for (const key of plan.regen) {
+          const field = document.getElementById("editCtx-" + key);
+          regenCtx[key] = field ? field.value.trim() : (DOC_STATE.params.secCtx[key] || "");
+        }
+        const addCtx = {};
+        for (const key of plan.add) {
+          const field = document.getElementById("editAddCtx-" + key);
+          addCtx[key] = field ? field.value.trim() : "";
+        }
+
+        // Блокируем UI
+        const runBtn = document.getElementById("editRunBtn");
+        const progress = document.getElementById("editPlanProgress");
+        const progressText = document.getElementById("editPlanProgressText");
+        if (runBtn) runBtn.disabled = true;
+        if (progress) progress.classList.add("active");
+
+        let step = 0;
+        const updateProgress = (text) => {
+          step++;
+          if (progressText) progressText.textContent = `[${step}/${total}] ${text}`;
+        };
+
+        try {
+          // ── 1. Удаления ──
+          for (const key of plan.remove) {
+            updateProgress("Удаление: " + (KEY_LABELS[key] || key));
+            deleteSection(key); // синхронная
+          }
+
+          // ── 2. Перегенерации (топологический порядок) ──
+          const regenSorted = sortInTopoOrder(plan.regen.filter(
+            k => DOC_STATE.sectionOrder.includes(k) // мог быть удалён, если ошибка в плане
+          ));
+          for (const key of regenSorted) {
+            updateProgress("Генерация: " + (KEY_LABELS[key] || key));
+            await regenerateSection(key, regenCtx[key]);
+          }
+
+          // ── 3. Добавления (топологический порядок) ──
+          const addSorted = sortInTopoOrder(plan.add);
+          for (const key of addSorted) {
+            updateProgress("Добавление: " + (KEY_LABELS[key] || key));
+            await addSection(key, addCtx[key]);
+          }
+
+          if (progressText) progressText.textContent = "✓ Выполнено";
+        } catch (err) {
+          console.error("Ошибка выполнения плана:", err);
+          if (progressText) progressText.textContent = "⚠ Ошибка: " + err.message;
+        } finally {
+          setTimeout(() => {
+            if (progress) progress.classList.remove("active");
+            if (runBtn) runBtn.disabled = false;
+            renderEditSections(); // перерисовать с новым состоянием
+          }, 2000);
+        }
+      }
+
+      /**
+       * Перегенерация одного раздела.
+       * @param {string} sectionKey — ключ раздела (graph, theses, ...)
+       * @param {string} newCtx     — новый дополнительный контекст (или пустая строка)
+       */
+      async function regenerateSection(sectionKey, newCtx) {
+        const p = DOC_STATE.params;
+        if (!p) return;
+
+        // ── 1. Блокируем UI ──
+        const card = document.getElementById("editCard-" + sectionKey);
+        const btn = document.getElementById("editRegenBtn-" + sectionKey);
+        const progress = document.getElementById("editProgress-" + sectionKey);
+        const progressText = document.getElementById("editProgressText-" + sectionKey);
+        if (btn) btn.disabled = true;
+        if (progress) progress.classList.add("active");
+
+        try {
+          // ── 2. Обновляем контекст в DOC_STATE ──
+          if (newCtx) {
+            DOC_STATE.params.secCtx[sectionKey] = newCtx;
+          } else {
+            delete DOC_STATE.params.secCtx[sectionKey];
+          }
+
+          // ── 3. Пересобираем промпт для этого раздела ──
+          // Берём текущие параметры и строим def заново
+          const fullP = { ...p, secCtx: { ...DOC_STATE.params.secCtx } };
+          const allDefs = buildSectionDefs(fullP);
+          patchPromptsWithSecCtx(allDefs, fullP.secCtx);
+          const defsMap = Object.fromEntries(allDefs.map(d => [d.key, d]));
+          const def = defsMap[sectionKey];
+          if (!def) throw new Error("Раздел «" + sectionKey + "» не найден в определениях.");
+
+          // Сохраняем оригинальный номер из текущего состояния
+          const existingDef = DOC_STATE.sectionDefs[sectionKey];
+          if (existingDef) def.num = existingDef.num;
+
+          // ── 4. Собираем контекст из ранее сгенерированных разделов ──
+          if (progressText) progressText.textContent = "Построение контекста...";
+
+          const generated = {};
+          for (const key of DOC_STATE.sectionOrder) {
+            if (key === sectionKey) continue; // пропускаем себя
+            const idx = DOC_STATE.sectionDbIdx[key];
+            const el = document.getElementById("db" + idx);
+            if (el && el.querySelector(".doc-section")) {
+              generated[key] = el;
+            }
+          }
+
+          let prior = "";
+          if (sectionKey !== "sum") {
+            try {
+              prior = buildContextForSection(
+                sectionKey, generated, fullP.depth,
+                DOC_STATE.effectiveDeps,
+                DOC_STATE.resolvedDeps
+              );
+            } catch (ctxErr) {
+              console.warn("Ошибка построения контекста при перегенерации", sectionKey, ctxErr);
+            }
+          }
+
+          // ── 5. Собираем финальный промпт ──
+          const SYS = buildSYS();
+          const partBase = baseCtx(fullP);
+          const partRules = htmlRules();
+          const partQuality = buildPartQuality(fullP);
+          // Заполняем genCommon, если он отсутствует (импорт без лога)
+          if (!genCommon) {
+            const scaffoldLen = `ПАРАМЕТРЫ СИНТЕЗА:\n\n\nЗАДАНИЕ: составь ТОЛЬКО следующие разделы (строго в указанном порядке, без добавления других):\n\n\n\n`.length;
+            genCommon = {
+              sysChars:      SYS.length,
+              baseChars:     partBase.length,
+              rulesChars:    partRules.length,
+              qualityChars:  partQuality.length,
+              scaffoldChars: scaffoldLen,
+              totalChars:    SYS.length + partBase.length + partRules.length + partQuality.length + scaffoldLen,
+            };
+          }
+          const sp = `§ ${def.num} — ${def.title.toUpperCase()}\n${def.prompt}`;
+          const fp = `ПАРАМЕТРЫ СИНТЕЗА:\n${partBase}${prior}\n\n${partRules}\n\nЗАДАНИЕ: составь ТОЛЬКО следующие разделы (строго в указанном порядке, без добавления других):\n\n${sp}\n\n${partQuality}`;
+
+          // ── 6. Записываем предварительный genLog ──
+          // Карта ожидаемых секций для трекинга
+          const subsecMap = buildSubsectionMap(fullP);
+          const expectedSubs = subsecMap[sectionKey] || [];
+
+          const genEntry = {
+            sectionKey: sectionKey,
+            sectionLabel: def.title + " [перегенерация]",
+            priorChars: prior.length,
+            taskChars: sp.length,
+            inputChars: SYS.length + fp.length,
+            outputChars: 0,
+            inputTokens: 0,
+            outputTokens: 0,
+            cost: 0,
+            error: null,
+            status: "streaming",
+            source: "edit",
+            expectedSubsections: expectedSubs,
+            subsections: [],
+          };
+          genLog.push(genEntry);
+
+          // ── 7. Стримим ответ в DOM-контейнер ──
+          if (progressText) progressText.textContent = "Генерация...";
+
+          const dbIdx = DOC_STATE.sectionDbIdx[sectionKey];
+          const container = document.getElementById("db" + dbIdx);
+          if (!container) throw new Error("DOM-контейнер db" + dbIdx + " не найден.");
+
+          container.innerHTML = "";
+
+          let lastLogRefresh = 0;
+          const onDelta = (charsSoFar, htmlSoFar) => {
+            genEntry.outputChars = charsSoFar;
+            if (htmlSoFar && expectedSubs.length > 0) {
+              genEntry.subsections = parseSubsectionsFromHTML(htmlSoFar, expectedSubs);
+            }
+            if (progressText) progressText.textContent = "Генерация... " + charsSoFar + " симв.";
+          };
+
+          const usage = await streamResp(fp, container, SYS, onDelta);
+
+          // ── 8. Финализируем genLog ──
+          totalInputTokens += usage.input_tokens;
+          totalOutputTokens += usage.output_tokens;
+
+          genEntry.outputChars = container.innerHTML.length;
+          if (expectedSubs.length > 0) {
+            genEntry.subsections = parseSubsectionsFromHTML(container.innerHTML, expectedSubs);
+            genEntry.subsections.forEach(s => { s.status = "done"; });
+          }
+          genEntry.inputTokens = usage.input_tokens;
+          genEntry.outputTokens = usage.output_tokens;
+          genEntry.cost = usage.input_tokens * 3 / 1e6 + usage.output_tokens * 15 / 1e6;
+          genEntry.status = "done";
+
+          // ── 9. Вставляем <details> для доп. контекста раздела ──
+          if (newCtx) {
+            const disc = makeSectionCtxDisclosure(newCtx);
+            container.insertBefore(disc, container.firstChild);
+          }
+
+          // ── 10. Обновляем docTitle из раздела name ──
+          if (sectionKey === "name") {
+            updateDocTitleFromName(container);
+          }
+
+          // ── 11. Если это граф — перепарсить G ──
+          if (sectionKey === "graph") {
+            try {
+              G = parseGraph(container);
+              if (G.nodes.length > 0) {
+                document.getElementById("btnGraph").style.display = "";
+              }
+            } catch (e) {
+              console.warn("Graph re-parse after edit:", e);
+            }
+          }
+
+          // Пересобираем фактическую карту зависимостей
+          DOC_STATE.factualDeps = buildFactualDepsMap(ctxLog);
+
+          // ── 12. Обновляем DOC_STATE ──
+          DOC_STATE.sectionHTML[sectionKey] = container.innerHTML;
+          DOC_STATE.sectionDefs[sectionKey] = { ...def };
+          DOC_STATE.editedSections.add(sectionKey);
+
+          // ── 13. Обновляем стоимость в футере ──
+          updateFooterCost();
+
+          // ── 14. Обновляем UI модального окна ──
+          if (progressText) progressText.textContent = "✓ Готово";
+          if (progress) {
+            progress.querySelector(".edit-regen-spinner")?.remove();
+          }
+
+          // Обновляем счётчик в футере модалки
+          const infoEl = document.getElementById("editFooterInfo");
+          if (infoEl) {
+            const order = DOC_STATE.sectionOrder.filter(k => k !== "sum");
+            infoEl.textContent = order.length + " разделов · " +
+              DOC_STATE.editedSections.size + " изменено";
+          }
+
+        } catch (err) {
+          console.error("Ошибка перегенерации раздела:", sectionKey, err);
+          if (progressText) progressText.textContent = "⚠ Ошибка: " + err.message;
+          const genEntry = genLog[genLog.length - 1];
+          if (genEntry && genEntry.sectionKey === sectionKey) {
+            genEntry.status = "error";
+            genEntry.error = err.message;
+          }
+        } finally {
+          if (btn) btn.disabled = false;
+          setTimeout(() => {
+            if (progress) progress.classList.remove("active");
+          }, 3000);
+        }
+      }
+
+      /**
+       * Сортирует массив ключей разделов в топологическом порядке
+       * (используя текущие DOC_STATE.effectiveDeps).
+       */
+      function sortInTopoOrder(keys) {
+        const orderMap = {};
+        DOC_STATE.sectionOrder.forEach((k, i) => { orderMap[k] = i; });
+        return [...keys].sort((a, b) => (orderMap[a] ?? 999) - (orderMap[b] ?? 999));
+      }
+
+      /**
+       * Перегенерация одного раздела в рамках каскада.
+       * Упрощённая версия regenerateSection — без UI модального окна,
+       * без показа каскадной панели (чтобы не рекурсировать).
+       */
+      async function cascadeRegenerateOne(sectionKey) {
+        const p = DOC_STATE.params;
+        if (!p) throw new Error("DOC_STATE.params отсутствует");
+
+        // Текущий контекст раздела (не меняем при каскаде)
+        const currentCtx = p.secCtx[sectionKey] || "";
+
+        // Пересобираем def
+        const fullP = { ...p, secCtx: { ...p.secCtx } };
+        const allDefs = buildSectionDefs(fullP);
+        patchPromptsWithSecCtx(allDefs, fullP.secCtx);
+        const defsMap = Object.fromEntries(allDefs.map(d => [d.key, d]));
+        const def = defsMap[sectionKey];
+        if (!def) throw new Error("Раздел «" + sectionKey + "» не найден.");
+
+        // Номер из текущего состояния
+        const existingDef = DOC_STATE.sectionDefs[sectionKey];
+        if (existingDef) def.num = existingDef.num;
+
+        // Контекст из ранее сгенерированных разделов
+        const generated = {};
+        for (const key of DOC_STATE.sectionOrder) {
+          if (key === sectionKey) continue;
+          const idx = DOC_STATE.sectionDbIdx[key];
+          const el = document.getElementById("db" + idx);
+          if (el && el.querySelector(".doc-section")) {
+            generated[key] = el;
+          }
+        }
+
+        let prior = "";
+        if (sectionKey !== "sum") {
+          try {
+            prior = buildContextForSection(
+              sectionKey, generated, fullP.depth,
+              DOC_STATE.effectiveDeps,
+              DOC_STATE.resolvedDeps
+            );
+          } catch (ctxErr) {
+            console.warn("Каскад: ошибка контекста для", sectionKey, ctxErr);
+          }
+        }
+
+        // Промпт
+        const SYS = buildSYS();
+        const partBase = baseCtx(fullP);
+        const partRules = htmlRules();
+        const partQuality = buildPartQuality(fullP);
+        // Заполняем genCommon, если он отсутствует (импорт без лога)
+          if (!genCommon) {
+            const scaffoldLen = `ПАРАМЕТРЫ СИНТЕЗА:\n\n\nЗАДАНИЕ: составь ТОЛЬКО следующие разделы (строго в указанном порядке, без добавления других):\n\n\n\n`.length;
+            genCommon = {
+              sysChars:      SYS.length,
+              baseChars:     partBase.length,
+              rulesChars:    partRules.length,
+              qualityChars:  partQuality.length,
+              scaffoldChars: scaffoldLen,
+              totalChars:    SYS.length + partBase.length + partRules.length + partQuality.length + scaffoldLen,
+            };
+          }
+        const sp = `§ ${def.num} — ${def.title.toUpperCase()}\n${def.prompt}`;
+        const fp = `ПАРАМЕТРЫ СИНТЕЗА:\n${partBase}${prior}\n\n${partRules}\n\nЗАДАНИЕ: составь ТОЛЬКО следующие разделы (строго в указанном порядке, без добавления других):\n\n${sp}\n\n${partQuality}`;
+
+        // GenLog
+        // Карта ожидаемых секций
+        const subsecMap = buildSubsectionMap(fullP);
+        const expectedSubs = subsecMap[sectionKey] || [];
+
+        const genEntry = {
+          sectionKey,
+          sectionLabel: def.title + " [каскад]",
+          priorChars: prior.length,
+          taskChars: sp.length,
+          inputChars: SYS.length + fp.length,
+          outputChars: 0,
+          inputTokens: 0,
+          outputTokens: 0,
+          cost: 0,
+          error: null,
+          status: "streaming",
+          source: "cascade",
+          expectedSubsections: expectedSubs,
+          subsections: [],
+        };
+        genLog.push(genEntry);
+
+        // Стриминг
+        const dbIdx = DOC_STATE.sectionDbIdx[sectionKey];
+        const container = document.getElementById("db" + dbIdx);
+        if (!container) throw new Error("DOM-контейнер не найден.");
+        container.innerHTML = "";
+
+        const usage = await streamResp(fp, container, SYS, (chars, html) => {
+          genEntry.outputChars = chars;
+          if (html && expectedSubs.length > 0) {
+            genEntry.subsections = parseSubsectionsFromHTML(html, expectedSubs);
+          }
+        });
+
+        // Финализация
+        totalInputTokens += usage.input_tokens;
+        totalOutputTokens += usage.output_tokens;
+        genEntry.outputChars = container.innerHTML.length;
+        if (expectedSubs.length > 0) {
+          genEntry.subsections = parseSubsectionsFromHTML(container.innerHTML, expectedSubs);
+          genEntry.subsections.forEach(s => { s.status = "done"; });
+        }
+        genEntry.inputTokens = usage.input_tokens;
+        genEntry.outputTokens = usage.output_tokens;
+        genEntry.cost = usage.input_tokens * 3 / 1e6 + usage.output_tokens * 15 / 1e6;
+        genEntry.status = "done";
+
+        // Доп. контекст
+        if (currentCtx) {
+          const disc = makeSectionCtxDisclosure(currentCtx);
+          container.insertBefore(disc, container.firstChild);
+        }
+
+        // Особые разделы
+        if (sectionKey === "name") updateDocTitleFromName(container);
+        if (sectionKey === "graph") {
+          try {
+            G = parseGraph(container);
+            if (G.nodes.length > 0) document.getElementById("btnGraph").style.display = "";
+          } catch (e) { console.warn("Каскад: graph parse:", e); }
+        }
+
+        DOC_STATE.factualDeps = buildFactualDepsMap(ctxLog);
+
+        // DOC_STATE
+        DOC_STATE.sectionHTML[sectionKey] = container.innerHTML;
+        DOC_STATE.sectionDefs[sectionKey] = { ...def };
+        DOC_STATE.editedSections.add(sectionKey);
+
+        updateFooterCost();
+      }
+
+      // ════════════════════════════════════════
+      // EDIT — удаление раздела
+      // ════════════════════════════════════════
+
+      /**
+       * Для удаляемого раздела определяет, какие НЕвыбранные разделы
+       * лучше всего компенсируют потерю его контекста.
+       * Возвращает массив { key, label, reason, quality }.
+       */
+      function buildDeletionReplacements(deletedKey) {
+        // Какие контекстные ключи предоставляет удаляемый раздел?
+        // Ищем все ключи вида "deletedKey:*" в SUBSTITUTION_MAP
+        const providedKeys = Object.keys(SUBSTITUTION_MAP)
+          .filter(k => sourceOf(k) === deletedKey);
+
+        if (!providedKeys.length) return [];
+
+        const currentSections = new Set(DOC_STATE.sectionOrder);
+        const suggestions = {}; // key → { label, reasons[], maxQ }
+
+        for (const ctxKey of providedKeys) {
+          const candidates = SUBSTITUTION_MAP[ctxKey] || [];
+          for (const { key: subKey, q } of candidates) {
+            const src = sourceOf(subKey);
+            // Только разделы, которых НЕТ в документе
+            if (currentSections.has(src)) continue;
+            if (src === deletedKey) continue;
+
+            if (!suggestions[src]) {
+              suggestions[src] = {
+                key: src,
+                label: KEY_LABELS[src] || src,
+                reasons: [],
+                maxQ: 0,
+              };
+            }
+            const ctxLabel = CTX_LABELS[ctxKey] || ctxKey;
+            const subLabel = CTX_LABELS[subKey] || subKey;
+            suggestions[src].reasons.push(`${subLabel} заменяет ${ctxLabel}`);
+            suggestions[src].maxQ = Math.max(suggestions[src].maxQ, q);
+          }
+        }
+
+        return Object.values(suggestions)
+          .sort((a, b) => b.maxQ - a.maxQ)
+          .map(s => ({
+            key: s.key,
+            label: s.label,
+            reason: s.reasons.slice(0, 2).join("; "),
+            quality: s.maxQ,
+          }));
+      }
+
+      /**
+       * Удаляет раздел из документа.
+       */
+      function deleteSection(sectionKey) {
+        // ── 0. Запоминаем зависимые ДО удаления ──
+        const dependentsBefore = computeDependents(DOC_STATE.effectiveDeps);
+        const factualDepsBefore = DOC_STATE.factualDeps ? { ...DOC_STATE.factualDeps } : {};
+
+        // ── 1. Удаляем DOM-контейнер ──
+        const dbIdx = DOC_STATE.sectionDbIdx[sectionKey];
+        const container = document.getElementById("db" + dbIdx);
+        if (container) container.remove();
+
+        // ── 1b. Запоминаем номер удалённого раздела ДО очистки ──
+        const deletedNum = DOC_STATE.sectionDefs[sectionKey]?.num;
+
+        // ── 2. Обновляем DOC_STATE ──
+        DOC_STATE.sectionOrder = DOC_STATE.sectionOrder.filter(k => k !== sectionKey);
+        delete DOC_STATE.sectionDbIdx[sectionKey];
+        delete DOC_STATE.sectionHTML[sectionKey];
+        delete DOC_STATE.sectionDefs[sectionKey];
+        delete DOC_STATE.params.secCtx[sectionKey];
+        DOC_STATE.editedSections.delete(sectionKey);
+
+        // ── 3. Перестраиваем маппинг db-индексов ──
+        rebuildDbMapping();
+
+        // ── 4. Пересчитываем зависимости (без удалённого раздела) ──
+        recalcDependencies();
+
+        // ── 5. Пересчитываем номера §§ ──
+        //const deletedNum = deletedDef?.num;
+        const renumberMap = recalcSectionNumbers();
+
+        // ── 6. Обновляем ссылки §N в тексте (с пометкой удалённого) ──
+        renumberSectionRefs(renumberMap, deletedNum ? [deletedNum] : []);
+
+        // ── 7. Обновляем кэш HTML ──
+        for (const key of DOC_STATE.sectionOrder) {
+          const idx = DOC_STATE.sectionDbIdx[key];
+          const el = document.getElementById("db" + idx);
+          if (el) DOC_STATE.sectionHTML[key] = el.innerHTML;
+        }
+
+        // ── 8. Если удалили граф — скрываем кнопку графа ──
+        if (sectionKey === "graph") {
+          G = {
+            nodes: [], edges: [],
+            topology: { clusters: {}, roles: { structural: {}, procedural: {} }, clusterLabels: [] }
+          };
+          graphBodyIdx = -1;
+          document.getElementById("btnGraph").style.display = "none";
+        }
+
+        // ── 9. Перерисовываем модальное окно ──
+        renderEditSections();
+      }
+
+      // ════════════════════════════════════════
+      // EDIT — добавление раздела
+      // ════════════════════════════════════════
+
+      /** Все доступные для добавления ключи разделов */
+      const ALL_SECTION_KEYS = [
+        "graph", "glossary", "theses", "name", "history",
+        "origin", "practical", "dialogue", "evolution", "critique"
+      ];
+
+      /** Возвращает ключи разделов, которых нет в текущем документе */
+      function getAvailableSectionsToAdd() {
+        const current = new Set(DOC_STATE.sectionOrder);
+        return ALL_SECTION_KEYS.filter(k => !current.has(k));
+      }
+
+      /**
+       * Добавляет новый раздел в документ.
+       * @param {string} sectionKey — ключ раздела
+       * @param {string} newCtx     — дополнительный контекст (или "")
+       */
+      async function addSection(sectionKey, newCtx) {
+        const p = DOC_STATE.params;
+        if (!p) return;
+
+        // ── Блокируем UI ──
+        const genBtn = document.getElementById("editAddGenBtn");
+        const progress = document.getElementById("editAddProgress");
+        const progressText = document.getElementById("editAddProgressText");
+        if (genBtn) genBtn.disabled = true;
+        if (progress) progress.classList.add("active");
+
+        try {
+          // ── 1. Определяем позицию вставки ──
+          const insertAfterIdx = findInsertPosition(sectionKey);
+          // insertAfterIdx — индекс в DOC_STATE.sectionOrder
+
+          // ── 2. Обновляем DOC_STATE.sectionOrder ──
+          DOC_STATE.sectionOrder.splice(insertAfterIdx + 1, 0, sectionKey);
+
+          // ── 3. Сохраняем контекст ──
+          if (newCtx) {
+            DOC_STATE.params.secCtx[sectionKey] = newCtx;
+          }
+
+          // ── 4. Пересчитываем зависимости с новым разделом ──
+          recalcDependencies();
+
+          // ── 5. Создаём DOM-контейнер и вставляем в правильное место ──
+          const db = document.getElementById("docBodies");
+          const newContainer = document.createElement("div");
+          newContainer.className = "doc-body";
+          newContainer.setAttribute("data-section-key", sectionKey);
+          newContainer.style.borderTop = "none";
+
+          // Ищем DOM-элемент раздела, ПОСЛЕ которого вставляем
+          const prevKey = DOC_STATE.sectionOrder[insertAfterIdx];
+          const prevDbIdx = DOC_STATE.sectionDbIdx[prevKey];
+          const prevEl = document.getElementById("db" + prevDbIdx);
+
+          if (prevEl && prevEl.nextSibling) {
+            db.insertBefore(newContainer, prevEl.nextSibling);
+          } else {
+            db.appendChild(newContainer);
+          }
+
+          // ── 6. Перестраиваем db-маппинг ──
+          rebuildDbMapping();
+
+          // ── 7. Пересчитываем номера §§ ──
+          // Сначала создаём def для нового раздела
+          const fullP = { ...p, sec: DOC_STATE.sectionOrder.filter(k => k !== "sum"), secCtx: { ...DOC_STATE.params.secCtx } };
+          const allDefs = buildSectionDefs(fullP);
+          patchPromptsWithSecCtx(allDefs, fullP.secCtx);
+          const defsMap = Object.fromEntries(allDefs.map(d => [d.key, d]));
+          const newDef = defsMap[sectionKey];
+          if (!newDef) throw new Error("Раздел «" + sectionKey + "» не найден в определениях.");
+
+          // Номер будет назначен в recalcSectionNumbers
+          DOC_STATE.sectionDefs[sectionKey] = { ...newDef };
+
+          const renumberMap = recalcSectionNumbers();
+          // Присваиваем актуальный номер
+          newDef.num = DOC_STATE.sectionDefs[sectionKey].num;
+
+          // ── 8. Обновляем ссылки §N в существующих разделах ──
+          renumberSectionRefs(renumberMap);
+
+          // ── 9. Собираем контекст и промпт ──
+          if (progressText) progressText.textContent = "Построение контекста...";
+
+          const generated = {};
+          for (const key of DOC_STATE.sectionOrder) {
+            if (key === sectionKey) continue;
+            const idx = DOC_STATE.sectionDbIdx[key];
+            const el = document.getElementById("db" + idx);
+            if (el && el.querySelector(".doc-section")) {
+              generated[key] = el;
+            }
+          }
+
+          let prior = "";
+          if (sectionKey !== "sum") {
+            try {
+              prior = buildContextForSection(
+                sectionKey, generated, fullP.depth,
+                DOC_STATE.effectiveDeps,
+                DOC_STATE.resolvedDeps
+              );
+            } catch (ctxErr) {
+              console.warn("Ошибка контекста при добавлении раздела", sectionKey, ctxErr);
+            }
+          }
+
+          const SYS = buildSYS();
+          const partBase = baseCtx(fullP);
+          const partRules = htmlRules();
+          const partQuality = buildPartQuality(fullP);
+          if (!genCommon) {
+            const scaffoldLen = `ПАРАМЕТРЫ СИНТЕЗА:\n\n\nЗАДАНИЕ: составь ТОЛЬКО следующие разделы (строго в указанном порядке, без добавления других):\n\n\n\n`.length;
+            genCommon = {
+              sysChars:      SYS.length,
+              baseChars:     partBase.length,
+              rulesChars:    partRules.length,
+              qualityChars:  partQuality.length,
+              scaffoldChars: scaffoldLen,
+              totalChars:    SYS.length + partBase.length + partRules.length + partQuality.length + scaffoldLen,
+            };
+          }
+          const sp = `§ ${newDef.num} — ${newDef.title.toUpperCase()}\n${newDef.prompt}`;
+          const fp = `ПАРАМЕТРЫ СИНТЕЗА:\n${partBase}${prior}\n\n${partRules}\n\nЗАДАНИЕ: составь ТОЛЬКО следующие разделы (строго в указанном порядке, без добавления других):\n\n${sp}\n\n${partQuality}`;
+
+          // ── 10. GenLog ──
+          const genEntry = {
+            sectionKey,
+            sectionLabel: newDef.title + " [добавлен]",
+            priorChars: prior.length,
+            taskChars: sp.length,
+            inputChars: SYS.length + fp.length,
+            outputChars: 0,
+            inputTokens: 0,
+            outputTokens: 0,
+            cost: 0,
+            error: null,
+            status: "streaming",
+            source: "edit-add",
+            expectedSubsections: expectedSubs,
+            subsections: [],
+          };
+          genLog.push(genEntry);
+
+          // ── 11. Стриминг ──
+          if (progressText) progressText.textContent = "Генерация...";
+
+          const onDelta = (charsSoFar) => {
+            genEntry.outputChars = charsSoFar;
+            if (progressText) progressText.textContent = "Генерация... " + charsSoFar + " симв.";
+          };
+
+          const usage = await streamResp(fp, newContainer, SYS, onDelta);
+
+          totalInputTokens += usage.input_tokens;
+          totalOutputTokens += usage.output_tokens;
+
+          genEntry.outputChars = newContainer.innerHTML.length;
+          genEntry.inputTokens = usage.input_tokens;
+          genEntry.outputTokens = usage.output_tokens;
+          genEntry.cost = usage.input_tokens * 3 / 1e6 + usage.output_tokens * 15 / 1e6;
+          genEntry.status = "done";
+
+          // ── 12. Вставляем <details> для контекста ──
+          if (newCtx) {
+            const disc = makeSectionCtxDisclosure(newCtx);
+            newContainer.insertBefore(disc, newContainer.firstChild);
+          }
+
+          // ── 13. Обработка особых разделов ──
+          if (sectionKey === "name") {
+            updateDocTitleFromName(newContainer);
+          }
+          if (sectionKey === "graph") {
+            try {
+              G = parseGraph(newContainer);
+              if (G.nodes.length > 0) {
+                document.getElementById("btnGraph").style.display = "";
+              }
+            } catch (e) {
+              console.warn("Graph parse after add:", e);
+            }
+          }
+
+          // ── 14. Финализация DOC_STATE ──
+          DOC_STATE.sectionHTML[sectionKey] = newContainer.innerHTML;
+          DOC_STATE.editedSections.add(sectionKey);
+
+          updateFooterCost();
+
+          // ── 15. Перерисовываем модальное окно и показываем каскад ──
+          if (progressText) progressText.textContent = "✓ Готово";
+          setTimeout(() => {
+            renderEditSections();
+            showCascadePanel("add", sectionKey);
+          }, 1500);
+
+        } catch (err) {
+          console.error("Ошибка добавления раздела:", sectionKey, err);
+          if (progressText) progressText.textContent = "⚠ Ошибка: " + err.message;
+
+          // Откатываем: удаляем раздел если он был частично добавлен
+          if (DOC_STATE.sectionOrder.includes(sectionKey)) {
+            DOC_STATE.sectionOrder = DOC_STATE.sectionOrder.filter(k => k !== sectionKey);
+            delete DOC_STATE.sectionDefs[sectionKey];
+            const idx = DOC_STATE.sectionDbIdx[sectionKey];
+            const el = document.getElementById("db" + idx);
+            if (el) el.remove();
+            rebuildDbMapping();
+            recalcDependencies();
+            recalcSectionNumbers();
+          }
+        } finally {
+          if (genBtn) genBtn.disabled = false;
+          setTimeout(() => {
+            if (progress) progress.classList.remove("active");
+          }, 3000);
+        }
+      }
+
+      // ════════════════════════════════════════
+      // IMPORT HTML
+      // ════════════════════════════════════════
+
+      /** Обработчик выбора файла */
+      function handleImportFile(input) {
+        const file = input.files?.[0];
+        if (!file) return;
+        input.value = ""; // сброс, чтобы можно было выбрать тот же файл повторно
+
+        const statusEl = document.getElementById("importStatus");
+        if (statusEl) {
+          statusEl.className = "import-status";
+          statusEl.textContent = "Загрузка...";
+        }
+
+        const reader = new FileReader();
+        reader.onload = () => {
+          try {
+            importHTML(reader.result, file.name);
+            if (statusEl) {
+              statusEl.className = "import-status ok";
+              statusEl.textContent = "✓ Импортирован: " + file.name;
+            }
+          } catch (err) {
+            console.error("Ошибка импорта:", err);
+            if (statusEl) {
+              statusEl.className = "import-status err";
+              statusEl.textContent = "⚠ Ошибка: " + err.message;
+            }
+          }
+        };
+        reader.onerror = () => {
+          if (statusEl) {
+            statusEl.className = "import-status err";
+            statusEl.textContent = "⚠ Не удалось прочитать файл";
+          }
+        };
+        reader.readAsText(file);
+      }
+
+      // ════════════════════════════════════════
+      // IMPORT BY URL
+      // ════════════════════════════════════════
+
+      /** Список CORS-прокси (пробуются по порядку) */
+      const CORS_PROXIES = [
+        (url) => "https://api.allorigins.win/raw?url=" + encodeURIComponent(url),
+        (url) => "https://corsproxy.io/?" + encodeURIComponent(url),
+      ];
+
+      /**
+       * Загружает HTML по URL и передаёт в importHTML.
+       * Стратегия: прямой fetch → CORS-прокси → инструкция скачать вручную.
+       */
+      async function importFromUrl() {
+        const input = document.getElementById("importUrlInput");
+        const btn = document.getElementById("importUrlBtn");
+        const statusEl = document.getElementById("importStatus");
+        const rawUrl = input?.value?.trim();
+
+        if (!rawUrl) {
+          if (statusEl) {
+            statusEl.className = "import-status err";
+            statusEl.textContent = "⚠ Введите URL";
+          }
+          return;
+        }
+
+        // Валидация URL
+        let url;
+        try {
+          url = new URL(rawUrl);
+          if (!["http:", "https:"].includes(url.protocol)) throw new Error();
+        } catch {
+          if (statusEl) {
+            statusEl.className = "import-status err";
+            statusEl.textContent = "⚠ Некорректный URL";
+          }
+          return;
+        }
+
+        if (btn) btn.disabled = true;
+        if (statusEl) {
+          statusEl.className = "import-status";
+          statusEl.textContent = "Загрузка...";
+        }
+
+        // Извлекаем имя файла из URL
+        const filename = url.pathname.split("/").pop() || "import.html";
+
+        try {
+          const htmlString = await fetchWithFallback(url.href, statusEl);
+
+          // Проверяем, что это HTML
+          if (!htmlString || !htmlString.includes("<")) {
+            throw new Error("Ответ не содержит HTML.");
+          }
+
+          importHTML(htmlString, filename);
+
+          if (statusEl) {
+            statusEl.className = "import-status ok";
+            statusEl.textContent = "✓ Импортирован: " + filename;
+          }
+          if (input) input.value = "";
+
+        } catch (err) {
+          console.error("Ошибка импорта по URL:", err);
+          if (statusEl) {
+            statusEl.className = "import-status err";
+            statusEl.textContent = "⚠ " + err.message;
+          }
+        } finally {
+          if (btn) btn.disabled = false;
+        }
+      }
+
+      /**
+       * Пытается загрузить URL: сначала напрямую, затем через CORS-прокси.
+       * @param {string} url
+       * @param {HTMLElement|null} statusEl — для обновления статуса
+       * @returns {Promise<string>} — HTML-содержимое
+       */
+      async function fetchWithFallback(url, statusEl) {
+        // ── 1. Прямой fetch ──
+        try {
+          if (statusEl) statusEl.textContent = "Прямая загрузка...";
+          const resp = await fetch(url, {
+            mode: "cors",
+            headers: { "Accept": "text/html" },
+          });
+          if (resp.ok) {
+            const text = await resp.text();
+            if (text && text.includes("<")) return text;
+          }
+        } catch (e) {
+          // CORS или сетевая ошибка — продолжаем к прокси
+          console.log("Прямой fetch не удался:", e.message);
+        }
+
+        // ── 2. CORS-прокси (по порядку) ──
+        for (let i = 0; i < CORS_PROXIES.length; i++) {
+          const proxyUrl = CORS_PROXIES[i](url);
+          try {
+            if (statusEl) statusEl.textContent = `Прокси ${i + 1}/${CORS_PROXIES.length}...`;
+            const resp = await fetch(proxyUrl);
+            if (resp.ok) {
+              const text = await resp.text();
+              if (text && text.includes("<")) return text;
+            }
+          } catch (e) {
+            console.log(`Прокси ${i + 1} не удался:`, e.message);
+          }
+        }
+
+        // ── 3. Все попытки исчерпаны ──
+        throw new Error(
+          "Не удалось загрузить: сервер блокирует кросс-доменные запросы. " +
+          "Скачайте файл вручную (Ctrl+S на странице) и загрузите через кнопку «↑ Файл»."
+        );
+      }
+
+      /**
+       * Импортирует сохранённый HTML-документ PhiloSynth.
+       * @param {string} htmlString — содержимое файла
+       * @param {string} filename   — имя файла (для сообщений)
+       */
+      function importHTML(htmlString, filename) {
+        // ── 1. Парсинг HTML ──
+        const parser = new DOMParser();
+        const doc = parser.parseFromString(htmlString, "text/html");
+
+        // Проверка: это PhiloSynth-документ?
+        const docOutput = doc.getElementById("docOutput") || doc.querySelector("#docOutput");
+        if (!docOutput) {
+          throw new Error("Не найден элемент #docOutput. Это не файл PhiloSynth.");
+        }
+
+        // ── 2. Извлечение метаданных из шапки ──
+        const meta = extractMetadata(doc);
+
+        // ── 3. Извлечение разделов ──
+        const sections = extractSections(doc);
+        if (sections.length === 0) {
+          throw new Error("В файле не найдено ни одного раздела (.doc-section).");
+        }
+
+        // ── 4. Извлечение встроенного состояния (если есть) ──
+        const embeddedState = extractEmbeddedState(doc);
+
+        // ── 2b. Валидация метаданных ──
+        const metaWarnings = validateImportMeta(meta, embeddedState);
+        const hasCritical = metaWarnings.some(w => w.critical);
+
+        if (metaWarnings.length > 0) {
+          let warnMsg = "Импорт: обнаружены проблемы с метаданными:\n\n";
+          for (const w of metaWarnings) {
+            warnMsg += (w.critical ? "⚠ КРИТИЧНО: " : "⚡ Внимание: ") + w.message + "\n";
+          }
+
+          if (hasCritical) {
+            warnMsg += "\nКритические поля отсутствуют. Документ будет отображён, " +
+              "но редактирование (перегенерация разделов) заблокировано.\n" +
+              "Заполните недостающие поля в форме ввода и нажмите «Изменить» повторно.\n\n" +
+              "Продолжить импорт?";
+            if (!confirm(warnMsg)) {
+              throw new Error("Импорт отменён пользователем.");
+            }
+          } else {
+            // Некритичные — информируем, не блокируем
+            alert(warnMsg + "\nЗначения по умолчанию подставлены. Проверьте форму ввода.");
+          }
+        }
+
+        // ── 5. Заполнение DOM ──
+        populateFromImport(docOutput, meta, sections, embeddedState, filename);
+
+        // ── 6. Парсинг графа ──
+        const docBodies = document.getElementById("docBodies");
+        if (docBodies) {
+          try {
+            G = parseGraph(docBodies);
+            if (G.nodes.length > 0) {
+              document.getElementById("btnGraph").style.display = "";
+            }
+          } catch (e) {
+            console.warn("Не удалось распарсить граф при импорте:", e);
+          }
+        }
+
+        // ── 7. Построение DOC_STATE ──
+        buildDocStateFromImport(meta, sections, embeddedState);
+
+        console.log("Импорт завершён:", filename,
+          "разделов:", sections.length,
+          "состояние:", embeddedState ? "восстановлено" : "реконструировано");
+      }
+
+      /**
+       * Извлекает метаданные из распарсенного HTML-документа.
+       */
+      function extractMetadata(doc) {
+        const getText = (id) => {
+          const el = doc.getElementById(id);
+          return el ? el.textContent.trim() : "";
+        };
+
+        // Философы: из footerPhil или из docSubtitle
+        let phil = [];
+        const footerPhil = getText("footerPhil");
+        if (footerPhil && footerPhil !== "—") {
+          phil = footerPhil.split(/\s*,\s*/).filter(Boolean);
+        } else {
+          const subtitle = getText("docSubtitle");
+          const m = subtitle.match(/На основе:\s*(.+)/i);
+          if (m) phil = m[1].split(/\s*,\s*/).filter(Boolean);
+        }
+
+        // Метод, глубина, уровень — обратный маппинг
+        const methodDisplay = getText("docMethod");
+        const depthDisplay = getText("docDepth");
+        const synthDisplay = getText("docSynthLevel");
+
+        const method = REVERSE_ML[methodDisplay] || "dialectical";
+        const depth = REVERSE_DL[depthDisplay] || "standard";
+        const synthLevel = REVERSE_SL[synthDisplay] || "comparative";
+
+        // Зерно и общий контекст — из <details class="header-disclosure">
+        let seed = "", ctx = "";
+        const headerExtras = doc.getElementById("docHeaderExtras");
+        if (headerExtras) {
+          headerExtras.querySelectorAll("details.header-disclosure").forEach(det => {
+            const summaryText = det.querySelector("summary")?.textContent?.trim()?.toLowerCase() || "";
+            const bodyText = det.querySelector(".disclosure-body")?.textContent?.trim() || "";
+            if (summaryText.includes("зерно")) seed = bodyText;
+            else if (summaryText.includes("контекст")) ctx = bodyText;
+          });
+        }
+
+        const docNum = getText("docNum");
+
+        return {
+          phil, method, depth, synthLevel, seed, ctx, docNum,
+          _raw: { methodDisplay, depthDisplay, synthDisplay },
+        };
+      }
+
+      /**
+       * Проверяет извлечённые метаданные и возвращает массив предупреждений.
+       * Пустой массив = всё в порядке.
+       * @param {Object} meta
+       * @param {Object|null} embeddedState — встроенное JSON-состояние (или null)
+       * @returns {{ field: string, message: string, critical: boolean }[]}
+       */
+      function validateImportMeta(meta, embeddedState) {
+        const warnings = [];
+
+        if (!meta.phil || meta.phil.length === 0) {
+          warnings.push({
+            field: "phil",
+            message: "Список философов не найден. Перегенерация разделов невозможна без него.",
+            critical: true,
+          });
+        }
+        /*
+        if (!meta.seed) {
+          warnings.push({
+            field: "seed",
+            message: "Зерно концепции не найдено. Его можно добавить, но тогда документ придётся перегенерировать весь заново.",
+            critical: false,
+          });
+        }
+        */
+        // method / synthLevel / depth — проверяем, был ли fallback
+        const methodDisplay = meta._raw?.methodDisplay || "";
+        const depthDisplay = meta._raw?.depthDisplay || "";
+        const synthDisplay = meta._raw?.synthDisplay || "";
+
+        if (!methodDisplay || !REVERSE_ML[methodDisplay]) {
+          warnings.push({
+            field: "method",
+            message: `Метод синтеза не распознан (найдено: «${methodDisplay || "—"}»). Подставлен «Диалектический» по умолчанию.`,
+            critical: false,
+          });
+        }
+
+        if (!depthDisplay || !REVERSE_DL[depthDisplay]) {
+          warnings.push({
+            field: "depth",
+            message: `Глубина не распознана (найдено: «${depthDisplay || "—"}»). Подставлена «Стандартная» по умолчанию.`,
+            critical: false,
+          });
+        }
+
+        if (!synthDisplay || !REVERSE_SL[synthDisplay]) {
+          warnings.push({
+            field: "synthLevel",
+            message: `Уровень синтеза не распознан (найдено: «${synthDisplay || "—"}»). Подставлен «Сравнительный» по умолчанию.`,
+            critical: false,
+          });
+        }
+
+        if (!meta.ctx) {
+          // Не критично — контекст опционален
+        }
+
+        if (!embeddedState) {
+          warnings.push({
+            field: "log",
+            message: "Лог контекста и генерации отсутствует. История стоимости и контекстных зависимостей недоступна. " +
+              "Лог начнёт накапливаться заново при редактировании.",
+            critical: false,
+          });
+        }
+
+        return warnings;
+      }
+
+      /**
+       * Извлекает разделы из распарсенного документа.
+       * Возвращает массив { key, num, title, html, secCtx }
+       */
+      function extractSections(doc) {
+        const sections = [];
+
+        // Ищем все .doc-body контейнеры внутри #docBodies (или потомки #docOutput)
+        const docBodies = doc.getElementById("docBodies") || doc.getElementById("docOutput");
+        if (!docBodies) return sections;
+
+        // Контейнеры могут быть .doc-body или непосредственно .doc-section
+        const sectionEls = docBodies.querySelectorAll(".doc-section");
+
+        sectionEls.forEach((secEl) => {
+          const numText = secEl.querySelector(".section-num")?.textContent?.trim() || "";
+          const titleText = secEl.querySelector(".section-title")?.textContent?.trim() || "";
+          const numMatch = numText.match(/§\s*(\d+)/);
+          const num = numMatch ? parseInt(numMatch[1], 10) : 0;
+
+          const key = titleToKey(titleText);
+          if (!key) {
+            console.warn("Импорт: не удалось определить ключ для раздела «" + titleText + "» — пропущен.");
+            return;
+          }
+
+          // Извлекаем доп. контекст раздела (если есть <details class="sec-disclosure">)
+          let secCtx = "";
+          // Ищем в родительском .doc-body
+          const parentBody = secEl.closest(".doc-body") || secEl.parentElement;
+          if (parentBody) {
+            const disc = parentBody.querySelector("details.sec-disclosure");
+            if (disc) {
+              secCtx = disc.querySelector(".disclosure-body")?.textContent?.trim() || "";
+            }
+          }
+
+          // HTML всего контейнера (.doc-body), включая disclosure
+          const containerHTML = parentBody
+            ? parentBody.innerHTML
+            : secEl.outerHTML;
+
+          sections.push({ key, num, title: titleText, html: containerHTML, secCtx });
+        });
+
+        // Сортируем по номеру §
+        sections.sort((a, b) => a.num - b.num);
+
+        return sections;
+      }
+
+      /**
+       * Извлекает встроенное JSON-состояние, если оно есть в файле.
+       */
+      function extractEmbeddedState(doc) {
+        const stateEl = doc.getElementById("philosynth-state");
+        if (!stateEl) return null;
+        try {
+          return JSON.parse(stateEl.textContent);
+        } catch (e) {
+          console.warn("Не удалось распарсить встроенное состояние:", e);
+          return null;
+        }
+      }
+
+      /**
+       * Заполняет DOM страницы содержимым импортированного документа.
+       */
+      function populateFromImport(importedDocOutput, meta, sections, embeddedState, filename) {
+        // ── Шапка документа ──
+        document.getElementById("docTitle").textContent =
+          importedDocOutput.querySelector("#docTitle")?.textContent || "Импортированный документ";
+        document.getElementById("docSubtitle").textContent =
+          importedDocOutput.querySelector("#docSubtitle")?.textContent || "—";
+        document.getElementById("docNum").textContent = meta.docNum || "IMPORT";
+        document.getElementById("docDate").textContent =
+          importedDocOutput.querySelector("#docDate")?.textContent || new Date().toLocaleDateString("ru-RU");
+        document.getElementById("docMethod").textContent = ML[meta.method] || meta.method;
+        document.getElementById("docDepth").textContent = DL[meta.depth] || meta.depth;
+        document.getElementById("docSynthLevel").textContent = SL[meta.synthLevel] || meta.synthLevel;
+
+        // Зерно и контекст в шапке
+        buildDocHeaderExtras(meta.seed, meta.ctx);
+
+        // ── Тело документа ──
+        const db = document.getElementById("docBodies");
+        db.innerHTML = "";
+
+        sections.forEach((sec, i) => {
+          const container = document.createElement("div");
+          container.className = "doc-body";
+          container.id = "db" + i;
+          container.setAttribute("data-section-key", sec.key);
+          if (i > 0) container.style.borderTop = "none";
+          container.innerHTML = sec.html;
+          db.appendChild(container);
+        });
+
+        // ── Футер ──
+        document.getElementById("footerPhil").textContent = meta.phil.join(", ");
+        document.getElementById("sessionId").textContent = meta.docNum || "IMPORT";
+        document.getElementById("docFooter").style.display = "flex";
+
+        // Стоимость из встроенного состояния
+        if (embeddedState?.genLog) {
+          const totals = embeddedState.genLog.reduce((a, g) => ({
+            inT: a.inT + (g.inputTokens || 0),
+            outT: a.outT + (g.outputTokens || 0),
+            cost: a.cost + (g.cost || 0),
+          }), { inT: 0, outT: 0, cost: 0 });
+          totalInputTokens = totals.inT;
+          totalOutputTokens = totals.outT;
+        } else {
+          totalInputTokens = 0;
+          totalOutputTokens = 0;
+        }
+        updateFooterCost();
+
+        // ── Синхронизируем форму ввода ──
+        syncFormFromImport(meta);
+
+        // ── Индикатор импорта ──
+        const indicator = document.getElementById("importIndicator");
+        if (indicator) {
+          indicator.textContent = "↑ ИМПОРТ" + (filename ? ": " + filename : "");
+          indicator.classList.add("visible");
+        }
+
+        // ── Показываем документ ──
+        document.getElementById("outputWrap").classList.add("visible");
+        document.getElementById("progressPanel").classList.remove("visible");
+        document.getElementById("outputWrap")
+          .scrollIntoView({ behavior: "smooth", block: "start" });
+      }
+
+      /**
+       * Строит DOC_STATE из импортированных данных.
+       */
+      function buildDocStateFromImport(meta, sections, embeddedState) {
+        resetDocState();
+
+        // ── Восстанавливаем логи ──
+        if (embeddedState) {
+          if (embeddedState.genLog)    genLog = embeddedState.genLog;
+          if (embeddedState.ctxLog)    ctxLog = embeddedState.ctxLog;
+          if (embeddedState.genCommon) genCommon = embeddedState.genCommon;
+        } else {
+          genLog = [];
+          ctxLog = [];
+          genCommon = null;
+        }
+
+        // ── Порядок разделов ──
+        // Если есть встроенный порядок — используем его,
+        // иначе реконструируем из извлечённых секций
+        let sectionOrder;
+        if (embeddedState?.sectionOrder) {
+          sectionOrder = embeddedState.sectionOrder;
+        } else {
+          sectionOrder = ["sum", ...sections.map(s => s.key).filter(k => k !== "sum")];
+        }
+
+        // ── Параметры ──
+        const secCtxMap = {};
+        sections.forEach(s => { if (s.secCtx) secCtxMap[s.key] = s.secCtx; });
+
+        const params = embeddedState?.params || {
+          seed: meta.seed,
+          phil: meta.phil,
+          sec: sectionOrder.filter(k => k !== "sum"),
+          method: meta.method,
+          depth: meta.depth,
+          synthLevel: meta.synthLevel,
+          ctx: meta.ctx,
+          secCtx: secCtxMap,
+        };
+        // Гарантируем, что secCtx содержит контексты из файла
+        // (даже если params загружен из embedded state, файл мог быть отредактирован)
+        for (const s of sections) {
+          if (s.secCtx && !params.secCtx[s.key]) {
+            params.secCtx[s.key] = s.secCtx;
+          }
+        }
+
+        // ── Зависимости ──
+        const resolvedDeps = resolveContextDeps(params);
+        const currentSections = sectionOrder.filter(k => k !== "sum");
+        const effectiveDeps = buildEffectiveDeps(currentSections, resolvedDeps);
+
+        // ── Defs: реконструируем из params ──
+        const allDefs = buildSectionDefs(params);
+        patchPromptsWithSecCtx(allDefs, params.secCtx);
+        const defsMap = Object.fromEntries(allDefs.map(d => [d.key, d]));
+
+        // Номера назначаем по порядку sectionOrder
+        let num = 1;
+        for (const key of sectionOrder) {
+          if (defsMap[key]) defsMap[key].num = num++;
+        }
+
+        // ── Заполняем DOC_STATE ──
+        // Проверяем полноту: если критические поля отсутствуют — DOC_STATE.ready,
+        // но DOC_STATE.incomplete = true → openEditModal покажет предупреждение
+        const metaWarnings = validateImportMeta(meta, embeddedState);
+        const hasCritical = metaWarnings.some(w => w.critical);
+        DOC_STATE.ready = true;
+        DOC_STATE.incomplete = hasCritical;
+        DOC_STATE.importWarnings = metaWarnings;
+        DOC_STATE.params = params;
+        DOC_STATE.sectionOrder = sectionOrder;
+        DOC_STATE.resolvedDeps = resolvedDeps;
+        DOC_STATE.effectiveDeps = effectiveDeps;
+        DOC_STATE.factualDeps = buildFactualDepsMap(ctxLog);
+        DOC_STATE.docNum = meta.docNum;
+        DOC_STATE.editedSections = new Set(embeddedState?.editedSections || []);
+
+        // ── db-маппинг и HTML-кэш ──
+        DOC_STATE.sectionDbIdx = {};
+        DOC_STATE.sectionDefs = {};
+        DOC_STATE.sectionHTML = {};
+
+        sections.forEach((sec, i) => {
+          DOC_STATE.sectionDbIdx[sec.key] = i;
+          DOC_STATE.sectionDefs[sec.key] = defsMap[sec.key] ? { ...defsMap[sec.key] } : { key: sec.key, num: i + 1, title: sec.title, prompt: "" };
+          const el = document.getElementById("db" + i);
+          if (el) DOC_STATE.sectionHTML[sec.key] = el.innerHTML;
+        });
+
+        // graphBodyIdx
+        graphBodyIdx = DOC_STATE.sectionDbIdx["graph"] ?? -1;
+      }
+
+      /**
+       * Обновляет форму ввода (философы, разделы, метод, уровень, зерно, контекст)
+       * по данным импорта, чтобы UI соответствовал загруженному документу.
+       */
+      function syncFormFromImport(meta) {
+        // ── Зерно ──
+        const seedEl = document.getElementById("seedInput");
+        if (seedEl) seedEl.value = meta.seed || "";
+
+        // ── Контекст ──
+        const ctxEl = document.getElementById("contextInput");
+        if (ctxEl) ctxEl.value = meta.ctx || "";
+
+        // ── Метод ──
+        const methodEl = document.getElementById("synthesisMethod");
+        if (methodEl) methodEl.value = meta.method;
+
+        // ── Уровень ──
+        const levelEl = document.getElementById("synthesisLevel");
+        if (levelEl) levelEl.value = meta.synthLevel;
+
+        // ── Глубина ──
+        const depthEl = document.getElementById("depthLevel");
+        if (depthEl) depthEl.value = meta.depth;
+
+        // ── Философы: сбрасываем все, затем отмечаем нужных ──
+        const philBox = document.getElementById("philBox");
+        if (philBox) {
+          philBox.querySelectorAll("input[type='checkbox']").forEach(cb => {
+            const shouldCheck = meta.phil.includes(cb.value);
+            cb.checked = shouldCheck;
+            cb.dispatchEvent(new Event("change", { bubbles: true }));
+            // Обновляем визуальное состояние checkbox-item
+            const item = cb.closest(".checkbox-item");
+            if (item) item.classList.toggle("_checked", shouldCheck);
+          });
+        }
+
+        // ── Разделы: отмечаем присутствующие в импортированном документе ──
+        const secKeyToId = {
+          graph: "secGraph", glossary: "secGlossary", theses: "secTheses",
+          history: "secHistory", name: "secName", practical: "secPractical",
+          dialogue: "secDialogue", evolution: "secEvolution", critique: "secCritique",
+          origin: "secOrigin",
+        };
+        const importedSections = new Set(DOC_STATE.sectionOrder.filter(k => k !== "sum"));
+
+        for (const [key, id] of Object.entries(secKeyToId)) {
+          const cb = document.getElementById(id);
+          if (!cb) continue;
+          const shouldCheck = importedSections.has(key);
+          cb.checked = shouldCheck;
+          cb.dispatchEvent(new Event("change", { bubbles: true }));
+
+          // Визуальное состояние
+          const item = cb.closest(".checkbox-item");
+          if (item) item.classList.toggle("_checked", shouldCheck);
+          const wrap = cb.closest(".sec-item-wrap");
+          if (wrap) {
+            wrap.classList.toggle("_checked", shouldCheck);
+            if (!shouldCheck) {
+              const field = wrap.querySelector(".sec-ctx-field");
+              const btn = wrap.querySelector(".sec-ctx-btn");
+              if (field) field.classList.remove("open");
+              if (btn) { btn.classList.remove("open"); btn.textContent = "+"; }
+            }
+          }
+
+          // Доп. контекст раздела
+          const ctxField = document.getElementById("secCtx-" + key);
+          if (ctxField) {
+            ctxField.value = DOC_STATE.params?.secCtx?.[key] || "";
+          }
+        }
+
+        // Обновляем предупреждения и совместимость
+        if (typeof updateSectionWarnings === "function") updateSectionWarnings();
+        if (typeof updateCompatAdvisor === "function") updateCompatAdvisor();
+        if (typeof updateCostEstimate === "function") updateCostEstimate();
+
+        // Слушатели для сброса incomplete при ручном заполнении формы
+        const recheckIncomplete = () => {
+          if (!DOC_STATE.incomplete) return;
+          const phil = getPhil();
+          const seed = document.getElementById("seedInput")?.value?.trim();
+          if (phil.length > 0 ) {
+            // Обновляем params из формы
+            DOC_STATE.params.phil = phil;
+            DOC_STATE.params.seed = seed;
+            DOC_STATE.params.method = document.getElementById("synthesisMethod")?.value || DOC_STATE.params.method;
+            DOC_STATE.params.depth = document.getElementById("depthLevel")?.value || DOC_STATE.params.depth;
+            DOC_STATE.params.synthLevel = document.getElementById("synthesisLevel")?.value || DOC_STATE.params.synthLevel;
+            DOC_STATE.params.ctx = document.getElementById("contextInput")?.value?.trim() || "";
+            DOC_STATE.incomplete = false;
+            DOC_STATE.importWarnings = [];
+            recalcDependencies();
+            const statusEl = document.getElementById("importStatus");
+            if (statusEl) {
+              statusEl.textContent += " · Параметры дополнены ✓";
+              statusEl.className = "import-status ok";
+            }
+          }
+        };
+
+        // Навешиваем обработчики на ключевые поля
+        for (const id of ["seedInput", "synthesisMethod", "synthesisLevel", "depthLevel", "contextInput"]) {
+          const el = document.getElementById(id);
+          if (el) el.addEventListener("change", recheckIncomplete);
+        }
+        //const philBox = document.getElementById("philBox");
+        if (philBox) philBox.addEventListener("change", recheckIncomplete);
+      }
+
       function resetForm() {
         document.getElementById("outputWrap").classList.remove("visible");
         document.getElementById("progressPanel").classList.remove("visible");
@@ -9323,6 +12532,10 @@ ${METHOD_CRITIQUE(p)[p.method] || ""}
           topology: { clusters: {}, roles: { structural: {}, procedural: {} }, clusterLabels: [] }
         };
         window.scrollTo({ top: 0, behavior: "smooth" });
+        resetDocState();
+
+        const indicator = document.getElementById("importIndicator");
+        if (indicator) { indicator.textContent = ""; indicator.classList.remove("visible"); }
       }
       function copyDoc() {
         navigator.clipboard
