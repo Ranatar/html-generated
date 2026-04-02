@@ -3164,7 +3164,11 @@
         editedSections: new Set(),
 
         factualDeps: {},        
-        incomplete: false,      
+        incomplete: false,   
+
+        /** Версия документа: 1 = первичная генерация, 2+ = после редактирований */
+        docVersion: 1,
+
         importWarnings: [],     
       };
 
@@ -3228,6 +3232,7 @@
         DOC_STATE.factualDeps = {};
         DOC_STATE.incomplete = false;
         DOC_STATE.importWarnings = [];
+        DOC_STATE.docVersion = 1;
       }
 
       // ════════════════════════════════════════
@@ -4967,88 +4972,136 @@
         _default:   3.5,
       };
 
-      function estimateCost() {
-        const phil       = getPhil();
-        const sec        = getSec();
-        const method     = document.getElementById("synthesisMethod").value;
-        const depth      = document.getElementById("depthLevel").value;
-        const synthLevel = document.getElementById("synthesisLevel").value;
-        const seed       = document.getElementById("seedInput").value.trim();
-        const ctx        = document.getElementById("contextInput").value.trim();
-        if (!phil.length) return null;
-       
-        const p      = { seed, phil, sec, method, depth, synthLevel, ctx };
-        p.secCtx = getSecCtxMap();
-        const effectiveDeps = buildEffectiveDeps(p.sec, resolveContextDeps(p));
-        const dynamicOrder  = buildDynamicOrder(effectiveDeps, p.sec, resolveContextDeps(p));
-        p.sec = dynamicOrder.filter(k => k !== "sum");
+      // Эмпирические доли фрагментов от полного выхода раздела-источника.
+      // Ключи — контекстные фрагменты, значения — доля от общего выхода раздела.
+      const FRAGMENT_SHARE = {
+        "sum:goals": 0.18, "sum:portraits": 0.20, "sum:novelty": 0.12,
+        "sum:tensions": 0.12, "sum:coherence": 0.10, "sum:difficulty": 0.12,
+        "graph:nodes": 0.40, "graph:edges": 0.35, "graph:topology": 0.15,
+        "glossary:table": 0.85,
+        "theses:full": 0.90, "theses:summary": 0.25,
+        "name:title": 0.20, "name:full": 0.90,
+        "history:contemporary": 0.25, "history:genealogy": 0.25,
+        "history:influence": 0.20, "history:name_context": 0.15,
+        "origin:decomposition": 0.30, "origin:genealogy": 0.25, "origin:novelty": 0.20,
+        "evolution:directions": 0.25, "evolution:graph_changes": 0.20,
+        "evolution:name_evolution": 0.15, "evolution:science": 0.20,
+        "dialogue:synthesis": 0.30,
+        "practical:summary": 0.25,
+      };
+
+      /**
+       * Оценка стоимости генерации.
+       *
+       * Без аргументов — оценивает все разделы из формы ввода (первичная генерация).
+       * С аргументом { sections } — оценивает только указанные разделы,
+       * читая параметры из DOC_STATE (редактирование).
+       *
+       * @param {{ sections?: string[] }} [opts]
+       * @returns {{ inTokens, outTokens, cost, passes } | null}
+       */
+      function estimateCost(opts) {
+        const isEdit = opts && opts.sections && opts.sections.length > 0;
+
+        // ── Параметры ──
+        let p, effectiveDeps, targetKeys;
+
+        if (isEdit) {
+          p = DOC_STATE.params;
+          if (!p || !p.phil?.length) return null;
+          effectiveDeps = DOC_STATE.effectiveDeps || {};
+          targetKeys = opts.sections;
+        } else {
+          const phil       = getPhil();
+          const sec        = getSec();
+          const method     = document.getElementById("synthesisMethod").value;
+          const depth      = document.getElementById("depthLevel").value;
+          const synthLevel = document.getElementById("synthesisLevel").value;
+          const seed       = document.getElementById("seedInput").value.trim();
+          const ctx        = document.getElementById("contextInput").value.trim();
+          if (!phil.length) return null;
+
+          p = { seed, phil, sec, method, depth, synthLevel, ctx };
+          p.secCtx = getSecCtxMap();
+          effectiveDeps = buildEffectiveDeps(p.sec, resolveContextDeps(p));
+          const dynamicOrder = buildDynamicOrder(effectiveDeps, p.sec, resolveContextDeps(p));
+          p.sec = dynamicOrder.filter(k => k !== "sum");
+          targetKeys = dynamicOrder; // все разделы, включая sum
+        }
+
+        // ── Определения разделов ──
         const baseDefs = buildSectionDefs(p);
         patchPromptsWithSecCtx(baseDefs, p.secCtx);
-        const defsMap  = Object.fromEntries(baseDefs.map(d => [d.key, d]));
+        const defsMap = Object.fromEntries(baseDefs.map(d => [d.key, d]));
+
         let secNum = 1;
-        const defs = dynamicOrder.map(key => {
+        const defs = targetKeys.map(key => {
           const d = { ...defsMap[key] };
-          d.num = secNum++;
+          if (!d.key) d.key = key;
+          // При редактировании — сохраняем номер из DOC_STATE
+          if (isEdit && DOC_STATE.sectionDefs[key]) {
+            d.num = DOC_STATE.sectionDefs[key].num;
+          } else {
+            d.num = secNum++;
+          }
           return d;
-        });
+        }).filter(d => d.prompt); // отсекаем разделы без промпта (если key не найден в defs)
+
         const passes = groupPasses(defs);
-       
-        // ── Фиксированные части промпта: вычисляем фактически ──────────────────
-        const sysChars     = buildSYS().length;
-        const baseChars    = baseCtx(p).length;
-        const rulesChars   = htmlRules().length;
-        const qualityChars = buildPartQuality(p).length;
 
-        const scaffoldChars = `ПАРАМЕТРЫ СИНТЕЗА:\n\n\nЗАДАНИЕ: составь ТОЛЬКО следующие разделы (строго в указанном порядке, без добавления других):\n\n\n\n`.length;
-       
-        const budget = CONTEXT_BUDGET[depth] || 24000;
-       
-        let totalInChars  = 0;
-        let totalOutChars = 0;
-       
-        // Эмпирические доли фрагментов от полного выхода раздела-источника.
-        // Ключи — контекстные фрагменты, значения — доля от общего выхода раздела.
-        const FRAGMENT_SHARE = {
-          "sum:goals": 0.18, "sum:portraits": 0.20, "sum:novelty": 0.12,
-          "sum:tensions": 0.12, "sum:coherence": 0.10, "sum:difficulty": 0.12,
-          "graph:nodes": 0.40, "graph:edges": 0.35, "graph:topology": 0.15,
-          "glossary:table": 0.85,
-          "theses:full": 0.90, "theses:summary": 0.25,
-          "name:title": 0.20, "name:full": 0.90,
-          "history:contemporary": 0.25, "history:genealogy": 0.25,
-          "history:influence": 0.20, "history:name_context": 0.15,
-          "origin:decomposition": 0.30, "origin:genealogy": 0.25, "origin:novelty": 0.20,
-          "evolution:directions": 0.25, "evolution:graph_changes": 0.20,
-          "evolution:name_evolution": 0.15, "evolution:science": 0.20,
-          "dialogue:synthesis": 0.30,
-          "practical:summary": 0.25,
-        };
+        // ── Фиксированные части промпта ──
+        const sysChars     = genCommon?.sysChars     || buildSYS().length;
+        const baseChars    = genCommon?.baseChars     || baseCtx(p).length;
+        const rulesChars   = genCommon?.rulesChars    || htmlRules().length;
+        const qualityChars = genCommon?.qualityChars  || buildPartQuality(p).length;
+        const scaffoldChars = genCommon?.scaffoldChars ||
+          `ПАРАМЕТРЫ СИНТЕЗА:\n\n\nЗАДАНИЕ: составь ТОЛЬКО следующие разделы (строго в указанном порядке, без добавления других):\n\n\n\n`.length;
 
-        // Оценка выхода каждого раздела (в символах)
+        const budget = CONTEXT_BUDGET[p.depth] || 24000;
+
+        // ── Оценка выхода каждого раздела ──
         const estimatedOutput = {};
-        for (const pass of passes) {
-          for (const def of pass) {
-            const mult = SECTION_OUTPUT_MULT[def.key] ?? SECTION_OUTPUT_MULT._default;
-            estimatedOutput[def.key] = Math.round(
-              mw(p) * mult * WORDS_TO_CHARS * HTML_OVERHEAD
-            );
+        for (const def of defs) {
+          const mult = SECTION_OUTPUT_MULT[def.key] ?? SECTION_OUTPUT_MULT._default;
+          estimatedOutput[def.key] = Math.round(
+            mw(p) * mult * WORDS_TO_CHARS * HTML_OVERHEAD
+          );
+        }
+
+        // При редактировании: фактические размеры уже сгенерированных разделов
+        // (используются для оценки контекста — сколько символов даст источник)
+        if (isEdit) {
+          for (const g of genLog) {
+            if (g.status === "done" && g.outputChars > 0 && !opts.sections.includes(g.sectionKey)) {
+              estimatedOutput[g.sectionKey] = g.outputChars;
+            }
           }
         }
+
+        // ── Суммирование ──
+        let totalInChars  = 0;
+        let totalOutChars = 0;
 
         for (let i = 0; i < passes.length; i++) {
           const pass = passes[i];
 
           let contextChars = 0;
-          if (i > 0) {
+          // Контекст есть у всех, кроме первого прохода (при полной генерации)
+          // или кроме sum (при редактировании — каждый раздел получает контекст)
+          const needsContext = isEdit
+            ? pass.some(d => d.key !== "sum")
+            : i > 0;
+
+          if (needsContext) {
             for (const def of pass) {
               if (def.key === "sum") continue;
               const deps = effectiveDeps[def.key];
               if (!deps) continue;
 
-              for (const ctxKey of [...deps.required, ...deps.optional]) {
+              for (const ctxKey of [...(deps.required || []), ...(deps.optional || [])]) {
                 const src = sourceOf(ctxKey);
                 const srcOutput = estimatedOutput[src];
-                if (!srcOutput) continue; // источник — sum или не сгенерирован
+                if (!srcOutput) continue;
                 const share = FRAGMENT_SHARE[ctxKey] ?? 0.25;
                 contextChars += Math.round(srcOutput * share);
               }
@@ -5057,7 +5110,7 @@
           }
 
           const sectionPromptsChars = pass.reduce(
-            (s, d) => s + d.prompt.length + d.title.length + 20, 0
+            (s, d) => s + (d.prompt?.length || 0) + (d.title?.length || 0) + 20, 0
           );
 
           const passInChars = sysChars + baseChars + contextChars
@@ -5069,7 +5122,7 @@
             totalOutChars += estimatedOutput[def.key] || 0;
           }
         }
-       
+
         const inTokens  = Math.ceil(totalInChars  / CHARS_PER_TOKEN);
         const outTokens = Math.ceil(totalOutChars / CHARS_PER_TOKEN);
         const cost = inTokens * PRICE_IN + outTokens * PRICE_OUT;
@@ -10103,7 +10156,8 @@ ${METHOD_CRITIQUE(p)[p.method] || ""}
           : getPhil();
         const names = phil.map(p => PHIL_FILENAME[p] || p).join("-");
         const base = names ? num + "-" + names : num;
-        return base + (ext ? "." + ext : "");
+        const ver = DOC_STATE.docVersion > 1 ? "-v" + DOC_STATE.docVersion : "";
+        return base + ver + (ext ? "." + ext : "");
       }
       
       // ════════════════════════════════════════
@@ -10419,36 +10473,7 @@ ${METHOD_CRITIQUE(p)[p.method] || ""}
           return parts.map(function(p) { return indent + p; }).join('\n');
         }
        
-        // ── 4. Статистика ──────────────────────────────────────────────
-        function collectStats(rules) {
-          let total = 0, removed = 0;
-          const removedList = [];
-       
-          function walk(list) {
-            list.forEach(function(r) {
-              if (r.type === 'comment' || r.type === 'at-simple') return;
-              if (r.type === 'at-cond') { walk(r.inner); return; }
-              total++;
-              if (definitelyUnused(r)) {
-                removed++;
-                const label =
-                  r.type === 'keyframes' ? '@keyframes ' + r.name :
-                  r.type === 'rule'      ? r.selector :
-                  '@' + r.kw + (r.prelude ? ' ' + r.prelude : '');
-                removedList.push(label);
-              }
-            });
-          }
-          walk(rules);
-          return { total, removed, removedList };
-        }
-       
-        // ── 5. Запуск ──────────────────────────────────────────────────
-        const rules      = parseCSS(cssText);
-        const cleanedCSS = serializeRules(rules, '');
-        const stats      = collectStats(rules);
-       
-        return { cleanedCSS, stats };
+        return serializeRules(parseCSS(cssText), '');
       }
 
       function saveHTML() {
@@ -10463,6 +10488,12 @@ ${METHOD_CRITIQUE(p)[p.method] || ""}
         // чтобы они стояли непосредственно перед таблицами графа
         let docHTML = document.getElementById("docOutput").innerHTML;
         if (G.nodes.length > 0 && graphBodyIdx >= 0) {
+          // Удаляем старые кнопки графа (от предыдущих сохранений)
+          docHTML = docHTML.replace(
+            /<div[^>]*>\s*<button[^>]*onclick="openGraph\(\)"[^>]*>[^<]*<\/button>\s*<\/div>/g,
+            ""
+          );
+
           const graphBtnHTML =
             `<div style="display:flex;gap:10px;flex-wrap:wrap;padding:12px 0 8px">` +
             `<button class="action-btn gold-btn" onclick="openGraph()">▦ Граф категорий</button>` +
@@ -10485,19 +10516,7 @@ ${METHOD_CRITIQUE(p)[p.method] || ""}
           .map(function(s) { return s.textContent; })
           .join("\n");
        
-        const { cleanedCSS, stats } = auditCSS(rawCSS, contentToCheck);
-       
-        if (stats.removed > 0) {
-          console.groupCollapsed(
-            "[CSS audit] удалено " + stats.removed + " из " + stats.total +
-            " правил (" + (stats.removed / stats.total * 100).toFixed(1) + "%)"
-          );
-          stats.removedList.forEach(function(s) { console.log("  ✗", s); });
-          console.groupEnd();
-        }
-       
-        const styles =
-          "<style>\n" + cleanedCSS + "\n</style>";
+        const styles = "<style>\n" + auditCSS(rawCSS, contentToCheck) + "\n</style>";
 
         // ── Встраиваем состояние для импорта ──
         let stateJSON = "";
@@ -10510,6 +10529,7 @@ ${METHOD_CRITIQUE(p)[p.method] || ""}
             params: DOC_STATE.ready ? DOC_STATE.params : null,
             sectionOrder: DOC_STATE.ready ? DOC_STATE.sectionOrder : null,
             editedSections: DOC_STATE.ready ? [...DOC_STATE.editedSections] : [],
+            docVersion: DOC_STATE.docVersion || 1,
           };
           stateJSON = `\n<script type="application/json" id="philosynth-state">${JSON.stringify(stateData, 2)}<\/script>`;
 
@@ -10903,7 +10923,7 @@ ${METHOD_CRITIQUE(p)[p.method] || ""}
         const costEl = document.getElementById("editCostEstimate");
         if (costEl) {
           if (plan.regen.length + plan.add.length > 0) {
-            const est = estimateEditPlanCost(plan);
+            const est = estimateCost({ sections: [...plan.regen, ...plan.add] });
             costEl.textContent = est
               ? `≈ $${est.cost.toFixed(4)} (${(est.cost * 100).toFixed(2)}¢) · ${est.requests} запр.`
               : "";
@@ -10914,28 +10934,6 @@ ${METHOD_CRITIQUE(p)[p.method] || ""}
 
         // ── Каскад: какие разделы будут затронуты, но НЕ включены в план ──
         updateLiveCascade(plan);
-      }
-
-      /** Оценка стоимости плана */
-      function estimateEditPlanCost(plan) {
-        const depth = DOC_STATE.params?.depth || "standard";
-        const sections = [...plan.regen, ...plan.add];
-        if (!sections.length) return null;
-
-        let totalIn = 0, totalOut = 0;
-        for (const key of sections) {
-          // Грубая оценка: фиксированная часть + средний контекст + средний выход
-          const fixedIn = (genCommon?.totalChars || 10000) / (CHARS_PER_TOKEN || 2);
-          const ctxIn = (CONTEXT_BUDGET[depth] || 24000) * 0.5 / (CHARS_PER_TOKEN || 2);
-          const outMult = SECTION_OUTPUT_MULT?.[key] || 3.5;
-          const mwVal = { overview: 150, standard: 250, deep: 400, exhaustive: 600 }[depth] || 250;
-          const outTokens = Math.round(mwVal * outMult * 7 * 1.5 / (CHARS_PER_TOKEN || 2));
-          totalIn += fixedIn + ctxIn;
-          totalOut += outTokens;
-        }
-
-        const cost = totalIn * (PRICE_IN || 3e-6) + totalOut * (PRICE_OUT || 15e-6);
-        return { cost, inTokens: Math.round(totalIn), outTokens: Math.round(totalOut), requests: sections.length };
       }
 
       /** Каскадная панель: live-обновление при изменении галочек */
@@ -11295,12 +11293,69 @@ ${METHOD_CRITIQUE(p)[p.method] || ""}
         const progressText = document.getElementById("editPlanProgressText");
         if (runBtn) runBtn.disabled = true;
         if (progress) progress.classList.add("active");
+        closeEditModal();
+
+        // Показываем панель прогресса основного интерфейса
+        const mainProgress = document.getElementById("progressPanel");
+        const mainSteps = document.getElementById("progressSteps");
+        if (mainProgress && mainSteps) {
+          mainSteps.innerHTML = "";
+          const allKeys = [...plan.remove, ...plan.regen, ...plan.add];
+          allKeys.forEach((key, i) => {
+            const action = plan.remove.includes(key) ? "Удаление"
+                         : plan.add.includes(key)    ? "Добавление"
+                         :                              "Перегенерация";
+            const d = document.createElement("div");
+            d.className = "progress-step";
+            d.id = "editPs" + i;
+            d.innerHTML = `<span class="step-icon">◯</span> ${action}: ${KEY_LABELS[key] || key}`;
+            mainSteps.appendChild(d);
+          });
+          mainProgress.classList.add("visible");
+        }
 
         let step = 0;
+        let _planPollInterval = null;
+
         const updateProgress = (text) => {
           step++;
           if (progressText) progressText.textContent = `[${step}/${total}] ${text}`;
+
+          // Обновляем шаг в основной панели прогресса
+          const prevStep = document.getElementById("editPs" + (step - 2));
+          const curStep  = document.getElementById("editPs" + (step - 1));
+          if (prevStep) {
+            prevStep.className = "progress-step done";
+            prevStep.querySelector(".step-icon").textContent = "✓";
+          }
+          if (curStep) {
+            curStep.className = "progress-step active";
+            curStep.querySelector(".step-icon").textContent = "⟳";
+          }
+
+          // Live-обновление символов
+          clearInterval(_planPollInterval);
+          _planPollInterval = setInterval(() => {
+            if (!genLog.length) return;
+            const last = genLog[genLog.length - 1];
+            if (last.status === "streaming" && last.outputChars > 0 && curStep) {
+              curStep.title = last.outputChars.toLocaleString("ru") + " симв.";
+            }
+          }, 300);
         };
+
+        // Инкремент версии и маркер в логе
+        DOC_STATE.docVersion = (DOC_STATE.docVersion || 1) + 1;
+        genLog.push({
+          type: "version-marker",
+          version: DOC_STATE.docVersion,
+          timestamp: new Date().toISOString(),
+          actions: {
+            regen: plan.regen.map(k => KEY_LABELS[k] || k),
+            remove: plan.remove.map(k => KEY_LABELS[k] || k),
+            add: plan.add.map(k => KEY_LABELS[k] || k),
+          },
+        });
 
         try {
           // ── 1. Удаления ──
@@ -11329,7 +11384,19 @@ ${METHOD_CRITIQUE(p)[p.method] || ""}
         } catch (err) {
           console.error("Ошибка выполнения плана:", err);
           if (progressText) progressText.textContent = "⚠ Ошибка: " + err.message;
+
+          if (step === 0) {
+            DOC_STATE.docVersion = Math.max(1, (DOC_STATE.docVersion || 1) - 1);
+            genLog.pop(); // убираем маркер
+          }
         } finally {
+          clearInterval(_planPollInterval);
+          // Помечаем последний шаг
+          const lastStep = document.getElementById("editPs" + (step - 1));
+          if (lastStep) {
+            lastStep.className = "progress-step done";
+            lastStep.querySelector(".step-icon").textContent = "✓";
+          }
           setTimeout(() => {
             if (progress) progress.classList.remove("active");
             if (runBtn) runBtn.disabled = false;
@@ -12623,6 +12690,7 @@ ${METHOD_CRITIQUE(p)[p.method] || ""}
         DOC_STATE.factualDeps = buildFactualDepsMap(ctxLog);
         DOC_STATE.docNum = meta.docNum;
         DOC_STATE.editedSections = new Set(embeddedState?.editedSections || []);
+        DOC_STATE.docVersion = embeddedState?.docVersion || 1;
 
         // ── db-маппинг и HTML-кэш ──
         DOC_STATE.sectionDbIdx = {};
@@ -12852,6 +12920,9 @@ ${METHOD_CRITIQUE(p)[p.method] || ""}
           const lines = [];
           lines.push("PHILOSYNTH PRO — ЛОГ КОНТЕКСТА И ГЕНЕРАЦИИ");
           lines.push("Дата: " + new Date().toLocaleString("ru-RU"));
+          if (DOC_STATE.docVersion > 1) {
+            lines.push("Текущая версия: v" + DOC_STATE.docVersion);
+          }
           lines.push("═".repeat(70));
         
           // --- Общие элементы промпта ---
@@ -12871,6 +12942,23 @@ ${METHOD_CRITIQUE(p)[p.method] || ""}
           for (const pass of ctxLog) ctxByKey[pass.sectionKey] = pass;
         
           for (const g of genLog) {
+
+            // ── Маркер версии ──
+            if (g.type === "version-marker") {
+              lines.push("");
+              lines.push("═".repeat(70));
+              const dt = g.timestamp
+                ? new Date(g.timestamp).toLocaleString("ru-RU")
+                : "";
+              lines.push("  ВЕРСИЯ v" + g.version + (dt ? "  ·  " + dt : ""));
+              const acts = g.actions || {};
+              if (acts.regen?.length) lines.push("  Перегенерировано: " + acts.regen.join(", "));
+              if (acts.remove?.length) lines.push("  Удалено: " + acts.remove.join(", "));
+              if (acts.add?.length) lines.push("  Добавлено: " + acts.add.join(", "));
+              lines.push("═".repeat(70));
+              continue;
+            }
+
             const keys = g.sectionKey.split("+");
         
             lines.push("");
@@ -13014,6 +13102,11 @@ ${METHOD_CRITIQUE(p)[p.method] || ""}
           const esc = s => s.replace(/&/g, "&amp;").replace(/</g, "&lt;");
           const num = n => n.toLocaleString("ru");
           const lines = [];
+
+          if (DOC_STATE.docVersion > 1) {
+            lines.push('Версия: <span style="color:#d4a017;font-weight:600">v' +
+              DOC_STATE.docVersion + '</span>');
+          }
         
           // --- Общие элементы промпта ---
           if (genCommon) {
@@ -13038,6 +13131,28 @@ ${METHOD_CRITIQUE(p)[p.method] || ""}
           for (const pass of ctxLog) ctxByKey[pass.sectionKey] = pass;
         
           for (const g of genLog) {
+
+            // ── Маркер версии ──
+            if (g.type === "version-marker") {
+              lines.push('');
+              lines.push('<span style="color:#d4a017;font-weight:600">' + '═'.repeat(60) + '</span>');
+              const dt = g.timestamp
+                ? new Date(g.timestamp).toLocaleString("ru-RU")
+                : "";
+              lines.push('<span style="color:#d4a017;font-weight:700;font-size:13px">' +
+                '  ВЕРСИЯ v' + g.version + '</span>' +
+                (dt ? ' <span style="color:#888">' + esc(dt) + '</span>' : ''));
+              const acts = g.actions || {};
+              if (acts.regen?.length)
+                lines.push('  <span style="color:#7ba7e8">Перегенерировано:</span> ' + esc(acts.regen.join(", ")));
+              if (acts.remove?.length)
+                lines.push('  <span style="color:#e06060">Удалено:</span> ' + esc(acts.remove.join(", ")));
+              if (acts.add?.length)
+                lines.push('  <span style="color:#4db87a">Добавлено:</span> ' + esc(acts.add.join(", ")));
+              lines.push('<span style="color:#d4a017;font-weight:600">' + '═'.repeat(60) + '</span>');
+              continue;
+            }
+
             const keys = g.sectionKey.split("+");
         
             lines.push('');
