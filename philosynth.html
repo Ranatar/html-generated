@@ -4,12 +4,12 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>PhiloSynth Pro — Система Синтеза Философских Концепций</title>
-    <!--link
+    <link
       href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700;900&family=IBM+Plex+Mono:wght@300;400;500;600&family=IBM+Plex+Sans:ital,wght@0,300;0,400;0,500;0,600;1,400&display=swap"
       rel="stylesheet"
-    /-->
-    <script src="three.min.js"></script>
-    <script src="d3.min.js"></script>
+    />
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/d3/7.8.5/d3.min.js"></script>
     <style>
       :root {
         --white: #fafaf8;
@@ -5296,6 +5296,7 @@
           case "evolution:graph_changes": return extractSection(el, "изменения графа");
           case "evolution:name_evolution":return extractSection(el, "эволюция названия");
           case "evolution:science":       return extractSection(el, "современной науке");
+          case "critique:full": return truncateText(el.innerText?.trim() || "", 6000);
           default: return null;
         }
       }
@@ -6191,9 +6192,9 @@ ${LEVEL_GRAPH_METHODOLOGY(p)[graphLevel]}${METHOD_GRAPH[p.method] ? METHOD_GRAPH
 «Таблица категорий»
 8–15 категорий.
 ТРЕБОВАНИЕ К НАЗВАНИЯМ КАТЕГОРИЙ:
-- Название — строго 1–4 слова (4 - крайний максимум, лучше меньше), именное словосочетание или существительное
+- Название — строго 1–4 слова (1 - хорошо, 2 - допустимо, 3 - нежелательно, 4 - в крайнем случае), именное словосочетание или существительное
 - ЗАПРЕЩЕНЫ: придаточные конструкции («как», «через», «посредством»), причастные и деепричастные обороты, любые описательные фразы
-- Эталон краткости: «вечное возвращение», «воля к власти», «онтическое напряжение», «трансфинитное единство»
+- Примеры хороших названий (если больше 1 слова): «вечное возвращение», «воля к власти», «онтическое напряжение», «трансфинитное единство»
 - Название — указатель на понятие, а НЕ его определение. Определение — в столбце «Определение»
 Столбцы СТРОГО: Категория | Тип | Определение | Центральность | Определённость | ${LEVEL_GRAPH_LAST_COL_NAME[graphLevel]}
 - Тип: онтологическая / эпистемологическая / этическая / аксиологическая / метафизическая / логическая / практическая / эстетическая / антропологическая / феноменологическая / экзистенциальная / социальная / политическая / теологическая
@@ -10790,6 +10791,10 @@ ${METHOD_CRITIQUE(p)[p.method] || ""}
                 <input type="checkbox" id="editDelete-${key}" onchange="onEditCheckChange('${key}','delete')">
                 Удалить
               </label>
+            </div>
+            <div class="edit-regen-progress" id="editProgress-${key}">
+              <div class="edit-regen-spinner"></div>
+              <span id="editProgressText-${key}"></span>
             </div>`;
           body.appendChild(card);
         }
@@ -10819,7 +10824,12 @@ ${METHOD_CRITIQUE(p)[p.method] || ""}
           addPanel.innerHTML = `
             <div class="edit-add-title">+ Добавить разделы</div>
             <div class="edit-add-checks">${checksHTML}</div>
-            ${addCtxHTML}`;
+            ${addCtxHTML}
+            <div class="edit-regen-progress" id="editAddProgress">
+              <div class="edit-regen-spinner"></div>
+              <span id="editAddProgressText"></span>
+            </div>`;
+            
           body.appendChild(addPanel);
         }
 
@@ -10931,55 +10941,67 @@ ${METHOD_CRITIQUE(p)[p.method] || ""}
       /** Каскадная панель: live-обновление при изменении галочек */
       function updateLiveCascade(plan) {
         const panel = document.getElementById("cascadePanel");
+        const titleEl = document.getElementById("cascadeTitle");
         const descEl = document.getElementById("cascadeDesc");
         const listEl = document.getElementById("cascadeList");
         if (!panel || !listEl) return;
 
-        // Собираем множество всех «активных» ключей (перегенерация + добавление)
         const activeSet = new Set([...plan.regen, ...plan.add]);
         const removeSet = new Set(plan.remove);
 
-        // Все разделы, которые будут затронуты
+        // ══════════════════════════════════════════════════════════
+        // A. Будущее состояние документа
+        // ══════════════════════════════════════════════════════════
+
+        const futureSections = [
+          ...DOC_STATE.sectionOrder.filter(k => k !== "sum" && !removeSet.has(k)),
+          ...plan.add,
+        ];
+
+        let futureResolved = null;
+        let futureEffDeps  = null;
+
+        if (futureSections.length > 0) {
+          futureResolved = resolveContextDeps({ ...DOC_STATE.params, sec: futureSections });
+          futureEffDeps  = buildEffectiveDeps(futureSections, futureResolved);
+        }
+
+        // ══════════════════════════════════════════════════════════
+        // B. DOWNSTREAM: существующие разделы, затронутые планом
+        // ══════════════════════════════════════════════════════════
+
         const dependents = computeDependents(DOC_STATE.effectiveDeps);
         const factDeps = DOC_STATE.factualDeps || {};
         const factReverse = typeof computeFactualDependents === "function"
           ? computeFactualDependents(factDeps) : {};
 
         const affected = new Set();
-        // Затронутые перегенерацией
+
         for (const key of plan.regen) {
           for (const dep of (dependents[key] || new Set())) {
             if (dep !== "sum") affected.add(dep);
           }
         }
-        // Затронутые удалением
         for (const key of plan.remove) {
           for (const dep of (dependents[key] || new Set())) {
             if (dep !== "sum") affected.add(dep);
           }
         }
-        // Затронутые добавлением (потенциальные бенефициары)
-        // Для добавляемых разделов — вычисляем временные зависимости
-        if (plan.add.length > 0) {
-          const tempSections = [
-            ...DOC_STATE.sectionOrder.filter(k => k !== "sum" && !removeSet.has(k)),
-            ...plan.add
-          ];
-          const tempResolved = resolveContextDeps({ ...DOC_STATE.params, sec: tempSections });
-          const tempEffDeps = buildEffectiveDeps(tempSections, tempResolved);
-          const tempDeps = computeDependents(tempEffDeps);
+
+        // Downstream-бенефициары добавлений
+        if (plan.add.length > 0 && futureEffDeps) {
+          const futureDependents = computeDependents(futureEffDeps);
           for (const key of plan.add) {
-            for (const dep of (tempDeps[key] || new Set())) {
+            for (const dep of (futureDependents[key] || new Set())) {
               if (dep !== "sum") affected.add(dep);
             }
           }
         }
 
-        // Убираем: сами активные, удаляемые, и те, кто уже в плане на перегенерацию
+        // Чистим affected
         for (const key of activeSet) affected.delete(key);
         for (const key of removeSet) affected.delete(key);
 
-        // Убираем разделы, которых не будет после удаления
         const remainingAfterRemove = new Set(
           DOC_STATE.sectionOrder.filter(k => !removeSet.has(k))
         );
@@ -10987,59 +11009,254 @@ ${METHOD_CRITIQUE(p)[p.method] || ""}
           if (!remainingAfterRemove.has(key)) affected.delete(key);
         }
 
-        if (affected.size === 0 && (plan.regen.length + plan.remove.length + plan.add.length) === 0) {
-          panel.classList.remove("visible");
-          return;
-        }
-        if (affected.size === 0) {
-          panel.classList.remove("visible");
-          return;
-        }
+        // ══════════════════════════════════════════════════════════
+        // C. UPSTREAM: анализ зависимостей добавляемых разделов
+        // ══════════════════════════════════════════════════════════
 
-        // Формируем описание
-        let desc = "Следующие разделы будут затронуты выбранными действиями, но не включены в план. ";
-        desc += "Рекомендуется отметить их для перегенерации:";
-        if (descEl) descEl.textContent = desc;
+        const missingHard     = [];   // { consumer, label, sources: [{ ctxKey, src, label }] }
+        const activeSubs      = [];   // { consumer, consumerLabel, ctxLabel, replacedLabel, quality }
+        const addableBenefits = {};   // srcKey → { label, consumers: string[] }
 
-        // Список затронутых
-        listEl.innerHTML = "";
-        const sorted = sortInTopoOrder([...affected]);
-        for (const depKey of sorted) {
-          const depLabel = KEY_LABELS[depKey] || depKey;
-          const def = DOC_STATE.sectionDefs[depKey];
-          const num = def ? def.num : "?";
+        if (plan.add.length > 0 && futureResolved && futureEffDeps) {
+          const futureSet = new Set(["sum", ...futureSections]);
 
-          // Фактический вес
-          let weightHint = "";
-          for (const srcKey of [...plan.regen, ...plan.remove]) {
-            const fi = factReverse[srcKey];
-            if (fi) {
-              const consumer = fi.consumers.find(c => c.key === depKey);
-              if (consumer && consumer.chars > 0) {
-                weightHint += ` <span style="font-size:9px;color:var(--gold)">${consumer.chars.toLocaleString("ru")} симв. от ${KEY_LABELS[srcKey] || srcKey}</span>`;
+          for (const addKey of plan.add) {
+            const origDeps = futureResolved[addKey];
+            const effDeps  = futureEffDeps[addKey];
+            if (!origDeps) continue;
+
+            const consumerLabel = KEY_LABELS[addKey] || addKey;
+            const origAll = new Set([
+              ...(origDeps.required || []),
+              ...(origDeps.optional || []),
+            ]);
+            const effAll = new Set([
+              ...(effDeps?.required || []),
+              ...(effDeps?.optional || []),
+            ]);
+
+            // ── C1. Жёсткие потери ──
+            const hardMissing = [];
+            for (const ctxKey of origDeps.required) {
+              const src = sourceOf(ctxKey);
+              if (src === "sum" || futureSet.has(src)) continue;
+              const hasSubstitute = [...effAll].some(k =>
+                !origAll.has(k) && sourceOf(k) !== src && sourceOf(k) !== addKey
+              );
+              if (!hasSubstitute) {
+                hardMissing.push({ ctxKey, src, label: CTX_LABELS[ctxKey] || ctxKey });
+              }
+            }
+            if (hardMissing.length > 0) {
+              missingHard.push({ consumer: addKey, label: consumerLabel, sources: hardMissing });
+            }
+
+            // ── C2. Активные подстановки ──
+            if (effDeps) {
+              for (const ctxKey of [...(effDeps.required || []), ...(effDeps.optional || [])]) {
+                if (origAll.has(ctxKey)) continue;
+                const q = getSubstituteQuality(ctxKey);
+                if (q == null) continue;
+
+                let replacedKey = null;
+                for (const [origK, candidates] of Object.entries(SUBSTITUTION_MAP)) {
+                  if (candidates.some(c => c.key === ctxKey)) { replacedKey = origK; break; }
+                }
+
+                activeSubs.push({
+                  consumer: addKey,
+                  consumerLabel,
+                  ctxKey,
+                  ctxLabel: CTX_LABELS[ctxKey] || ctxKey,
+                  replacedKey,
+                  replacedLabel: replacedKey ? (CTX_LABELS[replacedKey] || replacedKey) : "?",
+                  quality: q,
+                });
+              }
+            }
+
+            // ── C3. Рекомендации по optional-зависимостям ──
+            for (const ctxKey of (origDeps.optional || [])) {
+              const src = sourceOf(ctxKey);
+              if (src === "sum" || futureSet.has(src)) continue;
+              if (!addableBenefits[src]) {
+                addableBenefits[src] = { label: KEY_LABELS[src] || src, consumers: [] };
+              }
+              if (!addableBenefits[src].consumers.includes(consumerLabel)) {
+                addableBenefits[src].consumers.push(consumerLabel);
               }
             }
           }
-
-          // Проверяем, есть ли уже галочка перегенерации для этого раздела
-          const regenCb = document.getElementById("editRegen-" + depKey);
-          const isCovered = regenCb?.checked;
-
-          const item = document.createElement("div");
-          item.className = "cascade-item-info " + (isCovered ? "covered" : "exposed");
-          item.innerHTML = `<span>${isCovered ? "✓" : "⚡"} § ${num} — ${esc(depLabel)}${weightHint}</span>`;
-          if (!isCovered) {
-            // Кнопка-ссылка «отметить»
-            const markBtn = document.createElement("button");
-            markBtn.style.cssText = "font-family:var(--mono);font-size:9px;border:1px solid var(--gold);background:transparent;color:var(--gold);padding:2px 8px;cursor:pointer;margin-left:auto";
-            markBtn.textContent = "отметить ↑";
-            markBtn.onclick = () => {
-              if (regenCb) { regenCb.checked = true; onEditCheckChange(depKey, "regen"); }
-            };
-            item.appendChild(markBtn);
-          }
-          listEl.appendChild(item);
         }
+
+        const hasUpstream = missingHard.length > 0
+                         || activeSubs.length > 0
+                         || Object.keys(addableBenefits).length > 0;
+
+        // ══════════════════════════════════════════════════════════
+        // D. ВИДИМОСТЬ
+        // ══════════════════════════════════════════════════════════
+
+        if (affected.size === 0 && !hasUpstream) {
+          panel.classList.remove("visible");
+          return;
+        }
+
+        // ══════════════════════════════════════════════════════════
+        // E. РЕНДЕРИНГ
+        // ══════════════════════════════════════════════════════════
+
+        listEl.innerHTML = "";
+        const descParts = [];
+
+        // ── E1. Downstream: затронутые, но не включённые в план ──
+        if (affected.size > 0) {
+          descParts.push(
+            "Следующие разделы будут затронуты выбранными действиями, " +
+            "но не включены в план. Рекомендуется отметить их для перегенерации."
+          );
+
+          const sorted = sortInTopoOrder([...affected]);
+          for (const depKey of sorted) {
+            const depLabel = KEY_LABELS[depKey] || depKey;
+            const def = DOC_STATE.sectionDefs[depKey];
+            const num = def ? def.num : "?";
+
+            let weightHint = "";
+            for (const srcKey of [...plan.regen, ...plan.remove]) {
+              const fi = factReverse[srcKey];
+              if (fi) {
+                const consumer = fi.consumers.find(c => c.key === depKey);
+                if (consumer && consumer.chars > 0) {
+                  weightHint += ` <span style="font-size:9px;color:var(--gold)">${consumer.chars.toLocaleString("ru")} симв. от ${KEY_LABELS[srcKey] || srcKey}</span>`;
+                }
+              }
+            }
+
+            const regenCb = document.getElementById("editRegen-" + depKey);
+            const isCovered = regenCb?.checked;
+
+            const item = document.createElement("div");
+            item.className = "cascade-item-info " + (isCovered ? "covered" : "exposed");
+            item.innerHTML = `<span>${isCovered ? "✓" : "⚡"} § ${num} — ${esc(depLabel)}${weightHint}</span>`;
+            if (!isCovered) {
+              const markBtn = document.createElement("button");
+              markBtn.style.cssText =
+                "font-family:var(--mono);font-size:9px;border:1px solid var(--gold);" +
+                "background:transparent;color:var(--gold);padding:2px 8px;cursor:pointer;margin-left:auto";
+              markBtn.textContent = "отметить ↑";
+              markBtn.onclick = () => {
+                if (regenCb) { regenCb.checked = true; onEditCheckChange(depKey, "regen"); }
+              };
+              item.appendChild(markBtn);
+            }
+            listEl.appendChild(item);
+          }
+        }
+
+        // ── E2. Upstream: жёсткие потери зависимостей ──
+        if (missingHard.length > 0) {
+          descParts.push(
+            "Обязательные зависимости отсутствуют — качество добавляемых разделов будет снижено."
+          );
+
+          for (const m of missingHard) {
+            const srcNames = m.sources.map(s => "«" + esc(s.label) + "»").join(", ");
+
+            const item = document.createElement("div");
+            item.className = "sec-warning-item";
+            item.style.borderColor = "var(--red)";
+            item.style.background = "#fff0f0";
+            item.style.color = "var(--red)";
+            item.innerHTML =
+              `<span class="warn-icon">⚠</span>` +
+              `<span>«${esc(m.label)}»: отсутствует обязательный контекст ${srcNames}.</span>`;
+
+            const seenSrc = new Set();
+            for (const s of m.sources) {
+              if (seenSrc.has(s.src)) continue;
+              seenSrc.add(s.src);
+              const addCb = document.getElementById("editAdd-" + s.src);
+              if (addCb && !addCb.checked) {
+                const addBtn = document.createElement("button");
+                addBtn.style.cssText =
+                  "font-family:var(--mono);font-size:9px;border:1px solid var(--red);" +
+                  "background:transparent;color:var(--red);padding:2px 6px;cursor:pointer;" +
+                  "margin-left:4px;flex-shrink:0";
+                addBtn.textContent = "+ " + (KEY_LABELS[s.src] || s.src);
+                addBtn.onclick = () => {
+                  addCb.checked = true;
+                  onEditCheckChange(s.src, "add");
+                };
+                item.appendChild(addBtn);
+              }
+            }
+            listEl.appendChild(item);
+          }
+        }
+
+        // ── E3. Upstream: активные подстановки контекста ──
+        if (activeSubs.length > 0) {
+          if (missingHard.length === 0) {
+            descParts.push("Недостающий контекст заменён подстановками.");
+          }
+
+          for (const s of activeSubs) {
+            const qLabel = s.quality === 3 ? "равноценная замена"
+                         : s.quality === 2 ? "частичная замена"
+                         :                   "слабая замена";
+
+            const item = document.createElement("div");
+            item.className = "sec-substituted-item";
+            item.innerHTML =
+              `<span class="rec-icon">⇄</span>` +
+              `<span>«${esc(s.consumerLabel)}»: ` +
+              `контекст «${esc(s.ctxLabel)}» используется как ${qLabel} ` +
+              `для «${esc(s.replacedLabel)}».</span>`;
+            listEl.appendChild(item);
+          }
+        }
+
+        // ── E4. Upstream: рекомендации по добавлению ──
+        if (Object.keys(addableBenefits).length > 0) {
+          for (const [srcKey, info] of Object.entries(addableBenefits)) {
+            const consumerList = info.consumers.map(c => "«" + esc(c) + "»").join(", ");
+            const word = info.consumers.length === 1 ? "раздела" : "разделов";
+
+            const item = document.createElement("div");
+            item.className = "sec-recommend-item";
+            item.innerHTML =
+              `<span class="rec-icon">💡</span>` +
+              `<span>Включение «${esc(info.label)}» может улучшить качество ` +
+              `${word} ${consumerList} (дополнительный контекст).</span>`;
+
+            const addCb = document.getElementById("editAdd-" + srcKey);
+            if (addCb && !addCb.checked) {
+              const addBtn = document.createElement("button");
+              addBtn.style.cssText =
+                "font-family:var(--mono);font-size:9px;border:1px solid var(--blue-corp);" +
+                "background:transparent;color:var(--blue-corp);padding:2px 8px;cursor:pointer;" +
+                "margin-left:auto;flex-shrink:0";
+              addBtn.textContent = "добавить ↓";
+              addBtn.onclick = () => {
+                addCb.checked = true;
+                onEditCheckChange(srcKey, "add");
+              };
+              item.appendChild(addBtn);
+            }
+            listEl.appendChild(item);
+          }
+        }
+
+        // ── Заголовок и описание ──
+        if (titleEl) {
+          titleEl.textContent = hasUpstream && affected.size === 0
+            ? "Зависимости добавляемых разделов"
+            : affected.size > 0 && !hasUpstream
+              ? "Каскад зависимостей"
+              : "Каскад и зависимости";
+        }
+        if (descEl) descEl.textContent = descParts.join(" ");
 
         panel.classList.add("visible");
       }
@@ -11720,6 +11937,10 @@ ${METHOD_CRITIQUE(p)[p.method] || ""}
           }
           const sp = `§ ${newDef.num} — ${newDef.title.toUpperCase()}\n${newDef.prompt}`;
           const fp = `ПАРАМЕТРЫ СИНТЕЗА:\n${partBase}${prior}\n\n${partRules}\n\nЗАДАНИЕ: составь ТОЛЬКО следующие разделы (строго в указанном порядке, без добавления других):\n\n${sp}\n\n${partQuality}`;
+          
+          // Карта ожидаемых секций для трекинга
+          const subsecMap = buildSubsectionMap(fullP);
+          const expectedSubs = subsecMap[sectionKey] || [];
 
           // ── 10. GenLog ──
           const genEntry = {
@@ -11743,8 +11964,11 @@ ${METHOD_CRITIQUE(p)[p.method] || ""}
           // ── 11. Стриминг ──
           if (progressText) progressText.textContent = "Генерация...";
 
-          const onDelta = (charsSoFar) => {
+          const onDelta = (charsSoFar, htmlSoFar) => {
             genEntry.outputChars = charsSoFar;
+            if (htmlSoFar && expectedSubs.length > 0) {
+              genEntry.subsections = parseSubsectionsFromHTML(htmlSoFar, expectedSubs);
+            }
             if (progressText) progressText.textContent = "Генерация... " + charsSoFar + " симв.";
           };
 
@@ -11754,6 +11978,13 @@ ${METHOD_CRITIQUE(p)[p.method] || ""}
           totalOutputTokens += usage.output_tokens;
 
           genEntry.outputChars = newContainer.innerHTML.length;
+          
+          // Финализация subsections
+          if (expectedSubs.length > 0) {
+            genEntry.subsections = parseSubsectionsFromHTML(newContainer.innerHTML, expectedSubs);
+            genEntry.subsections.forEach(s => { s.status = "done"; });
+          }
+          
           genEntry.inputTokens = usage.input_tokens;
           genEntry.outputTokens = usage.output_tokens;
           genEntry.cost = usage.input_tokens * 3 / 1e6 + usage.output_tokens * 15 / 1e6;
@@ -11788,10 +12019,7 @@ ${METHOD_CRITIQUE(p)[p.method] || ""}
 
           // ── 15. Перерисовываем модальное окно и показываем каскад ──
           if (progressText) progressText.textContent = "✓ Готово";
-          setTimeout(() => {
-            renderEditSections();
-            showCascadePanel("add", sectionKey);
-          }, 1500);
+          setTimeout(() => renderEditSections(), 1500);
 
         } catch (err) {
           console.error("Ошибка добавления раздела:", sectionKey, err);
@@ -11801,12 +12029,15 @@ ${METHOD_CRITIQUE(p)[p.method] || ""}
           if (DOC_STATE.sectionOrder.includes(sectionKey)) {
             DOC_STATE.sectionOrder = DOC_STATE.sectionOrder.filter(k => k !== sectionKey);
             delete DOC_STATE.sectionDefs[sectionKey];
+            delete DOC_STATE.sectionHTML[sectionKey];
+            delete DOC_STATE.params.secCtx[sectionKey];
             const idx = DOC_STATE.sectionDbIdx[sectionKey];
             const el = document.getElementById("db" + idx);
             if (el) el.remove();
             rebuildDbMapping();
             recalcDependencies();
-            recalcSectionNumbers();
+            const rollbackRenumber = recalcSectionNumbers();
+            renumberSectionRefs(rollbackRenumber);
           }
         } finally {
           if (genBtn) genBtn.disabled = false;
@@ -12294,7 +12525,7 @@ ${METHOD_CRITIQUE(p)[p.method] || ""}
         updateFooterCost();
 
         // ── Синхронизируем форму ввода ──
-        syncFormFromImport(meta);
+        syncFormFromImport(meta, sections);
 
         // ── Индикатор импорта ──
         const indicator = document.getElementById("importIndicator");
@@ -12384,7 +12615,9 @@ ${METHOD_CRITIQUE(p)[p.method] || ""}
         DOC_STATE.incomplete = hasCritical;
         DOC_STATE.importWarnings = metaWarnings;
         DOC_STATE.params = params;
-        DOC_STATE.sectionOrder = sectionOrder;
+        const extractedKeys = new Set(sections.map(s => s.key));
+        extractedKeys.add("sum"); // sum всегда присутствует
+        DOC_STATE.sectionOrder = sectionOrder.filter(k => extractedKeys.has(k));
         DOC_STATE.resolvedDeps = resolvedDeps;
         DOC_STATE.effectiveDeps = effectiveDeps;
         DOC_STATE.factualDeps = buildFactualDepsMap(ctxLog);
@@ -12411,7 +12644,7 @@ ${METHOD_CRITIQUE(p)[p.method] || ""}
        * Обновляет форму ввода (философы, разделы, метод, уровень, зерно, контекст)
        * по данным импорта, чтобы UI соответствовал загруженному документу.
        */
-      function syncFormFromImport(meta) {
+      function syncFormFromImport(meta, sections) {
         // ── Зерно ──
         const seedEl = document.getElementById("seedInput");
         if (seedEl) seedEl.value = meta.seed || "";
@@ -12452,7 +12685,7 @@ ${METHOD_CRITIQUE(p)[p.method] || ""}
           dialogue: "secDialogue", evolution: "secEvolution", critique: "secCritique",
           origin: "secOrigin",
         };
-        const importedSections = new Set(DOC_STATE.sectionOrder.filter(k => k !== "sum"));
+        const importedSections = new Set(sections.map(s => s.key).filter(k => k !== "sum"));
 
         for (const [key, id] of Object.entries(secKeyToId)) {
           const cb = document.getElementById(id);
@@ -12556,20 +12789,10 @@ ${METHOD_CRITIQUE(p)[p.method] || ""}
           if (el) el.addEventListener("change", () => {
             updateSectionWarnings();
             updateCompatAdvisor();
-          });
-        }
-        updateSectionWarnings();
-        updateCostEstimate();
-        updateCompatAdvisor();
-
-        // Обновление оценки при изменении любых параметров формы
-        for (const id of secIds) {
-          const el = document.getElementById(id);
-          if (el) el.addEventListener("change", () => {
             updateCostEstimate();
-            updateCompatAdvisor();
           });
         }
+
         document.querySelectorAll("#philBox input").forEach(cb => {
           cb.addEventListener("change", updateCostEstimate);
         });
