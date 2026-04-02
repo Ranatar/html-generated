@@ -5011,6 +5011,14 @@
           if (!p || !p.phil?.length) return null;
           effectiveDeps = DOC_STATE.effectiveDeps || {};
           targetKeys = opts.sections;
+          // Временно дополняем p.sec добавляемыми разделами,
+          // чтобы buildSectionDefs создал для них определения
+          const tempSec = new Set(p.sec);
+          for (const k of targetKeys) tempSec.add(k);
+          p = { ...p, sec: [...tempSec] };
+
+          // Пересчитываем effectiveDeps с учётом добавляемых
+          effectiveDeps = buildEffectiveDeps(p.sec, resolveContextDeps(p));
         } else {
           const phil       = getPhil();
           const sec        = getSec();
@@ -10925,7 +10933,7 @@ ${METHOD_CRITIQUE(p)[p.method] || ""}
           if (plan.regen.length + plan.add.length > 0) {
             const est = estimateCost({ sections: [...plan.regen, ...plan.add] });
             costEl.textContent = est
-              ? `≈ $${est.cost.toFixed(4)} (${(est.cost * 100).toFixed(2)}¢) · ${est.requests} запр.`
+              ? `≈ $${est.cost.toFixed(4)} (${(est.cost * 100).toFixed(2)}¢) · ${est.passes} запр.`
               : "";
           } else {
             costEl.textContent = plan.remove.length > 0 ? "Удаление бесплатно" : "";
@@ -13074,7 +13082,10 @@ ${METHOD_CRITIQUE(p)[p.method] || ""}
           }
         
           // --- Итоги ---
-          const doneEntries = genLog.filter(g => g.status === "done" || g.status === "error" || !g.status);
+          const doneEntries = genLog.filter(g =>
+            g.type !== "version-marker" &&
+            (g.status === "done" || g.status === "error" || !g.status)
+          );
           if (doneEntries.length > 0) {
             const t = doneEntries.reduce((a, g) => ({
               inC: a.inC + g.inputChars, outC: a.outC + g.outputChars,
@@ -13305,7 +13316,7 @@ ${METHOD_CRITIQUE(p)[p.method] || ""}
         
           // --- Итоги ---
           const doneEntries = genLog.filter(g => g.status === "done" || g.status === "error" || !g.status);
-          const isStreaming = genLog.some(g => g.status === "streaming");
+          const isStreaming = genLog.some(g => g.type !== "version-marker" && g.status === "streaming");
           if (doneEntries.length > 0 || isStreaming) {
             const t = doneEntries.reduce((a, g) => ({
               inC: a.inC + g.inputChars, outC: a.outC + g.outputChars,
