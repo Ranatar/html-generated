@@ -3539,6 +3539,11 @@
           }
         }
 
+        // Синхронизируем sectionDbIdx по реальному DOM.
+        // Это необходимо, когда генерация выполнялась поверх импортированного
+        // документа и DOM-элементы могли сохранить старые id.
+        syncDbIdxFromDOM();
+
         // Кэшируем HTML каждого раздела
         for (const key of dynamicOrder) {
           const idx = DOC_STATE.sectionDbIdx[key];
@@ -3570,6 +3575,48 @@
         DOC_STATE.docVersion = 1;
         DOC_STATE.capsuleHTML = "";
         DOC_STATE.modes = {};
+      }
+
+      /**
+       * Перестраивает DOC_STATE.sectionDbIdx по реальным DOM-элементам
+       * внутри #docBodies, используя атрибут data-section-key.
+       *
+       * Вызывать после любой операции, которая могла рассинхронизировать
+       * индексы (импорт + частичная генерация, удаление/добавление разделов).
+       */
+      function syncDbIdxFromDOM() {
+        const docBodies = document.getElementById("docBodies");
+        if (!docBodies) return;
+
+        const newIdx = {};
+        const bodyEls = docBodies.querySelectorAll(".doc-body[data-section-key]");
+
+        for (const el of bodyEls) {
+          const idNum = parseInt(el.id.replace("db", ""), 10);
+          if (isNaN(idNum)) continue;
+          // data-section-key может содержать "sum+graph" (объединённый pass)
+          const keys = el.getAttribute("data-section-key").split("+");
+          for (const key of keys) {
+            newIdx[key] = idNum;
+          }
+        }
+
+        // Обновляем только те ключи, которые реально есть в DOM.
+        // Ключи, отсутствующие в DOM (например, capsule), не трогаем.
+        for (const key of Object.keys(newIdx)) {
+          DOC_STATE.sectionDbIdx[key] = newIdx[key];
+        }
+
+        // Удаляем ключи, которые есть в sectionDbIdx, но отсутствуют в DOM
+        // (кроме capsule — она хранится отдельно в capsuleHTML)
+        for (const key of Object.keys(DOC_STATE.sectionDbIdx)) {
+          if (key === "capsule") continue;
+          if (!(key in newIdx)) {
+            delete DOC_STATE.sectionDbIdx[key];
+          }
+        }
+
+        console.log("[syncDbIdxFromDOM] synced:", JSON.stringify(DOC_STATE.sectionDbIdx));
       }
 
       // ════════════════════════════════════════
@@ -14195,7 +14242,7 @@ ${LEVEL_DIALOGUE_STRUCT[dialogueLevel]}
         const docNum = getText("docNum");
 
         return {
-          phil, method, depth, synthLevel, seed, ctx, docNum,
+          phil, method, depth, synthLevel, seed, ctx, docNum, capsuleText,
           _raw: { methodDisplay, depthDisplay, synthDisplay },
         };
       }
@@ -14482,6 +14529,12 @@ ${LEVEL_DIALOGUE_STRUCT[dialogueLevel]}
         DOC_STATE.params = params;
         const extractedKeys = new Set(sections.map(s => s.key));
         extractedKeys.add("sum"); // sum всегда присутствует
+        // Капсула хранится в шапке документа, а не в #docBodies,
+        // поэтому extractSections её не находит. Добавляем вручную,
+        // если капсула существует в метаданных или во встроённом состоянии.
+        if (meta.capsuleText || embeddedState?.capsuleHTML) {
+          extractedKeys.add("capsule");
+        }
         DOC_STATE.sectionOrder = sectionOrder.filter(k => extractedKeys.has(k));
         DOC_STATE.resolvedDeps = resolvedDeps;
         DOC_STATE.effectiveDeps = effectiveDeps;
@@ -14503,11 +14556,16 @@ ${LEVEL_DIALOGUE_STRUCT[dialogueLevel]}
         });
 
         // Восстанавливаем капсулу из шапки импортированного документа
-        DOC_STATE.capsuleHTML = meta.capsuleText
-          ? '<div class="doc-section"><div class="doc-content"><div data-section="Капсула"><p>' +
+        // Приоритет: embedded state (полный HTML) > meta.capsuleText (текст из шапки)
+        if (embeddedState?.capsuleHTML) {
+          DOC_STATE.capsuleHTML = embeddedState.capsuleHTML;
+        } else if (meta.capsuleText) {
+          DOC_STATE.capsuleHTML = '<div class="doc-section"><div class="doc-content"><div data-section="Капсула"><p>' +
             meta.capsuleText.split("\n").map(l => l.trim()).filter(Boolean).join("</p><p>") +
-            '</p></div></div></div>'
-          : "";
+            '</p></div></div></div>';
+        } else {
+          DOC_STATE.capsuleHTML = "";
+        }
         setTimeout(() => {
           updateCapsuleInHeader();
           updateModeButtons();
@@ -14763,12 +14821,21 @@ ${LEVEL_DIALOGUE_STRUCT[dialogueLevel]}
         if (!deps) return "";
 
         const generated = {};
-        for (const key of DOC_STATE.sectionOrder) {
-          if (key === "capsule") continue; // капсула не в DOM — обрабатывается отдельно
-          const idx = DOC_STATE.sectionDbIdx[key];
-          if (idx == null) continue;
-          const el = document.getElementById("db" + idx);
-          if (el && el.querySelector(".doc-section")) generated[key] = el;
+
+        // Строим маппинг по реальным DOM-атрибутам data-section-key,
+        // а не по sectionDbIdx, который может быть рассинхронизирован
+        // после частичной генерации поверх импорта.
+        const docBodies = document.getElementById("docBodies");
+        if (docBodies) {
+          const bodyEls = docBodies.querySelectorAll(".doc-body[data-section-key]");
+          for (const el of bodyEls) {
+            if (!el.querySelector(".doc-section")) continue;
+            const keys = el.getAttribute("data-section-key").split("+");
+            for (const key of keys) {
+              if (key === "capsule") continue;
+              generated[key] = el;
+            }
+          }
         }
 
         console.log("[buildModeContext]", modeKey,
