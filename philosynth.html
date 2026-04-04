@@ -7744,6 +7744,20 @@ ${LEVEL_DIALOGUE_STRUCT[dialogueLevel]}
         }
       }
 
+      /**
+       * Удаляет DOM-контейнер капсулы из #docBodies после копирования в шапку.
+       * Капсула живёт только в шапке (header-disclosure-capsule) и в DOC_STATE.capsuleHTML.
+       * В #docBodies как отдельный раздел она не отображается.
+       */
+      function removeCapsuleFromDocBodies() {
+        const idx = DOC_STATE.sectionDbIdx["capsule"];
+        if (idx == null) return;
+        const el = document.getElementById("db" + idx);
+        if (el) el.remove();
+        delete DOC_STATE.sectionDbIdx["capsule"];
+        rebuildDbMapping();
+      }
+
       /** Создаёт <details> для вставки доп. контекста в начало раздела документа */
       function makeSectionCtxDisclosure(text) {
         const details = document.createElement("details");
@@ -8102,6 +8116,7 @@ ${LEVEL_DIALOGUE_STRUCT[dialogueLevel]}
           if (capsuleEl) {
             DOC_STATE.capsuleHTML = capsuleEl.innerHTML;
             updateCapsuleInHeader();
+            removeCapsuleFromDocBodies();
           }
         }
 
@@ -11648,6 +11663,7 @@ ${LEVEL_DIALOGUE_STRUCT[dialogueLevel]}
             editedSections: DOC_STATE.ready ? [...DOC_STATE.editedSections] : [],
             docVersion: DOC_STATE.docVersion || 1,
             capsuleHTML: DOC_STATE.capsuleHTML || "",
+            modes: DOC_STATE.modes || {},
           };
           stateJSON = `\n<script type="application/json" id="philosynth-state">\n${JSON.stringify(stateData, null, 2)}\n<\/script>`;
 
@@ -11677,6 +11693,36 @@ ${LEVEL_DIALOGUE_STRUCT[dialogueLevel]}
           }
         } catch (e) {
           console.warn("Не удалось сериализовать состояние:", e);
+        }
+
+        // ── Видимые приложения режимов ──
+        const modesEntries = Object.entries(DOC_STATE.modes || {}).filter(([, v]) => v?.html);
+        if (modesEntries.length > 0) {
+          let modesHTML = `\n<div style="max-width:1100px;margin:20px auto 0">`;
+          for (const [modeKey, modeData] of modesEntries) {
+            const config = MODE_CONFIG[modeKey];
+            const title = (config?.title || modeKey) + " · " + (modeData.param || "");
+            const date = modeData.timestamp
+              ? new Date(modeData.timestamp).toLocaleString("ru-RU") : "";
+            modesHTML += `
+              <details style="border:1px solid #d8d4cc;margin-bottom:8px">
+                <summary style="
+                  padding:10px 18px;cursor:pointer;
+                  font-family:'IBM Plex Mono',monospace;font-size:10px;
+                  letter-spacing:2px;text-transform:uppercase;
+                  color:#6b00aa;background:#f3eaff;
+                  list-style:none;display:flex;align-items:center;gap:6px;
+                  user-select:none;
+                ">◈ ${title}${date ? ' · ' + date : ''}</summary>
+                <div style="padding:20px 48px;background:#fffef9;
+                  font-family:'IBM Plex Sans',sans-serif;font-size:13px;
+                  line-height:1.85;color:#4a463e;">
+                  ${modeData.html}
+                </div>
+              </details>`;
+          }
+          modesHTML += `</div>`;
+          stateJSON += modesHTML;
         }
 
         const html = `<!DOCTYPE html><html lang="ru"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0"><title>${document.getElementById("docTitle").textContent}</title><link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700;900&family=IBM+Plex+Mono:wght@300;400;500;600&family=IBM+Plex+Sans:ital,wght@0,300;0,400;0,500;0,600;1,400&display=swap" rel="stylesheet">${styles}<style>body{background:#f2f0eb;padding:32px}#docOutput{max-width:1100px;margin:0 auto}</style></head><body><div id="docOutput">${docHTML}</div>${graphSection}${stateJSON}</body></html>`;
@@ -12279,6 +12325,14 @@ ${LEVEL_DIALOGUE_STRUCT[dialogueLevel]}
           if (document.getElementById("editAdd-" + key)?.checked) plan.add.push(key);
         }
 
+        // ── Режимы ──
+        plan.modeRegen = [];
+        for (const [modeKey] of Object.entries(DOC_STATE.modes || {})) {
+          if (document.getElementById("editRegenMode-" + modeKey)?.checked) {
+            plan.modeRegen.push(modeKey);
+          }
+        }
+
         _editPlan = plan;
         updateEditPlanUI();
       }
@@ -12286,7 +12340,8 @@ ${LEVEL_DIALOGUE_STRUCT[dialogueLevel]}
       /** Обновляет каскадную панель, стоимость, кнопку ▶ */
       function updateEditPlanUI() {
         const plan = _editPlan;
-        const totalActions = plan.regen.length + plan.remove.length + plan.add.length;
+        const totalActions = plan.regen.length + plan.remove.length + plan.add.length
+                   + (plan.modeRegen?.length || 0);
         const runBtn = document.getElementById("editRunBtn");
         if (runBtn) runBtn.disabled = totalActions === 0 || DOC_STATE.incomplete;
 
@@ -12297,6 +12352,7 @@ ${LEVEL_DIALOGUE_STRUCT[dialogueLevel]}
           if (plan.regen.length) parts.push(plan.regen.length + " перегенер.");
           if (plan.remove.length) parts.push(plan.remove.length + " удал.");
           if (plan.add.length) parts.push(plan.add.length + " добавл.");
+          if (plan.modeRegen?.length) parts.push(plan.modeRegen.length + " реж.");
           infoEl.textContent = parts.length ? parts.join(" · ") : "Выберите действия";
         }
 
@@ -12314,13 +12370,10 @@ ${LEVEL_DIALOGUE_STRUCT[dialogueLevel]}
 
           // ── Стоимость отмеченных режимов ──
           let modeCost = 0;
-          let modeCount = 0;
-          for (const [modeKey] of Object.entries(DOC_STATE.modes || {})) {
-            const cb = document.getElementById("editRegenMode-" + modeKey);
-            if (cb?.checked) {
-              const mc = estimateModeCost(modeKey);
-              if (mc) { modeCost += mc.cost; modeCount++; }
-            }
+          const modeCount = plan.modeRegen?.length || 0;
+          for (const modeKey of (plan.modeRegen || [])) {
+            const mc = estimateModeCost(modeKey);
+            if (mc) modeCost += mc.cost;
           }
 
           if (modeCost > 0 && est) {
@@ -12330,7 +12383,6 @@ ${LEVEL_DIALOGUE_STRUCT[dialogueLevel]}
           } else if (modeCost > 0) {
             costEl.textContent = `≈ $${modeCost.toFixed(4)} (${(modeCost * 100).toFixed(2)}¢) · ${modeCount} режим(ов)`;
           }
-        }
 
         // ── Каскад: какие разделы будут затронуты, но НЕ включены в план ──
         updateLiveCascade(plan);
@@ -12818,9 +12870,7 @@ ${LEVEL_DIALOGUE_STRUCT[dialogueLevel]}
           }
 
           // ── 4. Перегенерация режимов ──
-          for (const [modeKey, modeData] of Object.entries(DOC_STATE.modes)) {
-            const cb = document.getElementById("editRegenMode-" + modeKey);
-            if (!cb?.checked) continue;
+          for (const modeKey of (plan.modeRegen || [])) {
             updateProgress("Режим: " + (MODE_CONFIG[modeKey]?.title || modeKey));
             await regenerateModeSilent(modeKey);
           }
@@ -12931,6 +12981,18 @@ ${LEVEL_DIALOGUE_STRUCT[dialogueLevel]}
           // Сохраняем оригинальный номер из текущего состояния
           const existingDef = DOC_STATE.sectionDefs[sectionKey];
           if (existingDef) def.num = existingDef.num;
+
+          let container;
+          if (sectionKey === "capsule") {
+            // Капсула не имеет DOM-контейнера в docBodies — используем временный
+            container = document.createElement("div");
+            container.style.display = "none";
+            document.body.appendChild(container);
+          } else {
+            const dbIdx = DOC_STATE.sectionDbIdx[sectionKey];
+            container = document.getElementById("db" + dbIdx);
+            if (!container) throw new Error("DOM-контейнер db" + dbIdx + " не найден.");
+          }
 
           // ── 4. Собираем контекст из ранее сгенерированных разделов ──
           if (progressText) progressText.textContent = "Построение контекста...";
@@ -13064,8 +13126,11 @@ ${LEVEL_DIALOGUE_STRUCT[dialogueLevel]}
           // ── 12. Обновляем DOC_STATE ──
           DOC_STATE.sectionHTML[sectionKey] = container.innerHTML;
           if (sectionKey === "capsule") {
+            // regenerateSection стримит во временный контейнер (container),
+            // затем обновляем шапку и capsuleHTML. DOM-контейнер не сохраняется.
             DOC_STATE.capsuleHTML = container.innerHTML;
             updateCapsuleInHeader();
+            // container удаляется в finally-блоке regenerateSection
             updateModeButtons();
           }
           DOC_STATE.sectionDefs[sectionKey] = { ...def };
@@ -13101,6 +13166,9 @@ ${LEVEL_DIALOGUE_STRUCT[dialogueLevel]}
           setTimeout(() => {
             if (progress) progress.classList.remove("active");
           }, 3000);
+          if (sectionKey === "capsule" && container?.parentNode) {
+            container.remove(); // убираем временный контейнер
+          }
           buildTableOfContents();
         }
       }
@@ -13279,6 +13347,18 @@ ${LEVEL_DIALOGUE_STRUCT[dialogueLevel]}
         const existingDef = DOC_STATE.sectionDefs[sectionKey];
         if (existingDef) def.num = existingDef.num;
 
+        let container;
+        if (sectionKey === "capsule") {
+          // Капсула не имеет DOM-контейнера в docBodies — используем временный
+          container = document.createElement("div");
+          container.style.display = "none";
+          document.body.appendChild(container);
+        } else {
+          const dbIdx = DOC_STATE.sectionDbIdx[sectionKey];
+          container = document.getElementById("db" + dbIdx);
+          if (!container) throw new Error("DOM-контейнер db" + dbIdx + " не найден.");
+        }
+
         // Контекст из ранее сгенерированных разделов
         const generated = {};
         for (const key of DOC_STATE.sectionOrder) {
@@ -13372,6 +13452,10 @@ ${LEVEL_DIALOGUE_STRUCT[dialogueLevel]}
         genEntry.cost = usage.input_tokens * 3 / 1e6 + usage.output_tokens * 15 / 1e6;
         genEntry.status = "done";
 
+        if (sectionKey === "capsule" && container?.parentNode) {
+          container.remove(); // убираем временный контейнер
+        }
+
         // Доп. контекст
         if (currentCtx) {
           const disc = makeSectionCtxDisclosure(currentCtx);
@@ -13392,8 +13476,11 @@ ${LEVEL_DIALOGUE_STRUCT[dialogueLevel]}
         // DOC_STATE
         DOC_STATE.sectionHTML[sectionKey] = container.innerHTML;
         if (sectionKey === "capsule") {
+          // regenerateSection стримит во временный контейнер (container),
+          // затем обновляем шапку и capsuleHTML. DOM-контейнер не сохраняется.
           DOC_STATE.capsuleHTML = container.innerHTML;
           updateCapsuleInHeader();
+          // container удаляется в finally-блоке regenerateSection
           updateModeButtons();
         }
         DOC_STATE.sectionDefs[sectionKey] = { ...def };
@@ -13757,6 +13844,10 @@ ${LEVEL_DIALOGUE_STRUCT[dialogueLevel]}
           if (sectionKey === "capsule") {
             DOC_STATE.capsuleHTML = newContainer.innerHTML;
             updateCapsuleInHeader();
+            // Удаляем из docBodies — капсула живёт только в шапке
+            newContainer.remove();
+            delete DOC_STATE.sectionDbIdx["capsule"];
+            rebuildDbMapping();
             updateModeButtons();
           }
           DOC_STATE.editedSections.add(sectionKey);
@@ -14093,6 +14184,13 @@ ${LEVEL_DIALOGUE_STRUCT[dialogueLevel]}
           });
         }
 
+        // Капсула — из header-disclosure-capsule
+        let capsuleText = "";
+        const capsuleDisc = headerExtras?.querySelector(".header-disclosure-capsule");
+        if (capsuleDisc) {
+          capsuleText = capsuleDisc.querySelector(".disclosure-body")?.textContent?.trim() || "";
+        }
+
         const docNum = getText("docNum");
 
         return {
@@ -14403,12 +14501,18 @@ ${LEVEL_DIALOGUE_STRUCT[dialogueLevel]}
           if (el) DOC_STATE.sectionHTML[sec.key] = el.innerHTML;
         });
 
-        DOC_STATE.capsuleHTML = embeddedState?.capsuleHTML || "";
-        // Восстанавливаем капсулу в шапке и кнопки режимов
+        // Восстанавливаем капсулу из шапки импортированного документа
+        DOC_STATE.capsuleHTML = meta.capsuleText
+          ? '<div class="doc-section"><div class="doc-content"><div data-section="Капсула"><p>' +
+            meta.capsuleText.split("\n").map(l => l.trim()).filter(Boolean).join("</p><p>") +
+            '</p></div></div></div>'
+          : "";
         setTimeout(() => {
           updateCapsuleInHeader();
           updateModeButtons();
         }, 150);
+
+        DOC_STATE.modes = embeddedState?.modes || {};
 
         // graphBodyIdx
         graphBodyIdx = DOC_STATE.sectionDbIdx["graph"] ?? -1;
