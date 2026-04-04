@@ -7733,6 +7733,17 @@ ${LEVEL_DIALOGUE_STRUCT[dialogueLevel]}
         container.appendChild(details);
       }
 
+      /** Показывает кнопки режимов, если капсула сгенерирована, иначе скрывает */
+      function updateModeButtons() {
+        const show = DOC_STATE.sectionOrder.includes("capsule") && DOC_STATE.capsuleHTML;
+        const d = show ? "" : "none";
+        const ids = ["btnAdversarial", "btnTranslator", "btnTimeSlice"];
+        for (const id of ids) {
+          const el = document.getElementById(id);
+          if (el) el.style.display = d;
+        }
+      }
+
       /** Создаёт <details> для вставки доп. контекста в начало раздела документа */
       function makeSectionCtxDisclosure(text) {
         const details = document.createElement("details");
@@ -8084,11 +8095,18 @@ ${LEVEL_DIALOGUE_STRUCT[dialogueLevel]}
         // ── Заполнить DOC_STATE для системы редактирования ──
         populateDocState(p, defs, dynamicOrder, effectiveDeps, resolveContextDeps(p), passes);
 
-        if (DOC_STATE.sectionOrder.includes("capsule") && DOC_STATE.capsuleHTML) {
-          document.getElementById("btnAdversarial").style.display = "";
-          document.getElementById("btnTranslator").style.display = "";
-          document.getElementById("btnTimeSlice").style.display = "";
+        // Извлекаем capsuleHTML (если капсула генерировалась)
+        if (DOC_STATE.sectionOrder.includes("capsule")) {
+          const capsuleIdx = DOC_STATE.sectionDbIdx["capsule"];
+          const capsuleEl = document.getElementById("db" + capsuleIdx);
+          if (capsuleEl) {
+            DOC_STATE.capsuleHTML = capsuleEl.innerHTML;
+            updateCapsuleInHeader();
+          }
         }
+
+        // Показываем/скрываем кнопки режимов
+        updateModeButtons();
 
         buildTableOfContents();
       }
@@ -13048,6 +13066,7 @@ ${LEVEL_DIALOGUE_STRUCT[dialogueLevel]}
           if (sectionKey === "capsule") {
             DOC_STATE.capsuleHTML = container.innerHTML;
             updateCapsuleInHeader();
+            updateModeButtons();
           }
           DOC_STATE.sectionDefs[sectionKey] = { ...def };
           DOC_STATE.editedSections.add(sectionKey);
@@ -13375,6 +13394,7 @@ ${LEVEL_DIALOGUE_STRUCT[dialogueLevel]}
         if (sectionKey === "capsule") {
           DOC_STATE.capsuleHTML = container.innerHTML;
           updateCapsuleInHeader();
+          updateModeButtons();
         }
         DOC_STATE.sectionDefs[sectionKey] = { ...def };
         DOC_STATE.editedSections.add(sectionKey);
@@ -13492,6 +13512,14 @@ ${LEVEL_DIALOGUE_STRUCT[dialogueLevel]}
         // ── Если удалили «Название» — вернуть заголовок по умолчанию ──
         if (sectionKey === "name") {
           document.getElementById("docTitle").textContent = "Синтез Философской Концепции";
+        }
+
+        // ── Если удалили капсулу — очищаем шапку и кнопки режимов ──
+        if (sectionKey === "capsule") {
+          DOC_STATE.capsuleHTML = "";
+          const capsuleDisc = document.querySelector(".header-disclosure-capsule");
+          if (capsuleDisc) capsuleDisc.remove();
+          updateModeButtons();
         }
 
         // ── 9. Перерисовываем модальное окно ──
@@ -13729,6 +13757,7 @@ ${LEVEL_DIALOGUE_STRUCT[dialogueLevel]}
           if (sectionKey === "capsule") {
             DOC_STATE.capsuleHTML = newContainer.innerHTML;
             updateCapsuleInHeader();
+            updateModeButtons();
           }
           DOC_STATE.editedSections.add(sectionKey);
 
@@ -14375,8 +14404,11 @@ ${LEVEL_DIALOGUE_STRUCT[dialogueLevel]}
         });
 
         DOC_STATE.capsuleHTML = embeddedState?.capsuleHTML || "";
-        // Восстанавливаем капсулу в шапке
-        setTimeout(updateCapsuleInHeader, 150);
+        // Восстанавливаем капсулу в шапке и кнопки режимов
+        setTimeout(() => {
+          updateCapsuleInHeader();
+          updateModeButtons();
+        }, 150);
 
         // graphBodyIdx
         graphBodyIdx = DOC_STATE.sectionDbIdx["graph"] ?? -1;
