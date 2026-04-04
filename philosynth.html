@@ -555,9 +555,53 @@
       /* ── TABLE OF CONTENTS ── */
       #docTOC {
         border-bottom: 2px solid var(--gold) !important;
+        border-top: none;
       }
-      #docTOC a {
+      #docTOC summary {
+        padding: 10px 48px;
+        cursor: pointer;
+        font-family: var(--mono);
+        font-size: 10px;
+        font-weight: 600;
+        letter-spacing: 2px;
+        text-transform: uppercase;
+        color: var(--gold);
+        list-style: none;
+        user-select: none;
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        background: var(--paper);
+        border-bottom: 1px solid var(--rule);
+      }
+      #docTOC summary::-webkit-details-marker { display: none; }
+      #docTOC .toc-arrow {
+        font-size: 7px;
+        transition: transform 0.2s;
+        display: inline-block;
+      }
+      #docTOC[open] .toc-arrow {
+        transform: rotate(90deg);
+      }
+      .toc-body {
+        padding: 20px 48px;
+        background: var(--paper);
+      }
+      .toc-section-link {
+        margin: 4px 0;
+      }
+      .toc-section-link a {
         color: var(--blue-corp);
+        text-decoration: none;
+        font-weight: 500;
+      }
+      .toc-sub-link {
+        margin: 2px 0;
+        padding-left: 24px;
+        font-size: 12px;
+      }
+      .toc-sub-link a {
+        color: var(--ink-dim);
         text-decoration: none;
       }
       #docTOC a:hover {
@@ -7591,10 +7635,10 @@ ${LEVEL_DIALOGUE_STRUCT[dialogueLevel]}
 
         const subsecMap = buildSubsectionMap(DOC_STATE.params);
 
-        let html = '<details open id="docTOC" class="doc-body" style="border-top:none">';
-        html += '<summary style="padding:10px 48px;cursor:pointer;font-family:var(--mono);font-size:10px;font-weight:600;letter-spacing:2px;text-transform:uppercase;color:var(--gold);list-style:none;user-select:none;display:flex;align-items:center;gap:6px;background:var(--paper);border-bottom:1px solid var(--rule)">';
-        html += '<span style="font-size:7px;transition:transform 0.2s;display:inline-block" class="toc-arrow">▶</span> Содержание</summary>';
-        html += '<div style="padding:20px 48px;background:var(--paper)">';
+        const lines = [];
+        lines.push('<details open id="docTOC" class="doc-body">');
+        lines.push('  <summary><span class="toc-arrow">▶</span> Содержание</summary>');
+        lines.push('  <div class="toc-body">');
 
         for (const key of order) {
           const def = DOC_STATE.sectionDefs[key];
@@ -7606,22 +7650,20 @@ ${LEVEL_DIALOGUE_STRUCT[dialogueLevel]}
           const el = document.getElementById("db" + dbIdx);
           if (el) el.setAttribute("id", "sec-" + key);
 
-          html += `<p style="margin:4px 0"><a href="#sec-${key}" style="font-weight:500">§ ${def.num} — ${esc(label)}</a></p>`;
+          lines.push(`    <p class="toc-section-link"><a href="#sec-${key}">§ ${def.num} — ${esc(label)}</a></p>`);
 
           // Подразделы — якоря
           const subs = subsecMap[key] || [];
           for (const subName of subs) {
             const subId = "subsec-" + key + "-" + subName.replace(/[^a-zA-Zа-яА-ЯёЁ0-9]/g, "_");
-            html += `<p style="margin:2px 0;padding-left:24px;font-size:12px;color:var(--ink-dim)"><a href="#${subId}" style="color:var(--ink-dim)">${esc(subName)}</a></p>`;
+            lines.push(`    <p class="toc-sub-link"><a href="#${subId}">${esc(subName)}</a></p>`);
           }
         }
 
-        html += '</div></details>';
+        lines.push('  </div>');
+        lines.push('</details>');
 
-        // Стиль вращения стрелки
-        html += '<style>#docTOC[open] .toc-arrow{transform:rotate(90deg)}</style>';
-
-        db.insertAdjacentHTML("afterbegin", html);
+        db.insertAdjacentHTML("afterbegin", lines.join("\n"));
 
         // ── Расставляем id на подразделы и кнопки ⏫ ──
         for (const key of order) {
@@ -11571,6 +11613,10 @@ ${LEVEL_DIALOGUE_STRUCT[dialogueLevel]}
        
         const styles = "<style>\n" + auditCSS(rawCSS, contentToCheck) + "\n</style>";
 
+        const tocEl = document.getElementById("docTOC");
+        if (tocEl) tocEl.remove();
+        document.querySelectorAll("#docBodies .toc-back-btn").forEach(el => el.remove());
+
         // ── Встраиваем состояние для импорта ──
         let stateJSON = "";
         try {
@@ -11617,6 +11663,7 @@ ${LEVEL_DIALOGUE_STRUCT[dialogueLevel]}
 
         const html = `<!DOCTYPE html><html lang="ru"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0"><title>${document.getElementById("docTitle").textContent}</title><link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700;900&family=IBM+Plex+Mono:wght@300;400;500;600&family=IBM+Plex+Sans:ital,wght@0,300;0,400;0,500;0,600;1,400&display=swap" rel="stylesheet">${styles}<style>body{background:#f2f0eb;padding:32px}#docOutput{max-width:1100px;margin:0 auto}</style></head><body><div id="docOutput">${docHTML}</div>${graphSection}${stateJSON}</body></html>`;
         downloadFile(html, getDocFilename("html"), "text/html");
+        buildTableOfContents();
       }
 
       // ════════════════════════════════════════
@@ -13680,7 +13727,7 @@ ${LEVEL_DIALOGUE_STRUCT[dialogueLevel]}
           // ── 14. Финализация DOC_STATE ──
           DOC_STATE.sectionHTML[sectionKey] = newContainer.innerHTML;
           if (sectionKey === "capsule") {
-            DOC_STATE.capsuleHTML = container.innerHTML;
+            DOC_STATE.capsuleHTML = newContainer.innerHTML;
             updateCapsuleInHeader();
           }
           DOC_STATE.editedSections.add(sectionKey);
