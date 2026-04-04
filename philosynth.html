@@ -5726,6 +5726,13 @@
       function extractContextFragment(contextKey, generated) {
         const [section] = contextKey.split(":");
         const el = generated[section];
+        // Капсула хранится в DOC_STATE, не в DOM — обрабатываем до проверки el
+        if (contextKey === "capsule:full") {
+          if (!DOC_STATE.capsuleHTML) return null;
+          const tmp = document.createElement("div");
+          tmp.innerHTML = DOC_STATE.capsuleHTML;
+          return tmp.innerText?.trim() || null;
+        }
         if (!el) return null;
         switch (contextKey) {
           case "sum:goals":      return extractSection(el, "цели и метод") || extractSection(el, "цели");
@@ -5762,42 +5769,35 @@
           case "evolution:science":       return extractSection(el, "современной науке");
           case "critique:full": return truncateText(el.innerText?.trim() || "", 6000);
           case "critique:final_table": {
-          const sec = el.querySelector('[data-section*="Итоговая оценка"]')
-                    || el.querySelector('[data-section*="итогов"]');
-          if (sec) {
-            const table = sec.querySelector("table.doc-table");
-            if (table) return "ИТОГОВАЯ ОЦЕНКА:\n" + tableToText(table);
-            return truncateText(sec.innerText?.trim() || "", 2000);
+            const sec = el.querySelector('[data-section*="Итоговая оценка"]')
+                      || el.querySelector('[data-section*="итогов"]');
+            if (sec) {
+              const table = sec.querySelector("table.doc-table");
+              if (table) return "ИТОГОВАЯ ОЦЕНКА:\n" + tableToText(table);
+              return truncateText(sec.innerText?.trim() || "", 2000);
+            }
+            const tables = el.querySelectorAll("table.doc-table");
+            const last = tables[tables.length - 1];
+            return last ? "ИТОГОВАЯ ОЦЕНКА:\n" + tableToText(last) : null;
           }
-          const tables = el.querySelectorAll("table.doc-table");
-          const last = tables[tables.length - 1];
-          return last ? "ИТОГОВАЯ ОЦЕНКА:\n" + tableToText(last) : null;
-        }
 
-        case "graph:nodes_top": {
-          const fullTable = extractGraphNodesTable(el);
-          if (!fullTable) return null;
-          const rows = fullTable.split("\n");
-          if (rows.length <= 3) return fullTable;
-          const header = rows.slice(0, 2);
-          const dataRows = rows.slice(2);
-          const parsed = dataRows.map(row => {
-            const cols = row.split(" | ");
-            const cen = parseFloat(cols[3]) || 0;
-            return { row, cen };
-          });
-          parsed.sort((a, b) => b.cen - a.cen);
-          const top = parsed.slice(0, 7).map(p => p.row);
-          return header.concat(top).join("\n");
-        }
+          case "graph:nodes_top": {
+            const fullTable = extractGraphNodesTable(el);
+            if (!fullTable) return null;
+            const rows = fullTable.split("\n");
+            if (rows.length <= 3) return fullTable;
+            const header = rows.slice(0, 2);
+            const dataRows = rows.slice(2);
+            const parsed = dataRows.map(row => {
+              const cols = row.split(" | ");
+              const cen = parseFloat(cols[3]) || 0;
+              return { row, cen };
+            });
+            parsed.sort((a, b) => b.cen - a.cen);
+            const top = parsed.slice(0, 7).map(p => p.row);
+            return header.concat(top).join("\n");
+          }
 
-        case "capsule:full": {
-          // Капсула хранится в DOC_STATE, не в DOM разделов
-          if (!DOC_STATE.capsuleHTML) return null;
-          const tmp = document.createElement("div");
-          tmp.innerHTML = DOC_STATE.capsuleHTML;
-          return tmp.innerText?.trim() || null;
-        }
           default: return null;
         }
       }
@@ -14764,10 +14764,17 @@ ${LEVEL_DIALOGUE_STRUCT[dialogueLevel]}
 
         const generated = {};
         for (const key of DOC_STATE.sectionOrder) {
+          if (key === "capsule") continue; // капсула не в DOM — обрабатывается отдельно
           const idx = DOC_STATE.sectionDbIdx[key];
+          if (idx == null) continue;
           const el = document.getElementById("db" + idx);
           if (el && el.querySelector(".doc-section")) generated[key] = el;
         }
+
+        console.log("[buildModeContext]", modeKey,
+          "generated keys:", Object.keys(generated),
+          "sectionOrder:", DOC_STATE.sectionOrder,
+          "sectionDbIdx:", JSON.stringify(DOC_STATE.sectionDbIdx));
 
         const parts = [];
         const logEntries = [];
@@ -14775,13 +14782,19 @@ ${LEVEL_DIALOGUE_STRUCT[dialogueLevel]}
         let used = 0;
 
         for (const ctxKey of deps.required) {
-          const text = extractContextFragment(ctxKey, generated);
-          if (text) {
-            parts.push("### " + (CTX_LABELS[ctxKey] || ctxKey) + "\n" + text);
-            logEntries.push({ key: ctxKey, status: "found", len: text.length, priority: "required" });
-            used += text.length;
-          } else {
-            logEntries.push({ key: ctxKey, status: "missing", len: 0, priority: "required" });
+          try {
+            const text = extractContextFragment(ctxKey, generated);
+            if (text) {
+              parts.push("### " + (CTX_LABELS[ctxKey] || ctxKey) + "\n" + text);
+              logEntries.push({ key: ctxKey, status: "found", len: text.length, priority: "required" });
+              used += text.length;
+            } else {
+              console.warn("[buildModeContext] required key missing:", ctxKey);
+              logEntries.push({ key: ctxKey, status: "missing", len: 0, priority: "required" });
+            }
+          } catch (err) {
+            console.error("[buildModeContext] error extracting", ctxKey, err);
+            logEntries.push({ key: ctxKey, status: "error", len: 0, priority: "required", note: err.message });
           }
         }
 
@@ -14790,18 +14803,26 @@ ${LEVEL_DIALOGUE_STRUCT[dialogueLevel]}
             logEntries.push({ key: ctxKey, status: "skipped_budget", len: 0, priority: "optional", note: "бюджет исчерпан" });
             continue;
           }
-          const text = extractContextFragment(ctxKey, generated);
-          if (text) {
-            const truncated = text.length + used > budget
-              ? truncateText(text, budget - used) : text;
-            parts.push("### " + (CTX_LABELS[ctxKey] || ctxKey) + "\n" + truncated);
-            logEntries.push({ key: ctxKey, status: truncated.length < text.length ? "truncated" : "found",
-                              len: truncated.length, priority: "optional" });
-            used += truncated.length;
-          } else {
-            logEntries.push({ key: ctxKey, status: "missing", len: 0, priority: "optional" });
+          try {
+            const text = extractContextFragment(ctxKey, generated);
+            if (text) {
+              const truncated = text.length + used > budget
+                ? truncateText(text, budget - used) : text;
+              parts.push("### " + (CTX_LABELS[ctxKey] || ctxKey) + "\n" + truncated);
+              logEntries.push({ key: ctxKey, status: truncated.length < text.length ? "truncated" : "found",
+                                len: truncated.length, priority: "optional" });
+              used += truncated.length;
+            } else {
+              logEntries.push({ key: ctxKey, status: "missing", len: 0, priority: "optional" });
+            }
+          } catch (err) {
+            console.error("[buildModeContext] error extracting", ctxKey, err);
+            logEntries.push({ key: ctxKey, status: "error", len: 0, priority: "optional", note: err.message });
           }
         }
+
+        console.log("[buildModeContext] result:", parts.length, "parts,", used, "chars,",
+          logEntries.filter(e => e.status === "error").length, "errors");
 
         // Логируем в ctxLog
         ctxLog.push({
