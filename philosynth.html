@@ -1560,6 +1560,64 @@
       .mode-modal-copy:hover {
         background: var(--blue-mid);
       }
+      /* ── Mode tabs ── */
+      #modeTabsBar, #expModeTabsBar {
+        display: flex;
+        gap: 0;
+        overflow-x: auto;
+        border-bottom: 1px solid var(--rule);
+        flex-shrink: 0;
+        background: var(--off);
+      }
+      .mode-tab {
+        padding: 8px 16px;
+        border: none;
+        background: var(--off);
+        cursor: pointer;
+        font-family: var(--mono);
+        font-size: 10px;
+        letter-spacing: 0.5px;
+        color: var(--ink-mid);
+        border-bottom: 2px solid transparent;
+        white-space: nowrap;
+        transition: all 0.15s;
+        position: relative;
+      }
+      .mode-tab.active {
+        background: var(--paper);
+        color: var(--violet);
+        border-bottom-color: var(--violet);
+      }
+      .mode-tab:hover {
+        color: var(--violet);
+      }
+      .mode-tab-date {
+        font-size: 8px;
+        color: var(--ink-dim);
+        margin-left: 4px;
+      }
+      .mode-tab-close {
+        font-size: 11px;
+        margin-left: 6px;
+        opacity: 0;
+        cursor: pointer;
+        color: var(--red);
+        transition: opacity 0.15s;
+      }
+      .mode-tab:hover .mode-tab-close {
+        opacity: 0.5;
+      }
+      .mode-tab-close:hover {
+        opacity: 1 !important;
+      }
+      .mode-tab.adding {
+        color: var(--blue-corp);
+        animation: pulse-tab 1s infinite;
+      }
+      @keyframes pulse-tab {
+        0%, 100% { opacity: 1; }
+        50% { opacity: 0.5; }
+      }
 
       @media print {
         .topbar,
@@ -3373,6 +3431,7 @@
             <div id="modeCostEstimate" style="font-family:var(--mono);font-size:9px;color:var(--ink-dim);letter-spacing:0.5px"></div>
           </div>
         </div>
+        <div id="modeTabsBar"></div>
         <div class="mode-modal-body" id="modeBody">
           <div id="modeContent" class="doc-content"></div>
         </div>
@@ -3474,9 +3533,6 @@
         /** Маппинг sectionKey → индекс DOM-контейнера db{N} */
         sectionDbIdx: {},
 
-        /** Маппинг sectionKey → innerHTML контейнера (кэш последнего содержимого) */
-        sectionHTML: {},
-
         /** Маппинг sectionKey → { key, num, title, prompt } из buildSectionDefs */
         sectionDefs: {},
 
@@ -3523,7 +3579,6 @@
         DOC_STATE.sectionOrder = [...dynamicOrder];
         DOC_STATE.sectionDbIdx = {};
         DOC_STATE.sectionDefs = {};
-        DOC_STATE.sectionHTML = {};
         DOC_STATE.editedSections = new Set();
 
         // Маппинг key → dbIdx: проходим по passes, каждый pass занимает один db{i}
@@ -3544,13 +3599,6 @@
         // документа и DOM-элементы могли сохранить старые id.
         syncDbIdxFromDOM();
 
-        // Кэшируем HTML каждого раздела
-        for (const key of dynamicOrder) {
-          const idx = DOC_STATE.sectionDbIdx[key];
-          const el = document.getElementById("db" + idx);
-          if (el) DOC_STATE.sectionHTML[key] = el.innerHTML;
-        }
-
         DOC_STATE.effectiveDeps = effectiveDeps;
         DOC_STATE.resolvedDeps = resolvedDeps;
         DOC_STATE.factualDeps = buildFactualDepsMap(ctxLog);
@@ -3563,7 +3611,6 @@
         DOC_STATE.params = null;
         DOC_STATE.sectionOrder = [];
         DOC_STATE.sectionDbIdx = {};
-        DOC_STATE.sectionHTML = {};
         DOC_STATE.sectionDefs = {};
         DOC_STATE.effectiveDeps = null;
         DOC_STATE.resolvedDeps = null;
@@ -4162,23 +4209,23 @@
         },
        
         glossary: {
-          required: ["sum:goals", "graph:nodes"],
+          required: ["sum:goals", "graph:nodes_compact"],
           optional:  [],
         },
        
         theses: {
-          required: ["sum:goals", "sum:tensions", "graph:nodes", "graph:edges"],
+          required: ["sum:goals", "sum:tensions", "graph:nodes_compact", "graph:edges"],
           optional:  ["sum:portraits", "sum:novelty", "graph:topology", "glossary:table"],
         },
        
         name: {
-          required: ["sum:goals", "sum:novelty", "graph:nodes"],
-          optional:  ["sum:coherence", "sum:tensions"],
+          required: ["sum:goals", "sum:novelty", "graph:nodes_compact"],
+          optional:  ["sum:coherence", "sum:tensions", "theses:summary"],
         },
        
         history: {
           required: ["sum:goals", "sum:portraits"],
-          optional:  ["sum:novelty", "sum:tensions", "graph:nodes", "theses:summary", "name:title"],
+          optional:  ["sum:novelty", "sum:tensions", "graph:nodes_compact", "theses:summary", "name:title"],
         },
        
         origin: {
@@ -4187,17 +4234,17 @@
         },
        
         practical: {
-          required: ["sum:goals", "sum:novelty", "graph:nodes", "theses:summary"],
+          required: ["sum:goals", "sum:novelty", "graph:nodes_compact", "theses:summary"],
           optional:  ["glossary:table", "name:title"],
         },
        
         dialogue: {
-          required: ["sum:goals", "sum:portraits", "sum:tensions", "graph:nodes"],
+          required: ["sum:goals", "sum:portraits", "sum:tensions", "graph:nodes_compact"],
           optional:  ["sum:difficulty", "graph:edges", "theses:summary", "name:title"],
         },
        
         evolution: {
-          required: ["sum:goals", "sum:novelty", "name:full", "graph:nodes"],
+          required: ["sum:goals", "sum:novelty", "name:title", "graph:nodes_compact"],
           optional: [
             "sum:coherence", "sum:tensions", "graph:edges", "graph:topology",
             "theses:summary", "history:contemporary", "history:genealogy",
@@ -4210,7 +4257,7 @@
             "sum:tensions", "sum:coherence",
             "graph:nodes", "graph:edges", "theses:full", "glossary:table",
           ],
-          optional: ["graph:topology", "name:title", "history:contemporary"],
+          optional: ["graph:topology", "name:title", "history:contemporary", "origin:decomposition", "practical:summary"],
         },
 
         capsule: {
@@ -4233,6 +4280,9 @@
           glossary: {
             optional: ["sum:portraits", "sum:tensions"],
           },
+          theses: {
+            required: ["sum:portraits"], 
+          },
           origin: {
             required: ["graph:edges"],         // возвращаем в required: генеалогия связей важна
           },
@@ -4240,6 +4290,7 @@
             optional: ["theses:full"],         // полные обоснования полезны при ссылках
           },
           dialogue: {
+            required: ["graph:edges"],
             optional: ["glossary:table"],      // точные определения нужны в диалоге о напряжениях
           },
         },
@@ -4251,6 +4302,9 @@
           glossary: {
             optional: ["sum:portraits"],       // столбец «почему ни один не мог сформулировать»
           },
+          theses: {
+            required: ["sum:portraits"],  
+          },
           origin: {
             required: ["graph:edges"],
             optional: ["theses:summary"],      // дополнительный якорь для декомпозиции
@@ -4259,6 +4313,7 @@
             optional: ["theses:full"],
           },
           dialogue: {
+            required: ["graph:edges"],
             optional: ["glossary:table"],
           },
         },
@@ -4277,9 +4332,9 @@
           theses: { optional: ["glossary:table"] },  // формализация тезисов через определения
         },
        
-        deconstructive: {
-          critique: { optional: ["origin:decomposition"] },
-        },
+        //deconstructive: {
+        //  critique: { optional: ["origin:decomposition"] },
+        //},
       };
        
       /**
@@ -4300,9 +4355,13 @@
 
       const SUBSTITUTION_MAP = {
         "graph:nodes": [
-          { key: "glossary:table",       q: 3 },
+          { key: "glossary:table",       q: 2 },
           { key: "origin:decomposition", q: 2 },
           { key: "theses:summary",       q: 1 },
+        ],
+        "graph:nodes_compact": [
+          { key: "glossary:table", q: 2 },
+          { key: "theses:summary", q: 1 },
         ],
         "graph:edges": [
           { key: "theses:full",          q: 2 },
@@ -4313,20 +4372,20 @@
           { key: "critique:full",           q: 1 }, 
         ],
         "glossary:table": [
-          { key: "graph:nodes",          q: 3 },
+          { key: "graph:nodes",          q: 2 },
         ],
         "theses:full": [
           { key: "origin:decomposition", q: 3 },
           { key: "dialogue:synthesis",   q: 2 },
         ],
         "theses:summary": [
-          { key: "origin:decomposition", q: 3 },
+          { key: "origin:decomposition", q: 2 },
           { key: "graph:nodes",          q: 2 },
           { key: "dialogue:synthesis",   q: 2 },
         ],
         "name:title": [
           { key: "history:name_context",    q: 2 },
-          { key: "evolution:name_evolution", q: 2 },
+          { key: "evolution:name_evolution", q: 1 },
           { key: "sum:goals",               q: 1 },
         ],
         "name:full": [
@@ -5343,23 +5402,22 @@
       
 
       const CONTEXT_BUDGET = {
-        overview: 12000,
-        standard: 24000,
-        deep: 36000,
-        exhaustive: 50000,
+        overview: 24000,
+        standard: 48000,
+        deep: 72000,
+        exhaustive: 100000,
       };
 
       // ════════════════════════════════════════
       // COST ESTIMATION
       // ════════════════════════════════════════
-      const CHARS_PER_TOKEN = 2.0; // эмпирика для русского + HTML
+      const CHARS_PER_TOKEN = 2.6; // эмпирика для русского + HTML
       const PRICE_IN  = 3 / 1e6;  // $3 per MTok input
       const PRICE_OUT = 15 / 1e6; // $15 per MTok output
       const HTML_OVERHEAD = 1.5;  // HTML-оверхед: теги, атрибуты, пустые строки добавляют ~50% к объёму чистого текста.
 
       // Ожидаемый выход (в словах) за раздел при данной глубине
-      // mw() даёт минимум; реально модель выдаёт примерно 1.5–2x от минимума
-      const OUTPUT_MULTIPLIER = 1.7;
+      const OUTPUT_MULTIPLIER = 3.5;
       const WORDS_TO_CHARS = 7; // среднее для русских слов с пробелами
 
       const SECTION_OUTPUT_MULT = {
@@ -5381,20 +5439,54 @@
       // Эмпирические доли фрагментов от полного выхода раздела-источника.
       // Ключи — контекстные фрагменты, значения — доля от общего выхода раздела.
       const FRAGMENT_SHARE = {
-        "sum:goals": 0.18, "sum:portraits": 0.20, "sum:novelty": 0.12,
-        "sum:tensions": 0.12, "sum:coherence": 0.10, "sum:difficulty": 0.12,
-        "graph:nodes": 0.40, "graph:edges": 0.35, "graph:topology": 0.15,
-        "glossary:table": 0.85,
-        "theses:full": 0.90, "theses:summary": 0.25,
-        "name:title": 0.20, "name:full": 0.90,
-        "history:contemporary": 0.25, "history:genealogy": 0.25,
-        "history:influence": 0.20, "history:name_context": 0.15,
-        "origin:decomposition": 0.30, "origin:genealogy": 0.25, "origin:novelty": 0.20,
-        "evolution:directions": 0.25, "evolution:graph_changes": 0.20,
-        "evolution:name_evolution": 0.15, "evolution:science": 0.20,
-        "dialogue:synthesis": 0.30,
-        "practical:summary": 0.25,
-      };
+      // ── Резюме (все фрагменты — прямая экстракция) ──
+      "sum:goals":       0.12,
+      "sum:portraits":   0.16,
+      "sum:novelty":     0.10,
+      "sum:tensions":    0.08,
+      "sum:coherence":   0.08,
+      "sum:difficulty":  0.13,
+
+      // ── Граф (таблицы извлекаются через tableToText) ──
+      "graph:nodes":     0.23,
+      "graph:nodes_compact": 0.14,
+      "graph:edges":     0.18,
+      "graph:topology":  0.19,
+
+      // ── Глоссарий (extractGlossaryCompact — только 2 столбца!) ──
+      "glossary:table":  0.27,
+
+      // ── Тезисы (full обрезается truncateText до 6000) ──
+      "theses:full":     0.15,
+      "theses:summary":  0.11,
+
+      // ── Название (extractNameTitle) ──
+      "name:title":      0.23,
+      "name:full":       0.21,
+
+      // ── История ──
+      "history:contemporary":  0.19,
+      "history:genealogy":     0.22,
+      "history:influence":     0.14,
+      "history:name_context":  0.18,
+
+      // ── Происхождение ──
+      "origin:decomposition":  0.14,
+      "origin:genealogy":      0.20,
+      "origin:novelty":        0.18,
+
+      // ── Эволюция ──
+      "evolution:directions":     0.29,
+      "evolution:graph_changes":  0.18,
+      "evolution:name_evolution": 0.13,
+      "evolution:science":        0.20,
+
+      // ── Диалог ──
+      "dialogue:synthesis":  0.17,
+
+      // ── Практика ──
+      "practical:summary":   0.17,
+    };
 
       /**
        * Оценка стоимости генерации.
@@ -5471,14 +5563,14 @@
         const scaffoldChars = genCommon?.scaffoldChars ||
           `ПАРАМЕТРЫ СИНТЕЗА:\n\n\nЗАДАНИЕ: составь ТОЛЬКО следующие разделы (строго в указанном порядке, без добавления других):\n\n\n\n`.length;
 
-        const budget = CONTEXT_BUDGET[p.depth] || 24000;
+        const budget = CONTEXT_BUDGET[p.depth] || 48000;
 
         // ── Оценка выхода каждого раздела ──
         const estimatedOutput = {};
         for (const def of defs) {
           const mult = SECTION_OUTPUT_MULT[def.key] ?? SECTION_OUTPUT_MULT._default;
           estimatedOutput[def.key] = Math.round(
-            mw(p) * mult * WORDS_TO_CHARS * HTML_OVERHEAD
+            mw(p) * mult * WORDS_TO_CHARS * HTML_OVERHEAD * OUTPUT_MULTIPLIER
           );
         }
 
@@ -5567,9 +5659,9 @@
           + (def.parts.postamble_short || "").length;
 
         // Контекст: intraSectionCtx ~2000 + priorCtx ~бюджет
-        const budget = CONTEXT_BUDGET[p.depth] || 24000;
+        const budget = CONTEXT_BUDGET[p.depth] || 48000;
         const intraSectionEstimate = 2000;
-        const priorCtxEstimate = Math.min(budget, 8000); // обычно меньше полного бюджета
+        const priorCtxEstimate = Math.min(budget, 16000); // обычно меньше полного бюджета
 
         const totalInChars = sysChars + baseChars + rulesChars + subPromptChars
                            + intraSectionEstimate + priorCtxEstimate;
@@ -5757,6 +5849,38 @@
         return null;
       }
 
+      /**
+       * Извлекает из таблицы категорий только 3 столбца: Категория | Тип | Определение.
+       * Полная таблица (6 столбцов × 12+ строк) слишком объёмна для большинства потребителей.
+       */
+      function extractGraphNodesCompact(containerEl) {
+        const tables = containerEl.querySelectorAll("table.doc-table");
+        for (const t of tables) {
+          const ths = Array.from(t.querySelectorAll("thead th"))
+            .map(th => th.textContent.trim().toLowerCase());
+          if (ths.some(h => h.includes("категори")) &&
+              ths.some(h => h.includes("центральност"))) {
+            const rows = [];
+            // Заголовок: берём первые 3 столбца
+            const headers = Array.from(t.querySelectorAll("thead th"))
+              .map(th => th.textContent.trim());
+            rows.push([headers[0], headers[1], headers[2]].join(" | "));
+            rows.push("--- | --- | ---");
+            t.querySelectorAll("tbody tr").forEach(tr => {
+              const tds = tr.querySelectorAll("td");
+              if (tds.length >= 3) {
+                const c0 = tds[0].textContent.trim().replace(/\n+/g, " ");
+                const c1 = tds[1].textContent.trim().replace(/\n+/g, " ");
+                const c2 = tds[2].textContent.trim().replace(/\n+/g, " ").replace(/\s{2,}/g, " ");
+                rows.push(c0 + " | " + c1 + " | " + c2);
+              }
+            });
+            return "ТАБЛИЦА КАТЕГОРИЙ (компактная):\n" + rows.join("\n");
+          }
+        }
+        return null;
+      }
+
       function extractGraphEdgesTable(containerEl) {
         const tables = containerEl.querySelectorAll("table.doc-table");
         for (const t of tables) {
@@ -5789,6 +5913,7 @@
           case "sum:coherence":  return extractSection(el, "когерентност");
           case "sum:difficulty": return extractSection(el, "сложност");
           case "graph:nodes":    return extractGraphNodesTable(el);
+          case "graph:nodes_compact": return extractGraphNodesCompact(el);
           case "graph:edges":    return extractGraphEdgesTable(el);
           case "graph:topology": return extractSection(el, "тополог");
           case "glossary:table": return extractGlossaryCompact(el);
@@ -5862,6 +5987,7 @@
         "sum:difficulty":           "Резюме → Оценка сложности",
         "graph:nodes":              "Граф → Таблица категорий",
         "graph:nodes_top":          "Граф → Топ категорий",
+        "graph:nodes_compact":      "Граф → Таблица категорий (компактная)",
         "graph:edges":              "Граф → Таблица связей",
         "graph:topology":           "Граф → Топология",
         "glossary:table":           "Глоссарий → Определения",
@@ -6135,37 +6261,42 @@
       const TOPOLOGY_ROLES_PROCEDURAL = {
         dialectical:
       `тезис | антитезис | синтез
-      Правило: «тезис» и «антитезис» не могут одновременно принадлежать одному
-      узлу в рамках одного диалектического движения. Каждая синтетическая
-      категория, снимающая противоречие, обязана иметь роль «синтез».`,
+      Прочие роли ЗАПРЕЩЕНЫ. 
+      Правило: «тезис» и «антитезис» не могут одновременно принадлежать одному узлу в рамках одного диалектического движения. Каждая синтетическая категория, снимающая противоречие, обязана иметь роль «синтез».
+      Каждая категория должна получить ровно одну из этих ролей.`,
       
         deconstructive:
       `деконструированная | пересобранная
-      Правило: роли «тезис», «антитезис», «синтез» — ЗАПРЕЩЕНЫ.
-      Связи типа «противоречие» не порождают этих ролей.`,
+      Прочие роли ЗАПРЕЩЕНЫ. 
+      Каждая категория должна получить ровно одну из этих ролей.`,
       
         integrative:
-      `синтез
-      Правило: роли «тезис», «антитезис», «деконструированная», «пересобранная»
-      — ЗАПРЕЩЕНЫ. Каждая интегративная категория, опирающаяся на общее основание
-      ≥ 2 традиций, маркируется как «синтез».`,
+      `синтез | интегрирующая | основание
+      Прочие роли ЗАПРЕЩЕНЫ. 
+      «синтез» — категория, в которой достигнуто слияние ≥ 2 традиций на общем основании.
+      «интегрирующая» — категория, которая активно обеспечивает связывание элементов из разных традиций (не результат, а инструмент интеграции).
+      «основание» — категория, фиксирующая общее основание, из которого растут интегративные связи.
+      Каждая категория должна получить ровно одну из этих ролей.`,
       
         hermeneutical:
-      `синтез
-      Правило: роли «тезис», «антитезис», «деконструированная», «пересобранная»
-      — ЗАПРЕЩЕНЫ. Слияние горизонтов описывается через структурную роль «мост»,
-      не через отдельные процессуальные роли.`,
+      `синтез | расширение горизонта | предгоризонт
+      Прочие роли ЗАПРЕЩЕНЫ.
+      «синтез» — категория, являющаяся результатом полного слияния горизонтов (Horizontverschmelzung): она невыводима ни из одного горизонта по отдельности.
+      «расширение горизонта» — категория, в которой один горизонт расширен через встречу с другим, но преобладающий исходный горизонт ещё опознаваем.
+      «предгоризонт» — категория, фиксирующая условие возможности слияния: она описывает то напряжение или ту структуру, без которой слияние не состоялось бы.
+      Каждая категория должна получить ровно одну из этих ролей.`,
       
         analytical:
-      `синтез
-      Правило: роли «тезис», «антитезис», «деконструированная», «пересобранная»
-      — ЗАПРЕЩЕНЫ. Процессуальные отношения выражаются через типы связей,
-      не через роли узлов.`,
+      `синтез | формализованная | верифицирующая
+      Прочие роли ЗАПРЕЩЕНЫ. 
+      «синтез» — категория, в которой логические структуры нескольких традиций интегрированы в непротиворечивое целое.
+      «формализованная» — категория, полученная путём формальной экспликации и уточнения понятия одной или нескольких традиций (экспликат).
+      «верифицирующая» — категория, функция которой — проверка когерентности и непротиворечивости остальных категорий синтеза.
+      Каждая категория должна получить ровно одну из этих ролей.`,
       
         creative:
-      `тезис | антитезис | синтез | деконструированная | пересобранная
-      Правило: при использовании терминов из разных методических словарей
-      на одном узле — обоснование в описательной части обязательно.`,
+      `тезис | антитезис | синтез | деконструированная | пересобранная | интегрирующая | основание | расширение горизонта | предгоризонт | формализованная | верифицирующая
+      Правило: при использовании терминов из разных методических словарей на одном узле — обоснование в описательной части обязательно.`,
       };
 
       const METHOD_GLOSSARY = {
@@ -6229,7 +6360,7 @@
 
 `,
         transformative:
-          `Уровень синтеза: ПРЕОБРАЗУБЮЩИЙ.
+          `Уровень синтеза: ПРЕОБРАЗУЮЩИЙ.
 ЗАПРЕЩЕНО прямое заимствование категорий от какой-либо одного философа. Каждая категория ОБЯЗАНА возникать из НАПРЯЖЕНИЯ, СТОЛКНОВЕНИЯ или ДИАЛОГА между как минимум двумя философами (${p.phil.join(", ")}). Категория — это не элемент одной системы, перенесённый в другую, а НОВОЕ ПОНЯТИЕ, рождённое из невозможности совместить исходные. В столбце «Генеалогия» укажи конкретное напряжение: между какими философами, по какому вопросу, и через какой механизм оно разрешено (снятие противоречия, обобщение, взаимная коррекция, выход на метауровень, etc.).
 
 `,
@@ -6294,27 +6425,46 @@
       const LEVEL_GLOSSARY_SEC = {
         comparative:
 `«Переопределённые термины»
-Перечень терминов, которые сознательно получили иное значение по сравнению с традиционным философским употреблением, с развёрнутым обоснованием каждого переопределения.
+ОБЯЗАТЕЛЬНАЯ СЕКЦИЯ. Оформить как <div data-section="Переопределённые термины">.
+Перечень терминов из таблицы определений выше, которые сознательно получили иное значение по сравнению с традиционным философским употреблением. Для КАЖДОГО: исходное значение → обоснование переопределения → новое значение.
 
 «Заимствованные термины»
-Термины, заимствованные без изменений, с указанием точного источника (философ, традиция, произведение).
+ОБЯЗАТЕЛЬНАЯ СЕКЦИЯ. Оформить как <div data-section="Заимствованные термины">.
+Термины из таблицы определений выше, заимствованные без существенных изменений. Для каждого: точный источник (философ, традиция, произведение) и обоснование, почему значение не потребовало трансформации.
 
 «Новые термины»
-Термины, введённые данной концепцией впервые, с обоснованием необходимости их введения.`,
+ОБЯЗАТЕЛЬНАЯ СЕКЦИЯ. Оформить как <div data-section="Новые термины">.
+Термины из таблицы определений выше, введённые данной концепцией впервые. Для каждого: обоснование необходимости введения, отсутствие подходящего аналога в существующей терминологии.`,
 
         transformative:
 `«Преобразованные термины»
-Перечень терминов, которые имеют предшественников у исходных философов, но получили принципиально новое значение через преобразущий синтез. Для каждого: предшественник → напряжение → новое значение.
+ОБЯЗАТЕЛЬНАЯ СЕКЦИЯ. Оформить как <div data-section="Преобразованные термины">.
+Перечень терминов из таблицы определений выше, которые имеют прямых предшественников у исходных философов, но получили принципиально новое значение через преобразующий синтез. Для КАЖДОГО такого термина — структурированное описание:
+1. Предшественник (философ + его термин)
+2. Напряжение, из которого возникло преобразование
+3. Новое значение в синтезе
+4. Что именно невозможно было выразить предшественником
 
 «Эмерджентные термины»
-Термины, не имеющие прямых предшественников ни у одного из исходных философов — возникшие исключительно из столкновения. Обосновать, почему они не могли появиться внутри отдельной традиции.`,
+ОБЯЗАТЕЛЬНАЯ СЕКЦИЯ. Оформить как <div data-section="Эмерджентные термины">.
+Термины из таблицы определений выше, не имеющие прямых предшественников ни у одного из исходных философов — возникшие исключительно из столкновения традиций. Для КАЖДОГО:
+1. Почему он не мог появиться внутри отдельной традиции
+2. Из какого именно столкновения он возник
+3. Какую философскую работу он выполняет, невозможную без синтеза`,
 
         generative:
 `«Термины, преодолевающие ограничения»
-Для каждого термина: какие конкретные ограничения исходных философских систем он преодолевает? Показать, почему данный термин невыразим в категориальном аппарате ни одного из выбранных философов.
+ОБЯЗАТЕЛЬНАЯ СЕКЦИЯ. Оформить как <div data-section="Термины, преодолевающие ограничения">.
+Для КАЖДОГО термина из таблицы определений выше, который преодолевает ограничения исходных систем:
+1. Какие конкретные ограничения он преодолевает
+2. Почему термин невыразим в категориальном аппарате ни одного из выбранных философов
+3. Какое ограничение чьей системы является ключевым
 
 «Термины, порождённые проблемой»
-Термины, возникающие непосредственно из зерна концепции, а не из философских систем. Для каждого: какой аспект проблемы потребовал введения нового понятия?`,
+ОБЯЗАТЕЛЬНАЯ СЕКЦИЯ. Оформить как <div data-section="Термины, порождённые проблемой">.
+Термины из таблицы определений выше, возникающие непосредственно из зерна концепции, а не из философских систем. Для КАЖДОГО:
+1. Какой аспект проблемы потребовал введения нового понятия
+2. Почему философы-источники не могли сформулировать его, даже совместно`,
       };
 
       // ── Тезисы: вклад / роль каждого философа (зависит от p.phil) ──
@@ -6534,7 +6684,7 @@
           "Сводная таблица",
         ],
         dialogue: [
-          "Диалог",
+          "Межфилософский диалог",
           "Итоговая таблица диалога",
           "Аналитический комментарий",
         ],
@@ -6634,11 +6784,13 @@
        */
       const INTRA_DEPS = {
         sum: {
+          "Новизна и ценность": ["Портрет каждого философа"],
           "Структура документа": ["Цели и метод"],
           "Индекс когерентности": ["Портрет каждого философа", "Точки напряжения"],
           "Оценка сложности": ["Точки напряжения", "Индекс когерентности"],
         },
         graph: {
+          "Таблица категорий": ["Методология построения графа"],
           "Таблица связей": ["Таблица категорий"],
           "Топология графа": ["Таблица категорий", "Таблица связей"],
           "Топологическая таблица": ["Топология графа"],
@@ -6664,7 +6816,7 @@
           "Генеалогия идей": ["Исторический контекст", "Источники влияния"],
           "Современные концепции": ["Генеалогия идей"],
           "Потенциальное влияние": ["Современные концепции"],
-          "Название в историческом контексте": ["Потенциальное влияние"],
+          "Название в историческом контексте": ["Генеалогия идей", "Исторический контекст"]
         },
         origin: {
           "Элементная декомпозиция": ["Идентификация родительских традиций"],
@@ -6685,7 +6837,9 @@
           "Временная карта развития": ["Направления развития", "Предлагаемые изменения графа"],
         },
         critique: {
-          // Динамические пункты 2, 3 не имеют внутрисекционных зависимостей
+          "Философская новизна": ["Внутренняя когерентность"],
+          "Эмерджентность концепции": ["Внутренняя когерентность"],
+          "Проблемная генерация": ["Внутренняя когерентность"],
           "Верность методу синтеза": ["Внутренняя когерентность"],
           "Сохранение ценных аспектов": ["Внутренняя когерентность"],
           "Разрешение противоречий": ["Внутренняя когерентность"],
@@ -6749,7 +6903,50 @@
           "Индекс когерентности":  ["sum:coherence"],
           "Оценка сложности":      ["sum:difficulty"],
         },
-        // Для остальных разделов маппинг заполняется по аналогии
+        "history": {
+          "Исторический контекст":            [],  // не поставляет контекстных ключей
+          "Источники влияния":                [],
+          "Генеалогия идей":                  ["history:genealogy"],
+          "Современные концепции":            ["history:contemporary"],
+          "Потенциальное влияние":            ["history:influence"],
+          "Название в историческом контексте":["history:name_context"],
+        },
+        "origin": {
+          "Идентификация родительских традиций": ["origin:genealogy"],
+          "Элементная декомпозиция":            ["origin:decomposition"],
+          "Оценка оригинальности":             ["origin:novelty"],
+          "Потенциальные возражения":           [],
+        },
+        "evolution": {
+          "Направления развития":              ["evolution:directions"],
+          "Предлагаемые изменения графа":      ["evolution:graph_changes"],
+          "Эволюция названия":                 ["evolution:name_evolution"],
+          "Интеграция с современной наукой":    ["evolution:science"],
+          "Временная карта развития":           [],
+        },
+        "dialogue": {
+          "Межфилософский диалог":             [],  // NB: имя из промпта, не "Диалог"
+          "Итоговая таблица диалога":          [],
+          "Аналитический комментарий":          ["dialogue:synthesis"],
+        },
+        "practical": {
+          "Образование":                        [],
+          "Этика и принятие решений":           [],
+          "Психология и личностное развитие":   [],
+          "Социальные институты":               [],
+          "Межкультурный диалог":               [],
+          "Сводная таблица":                    ["practical:summary"],
+        },
+        "critique": {
+          "Внутренняя когерентность":           [],
+          // Динамические пункты 2, 3 — не поставляют контекстных ключей
+          "Верность методу синтеза":            [],
+          "Сохранение ценных аспектов":         [],
+          "Разрешение противоречий":            [],
+          "Слепые пятна":                       [],
+          "Итоговая оценка":                    ["critique:final_table"],
+          "Рекомендации по улучшению":          [],
+        },
       };
 
       /**
@@ -7161,7 +7358,7 @@ ${LEVEL_GRAPH_LAST_COL_SPEC[graphLevel]}`,
                 body: `Для каждой категории из графа концепции (ссылайся на предыдущие разделы по номерам §§) составь таблицу с ФИЛОСОФСКИ ТОЧНЫМИ определениями, принятыми для целей данного документа. Не менее 12 терминов.
 Столбцы таблицы: Термин | Принятое определение в данной концепции | ${LEVEL_GLOSSARY_COL(p)[glossaryLevel]}
                 ${METHOD_GLOSSARY[p.method] ? "\n" + METHOD_GLOSSARY[p.method] : ""}`,
-                note_after: null },
+                note_after: `ВАЖНО: после таблицы определений ОБЯЗАТЕЛЬНО оформи следующие секции (каждую — в отдельном <div data-section="...">).` },
               // Далее — подразделы из LEVEL_GLOSSARY_SEC[glossaryLevel],
               // которые зависят от уровня синтеза.
               // Их нужно разобрать из строки LEVEL_GLOSSARY_SEC[glossaryLevel]:
@@ -7189,15 +7386,6 @@ ${LEVEL_GRAPH_LAST_COL_SPEC[graphLevel]}`,
             preamble_short: `Раздел «Корпус тезисов». Тезисы должны отражать структурные отношения между категориями из графа концепции и быть выражены в академическом стиле.`,
             intro: `Оформи ТОЧНО следующие секции (каждую — в <div data-section="..."> согласно правилам форматирования):`,
             subsections: [
-              { name: "Онтологические тезисы",
-                body: `Не менее 3 тезисов о природе бытия и реальности.`,
-                note_after: null },
-              { name: "Эпистемологические тезисы",
-                body: `Не менее 3 тезисов о познании и знании.`,
-                note_after: null },
-              { name: "Этические и аксиологические тезисы",
-                body: `Не менее 2 тезисов о ценностях и должном.`,
-                note_after: null },
               // Shared: общие требования для всех трёх групп тезисов
               { type: "shared",
                 body: `Тезисы должны отражать структурные отношения между категориями из графа концепции (§ выше) и быть выражены в академическом стиле.
@@ -7210,6 +7398,15 @@ ${METHOD_THESES[p.method] || ""}
 ${LEVEL_THESES_NOVELTY[thesesLevel]}
 - Связанные категории (перечислить)`,
                 scope: ["Онтологические тезисы", "Эпистемологические тезисы", "Этические и аксиологические тезисы"] },
+              { name: "Онтологические тезисы",
+                body: `Не менее 3 тезисов о природе бытия и реальности.`,
+                note_after: null },
+              { name: "Эпистемологические тезисы",
+                body: `Не менее 3 тезисов о познании и знании.`,
+                note_after: null },
+              { name: "Этические и аксиологические тезисы",
+                body: `Не менее 2 тезисов о ценностях и должном.`,
+                note_after: null },  
               { name: "Сводная таблица тезисов",
                 body: `ОБЯЗАТЕЛЬНО в конце раздела — итоговая таблица.
 Столбцы: № | Формулировка тезиса | Тип (онтол./эпистем./этич.) | Степень новизны | Связанные категории
@@ -7347,6 +7544,15 @@ ${LEVEL_THESES_NOVELTY[thesesLevel]}
             preamble_short: `Раздел «Практическое применение». Для КАЖДОЙ области — 5 обязательных подпунктов.`,
             intro: `Оформи ТОЧНО следующие секции (каждую — в <div data-section="..."> согласно правилам форматирования):`,
             subsections: [
+              // Shared: 5 обязательных подпунктов для КАЖДОЙ области
+              { type: "shared",
+                body: `Для КАЖДОЙ секции обязательно 5 подпунктов:
+1. Краткое описание применимости концепции в данной области
+2. Релевантные тезисы и категории концепции (со ссылками на §§)
+3. Конкретные способы ОПЕРАЦИОНАЛИЗАЦИИ — не абстрактные пожелания, а конкретные, реализуемые рекомендации
+4. Потенциальные ТРУДНОСТИ И ОГРАНИЧЕНИЯ применения
+5. Критерии ОЦЕНКИ ЭФФЕКТИВНОСТИ применения — как измерить, что концепция действительно работает`,
+                scope: ["Образование", "Этика и принятие решений", "Психология и личностное развитие", "Социальные институты", "Межкультурный диалог"] },
               { name: "Образование",
                 body: `Как данная концепция может трансформировать педагогические практики, дидактические методы, структуру учебных программ`,
                 note_after: null },
@@ -7362,15 +7568,6 @@ ${LEVEL_THESES_NOVELTY[thesesLevel]}
               { name: "Межкультурный диалог",
                 body: `Применимость к пониманию между культурами, религиями и традициями мысли`,
                 note_after: null },
-              // Shared: 5 обязательных подпунктов для КАЖДОЙ области
-              { type: "shared",
-                body: `Для КАЖДОЙ области обязательно 5 подпунктов:
-1. Краткое описание применимости концепции в данной области
-2. Релевантные тезисы и категории концепции (со ссылками на §§)
-3. Конкретные способы ОПЕРАЦИОНАЛИЗАЦИИ — не абстрактные пожелания, а конкретные, реализуемые рекомендации
-4. Потенциальные ТРУДНОСТИ И ОГРАНИЧЕНИЯ применения
-5. Критерии ОЦЕНКИ ЭФФЕКТИВНОСТИ применения — как измерить, что концепция действительно работает`,
-                scope: ["Образование", "Этика и принятие решений", "Психология и личностное развитие", "Социальные институты", "Межкультурный диалог"] },
               { name: "Сводная таблица",
                 body: `ОБЯЗАТЕЛЬНО в конце раздела — итоговая таблица.
 Область | Релевантные категории | Способ применения | Потенциальный эффект | Ограничения | Критерии эффективности.`,
@@ -7695,7 +7892,11 @@ ${LEVEL_DIALOGUE_STRUCT[dialogueLevel]}
           // Якорь на раздел
           const dbIdx = DOC_STATE.sectionDbIdx[key];
           const el = document.getElementById("db" + dbIdx);
-          if (el) el.setAttribute("id", "sec-" + key);
+          if (el && !el.querySelector("#sec-" + key)) {
+            const anchor = document.createElement("a");
+            anchor.id = "sec-" + key;
+            el.insertBefore(anchor, el.firstChild);
+          }
 
           lines.push(`    <p class="toc-section-link"><a href="#sec-${key}">§ ${def.num} — ${esc(label)}</a></p>`);
 
@@ -7735,7 +7936,11 @@ ${LEVEL_DIALOGUE_STRUCT[dialogueLevel]}
             const subId = "subsec-" + key + "-" + subName.replace(/[^a-zA-Zа-яА-ЯёЁ0-9]/g, "_");
             const subEl = el.querySelector(`[data-section="${subName}"]`);
             if (subEl) {
-              subEl.setAttribute("id", subId);
+              if (!subEl.querySelector("#" + subId)) {
+                const anchor = document.createElement("a");
+                anchor.id = subId;
+                subEl.insertBefore(anchor, subEl.firstChild);
+              }
               const h4 = subEl.querySelector("h4");
               if (h4 && !h4.querySelector(".toc-back-btn")) {
                 const btn = document.createElement("a");
@@ -7782,12 +7987,20 @@ ${LEVEL_DIALOGUE_STRUCT[dialogueLevel]}
 
       /** Показывает кнопки режимов, если капсула сгенерирована, иначе скрывает */
       function updateModeButtons() {
-        const show = DOC_STATE.sectionOrder.includes("capsule") && DOC_STATE.capsuleHTML;
-        const d = show ? "" : "none";
-        const ids = ["btnAdversarial", "btnTranslator", "btnTimeSlice"];
-        for (const id of ids) {
+        const hasCapsule = DOC_STATE.sectionOrder.includes("capsule") && DOC_STATE.capsuleHTML;
+        const d = hasCapsule ? "" : "none";
+        for (const id of ["btnAdversarial", "btnTranslator", "btnTimeSlice"]) {
           const el = document.getElementById(id);
-          if (el) el.style.display = d;
+          if (!el) continue;
+          el.style.display = d;
+          // Показать кол-во результатов, если есть
+          if (hasCapsule) {
+            const modeKey = { btnAdversarial: "adversarial", btnTranslator: "translator", btnTimeSlice: "timeslice" }[id];
+            const count = (DOC_STATE.modes[modeKey] || []).length;
+            if (count > 0) {
+              el.textContent = el.textContent.replace(/\s*\(\d+\)$/, "") + " (" + count + ")";
+            }
+          }
         }
       }
 
@@ -8176,7 +8389,7 @@ ${LEVEL_DIALOGUE_STRUCT[dialogueLevel]}
       async function streamResp(prompt, container, sys, onDelta) {
         const body = {
           model: "claude-sonnet-4-6",
-          max_tokens: 16000,
+          max_tokens: 20000,
           stream: true,
           messages: [{ role: "user", content: prompt }],
         };
@@ -8293,25 +8506,44 @@ ${LEVEL_DIALOGUE_STRUCT[dialogueLevel]}
         if (!sec) return result;
 
         const ROLE_MAP = {
+          // Структурные
           "центральная":        "central",
           "периферийная":       "peripheral",
           "мост":               "bridge",
-          "синтез":             "synthesis",
-          "тезис":              "thesis",
-          "антитезис":          "antithesis",
           "генеративная":       "generative",
           "ядро":               "core",
+          // Процессуальные: общая
+          "синтез":               "synthesis",
+          // Процессуальные: dialectical
+          "тезис":                "thesis",
+          "антитезис":            "antithesis",
+          // Процессуальные: deconstructive
           "деконструированная": "deconstructed",
           "пересобранная":      "reassembled",
+          // Процессуальные: hermeneutical
+          "расширение горизонта": "horizon-expansion",
+          "предгоризонт":        "pre-horizon",
+          // Процессуальные: integrative
+          "интегрирующая":       "integrating",
+          "основание":           "foundation",
+          // Процессуальные: analytical
+          "формализованная":     "formalized",
+          "верифицирующая":      "verifying",
         };
 
         // FIX 2: нечёткий маппинг ролей — покрывает мужской/женский/средний род
         function matchRole(raw) {
           const s = raw.trim().toLowerCase();
-          if (ROLE_MAP[s]) return ROLE_MAP[s];                       // точное совпадение
+          // 1. Точное совпадение
+          if (ROLE_MAP[s]) return ROLE_MAP[s];
+          // 2. Совпадение по вхождению (для многословных ролей)
           for (const [pattern, key] of Object.entries(ROLE_MAP)) {
-            const stem = pattern.replace(/(ая|ый|ое|ий|ой)$/, "");   // «центральн», «генеративн»…
-            if (s.startsWith(stem)) return key;
+            if (s.includes(pattern) || pattern.includes(s)) return key;
+          }
+          // 3. Совпадение по основе слова
+          for (const [pattern, key] of Object.entries(ROLE_MAP)) {
+            const stem = pattern.replace(/(ая|ый|ое|ий|ой|ие|ые)$/, "");
+            if (stem.length >= 4 && s.startsWith(stem)) return key;
           }
           return null;
         }
@@ -8578,7 +8810,17 @@ ${LEVEL_DIALOGUE_STRUCT[dialogueLevel]}
         "core", "generative", "bridge", "central", "peripheral"
       ];
       const PROCEDURAL_PRIORITY = [
-        "synthesis", "thesis", "antithesis", "deconstructed", "reassembled"
+        "synthesis",
+        // dialectical
+        "thesis", "antithesis",
+        // deconstructive
+        "deconstructed", "reassembled",
+        // hermeneutical
+        "horizon-expansion", "pre-horizon",
+        // integrative
+        "integrating", "foundation",
+        // analytical
+        "formalized", "verifying",
       ];
   
       // ── HSL-утилиты для смешивания нескольких цветов ────────────────────────────
@@ -8682,16 +8924,22 @@ ${LEVEL_DIALOGUE_STRUCT[dialogueLevel]}
           .join("");
        
         const ROLE_LABELS = {
-          central:      "Центральная",
-          peripheral:   "Периферийная",
-          bridge:       "Мост",
-          synthesis:    "Точка синтеза",
-          thesis:       "Тезис",
-          antithesis:   "Антитезис",
-          generative:   "Генеративная",
-          core:         "Ядро пересечений",
-          deconstructed:"Деконструированная",
-          reassembled:  "Пересобранная",
+          central:               "Центральная",
+          peripheral:            "Периферийная",
+          bridge:                "Мост",
+          synthesis:             "Точка синтеза",
+          thesis:                "Тезис",
+          antithesis:            "Антитезис",
+          generative:           "Генеративная",
+          core:                 "Ядро пересечений",
+          deconstructed:        "Деконструированная",
+          reassembled:          "Пересобранная",
+          "horizon-expansion":  "Расширение горизонта",
+          "pre-horizon":        "Предгоризонт",
+          integrating:          "Интегрирующая",
+          foundation:           "Основание",
+          formalized:           "Формализованная",
+          verifying:            "Верифицирующая",
         };
 
         function roleTagsHTML(rolesSet, groupLabel) {
@@ -8859,6 +9107,21 @@ ${LEVEL_DIALOGUE_STRUCT[dialogueLevel]}
         return d + "Z";
       }
 
+      /** Трапеция (основание шире верха) */
+      function trapezoidPath(r) {
+        const top = r * 0.6;
+        const bot = r;
+        const h = r * 0.8;
+        return `M${-top},${-h} L${top},${-h} L${bot},${h} L${-bot},${h} Z`;
+      }
+
+      /** Прямоугольник (чуть вытянутый по горизонтали) */
+      function rectPath(r) {
+        const w = r * 1.2;
+        const h = r * 0.8;
+        return `M${-w},${-h} L${w},${-h} L${w},${h} L${-w},${h} Z`;
+      }
+
       function nodeSymbolPath(d) {
         const r = 6 + d.cen * 14;
         const area = Math.PI * r * r;          // сохраняем площадь как у circle
@@ -8873,6 +9136,12 @@ ${LEVEL_DIALOGUE_STRUCT[dialogueLevel]}
           case "central":      return polyPath(5, r);
           case "deconstructed":return d3.symbol(d3.symbolCross, area)();
           case "reassembled": return hexStarPath(r);
+          case "horizon-expansion":  return d3.symbol(d3.symbolDiamond, area)();
+          case "pre-horizon":        return polyPath(7, r);
+          case "integrating":        return d3.symbol(d3.symbolWye, area)();
+          case "foundation":         return trapezoidPath(r);
+          case "formalized":         return rectPath(r);
+          case "verifying":          return d3.symbol(d3.symbolStar, area)();
           default:             return null;   // null → рисовать circle
         }
       }
@@ -8888,6 +9157,12 @@ ${LEVEL_DIALOGUE_STRUCT[dialogueLevel]}
           case "central":       return new THREE.DodecahedronGeometry(r, 0);
           case "deconstructed": return new THREE.IcosahedronGeometry(r, 1);
           case "reassembled":   return new THREE.TetrahedronGeometry(r, 0);
+          case "horizon-expansion":  return new THREE.ConeGeometry(r, r * 2, 8);
+          case "pre-horizon":        return new THREE.CylinderGeometry(r, r, r * 0.5, 12);
+          case "integrating":        return new THREE.TorusGeometry(r * 0.7, r * 0.3, 8, 12);
+          case "foundation":         return new THREE.BoxGeometry(r * 2, r * 0.5, r * 2);
+          case "formalized":         return new THREE.BoxGeometry(r * 1.4, r * 1.4, r * 1.4);
+          case "verifying":          return new THREE.DodecahedronGeometry(r, 0);
           default:              return new THREE.SphereGeometry(r, 20, 20);
         }
       }
@@ -9070,6 +9345,20 @@ ${LEVEL_DIALOGUE_STRUCT[dialogueLevel]}
               new THREE.Vector3(1, 1, 1).normalize(),
               new THREE.Vector3(0, 1, 0)
             );
+          }
+
+          if (role === "verifying") {
+            // Каркасный додекаэдр — аналог "верификации"
+            m.material.opacity = 0.15;
+            const edges = new THREE.LineSegments(
+              new THREE.EdgesGeometry(geometry),
+              new THREE.LineBasicMaterial({ color: c, transparent: true, opacity: 0.9 }),
+            );
+            m.add(edges);
+          }
+          if (role === "foundation") {
+            // Плоский куб — "основание"
+            m.material.side = THREE.DoubleSide;
           }
           
           m.position.set(n.x, n.y, n.z);
@@ -10146,7 +10435,9 @@ ${LEVEL_DIALOGUE_STRUCT[dialogueLevel]}
           const fill   = typeColorHex(d.type);
           const fillOp = 0.2 + (d.cert ?? 0.5) * 0.65;
           const stroke = fill;
-          const isDash = d.roles.has("bridge") ? "4,2.5" : null;
+          const isDash = d.roles.has("bridge")    ? "4,2.5"
+                       : d.roles.has("verifying") ? "2,2"
+                       : null;
         
           const sel = d3.select(this);
           if (!role || role === "peripheral") {
@@ -10156,6 +10447,7 @@ ${LEVEL_DIALOGUE_STRUCT[dialogueLevel]}
           } else {
             const rot = role === "antithesis" ? "rotate(180)"
                       : role === "core"       ? "rotate(45)"
+                      : role === "formalized" ? "rotate(0)"
                       : null;
             sel.append("path")
                .attr("class", "node-circle")
@@ -10414,16 +10706,22 @@ ${LEVEL_DIALOGUE_STRUCT[dialogueLevel]}
       
         // ── Полный реестр ролей ───────────────────────────────────────────────────
         const ROLE_REGISTRY = [
-          { key: "synthesis",     label: "Синтез",          sym2d: "⯃",  name3d: "октаэдр"            },
-          { key: "thesis",        label: "Тезис",           sym2d: "▲",  name3d: "тетраэдр ▲"        },
-          { key: "antithesis",    label: "Антитезис",       sym2d: "▽",  name3d: "тетраэдр ▽"        },
-          { key: "generative",    label: "Генеративная",    sym2d: "⬡",  name3d: "икосаэдр"           },
-          { key: "core",          label: "Ядро",            sym2d: "◆",  name3d: "октаэдр (плоский)" },
-          { key: "bridge",        label: "Мост",            sym2d: "◼",  name3d: "куб - - -"         },
-          { key: "central",       label: "Центральная",     sym2d: "⬠",  name3d: "додекаэдр"          },
-          { key: "deconstructed", label: "Деконструиров.",  sym2d: "✚",  name3d: "каркас"            },
-          { key: "reassembled", label: "Пересобранная",     sym2d: "✡",  name3d: "stella octangula"  },
-          { key: "peripheral",    label: "Периферийная",    sym2d: "●",  name3d: "сфера"             },
+          { key: "synthesis",          label: "Синтез",             sym2d: "⯃",  name3d: "октаэдр"            },
+          { key: "thesis",             label: "Тезис",              sym2d: "▲",  name3d: "тетраэдр ▲"        },
+          { key: "antithesis",         label: "Антитезис",          sym2d: "▽",  name3d: "тетраэдр ▽"        },
+          { key: "generative",         label: "Генеративная",       sym2d: "⬡",  name3d: "икосаэдр"           },
+          { key: "core",               label: "Ядро",               sym2d: "◆",  name3d: "октаэдр (плоский)" },
+          { key: "bridge",             label: "Мост",               sym2d: "◼",  name3d: "куб - - -"         },
+          { key: "central",            label: "Центральная",        sym2d: "⬠",  name3d: "додекаэдр"          },
+          { key: "deconstructed",      label: "Деконструиров.",     sym2d: "✚",  name3d: "каркас"            },
+          { key: "reassembled",        label: "Пересобранная",      sym2d: "✡",  name3d: "stella octangula"  },
+          { key: "horizon-expansion",  label: "Расш. горизонта",    sym2d: "◇",  name3d: "конус"             },
+          { key: "pre-horizon",        label: "Предгоризонт",       sym2d: "⬡",  name3d: "цилиндр"           },
+          { key: "integrating",        label: "Интегрирующая",      sym2d: "⋈",  name3d: "тор"               },
+          { key: "foundation",         label: "Основание",          sym2d: "▬",  name3d: "плоский куб"       },
+          { key: "formalized",         label: "Формализованная",    sym2d: "▭",  name3d: "куб"               },
+          { key: "verifying",          label: "Верифицирующая",     sym2d: "☆",  name3d: "додекаэдр-каркас"  },
+          { key: "peripheral",         label: "Периферийная",       sym2d: "●",  name3d: "сфера"             },
         ];
       
         // ── Какие роли реально присутствуют в текущем графе ──────────────────────
@@ -10642,6 +10940,12 @@ ${LEVEL_DIALOGUE_STRUCT[dialogueLevel]}
             case "antithesis":    return id + '[\\"`' + e + '`"\\]';
             case "deconstructed": return id + '{"`' + e + '`"}';
             case "reassembled":   return id + '>"`' + e + '`"]';
+            case "horizon-expansion":  return id + '{"`' + e + '`"}';          
+            case "pre-horizon":        return id + '["`' + e + '`"]';          
+            case "integrating":        return id + '{{"`' + e + '`"}}';         
+            case "foundation":         return id + '[/"`' + e + '`"/]';         
+            case "formalized":         return id + '[\\"`' + e + '`"\\]';       
+            case "verifying":          return id + '((("`' + e + '`")))';   
             default:              return id + '["`' + e + '`"]';
           }
         }
@@ -10868,6 +11172,12 @@ ${LEVEL_DIALOGUE_STRUCT[dialogueLevel]}
             case "antithesis":    polygon(x, y, r, 3, Math.PI); break; // треугольник вниз
             case "deconstructed": polygon(x, y, r, 4); break;        // ромб (45°)
             case "reassembled":   starShape(x, y, r); break;          // звезда
+            case "horizon-expansion":  polygon(x, y, r, 4, 0); break;         // ромб (квадрат 0°)
+            case "pre-horizon":        polygon(x, y, r, 7); break;            // семиугольник
+            case "integrating":        bowTieShape(x, y, r); break;           // бабочка
+            case "foundation":         trapezoid(x, y, r); break;             // трапеция
+            case "formalized":         rectShape(x, y, r); break;             // прямоугольник
+            case "verifying":          starShape5(x, y, r); break;            // 5-лучевая звезда
             default:              ctx.arc(x, y, r, 0, Math.PI * 2);   // круг
           }
         }
@@ -10886,6 +11196,48 @@ ${LEVEL_DIALOGUE_STRUCT[dialogueLevel]}
 
         function starShape(cx, cy, r) {
           const inner = r * 0.5;
+          for (let i = 0; i < 10; i++) {
+            const a = -Math.PI / 2 + (i / 10) * Math.PI * 2;
+            const rad = i % 2 === 0 ? r : inner;
+            const px = cx + Math.cos(a) * rad;
+            const py = cy + Math.sin(a) * rad;
+            if (i === 0) ctx.moveTo(px, py);
+            else ctx.lineTo(px, py);
+          }
+          ctx.closePath();
+        }
+
+        function bowTieShape(cx, cy, r) {
+          // Бабочка / бантик — два треугольника вершинами к центру
+          ctx.moveTo(cx - r, cy - r * 0.7);
+          ctx.lineTo(cx,     cy);
+          ctx.lineTo(cx - r, cy + r * 0.7);
+          ctx.closePath();
+          ctx.moveTo(cx + r, cy - r * 0.7);
+          ctx.lineTo(cx,     cy);
+          ctx.lineTo(cx + r, cy + r * 0.7);
+          ctx.closePath();
+        }
+
+        function trapezoid(cx, cy, r) {
+          const top = r * 0.6;
+          const bot = r;
+          const h = r * 0.7;
+          ctx.moveTo(cx - top, cy - h);
+          ctx.lineTo(cx + top, cy - h);
+          ctx.lineTo(cx + bot, cy + h);
+          ctx.lineTo(cx - bot, cy + h);
+          ctx.closePath();
+        }
+
+        function rectShape(cx, cy, r) {
+          const w = r * 1.1;
+          const h = r * 0.75;
+          ctx.rect(cx - w, cy - h, w * 2, h * 2);
+        }
+
+        function starShape5(cx, cy, r) {
+          const inner = r * 0.45;
           for (let i = 0; i < 10; i++) {
             const a = -Math.PI / 2 + (i / 10) * Math.PI * 2;
             const rad = i % 2 === 0 ? r : inner;
@@ -11139,6 +11491,12 @@ ${LEVEL_DIALOGUE_STRUCT[dialogueLevel]}
           ["антитезис",     n => { polygon(n.x, n.y, 7, 3, Math.PI); }],
           ["деконструир.",  n => { polygon(n.x, n.y, 7, 4); }],
           ["пересобранная", n => { starShape(n.x, n.y, 7); }],
+          ["расш. горизонта",n => { polygon(n.x, n.y, 7, 4, 0); }],
+          ["предгоризонт",   n => { polygon(n.x, n.y, 7, 7); }],
+          ["интегрирующая",  n => { bowTieShape(n.x, n.y, 7); }],
+          ["основание",      n => { trapezoid(n.x, n.y, 7); }],
+          ["формализованная",n => { rectShape(n.x, n.y, 7); }],
+          ["верифицирующая", n => { starShape5(n.x, n.y, 7); }],
           ["нет роли",      n => { ctx.arc(n.x, n.y, 7, 0, Math.PI * 2); }],
         ];
 
@@ -11334,6 +11692,149 @@ ${LEVEL_DIALOGUE_STRUCT[dialogueLevel]}
         const ver = DOC_STATE.docVersion > 1 ? "-v" + DOC_STATE.docVersion : "";
         return base + ver + (ext ? "." + ext : "");
       }
+
+      /**
+       * Собирает секцию режимов для скачиваемого HTML:
+       * клон модального окна + сериализованные функции + данные.
+       */
+      function buildModesExportSection() {
+        const allResults = Object.entries(DOC_STATE.modes || {})
+          .filter(([, results]) => Array.isArray(results) && results.some(r => r.html));
+        if (!allResults.length) return "";
+
+        // ── 1. Данные: <details> с HTML-контентом (скрытые — показываются через модалку) ──
+        let dataHTML = '<div id="philosynth-modes" style="display:none">';
+        for (const [key, results] of allResults) {
+          const title = MODE_CONFIG[key]?.title || key;
+          for (const r of results) {
+            if (!r.html) continue;
+            dataHTML += `<div class="philosynth-mode"
+                 data-mode-key="${esc(key)}"
+                 data-mode-title="${esc(title)}"
+                 data-mode-param="${esc(r.param)}"
+                 data-mode-timestamp="${esc(r.timestamp)}">
+              ${r.html}
+            </div>`;
+          }
+        }
+        dataHTML += '</div>';
+
+        // ── 2. Кнопки открытия ──
+        const modeTitles = {};
+        let buttons = '<div style="max-width:1100px;margin:20px auto 0;display:flex;gap:8px;flex-wrap:wrap">';
+        for (const [key, results] of allResults) {
+          const title = MODE_CONFIG[key]?.title || key;
+          modeTitles[key] = title;
+          const count = results.filter(r => r.html).length;
+          buttons += `<button class="action-btn" style="border-color:var(--violet);color:var(--violet)"
+            onclick="openExportedMode('${esc(key)}')">${esc(title)} (${count})</button>`;
+        }
+        buttons += '</div>';
+
+        // ── 3. Модальное окно (клон, без поля ввода) ──
+        const overlayEl = document.getElementById("modeOverlay");
+        if (!overlayEl) return dataHTML + buttons;
+        const clone = overlayEl.cloneNode(true);
+        clone.classList.remove("visible");
+        clone.querySelector("#modeContent")?.replaceChildren();
+        clone.querySelector("#modeTabsBar")?.replaceChildren();
+        const paramsBlock = clone.querySelector(".mode-modal-params");
+        if (paramsBlock) paramsBlock.remove();
+        const modalHTML = clone.outerHTML;
+
+        // ── 4. Тонкий скрипт: читает данные из DOM, управляет модалкой ──
+        const script = `
+      (function() {
+        // Парсим данные из HTML
+        function loadModes() {
+          var modes = {};
+          var els = document.querySelectorAll("#philosynth-modes .philosynth-mode");
+          for (var i = 0; i < els.length; i++) {
+            var el = els[i];
+            var key = el.getAttribute("data-mode-key");
+            if (!modes[key]) modes[key] = [];
+            modes[key].push({
+              html:      el.innerHTML,
+              param:     el.getAttribute("data-mode-param") || "",
+              timestamp: el.getAttribute("data-mode-timestamp") || "",
+              title:     el.getAttribute("data-mode-title") || key,
+            });
+          }
+          return modes;
+        }
+
+        var _modes = null;
+        function getModes() {
+          if (!_modes) _modes = loadModes();
+          return _modes;
+        }
+
+        function esc(s) {
+          return (s||"").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;");
+        }
+        function truncLabel(s, max) {
+          return s.length > max ? s.slice(0, max - 1) + "\\u2026" : s;
+        }
+
+        // Вкладки
+        function buildTabs(key, results) {
+          var bar = document.getElementById("modeTabsBar");
+          if (!results || !results.length) { bar.style.display = "none"; bar.innerHTML = ""; return; }
+          bar.style.display = "flex";
+          bar.innerHTML = results.map(function(r, i) {
+            var label = truncLabel(r.param, 24);
+            var date = new Date(r.timestamp).toLocaleDateString("ru-RU");
+            return '<button class="mode-tab" data-index="' + i + '" ' +
+              'onclick="switchExpTab(\\'' + key + '\\',' + i + ')">' +
+              esc(label) + '<span class="mode-tab-date">' + date + '</span></button>';
+          }).join("");
+        }
+
+        function switchTab(key, idx) {
+          var modes = getModes();
+          var results = modes[key];
+          if (!results || idx >= results.length) return;
+          var tabs = document.querySelectorAll("#modeTabsBar .mode-tab");
+          for (var i = 0; i < tabs.length; i++) {
+            tabs[i].classList.toggle("active", i === idx);
+          }
+          document.getElementById("modeContent").innerHTML = results[idx].html;
+          document.getElementById("modeInfo").textContent =
+            results[idx].param + " \\u00b7 " +
+            new Date(results[idx].timestamp).toLocaleString("ru-RU");
+        }
+
+        // Публичные функции
+        window.openExportedMode = function(key) {
+          var modes = getModes();
+          var results = modes[key] || [];
+          if (!results.length) return;
+          document.getElementById("modeTitle").textContent = results[0].title || key;
+          buildTabs(key, results);
+          switchTab(key, results.length - 1);
+          document.getElementById("modeOverlay").classList.add("visible");
+          document.body.style.overflow = "hidden";
+        };
+        window.switchExpTab = switchTab;
+        window.closeModeModal = function() {
+          document.getElementById("modeOverlay").classList.remove("visible");
+          document.body.style.overflow = "";
+        };
+        window.copyModeContent = function() {
+          var text = (document.getElementById("modeContent") || {}).innerText || "";
+          navigator.clipboard.writeText(text).then(function() {
+            var btn = document.querySelector("#modeOverlay .mode-modal-copy");
+            if (!btn) return;
+            var o = btn.textContent;
+            btn.textContent = "\\u2713 Скопировано";
+            setTimeout(function() { btn.textContent = o; }, 2000);
+          });
+        };
+      })();`;
+
+        return `${dataHTML}${buttons}${modalHTML}
+      <script>${script}<\/script>`;
+      }
       
       // ════════════════════════════════════════
       // GRAPH EXPORT BUNDLE
@@ -11385,6 +11886,8 @@ ${LEVEL_DIALOGUE_STRUCT[dialogueLevel]}
           getTopRole,
           polyPath,
           hexStarPath,
+          trapezoidPath,   
+          rectPath,              
           nodeSymbolPath,
           nodeGeometry3D,
           tick,
@@ -11684,13 +12187,16 @@ ${LEVEL_DIALOGUE_STRUCT[dialogueLevel]}
           }
         }
 
+        // ── Режимы: вычисляем ДО CSS-аудита, чтобы стили не были удалены ──
+        const modesSection = buildModesExportSection();
+
         // CSS-аудит: контент = всё что уйдёт в файл
-        const contentToCheck = docHTML + graphSection;
-       
+        const contentToCheck = docHTML + graphSection + (modesSection || "");
+
         const rawCSS = Array.from(document.querySelectorAll("style"))
           .map(function(s) { return s.textContent; })
           .join("\n");
-       
+
         const styles = "<style>\n" + auditCSS(rawCSS, contentToCheck) + "\n</style>";
 
         const tocEl = document.getElementById("docTOC");
@@ -11709,16 +12215,24 @@ ${LEVEL_DIALOGUE_STRUCT[dialogueLevel]}
             sectionOrder: DOC_STATE.ready ? DOC_STATE.sectionOrder : null,
             editedSections: DOC_STATE.ready ? [...DOC_STATE.editedSections] : [],
             docVersion: DOC_STATE.docVersion || 1,
-            capsuleHTML: DOC_STATE.capsuleHTML || "",
-            modes: DOC_STATE.modes || {},
           };
           stateJSON = `\n<script type="application/json" id="philosynth-state">\n${JSON.stringify(stateData, null, 2)}\n<\/script>`;
 
           // ── Видимый лог контекста ──
-          const logHTML = typeof formatCtxLogHTML === "function" ? formatCtxLogHTML() : "";
-          if (logHTML && !logHTML.includes("Лог пуст")) {
+          if (genLog.length > 0 || ctxLog.length > 0) {
+            // Сериализуем функции и константы — лог строится на лету из состояния
+            const logBundle = [
+              formatCtxLog,
+              colorizeLog,
+            ].map(fn => fn.toString()).join("\n\n");
+          
+            const logConstants = [
+              ["CTX_LABELS", CTX_LABELS],
+            ].map(([name, val]) => `var ${name} = ${JSON.stringify(val)};`)
+             .join("\n");
+          
             stateJSON += `\n<details style="
-              max-width:1100px; margin:20px auto 0; 
+              max-width:1100px; margin:20px auto 0;
               border:1px solid #d8d4cc; background:#1a1814;
             ">
               <summary style="
@@ -11730,49 +12244,53 @@ ${LEVEL_DIALOGUE_STRUCT[dialogueLevel]}
                 user-select:none;
               ">◈ Лог контекста и генерации</summary>
               <div style="padding:20px; overflow-x:auto;">
-                <pre style="
+                <pre id="philosynth-log-raw" style="
                   font-family:'IBM Plex Mono',monospace; font-size:11px;
                   line-height:1.7; color:#c8c0b0; white-space:pre-wrap;
                   word-break:break-all; margin:0;
-                ">${logHTML}</pre>
+                "></pre>
               </div>
-            </details>`;
+            </details>
+            <script>
+            (function(){
+              var stateEl = document.getElementById("philosynth-state");
+              if (!stateEl) return;
+              try {
+                var state = JSON.parse(stateEl.textContent);
+                var genLog = state.genLog || [];
+                var ctxLog = state.ctxLog || [];
+                var genCommon = state.genCommon || null;
+                var DOC_STATE = { docVersion: state.docVersion || 1 };
+          
+                ${logConstants}
+                ${logBundle}
+          
+                var el = document.getElementById("philosynth-log-raw");
+                if (el) {
+                  var plain = formatCtxLog();
+                  if (plain && plain.indexOf("Лог пуст") === -1) {
+                    el.innerHTML = colorizeLog(plain);
+                  } else {
+                    el.style.color = "#8a8278";
+                    el.textContent = plain;
+                  }
+                }
+              } catch(e) {
+                console.warn("Не удалось восстановить лог:", e);
+                var el = document.getElementById("philosynth-log-raw");
+                if (el) el.textContent = "Ошибка восстановления лога: " + e.message;
+              }
+            })();
+            <\/script>`;
           }
         } catch (e) {
           console.warn("Не удалось сериализовать состояние:", e);
         }
 
-        // ── Видимые приложения режимов ──
-        const modesEntries = Object.entries(DOC_STATE.modes || {}).filter(([, v]) => v?.html);
-        if (modesEntries.length > 0) {
-          let modesHTML = `\n<div style="max-width:1100px;margin:20px auto 0">`;
-          for (const [modeKey, modeData] of modesEntries) {
-            const config = MODE_CONFIG[modeKey];
-            const title = (config?.title || modeKey) + " · " + (modeData.param || "");
-            const date = modeData.timestamp
-              ? new Date(modeData.timestamp).toLocaleString("ru-RU") : "";
-            modesHTML += `
-              <details style="border:1px solid #d8d4cc;margin-bottom:8px">
-                <summary style="
-                  padding:10px 18px;cursor:pointer;
-                  font-family:'IBM Plex Mono',monospace;font-size:10px;
-                  letter-spacing:2px;text-transform:uppercase;
-                  color:#6b00aa;background:#f3eaff;
-                  list-style:none;display:flex;align-items:center;gap:6px;
-                  user-select:none;
-                ">◈ ${title}${date ? ' · ' + date : ''}</summary>
-                <div style="padding:20px 48px;background:#fffef9;
-                  font-family:'IBM Plex Sans',sans-serif;font-size:13px;
-                  line-height:1.85;color:#4a463e;">
-                  ${modeData.html}
-                </div>
-              </details>`;
-          }
-          modesHTML += `</div>`;
-          stateJSON += modesHTML;
-        }
+        // ── Режимы: модальное окно с вкладками ──
+        //if (modesSection) stateJSON += modesSection;
 
-        const html = `<!DOCTYPE html><html lang="ru"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0"><title>${document.getElementById("docTitle").textContent}</title><link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700;900&family=IBM+Plex+Mono:wght@300;400;500;600&family=IBM+Plex+Sans:ital,wght@0,300;0,400;0,500;0,600;1,400&display=swap" rel="stylesheet">${styles}<style>body{background:#f2f0eb;padding:32px}#docOutput{max-width:1100px;margin:0 auto}</style></head><body><div id="docOutput">${docHTML}</div>${graphSection}${stateJSON}</body></html>`;
+        const html = `<!DOCTYPE html><html lang="ru"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0"><title>${document.getElementById("docTitle").textContent}</title><link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700;900&family=IBM+Plex+Mono:wght@300;400;500;600&family=IBM+Plex+Sans:ital,wght@0,300;0,400;0,500;0,600;1,400&display=swap" rel="stylesheet">${styles}<style>body{background:#f2f0eb;padding:32px}#docOutput{max-width:1100px;margin:0 auto}</style></head><body><div id="docOutput">${modesSection}${docHTML}</div>${graphSection}${stateJSON}</body></html>`;
         downloadFile(html, getDocFilename("html"), "text/html");
         buildTableOfContents();
       }
@@ -12080,48 +12598,70 @@ ${LEVEL_DIALOGUE_STRUCT[dialogueLevel]}
         }
 
         // ── Карточки режимов ──
-        const modesWithResults = Object.entries(DOC_STATE.modes).filter(([, v]) => v?.html);
+        const modesWithResults = Object.entries(DOC_STATE.modes || {})
+          .filter(([, results]) => Array.isArray(results) && results.some(r => r.html));
+
         if (modesWithResults.length > 0) {
           const modesPanel = document.createElement("div");
           modesPanel.style.cssText = "margin-top:12px;padding:14px 18px;border:2px solid var(--violet);background:var(--violet-light)";
           modesPanel.innerHTML = `<div style="font-family:var(--mono);font-size:10px;font-weight:600;letter-spacing:2px;color:var(--violet);margin-bottom:10px">РЕЖИМЫ</div>`;
 
-          for (const [modeKey, modeData] of modesWithResults) {
+          // Текущий план для проверки затронутых зависимостей
+          const planSections = [
+            ...(_editPlan.regen || []),
+            ...(_editPlan.remove || []),
+            ...(_editPlan.add || []),
+          ];
+          const allAffectedModes = getAffectedModes(planSections);
+
+          for (const [modeKey, results] of modesWithResults) {
             const config = MODE_CONFIG[modeKey];
             if (!config) continue;
-            const modeCard = document.createElement("div");
-            modeCard.className = "edit-sec-card";
-            modeCard.style.borderColor = "var(--violet)";
-            modeCard.innerHTML = `
-              <div class="edit-sec-card-header">
-                <div class="edit-sec-title" style="color:var(--violet)">${config.title} · ${esc(modeData.param)}</div>
-                <div class="edit-sec-num" style="font-size:9px;color:var(--ink-dim)">${new Date(modeData.timestamp).toLocaleString("ru-RU")}</div>
-              </div>
-              <div class="edit-sec-checks">
-                <label class="edit-sec-check" style="color:var(--violet)">
-                  <input type="checkbox" id="editRegenMode-${modeKey}" style="accent-color:var(--violet)"
-                         onchange="recalcEditPlan()">
-                  Перегенерировать
-                </label>
-              </div>`;
 
-            // Предупреждение о затронутых зависимостях
-            const planSections = [
-              ...(_editPlan.regen || []),
-              ...(_editPlan.remove || []),
-              ...(_editPlan.add || []),
-            ];
-            const modeAffected = getAffectedModes(planSections).filter(a => a.modeKey === modeKey);
-            if (modeAffected.length > 0) {
-              const warnDiv = document.createElement("div");
-              warnDiv.style.cssText =
-                "margin-top:6px;font-family:var(--mono);font-size:9px;color:var(--violet);" +
-                "background:rgba(107,0,170,0.06);border:1px solid rgba(107,0,170,0.15);padding:5px 10px";
-              warnDiv.textContent = "⚡ " + modeAffected[0].reason + " — рекомендуется перегенерация";
-              modeCard.appendChild(warnDiv);
+            for (let i = 0; i < results.length; i++) {
+              const r = results[i];
+              if (!r?.html) continue;
+
+              const modeCard = document.createElement("div");
+              modeCard.className = "edit-sec-card";
+              modeCard.style.borderColor = "var(--violet)";
+              modeCard.innerHTML = `
+                <div class="edit-sec-card-header">
+                  <div class="edit-sec-title" style="color:var(--violet)">
+                    ${config.title} · ${esc(r.param)}
+                  </div>
+                  <div class="edit-sec-num" style="font-size:9px;color:var(--ink-dim)">
+                    ${new Date(r.timestamp).toLocaleString("ru-RU")}
+                  </div>
+                </div>
+                <div class="edit-sec-checks">
+                  <label class="edit-sec-check" style="color:var(--violet)">
+                    <input type="checkbox" id="editRegenMode-${modeKey}-${i}"
+                           style="accent-color:var(--violet)" onchange="recalcEditPlan()">
+                    Перегенерировать
+                  </label>
+                  <label class="edit-sec-check delete-check">
+                    <input type="checkbox" id="editDeleteMode-${modeKey}-${i}"
+                           onchange="recalcEditPlan()">
+                    Удалить
+                  </label>
+                </div>`;
+
+              // Предупреждение о затронутых зависимостях
+              const modeAffected = allAffectedModes.filter(
+                a => a.modeKey === modeKey && a.index === i
+              );
+              if (modeAffected.length > 0) {
+                const warnDiv = document.createElement("div");
+                warnDiv.style.cssText =
+                  "margin-top:6px;font-family:var(--mono);font-size:9px;color:var(--violet);" +
+                  "background:rgba(107,0,170,0.06);border:1px solid rgba(107,0,170,0.15);padding:5px 10px";
+                warnDiv.textContent = "⚡ " + modeAffected[0].reason + " — рекомендуется перегенерация";
+                modeCard.appendChild(warnDiv);
+              }
+
+              modesPanel.appendChild(modeCard);
             }
-
-            modesPanel.appendChild(modeCard);
           }
 
           body.appendChild(modesPanel);
@@ -12162,7 +12702,7 @@ ${LEVEL_DIALOGUE_STRUCT[dialogueLevel]}
         }
 
         // Сброс плана
-        _editPlan = { regen: [], remove: [], add: [] };
+        _editPlan = { regen: [], remove: [], add: [], modeRegen: [], modeRemove: [] };
         updateEditPlanUI();
       }
 
@@ -12284,38 +12824,52 @@ ${LEVEL_DIALOGUE_STRUCT[dialogueLevel]}
           // Межразделовый каскад на уровне подразделов
           const crossDeps = getCrossSecDependents(sectionKey, subsectionName);
           if (crossDeps.length > 0) {
-            // Группируем по разделу
-            const grouped = {};
-            for (const d of crossDeps) {
-              if (!grouped[d.section]) grouped[d.section] = [];
-              if (d.subsection) grouped[d.section].push(d.subsection);
-            }
-
-            const lines = [];
-            for (const [sec, subs] of Object.entries(grouped)) {
-              const secLabel = KEY_LABELS[sec] || sec;
-              if (subs.length > 0) {
-                lines.push(secLabel + ": " + subs.join(", "));
-              } else {
-                lines.push(secLabel + " (весь раздел)");
+            // ── Фильтрация: оставляем только подразделы, существующие в DOM ──
+            const filteredCrossDeps = crossDeps.filter(d => {
+              // Если subsection не указан — это весь раздел, проверяем только наличие раздела
+              if (!d.subsection) return DOC_STATE.sectionOrder.includes(d.section);
+          
+              // Проверяем, есть ли подраздел в DOM целевого раздела
+              const idx = DOC_STATE.sectionDbIdx[d.section];
+              const container = document.getElementById("db" + idx);
+              if (!container) return false;
+              return !!container.querySelector(`[data-section="${d.subsection}"]`);
+            });
+          
+            if (filteredCrossDeps.length > 0) {
+              // Группируем по разделу
+              const grouped = {};
+              for (const d of filteredCrossDeps) {
+                if (!grouped[d.section]) grouped[d.section] = [];
+                if (d.subsection) grouped[d.section].push(d.subsection);
               }
-            }
-
-            const doCrossCascade = confirm(
-              "Подраздел «" + subsectionName + "» обновлён.\n\n" +
-              "Затронуты подразделы других разделов:\n" +
-              lines.join("\n") + "\n\n" +
-              "Перегенерировать их?"
-            );
-
-            if (doCrossCascade) {
-              for (const d of crossDeps) {
-                if (d.subsection) {
-                  if (progressText) progressText.textContent = "Каскад: " + (KEY_LABELS[d.section] || d.section) + " → " + d.subsection + "...";
-                  await regenerateSubsection(d.section, d.subsection, {});
+          
+              const lines = [];
+              for (const [sec, subs] of Object.entries(grouped)) {
+                const secLabel = KEY_LABELS[sec] || sec;
+                if (subs.length > 0) {
+                  lines.push(secLabel + ": " + subs.join(", "));
                 } else {
-                  if (progressText) progressText.textContent = "Каскад: " + (KEY_LABELS[d.section] || d.section) + "...";
-                  await regenerateSection(d.section, DOC_STATE.params.secCtx[d.section] || "");
+                  lines.push(secLabel + " (весь раздел)");
+                }
+              }
+          
+              const doCrossCascade = confirm(
+                "Подраздел «" + subsectionName + "» обновлён.\n\n" +
+                "Затронуты подразделы других разделов:\n" +
+                lines.join("\n") + "\n\n" +
+                "Перегенерировать их?"
+              );
+          
+              if (doCrossCascade) {
+                for (const d of filteredCrossDeps) {
+                  if (d.subsection) {
+                    if (progressText) progressText.textContent = "Каскад: " + (KEY_LABELS[d.section] || d.section) + " → " + d.subsection + "...";
+                    await regenerateSubsection(d.section, d.subsection, {});
+                  } else {
+                    if (progressText) progressText.textContent = "Каскад: " + (KEY_LABELS[d.section] || d.section) + "...";
+                    await regenerateSection(d.section, DOC_STATE.params.secCtx[d.section] || "");
+                  }
                 }
               }
             }
@@ -12374,9 +12928,14 @@ ${LEVEL_DIALOGUE_STRUCT[dialogueLevel]}
 
         // ── Режимы ──
         plan.modeRegen = [];
-        for (const [modeKey] of Object.entries(DOC_STATE.modes || {})) {
-          if (document.getElementById("editRegenMode-" + modeKey)?.checked) {
-            plan.modeRegen.push(modeKey);
+        plan.modeRemove = [];
+        for (const [modeKey, results] of Object.entries(DOC_STATE.modes || {})) {
+          if (!Array.isArray(results)) continue;
+          for (let i = 0; i < results.length; i++) {
+            if (document.getElementById(`editRegenMode-${modeKey}-${i}`)?.checked)
+              plan.modeRegen.push([modeKey, i]);
+            if (document.getElementById(`editDeleteMode-${modeKey}-${i}`)?.checked)
+              plan.modeRemove.push([modeKey, i]);
           }
         }
 
@@ -12388,7 +12947,8 @@ ${LEVEL_DIALOGUE_STRUCT[dialogueLevel]}
       function updateEditPlanUI() {
         const plan = _editPlan;
         const totalActions = plan.regen.length + plan.remove.length + plan.add.length
-                   + (plan.modeRegen?.length || 0);
+           + (plan.modeRegen?.length || 0)
+           + (plan.modeRemove?.length || 0);
         const runBtn = document.getElementById("editRunBtn");
         if (runBtn) runBtn.disabled = totalActions === 0 || DOC_STATE.incomplete;
 
@@ -12406,8 +12966,9 @@ ${LEVEL_DIALOGUE_STRUCT[dialogueLevel]}
         // ── Стоимость ──
         const costEl = document.getElementById("editCostEstimate");
         if (costEl) {
+          let est = null;
           if (plan.regen.length + plan.add.length > 0) {
-            const est = estimateCost({ sections: [...plan.regen, ...plan.add] });
+              est = estimateCost({ sections: [...plan.regen, ...plan.add] });
             costEl.textContent = est
               ? `≈ $${est.cost.toFixed(4)} (${(est.cost * 100).toFixed(2)}¢) · ${est.passes} запр.`
               : "";
@@ -12805,7 +13366,9 @@ ${LEVEL_DIALOGUE_STRUCT[dialogueLevel]}
        */
       async function executeEditPlan() {
         const plan = { ..._editPlan };
-        const total = plan.regen.length + plan.remove.length + plan.add.length;
+        const total = plan.regen.length + plan.remove.length + plan.add.length
+            + (plan.modeRegen?.length || 0)
+            + (plan.modeRemove?.length || 0);
         if (total === 0) return;
         if (DOC_STATE.incomplete) {
           alert("Редактирование заблокировано: не все параметры восстановлены.");
@@ -12917,10 +13480,16 @@ ${LEVEL_DIALOGUE_STRUCT[dialogueLevel]}
             await addSection(key, addCtx[key]);
           }
 
-          // ── 4. Перегенерация режимов ──
-          for (const modeKey of (plan.modeRegen || [])) {
-            updateProgress("Режим: " + (MODE_CONFIG[modeKey]?.title || modeKey));
-            await regenerateModeSilent(modeKey);
+          // Удаление режимов (в обратном порядке индексов, чтобы не сбивать нумерацию)
+          const sortedRemoves = [...plan.modeRemove].sort((a, b) => b[1] - a[1]);
+          for (const [modeKey, idx] of sortedRemoves) {
+            DOC_STATE.modes[modeKey]?.splice(idx, 1);
+            if (DOC_STATE.modes[modeKey]?.length === 0) delete DOC_STATE.modes[modeKey];
+          }
+
+          // Перегенерация режимов
+          for (const [modeKey, idx] of (plan.modeRegen || [])) {
+            await regenerateModeSilent(modeKey, idx);
           }
 
           if (progressText) progressText.textContent = "✓ Выполнено";
@@ -12959,6 +13528,60 @@ ${LEVEL_DIALOGUE_STRUCT[dialogueLevel]}
           const name = sec.getAttribute("data-section");
           if (name === excludeName) continue;
           // Для таблиц — структурированное извлечение
+          const tables = sec.querySelectorAll("table.doc-table");
+          if (tables.length > 0) {
+            const tableParts = Array.from(tables).map(t => tableToText(t));
+            const nonTableText = sec.innerText?.trim()
+              .replace(/\n{3,}/g, "\n\n") || "";
+            parts.push(`[${name}]\n${truncateText(nonTableText, 1500)}\n${tableParts.join("\n")}`);
+          } else {
+            const text = sec.innerText?.trim();
+            if (text) parts.push(`[${name}]\n${truncateText(text, 2000)}`);
+          }
+        }
+        return parts.join("\n\n");
+      }
+
+      /**
+       * Извлекает текст только тех подразделов раздела, от которых
+       * зависит перегенерируемый подраздел (по INTRA_DEPS), транзитивно.
+       *
+       * Если зависимостей нет — фолбэк на все подразделы
+       * (сохраняет поведение для разделов без INTRA_DEPS).
+       */
+      function extractRelevantIntraSectionContext(container, sectionKey, subsectionName) {
+        const deps = INTRA_DEPS[sectionKey] || {};
+        const directDeps = deps[subsectionName];
+
+        // Если у подраздела нет записи в INTRA_DEPS — он «корневой»,
+        // отправляем все подразделы (консервативный фолбэк)
+        if (!directDeps || directDeps.length === 0) {
+          return extractIntraSectionContext(container, subsectionName);
+        }
+
+        // Транзитивное замыкание ВВЕРХ: собираем все подразделы,
+        // от которых текущий зависит прямо или через цепочку
+        const needed = new Set();
+        const queue = [...directDeps];
+        while (queue.length > 0) {
+          const current = queue.shift();
+          if (needed.has(current)) continue;
+          needed.add(current);
+          const parentDeps = deps[current];
+          if (parentDeps) {
+            for (const p of parentDeps) {
+              if (!needed.has(p)) queue.push(p);
+            }
+          }
+        }
+
+        // Извлекаем только нужные подразделы
+        const sections = container.querySelectorAll("[data-section]");
+        const parts = [];
+        for (const sec of sections) {
+          const name = sec.getAttribute("data-section");
+          if (name === subsectionName) continue;  // себя не включаем
+          if (!needed.has(name)) continue;        // только зависимости
           const tables = sec.querySelectorAll("table.doc-table");
           if (tables.length > 0) {
             const tableParts = Array.from(tables).map(t => tableToText(t));
@@ -13030,10 +13653,10 @@ ${LEVEL_DIALOGUE_STRUCT[dialogueLevel]}
           const existingDef = DOC_STATE.sectionDefs[sectionKey];
           if (existingDef) def.num = existingDef.num;
 
-          // let container;
+          let container;
           if (sectionKey === "capsule") {
             // Капсула не имеет DOM-контейнера в docBodies — используем временный
-            const container = document.createElement("div");
+            container = document.createElement("div");
             container.style.display = "none";
             document.body.appendChild(container);
           } else {
@@ -13114,10 +13737,6 @@ ${LEVEL_DIALOGUE_STRUCT[dialogueLevel]}
           // ── 7. Стримим ответ в DOM-контейнер ──
           if (progressText) progressText.textContent = "Генерация...";
 
-          const dbIdx = DOC_STATE.sectionDbIdx[sectionKey];
-          const container = document.getElementById("db" + dbIdx);
-          if (!container) throw new Error("DOM-контейнер db" + dbIdx + " не найден.");
-
           container.innerHTML = "";
 
           let lastLogRefresh = 0;
@@ -13172,7 +13791,6 @@ ${LEVEL_DIALOGUE_STRUCT[dialogueLevel]}
           DOC_STATE.factualDeps = buildFactualDepsMap(ctxLog);
 
           // ── 12. Обновляем DOC_STATE ──
-          DOC_STATE.sectionHTML[sectionKey] = container.innerHTML;
           if (sectionKey === "capsule") {
             // regenerateSection стримит во временный контейнер (container),
             // затем обновляем шапку и capsuleHTML. DOM-контейнер не сохраняется.
@@ -13242,7 +13860,9 @@ ${LEVEL_DIALOGUE_STRUCT[dialogueLevel]}
         if (!container) throw new Error("DOM-контейнер не найден.");
 
         // ── 1. Контексты ──
-        const intraSectionCtx = extractIntraSectionContext(container, subsectionName);
+        const intraSectionCtx = extractRelevantIntraSectionContext(
+          container, sectionKey, subsectionName
+        );
 
         let currentContent = null;
         if (opts.includeCurrentContent) {
@@ -13291,53 +13911,75 @@ ${LEVEL_DIALOGUE_STRUCT[dialogueLevel]}
         };
         genLog.push(genEntry);
 
-        // ── 4. Стриминг ──
-        const tempContainer = document.createElement("div");
-        tempContainer.style.display = "none";
-        document.body.appendChild(tempContainer);
-
+        // ── 4. Стриминг — прямо в DOM, на место старого подраздела ──
         try {
-          const usage = await streamResp(fp, tempContainer, SYS, (chars) => {
+          const progress = document.getElementById("subProgress-" + sectionKey);
+          const progressText = document.getElementById("subProgressText-" + sectionKey);
+          if (progress) progress.classList.add("active");
+
+          // Находим старый подраздел и заменяем на контейнер стриминга
+          const oldSubDiv = container.querySelector(`[data-section="${subsectionName}"]`)
+            || (() => {
+              // Нечёткий поиск
+              const allSubs = container.querySelectorAll("[data-section]");
+              for (const sub of allSubs) {
+                const name = sub.getAttribute("data-section");
+                if (name.toLowerCase().includes(subsectionName.toLowerCase()) ||
+                    subsectionName.toLowerCase().includes(name.toLowerCase())) {
+                  return sub;
+                }
+              }
+              return null;
+            })();
+
+          const streamTarget = document.createElement("div");
+          streamTarget.style.cssText =
+            "border-left:3px solid var(--blue-corp);padding-left:12px;margin:12px 0;min-height:40px";
+
+          if (oldSubDiv) {
+            oldSubDiv.replaceWith(streamTarget);
+          } else {
+            const docContent = container.querySelector(".doc-content");
+            if (docContent) docContent.appendChild(streamTarget);
+          }
+
+          // Прокрутка к месту генерации
+          streamTarget.scrollIntoView({ behavior: "smooth", block: "nearest" });
+
+          let lastLogRefresh = 0;
+          const usage = await streamResp(fp, streamTarget, SYS, (chars, html) => {
             genEntry.outputChars = chars;
+            if (progressText) progressText.textContent = "Генерация «" + subsectionName + "»... " + chars + " симв.";
+            // Live-обновление лога
+            const now = Date.now();
+            if (now - lastLogRefresh > 300) {
+              lastLogRefresh = now;
+              refreshCtxLogIfOpen();
+            }
           });
 
           totalInputTokens += usage.input_tokens;
           totalOutputTokens += usage.output_tokens;
           genEntry.inputTokens = usage.input_tokens;
           genEntry.outputTokens = usage.output_tokens;
-          genEntry.outputChars = tempContainer.innerHTML.length;
+          genEntry.outputChars = streamTarget.innerHTML.length;
           genEntry.cost = usage.input_tokens * 3 / 1e6 + usage.output_tokens * 15 / 1e6;
+          genEntry.subsections = [{ name: subsectionName, chars: genEntry.outputChars, status: "done" }];
           genEntry.status = "done";
+          refreshCtxLogIfOpen();
 
-          // ── 5. Splice в DOM ──
-          const newSubDiv = tempContainer.querySelector(`[data-section="${subsectionName}"]`)
-                         || tempContainer.querySelector(`[data-section]`);
+          // ── 5. Извлечь data-section из результата и заменить обёртку ──
+          const newSubDiv = streamTarget.querySelector(`[data-section="${subsectionName}"]`)
+                         || streamTarget.querySelector(`[data-section]`);
 
-          if (!newSubDiv) throw new Error("Модель не вернула <div data-section> для подраздела.");
-
-          const oldSubDiv = container.querySelector(`[data-section="${subsectionName}"]`);
-          if (oldSubDiv) {
-            oldSubDiv.replaceWith(newSubDiv.cloneNode(true));
+          if (newSubDiv) {
+            streamTarget.replaceWith(newSubDiv);
           } else {
-            // Нечёткий поиск
-            const allSubs = container.querySelectorAll("[data-section]");
-            let replaced = false;
-            for (const sub of allSubs) {
-              const name = sub.getAttribute("data-section");
-              if (name.toLowerCase().includes(subsectionName.toLowerCase()) ||
-                  subsectionName.toLowerCase().includes(name.toLowerCase())) {
-                sub.replaceWith(newSubDiv.cloneNode(true));
-                replaced = true; break;
-              }
-            }
-            if (!replaced) {
-              const docContent = container.querySelector(".doc-content");
-              if (docContent) docContent.appendChild(newSubDiv.cloneNode(true));
-            }
+            // Модель не обернула в data-section — убираем стиль обёртки, содержимое уже на месте
+            streamTarget.style.cssText = "";
           }
 
           // ── 6. Состояние ──
-          DOC_STATE.sectionHTML[sectionKey] = container.innerHTML;
           DOC_STATE.editedSections.add(sectionKey);
 
           if (sectionKey === "graph") {
@@ -13349,15 +13991,20 @@ ${LEVEL_DIALOGUE_STRUCT[dialogueLevel]}
           DOC_STATE.factualDeps = buildFactualDepsMap(ctxLog);
           updateFooterCost();
 
-          // ── 7. Возвращаем зависимых для каскада ──
-          return getIntraDependents(sectionKey, subsectionName);
+          // ── 7. Возвращаем зависимых для каскада (только существующие в DOM) ──
+          const allDependents = getIntraDependents(sectionKey, subsectionName);
+          const existingSubsections = new Set(
+            Array.from(container.querySelectorAll("[data-section]"))
+              .map(el => el.getAttribute("data-section"))
+          );
+          return allDependents.filter(name => existingSubsections.has(name));
 
         } catch (err) {
           genEntry.status = "error";
           genEntry.error = err.message;
           throw err;
         } finally {
-          tempContainer.remove();
+          buildTableOfContents();
         }
       }
 
@@ -13395,10 +14042,10 @@ ${LEVEL_DIALOGUE_STRUCT[dialogueLevel]}
         const existingDef = DOC_STATE.sectionDefs[sectionKey];
         if (existingDef) def.num = existingDef.num;
 
-        // let container;
+        let container;
         if (sectionKey === "capsule") {
           // Капсула не имеет DOM-контейнера в docBodies — используем временный
-          const container = document.createElement("div");
+          container = document.createElement("div");
           container.style.display = "none";
           document.body.appendChild(container);
         } else {
@@ -13475,9 +14122,6 @@ ${LEVEL_DIALOGUE_STRUCT[dialogueLevel]}
         genLog.push(genEntry);
 
         // Стриминг
-        const dbIdx = DOC_STATE.sectionDbIdx[sectionKey];
-        const container = document.getElementById("db" + dbIdx);
-        if (!container) throw new Error("DOM-контейнер не найден.");
         container.innerHTML = "";
 
         const usage = await streamResp(fp, container, SYS, (chars, html) => {
@@ -13522,7 +14166,6 @@ ${LEVEL_DIALOGUE_STRUCT[dialogueLevel]}
         DOC_STATE.factualDeps = buildFactualDepsMap(ctxLog);
 
         // DOC_STATE
-        DOC_STATE.sectionHTML[sectionKey] = container.innerHTML;
         if (sectionKey === "capsule") {
           // regenerateSection стримит во временный контейнер (container),
           // затем обновляем шапку и capsuleHTML. DOM-контейнер не сохраняется.
@@ -13606,10 +14249,23 @@ ${LEVEL_DIALOGUE_STRUCT[dialogueLevel]}
         // ── 1b. Запоминаем номер удалённого раздела ДО очистки ──
         const deletedNum = DOC_STATE.sectionDefs[sectionKey]?.num;
 
+        // ── Запись в лог ──
+        genLog.push({
+          type: "deletion-marker",
+          sectionKey: sectionKey,
+          sectionLabel: KEY_LABELS[sectionKey] || sectionKey,
+          sectionNum: deletedNum,
+          timestamp: new Date().toISOString(),
+          status: "done",
+          inputChars: 0, outputChars: 0,
+          inputTokens: 0, outputTokens: 0,
+          cost: 0,
+        });
+        refreshCtxLogIfOpen();
+
         // ── 2. Обновляем DOC_STATE ──
         DOC_STATE.sectionOrder = DOC_STATE.sectionOrder.filter(k => k !== sectionKey);
         delete DOC_STATE.sectionDbIdx[sectionKey];
-        delete DOC_STATE.sectionHTML[sectionKey];
         delete DOC_STATE.sectionDefs[sectionKey];
         delete DOC_STATE.params.secCtx[sectionKey];
         DOC_STATE.editedSections.delete(sectionKey);
@@ -13626,13 +14282,6 @@ ${LEVEL_DIALOGUE_STRUCT[dialogueLevel]}
 
         // ── 6. Обновляем ссылки §N в тексте (с пометкой удалённого) ──
         renumberSectionRefs(renumberMap, deletedNum ? [deletedNum] : []);
-
-        // ── 7. Обновляем кэш HTML ──
-        for (const key of DOC_STATE.sectionOrder) {
-          const idx = DOC_STATE.sectionDbIdx[key];
-          const el = document.getElementById("db" + idx);
-          if (el) DOC_STATE.sectionHTML[key] = el.innerHTML;
-        }
 
         // ── 8. Если удалили граф — скрываем кнопку графа ──
         if (sectionKey === "graph") {
@@ -13662,7 +14311,7 @@ ${LEVEL_DIALOGUE_STRUCT[dialogueLevel]}
         buildTableOfContents();
 
         // ── Предложить обновление «Структура документа» в резюме ──
-        if (sectionKey !== "sum" && DOC_STATE.sectionOrder.includes("sum")) {
+        if (sectionKey !== "sum" && sectionKey !== "capsule" && DOC_STATE.sectionOrder.includes("sum")) {
           const def = DOC_STATE.sectionDefs["sum"];
           if (def?.parts) {
             setTimeout(() => {
@@ -13888,7 +14537,6 @@ ${LEVEL_DIALOGUE_STRUCT[dialogueLevel]}
           }
 
           // ── 14. Финализация DOC_STATE ──
-          DOC_STATE.sectionHTML[sectionKey] = newContainer.innerHTML;
           if (sectionKey === "capsule") {
             DOC_STATE.capsuleHTML = newContainer.innerHTML;
             updateCapsuleInHeader();
@@ -13907,7 +14555,7 @@ ${LEVEL_DIALOGUE_STRUCT[dialogueLevel]}
           setTimeout(() => renderEditSections(), 1500);
           buildTableOfContents();
 
-          if (sectionKey !== "sum" && DOC_STATE.sectionOrder.includes("sum")) {
+          if (sectionKey !== "sum" && sectionKey !== "capsule" && DOC_STATE.sectionOrder.includes("sum")) {
             const sumDef = DOC_STATE.sectionDefs["sum"];
             if (sumDef?.parts) {
               setTimeout(() => {
@@ -13923,6 +14571,46 @@ ${LEVEL_DIALOGUE_STRUCT[dialogueLevel]}
                   );
                 }
               }, 500);
+            }
+          }
+
+          // ── 16. Каскад: предложить перегенерировать разделы, получающие контекст от нового ──
+          if (sectionKey !== "sum" && sectionKey !== "capsule") {
+            const newDependents = computeDependents(DOC_STATE.effectiveDeps);
+            const downstream = [...(newDependents[sectionKey] || new Set())]
+              .filter(k => k !== "sum" && k !== sectionKey && DOC_STATE.sectionOrder.includes(k));
+
+            if (downstream.length > 0) {
+              setTimeout(() => {
+                const labels = downstream.map(k => "«" + (KEY_LABELS[k] || k) + "»").join(", ");
+                const word = downstream.length === 1 ? "раздел зависит" : "разделов зависят";
+
+                let hint = "";
+                const est = estimateCost({ sections: downstream });
+                if (est) hint = " (≈ $" + est.cost.toFixed(4) + ")";
+
+                const doCascade = confirm(
+                  "Раздел «" + (KEY_LABELS[sectionKey] || sectionKey) + "» добавлен.\n\n" +
+                  downstream.length + " " + word + " от его контекста: " + labels + ".\n" +
+                  "Перегенерация улучшит их качество за счёт нового контекста.\n\n" +
+                  "Перегенерировать?" + hint
+                );
+
+                if (doCascade) {
+                  const sorted = sortInTopoOrder(downstream);
+                  (async () => {
+                    for (const depKey of sorted) {
+                      try {
+                        await cascadeRegenerateOne(depKey);
+                      } catch (err) {
+                        console.warn("Каскад после добавления: ошибка для", depKey, err);
+                      }
+                    }
+                    updateFooterCost();
+                    buildTableOfContents();
+                  })();
+                }
+              }, 800); // задержка, чтобы не конфликтовать с предложением «Структура документа»
             }
           }
 
@@ -14184,7 +14872,7 @@ ${LEVEL_DIALOGUE_STRUCT[dialogueLevel]}
         }
 
         // ── 7. Построение DOC_STATE ──
-        buildDocStateFromImport(meta, sections, embeddedState);
+        buildDocStateFromImport(meta, sections, embeddedState, doc);
 
         console.log("Импорт завершён:", filename,
           "разделов:", sections.length,
@@ -14384,6 +15072,49 @@ ${LEVEL_DIALOGUE_STRUCT[dialogueLevel]}
       }
 
       /**
+       * Извлекает результаты режимов из видимых <details class="philosynth-mode">.
+       * @param {Document} doc — распарсенный HTML
+       * @returns {{ [modeKey: string]: { html: string, param: string, timestamp: string } }}
+       */
+      function extractModesFromHTML(doc) {
+        const modes = {};
+        
+        // Формат 1 (новый, §5): данные в <script> как DOC_STATE.modes = {...}
+        const scripts = doc.querySelectorAll("script");
+        for (const s of scripts) {
+          const match = s.textContent.match(/DOC_STATE\s*=\s*\{\s*modes:\s*(\{[\s\S]*?\})\s*\}/);
+          if (match) {
+            try {
+              const parsed = JSON.parse(match[1]);
+              for (const [key, results] of Object.entries(parsed)) {
+                modes[key] = Array.isArray(results) ? results : [];
+              }
+              return modes;
+            } catch (e) { console.warn("Не удалось распарсить DOC_STATE.modes:", e); }
+          }
+        }
+        
+        // Формат 2 (§3, промежуточный): <details class="philosynth-mode"> с data-атрибутами
+        const details = doc.querySelectorAll("details.philosynth-mode");
+        for (const det of details) {
+          const key = det.getAttribute("data-mode-key");
+          if (!key) continue;
+          if (!modes[key]) modes[key] = [];
+          const body = det.querySelector(".philosynth-mode-body");
+          modes[key].push({
+            html: body ? body.innerHTML : "",
+            param: det.getAttribute("data-mode-param") || "",
+            timestamp: det.getAttribute("data-mode-timestamp") || "",
+          });
+        }
+        if (Object.keys(modes).length > 0) return modes;
+        
+        // Формат 3 (старый): обычные <details> без атрибутов — не парсятся,
+        // данные берутся из JSON-состояния в buildDocStateFromImport
+        return modes;
+      }
+
+      /**
        * Заполняет DOM страницы содержимым импортированного документа.
        */
       function populateFromImport(importedDocOutput, meta, sections, embeddedState, filename) {
@@ -14456,7 +15187,7 @@ ${LEVEL_DIALOGUE_STRUCT[dialogueLevel]}
       /**
        * Строит DOC_STATE из импортированных данных.
        */
-      function buildDocStateFromImport(meta, sections, embeddedState) {
+      function buildDocStateFromImport(meta, sections, embeddedState, doc) {
         resetDocState();
 
         // ── Восстанавливаем логи ──
@@ -14483,6 +15214,15 @@ ${LEVEL_DIALOGUE_STRUCT[dialogueLevel]}
         // ── Параметры ──
         const secCtxMap = {};
         sections.forEach(s => { if (s.secCtx) secCtxMap[s.key] = s.secCtx; });
+
+        // Капсула не извлекается extractSections (нет .doc-section в docBodies).
+        // Создаём def вручную, если capsule есть в sectionOrder.
+        if (DOC_STATE.sectionOrder.includes("capsule") && !DOC_STATE.sectionDefs["capsule"]) {
+          const capsuleDef = defsMap["capsule"];
+          DOC_STATE.sectionDefs["capsule"] = capsuleDef
+            ? { ...capsuleDef }
+            : { key: "capsule", num: DOC_STATE.sectionOrder.length, title: "Капсула Концепции", parts: null, prompt: "" };
+        }
 
         const params = embeddedState?.params || {
           seed: meta.seed,
@@ -14546,20 +15286,16 @@ ${LEVEL_DIALOGUE_STRUCT[dialogueLevel]}
         // ── db-маппинг и HTML-кэш ──
         DOC_STATE.sectionDbIdx = {};
         DOC_STATE.sectionDefs = {};
-        DOC_STATE.sectionHTML = {};
 
         sections.forEach((sec, i) => {
           DOC_STATE.sectionDbIdx[sec.key] = i;
           DOC_STATE.sectionDefs[sec.key] = defsMap[sec.key] ? { ...defsMap[sec.key] } : { key: sec.key, num: i + 1, title: sec.title, prompt: "" };
           const el = document.getElementById("db" + i);
-          if (el) DOC_STATE.sectionHTML[sec.key] = el.innerHTML;
         });
 
         // Восстанавливаем капсулу из шапки импортированного документа
         // Приоритет: embedded state (полный HTML) > meta.capsuleText (текст из шапки)
-        if (embeddedState?.capsuleHTML) {
-          DOC_STATE.capsuleHTML = embeddedState.capsuleHTML;
-        } else if (meta.capsuleText) {
+        if (meta.capsuleText) {
           DOC_STATE.capsuleHTML = '<div class="doc-section"><div class="doc-content"><div data-section="Капсула"><p>' +
             meta.capsuleText.split("\n").map(l => l.trim()).filter(Boolean).join("</p><p>") +
             '</p></div></div></div>';
@@ -14571,7 +15307,17 @@ ${LEVEL_DIALOGUE_STRUCT[dialogueLevel]}
           updateModeButtons();
         }, 150);
 
-        DOC_STATE.modes = embeddedState?.modes || {};
+        // Приоритет режимов: JSON (обратная совместимость) → MODES_DATA в скрипте → <details>
+        if (embeddedState?.modes && Object.keys(embeddedState.modes).length > 0) {
+          // Старый формат JSON: конвертируем одиночные объекты в массивы
+          const raw = embeddedState.modes;
+          for (const [k, v] of Object.entries(raw)) {
+            if (!Array.isArray(v)) raw[k] = v?.html ? [v] : [];
+          }
+          DOC_STATE.modes = raw;
+        } else {
+          DOC_STATE.modes = extractModesFromHTML(doc);
+        }
 
         // graphBodyIdx
         graphBodyIdx = DOC_STATE.sectionDbIdx["graph"] ?? -1;
@@ -14972,55 +15718,151 @@ ${LEVEL_DIALOGUE_STRUCT[dialogueLevel]}
 
       /**
        * Для данного набора изменённых/удалённых разделов определяет,
-       * какие сгенерированные режимы затронуты.
+       * какие сгенерированные результаты режимов затронуты.
        *
        * @param {string[]} changedSections — ключи разделов, которые перегенерированы/удалены
        * @param {string[]} [changedSubsections] — массив "sectionKey:subsectionName" (опц.)
-       * @returns {{ modeKey: string, title: string, reason: string }[]}
+       * @returns {{ modeKey: string, index: number, param: string, title: string, reason: string }[]}
        */
       function getAffectedModes(changedSections, changedSubsections) {
         const affected = [];
 
-        for (const [modeKey, modeData] of Object.entries(DOC_STATE.modes || {})) {
-          if (!modeData?.html) continue;
+        for (const [modeKey, results] of Object.entries(DOC_STATE.modes || {})) {
+          if (!Array.isArray(results)) continue;
           const deps = MODE_DEPS[modeKey];
           if (!deps) continue;
           const config = MODE_CONFIG[modeKey];
-
           const allCtxKeys = [...(deps.required || []), ...(deps.optional || [])];
 
-          // Проверяем разделы
-          for (const ctxKey of allCtxKeys) {
-            const src = sourceOf(ctxKey);
-            if (changedSections.includes(src)) {
-              affected.push({
-                modeKey,
-                title: config?.title || modeKey,
-                reason: "Изменён раздел «" + (KEY_LABELS[src] || src) + "» (контекст: " + (CTX_LABELS[ctxKey] || ctxKey) + ")",
-              });
-              break; // один режим — одно предупреждение
-            }
-          }
+          for (let i = 0; i < results.length; i++) {
+            if (!results[i]?.html) continue;
+            let found = false;
 
-          // Проверяем подразделы (через SUBSECTION_TO_CTX_KEYS)
-          if (changedSubsections && !affected.find(a => a.modeKey === modeKey)) {
-            for (const subId of changedSubsections) {
-              const [secKey, subName] = subId.split(":");
-              const ctxKeys = (SUBSECTION_TO_CTX_KEYS[secKey] || {})[subName] || [];
-              const overlap = ctxKeys.filter(k => allCtxKeys.includes(k));
-              if (overlap.length > 0) {
+            // Проверяем разделы
+            for (const ctxKey of allCtxKeys) {
+              const src = sourceOf(ctxKey);
+              if (changedSections.includes(src)) {
                 affected.push({
                   modeKey,
-                  title: config?.title || modeKey,
-                  reason: "Изменён подраздел «" + subName + "» в «" + (KEY_LABELS[secKey] || secKey) + "»",
+                  index: i,
+                  param: results[i].param,
+                  title: (config?.title || modeKey) + " · " + results[i].param,
+                  reason: "Изменён раздел «" + (KEY_LABELS[src] || src) + "» (контекст: " + (CTX_LABELS[ctxKey] || ctxKey) + ")",
                 });
+                found = true;
                 break;
+              }
+            }
+
+            // Проверяем подразделы (через SUBSECTION_TO_CTX_KEYS)
+            if (!found && changedSubsections) {
+              for (const subId of changedSubsections) {
+                const [secKey, subName] = subId.split(":");
+                const ctxKeys = (SUBSECTION_TO_CTX_KEYS[secKey] || {})[subName] || [];
+                const overlap = ctxKeys.filter(k => allCtxKeys.includes(k));
+                if (overlap.length > 0) {
+                  affected.push({
+                    modeKey,
+                    index: i,
+                    param: results[i].param,
+                    title: (config?.title || modeKey) + " · " + results[i].param,
+                    reason: "Изменён подраздел «" + subName + "» в «" + (KEY_LABELS[secKey] || secKey) + "»",
+                  });
+                  break;
+                }
               }
             }
           }
         }
 
         return affected;
+      }
+
+      function truncLabel(s, max) {
+        return s.length > max ? s.slice(0, max - 1) + "…" : s;
+      }
+
+      /** Строит полосу вкладок для режима */
+      function buildModeTabsBar(modeKey, results) {
+        const bar = document.getElementById("modeTabsBar");
+        if (!results || !results.length) {
+          bar.style.display = "none";
+          bar.innerHTML = "";
+          return;
+        }
+        bar.style.display = "flex";
+        bar.innerHTML = results.map((r, i) => {
+          const label = truncLabel(r.param, 24);
+          const date = new Date(r.timestamp).toLocaleDateString("ru-RU");
+          return `<button class="mode-tab" data-index="${i}"
+                    onclick="switchModeTab('${modeKey}',${i})">
+              ${esc(label)}
+              <span class="mode-tab-date">${date}</span>
+              <span class="mode-tab-close"
+                    onclick="event.stopPropagation();removeModeResult('${modeKey}',${i})">×</span>
+            </button>`;
+        }).join("");
+      }
+
+      /** Переключает активную вкладку и показывает содержимое */
+      function switchModeTab(modeKey, index) {
+        const results = DOC_STATE.modes[modeKey];
+        if (!results || index < 0 || index >= results.length) return;
+
+        // Подсветка
+        const tabs = document.querySelectorAll("#modeTabsBar .mode-tab");
+        tabs.forEach((t, i) => t.classList.toggle("active", i === index));
+
+        // Содержимое
+        document.getElementById("modeContent").innerHTML = results[index].html;
+
+        // Footer
+        const config = MODE_CONFIG[modeKey];
+        document.getElementById("modeInfo").textContent =
+          (config?.desc || "") + " · " + results[index].param +
+          " · " + new Date(results[index].timestamp).toLocaleString("ru-RU");
+      }
+
+      /** Добавляет вкладку со спиннером (вызывается ДО начала стриминга) */
+      function addModeTab(modeKey, param, index) {
+        const bar = document.getElementById("modeTabsBar");
+        bar.style.display = "flex";
+
+        // Снять active с остальных
+        bar.querySelectorAll(".mode-tab").forEach(t => t.classList.remove("active"));
+
+        const tab = document.createElement("button");
+        tab.className = "mode-tab active adding";
+        tab.dataset.index = index;
+        tab.innerHTML = `⟳ ${esc(truncLabel(param, 24))}`;
+        bar.appendChild(tab);
+      }
+
+      /** Финализирует вкладку: перестраивает полосу, убирает спиннер */
+      function finalizeModeTab(modeKey, index) {
+        const results = DOC_STATE.modes[modeKey] || [];
+        buildModeTabsBar(modeKey, results);
+        switchModeTab(modeKey, index);
+      }
+
+      /** Удаляет один результат режима */
+      function removeModeResult(modeKey, index) {
+        const results = DOC_STATE.modes[modeKey];
+        if (!results || !results[index]) return;
+        if (!confirm("Удалить результат «" + results[index].param + "»?")) return;
+
+        results.splice(index, 1);
+
+        if (results.length === 0) {
+          delete DOC_STATE.modes[modeKey];
+          document.getElementById("modeContent").innerHTML = "";
+          document.getElementById("modeInfo").textContent = MODE_CONFIG[modeKey]?.desc || "—";
+        }
+
+        buildModeTabsBar(modeKey, results);
+        if (results.length > 0) {
+          switchModeTab(modeKey, Math.min(index, results.length - 1));
+        }
       }
 
       function openModeModal(mode) {
@@ -15055,13 +15897,14 @@ ${LEVEL_DIALOGUE_STRUCT[dialogueLevel]}
           return `<div class="${cls}" style="margin-bottom:4px"><span class="warn-icon">${icon}</span><span>${esc(w.text)}</span></div>`;
         }).join("");
 
-        // Если есть предыдущий результат — показать
-        const prev = DOC_STATE.modes[mode];
+        // Вкладки с результатами
+        const results = DOC_STATE.modes[mode] || [];
+        buildModeTabsBar(mode, results);
+
+        // Показать последнюю вкладку или пустое содержимое
         const content = document.getElementById("modeContent");
-        if (prev?.html) {
-          content.innerHTML = prev.html;
-          document.getElementById("modeInfo").textContent =
-            config.desc + " · Последняя генерация: " + new Date(prev.timestamp).toLocaleString("ru-RU");
+        if (results.length > 0) {
+          switchModeTab(mode, results.length - 1);
         } else {
           content.innerHTML = "";
         }
@@ -15102,6 +15945,15 @@ ${LEVEL_DIALOGUE_STRUCT[dialogueLevel]}
         spinner.style.display = "block";
         runText.textContent = "Генерация...";
 
+        // Инициализируем массив для этого режима, если его нет
+        if (!DOC_STATE.modes[_currentMode]) {
+          DOC_STATE.modes[_currentMode] = [];
+        }
+
+        // Создаём новую вкладку со спиннером
+        const newIndex = DOC_STATE.modes[_currentMode].length;
+        addModeTab(_currentMode, paramValue, newIndex);
+
         const content = document.getElementById("modeContent");
         content.innerHTML = "";
 
@@ -15115,8 +15967,8 @@ ${LEVEL_DIALOGUE_STRUCT[dialogueLevel]}
             sectionKey: "mode:" + _currentMode,
             sectionLabel: config.title + " · " + paramValue,
             priorChars: ctx.length,
-            taskChars: prompt.length,
-            inputChars: SYS.length + prompt.length,
+            taskChars: prompt.length - ctx.length,  
+            inputChars: SYS.length + prompt.length, 
             outputChars: 0, inputTokens: 0, outputTokens: 0,
             cost: 0, error: null, status: "streaming",
             source: "mode",
@@ -15137,7 +15989,7 @@ ${LEVEL_DIALOGUE_STRUCT[dialogueLevel]}
           genEntry.inputTokens = usage.input_tokens;
           genEntry.outputTokens = usage.output_tokens;
           genEntry.outputChars = content.innerHTML.length;
-          genEntry.cost = usage.input_tokens * 3 / 1e6 + usage.output_tokens * 15 / 1e6;
+          genEntry.cost = usage.input_tokens * PRICE_IN + usage.output_tokens * PRICE_OUT;
           genEntry.status = "done";
           refreshCtxLogIfOpen();
 
@@ -15146,12 +15998,17 @@ ${LEVEL_DIALOGUE_STRUCT[dialogueLevel]}
             usage.input_tokens.toLocaleString("ru") + " вх. + " +
             usage.output_tokens.toLocaleString("ru") + " вых. · $" + cost.toFixed(4);
 
-          // Сохраняем в DOC_STATE
-          DOC_STATE.modes[_currentMode] = {
+          // Сохраняем результат — push в массив, не перезапись
+          DOC_STATE.modes[_currentMode].push({
             html: content.innerHTML,
             param: paramValue,
             timestamp: new Date().toISOString(),
-          };
+          });
+
+          DOC_STATE.docVersion = (DOC_STATE.docVersion || 1) + 1;
+
+          // Финализируем вкладку
+          finalizeModeTab(_currentMode, newIndex);
 
         } catch (err) {
           content.innerHTML = `<div class="callout warning"><span class="callout-label">⚠ Ошибка</span>${err.message}</div>`;
@@ -15161,6 +16018,20 @@ ${LEVEL_DIALOGUE_STRUCT[dialogueLevel]}
             lastEntry.error = err.message;
           }
           refreshCtxLogIfOpen();
+
+          // Убираем вкладку со спиннером — результата нет
+          const bar = document.getElementById("modeTabsBar");
+          const addingTab = bar?.querySelector(".mode-tab.adding");
+          if (addingTab) addingTab.remove();
+
+          // Переключаемся на предыдущую вкладку, если есть
+          const results = DOC_STATE.modes[_currentMode] || [];
+          if (results.length > 0) {
+            buildModeTabsBar(_currentMode, results);
+            switchModeTab(_currentMode, results.length - 1);
+          } else {
+            buildModeTabsBar(_currentMode, []);
+          }
         } finally {
           btn.disabled = false;
           spinner.style.display = "none";
@@ -15168,24 +16039,16 @@ ${LEVEL_DIALOGUE_STRUCT[dialogueLevel]}
         }
       }
 
-      function copyModeContent() {
-        const text = document.getElementById("modeContent")?.innerText || "";
-        navigator.clipboard.writeText(text).then(() => {
-          const btn = document.querySelector("#modeOverlay .mode-modal-copy");
-          const o = btn.textContent;
-          btn.textContent = "✓ Скопировано";
-          setTimeout(() => btn.textContent = o, 2000);
-        });
-      }
-
       /**
-       * Программная перегенерация режима без открытия модалки.
-       * @param {string} modeKey
+       * Программная перегенерация одного результата режима без открытия модалки.
+       * @param {string} modeKey — ключ режима
+       * @param {number} index — индекс результата в массиве DOC_STATE.modes[modeKey]
        * @returns {Promise<void>}
        */
-      async function regenerateModeSilent(modeKey) {
-        const modeData = DOC_STATE.modes[modeKey];
-        if (!modeData) return;
+      async function regenerateModeSilent(modeKey, index) {
+        const results = DOC_STATE.modes[modeKey];
+        if (!Array.isArray(results) || !results[index]) return;
+        const modeData = results[index];
         const config = MODE_CONFIG[modeKey];
         if (!config) return;
 
@@ -15216,9 +16079,9 @@ ${LEVEL_DIALOGUE_STRUCT[dialogueLevel]}
           genEntry.inputTokens = usage.input_tokens;
           genEntry.outputTokens = usage.output_tokens;
           genEntry.outputChars = tempContainer.innerHTML.length;
-          genEntry.cost = usage.input_tokens * 3 / 1e6 + usage.output_tokens * 15 / 1e6;
+          genEntry.cost = usage.input_tokens * PRICE_IN + usage.output_tokens * PRICE_OUT;
           genEntry.status = "done";
-          DOC_STATE.modes[modeKey] = {
+          results[index] = {
             html: tempContainer.innerHTML,
             param: modeData.param,
             timestamp: new Date().toISOString(),
@@ -15348,6 +16211,19 @@ ${LEVEL_DIALOGUE_STRUCT[dialogueLevel]}
               continue;
             }
 
+            // ── Маркер удаления ──
+            if (g.type === "deletion-marker") {
+              lines.push("");
+              lines.push("─".repeat(70));
+              const dt = g.timestamp
+                ? new Date(g.timestamp).toLocaleString("ru-RU")
+                : "";
+              lines.push("  " + SYM.fail + " УДАЛЁН: § " + (g.sectionNum || "?") +
+                " — " + g.sectionLabel + (dt ? "  ·  " + dt : ""));
+              lines.push("─".repeat(70));
+              continue;
+            }
+
             const keys = g.sectionKey.split("+");
         
             lines.push("");
@@ -15356,7 +16232,12 @@ ${LEVEL_DIALOGUE_STRUCT[dialogueLevel]}
             // --- Состав входа ---
             lines.push("");
             lines.push("ВХОД:");
-            lines.push("  Общие элементы             " + num(genCommon ? genCommon.totalChars : 0).padStart(7) + " симв.");
+            const isMode = g.sectionKey?.startsWith("mode:");
+            const commonChars = isMode
+              ? (genCommon?.sysChars || 0)
+              : (genCommon ? genCommon.totalChars : 0);
+
+            lines.push("  Общие элементы             " + num(commonChars).padStart(7) + " симв.");
         
             if (g.priorChars > 0) {
               lines.push("  Контекст пред. разделов   " + num(g.priorChars).padStart(7) + " симв.");
@@ -15465,6 +16346,7 @@ ${LEVEL_DIALOGUE_STRUCT[dialogueLevel]}
           // --- Итоги ---
           const doneEntries = genLog.filter(g =>
             g.type !== "version-marker" &&
+            g.type !== "deletion-marker" &&
             (g.status === "done" || g.status === "error" || !g.status)
           );
           if (doneEntries.length > 0) {
@@ -15487,241 +16369,335 @@ ${LEVEL_DIALOGUE_STRUCT[dialogueLevel]}
           return lines.join("\n");
         }
   
-        function formatCtxLogHTML() {
-          if (genLog.length === 0 && ctxLog.length === 0)
-            return '<span style="color:#8a8278">Лог пуст. Сгенерируйте документ.</span>';
-        
-          const esc = s => s.replace(/&/g, "&amp;").replace(/</g, "&lt;");
-          const num = n => n.toLocaleString("ru");
-          const lines = [];
+        /**
+         * Раскрашивает plain-text лог из formatCtxLog() для HTML-отображения.
+         * Воспроизводит цветовую схему оригинальной formatCtxLogHTML.
+         */
+        function colorizeLog(text) {
+          const e = t => t.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
 
-          if (DOC_STATE.docVersion > 1) {
-            lines.push('Версия: <span style="color:#d4a017;font-weight:600">v' +
-              DOC_STATE.docVersion + '</span>');
+          // ── Цветовая палитра (из старой formatCtxLogHTML) ──
+          const C = {
+            gold:      "#d4a017",
+            blue:      "#7ba7e8",
+            green:     "#4db87a",
+            red:       "#e06060",
+            dim:       "#888888",
+            dimmer:    "#777777",
+            muted:     "#555555",
+            label:     "#aaa",
+            violet:    "#9b59b6",
+          };
+
+          // ── Хелперы инлайн-раскраски ──
+
+          /** Раскрашивает числа с единицами: "12 345 симв.", "1 024 ток." */
+          function colorNums(s, color) {
+            return s.replace(/([\d\s,.]+)\s*(симв\.|ток(?:енов)?)/g,
+              '<span style="color:' + color + '">$1 $2</span>');
           }
-        
-          // --- Общие элементы промпта ---
-          if (genCommon) {
-            lines.push('<span style="color:#aaa;font-weight:500">ОБЩИЕ ЭЛЕМЕНТЫ ПРОМПТА</span> <span style="color:#888888">(одинаковы для всех запросов)</span>');
-        
-            const cl = (label, chars) =>
-              '  ' + label.padEnd(30) +
-              '<span style="color:#7ba7e8">' + num(chars).padStart(7) + ' симв.</span>';
-        
-            lines.push(cl("Системный промпт", genCommon.sysChars));
-            lines.push(cl("Параметры синтеза", genCommon.baseChars));
-            lines.push(cl("Правила форматирования", genCommon.rulesChars));
-            lines.push(cl("Требования к качеству", genCommon.qualityChars));
-            lines.push(cl("Служебный каркас", genCommon.scaffoldChars));
-            lines.push('  ' + ' '.repeat(23) +
-              '<span style="font-weight:600">ИТОГО</span> ' +
-              '<span style="color:#7ba7e8;font-weight:600">' + num(genCommon.totalChars).padStart(7) + ' симв.</span>');
-            lines.push('<span style="color:#555555">' + '─'.repeat(60) + '</span>');
+
+          /** Раскрашивает процент: "(85%)" */
+          function colorPct(s) {
+            return s.replace(/\((\d+)%\)/g,
+              '<span style="color:' + C.dim + '">($1%)</span>');
           }
-        
-          const ctxByKey = {};
-          for (const pass of ctxLog) ctxByKey[pass.sectionKey] = pass;
-        
-          for (const g of genLog) {
 
-            // ── Маркер версии ──
-            if (g.type === "version-marker") {
-              lines.push('');
-              lines.push('<span style="color:#d4a017;font-weight:600">' + '═'.repeat(60) + '</span>');
-              const dt = g.timestamp
-                ? new Date(g.timestamp).toLocaleString("ru-RU")
-                : "";
-              lines.push('<span style="color:#d4a017;font-weight:700;font-size:13px">' +
-                '  ВЕРСИЯ v' + g.version + '</span>' +
-                (dt ? ' <span style="color:#888">' + esc(dt) + '</span>' : ''));
-              const acts = g.actions || {};
-              if (acts.regen?.length)
-                lines.push('  <span style="color:#7ba7e8">Перегенерировано:</span> ' + esc(acts.regen.join(", ")));
-              if (acts.remove?.length)
-                lines.push('  <span style="color:#e06060">Удалено:</span> ' + esc(acts.remove.join(", ")));
-              if (acts.add?.length)
-                lines.push('  <span style="color:#4db87a">Добавлено:</span> ' + esc(acts.add.join(", ")));
-              lines.push('<span style="color:#d4a017;font-weight:600">' + '═'.repeat(60) + '</span>');
-              continue;
+          /** Раскрашивает соотношение с/т: "(3.2 с/т)" */
+          function colorRatio(s) {
+            return s.replace(/\(([\d.]+)\s*с\/т\)/g,
+              '<span style="color:' + C.dim + '">($1 с/т)</span>');
+          }
+
+          /** Раскрашивает стоимость: "$0.0234", "2.34¢" */
+          function colorCost(s) {
+            s = s.replace(/(\$[\d.,]+)/g,
+              '<span style="color:' + C.gold + ';font-weight:600">$1</span>');
+            s = s.replace(/([\d.,]+¢)/g,
+              '<span style="color:' + C.gold + '">$1</span>');
+            return s;
+          }
+
+          /** Раскрашивает "→ 1 234 токенов" */
+          function colorArrow(s, color) {
+            return s.replace(/(→)\s*([\d\s,.]+)\s*(ток(?:енов)?)/g,
+              '$1 <span style="color:' + color + ';font-weight:600">$2 $3</span>');
+          }
+
+          return e(text).split("\n").map(l => {
+
+            // ════ ПОЛНОСТРОЧНЫЕ ПАТТЕРНЫ (возвращают сразу) ════
+
+            // ═══ Заголовки разделов ═══  (включая ═══ ИТОГО ═══)
+            if (/^═{3,}\s.+\s═{3,}$/.test(l))
+              return '<span style="color:' + C.gold + ';font-weight:600">' + l + '</span>';
+
+            // Линии-разделители
+            if (/^[═]{10,}$/.test(l))
+              return '<span style="color:' + C.gold + ';font-weight:600">' + l + '</span>';
+            if (/^[─]{10,}$/.test(l))
+              return '<span style="color:' + C.muted + '">' + l + '</span>';
+
+            // Шапка документа "PHILOSYNTH PRO — ЛОГ КОНТЕКСТА И ГЕНЕРАЦИИ"
+            if (/^PHILOSYNTH PRO/.test(l))
+              return '<span style="color:' + C.gold + ';font-weight:700">' + l + '</span>';
+
+            // "Текущая версия: vN"
+            if (/^Текущая версия:/.test(l)) {
+              return l.replace(/(v\d+)/,
+                '<span style="color:' + C.gold + ';font-weight:600">$1</span>');
             }
 
-            const keys = g.sectionKey.split("+");
-        
-            lines.push('');
-            lines.push('<span style="color:#d4a017;font-weight:600">═══ ' +
-              esc(g.sectionLabel.toUpperCase()) + ' ═══</span>');
-        
-            // --- Состав входа ---
-            lines.push('');
-            lines.push('<span style="color:#aaa;font-weight:500">ВХОД:</span>');
-            lines.push('  Общие элементы' + ' '.repeat(14) +
-              '<span style="color:#888888">' + num(genCommon ? genCommon.totalChars : 0).padStart(7) + ' симв.</span>');
-        
-            if (g.priorChars > 0) {
-              lines.push('  Контекст пред. разделов   ' +
-                '<span style="color:#d4a017">' + num(g.priorChars).padStart(7) + ' симв.</span>');
-        
-              for (const k of keys) {
-                const ctx = ctxByKey[k];
-                if (!ctx) continue;
-        
-                const pct = Math.round(ctx.totalUsed / ctx.budget * 100);
-                lines.push('    <span style="color:#888">Бюджет: ' + num(ctx.budget) +
-                  ' симв., использовано: ' + num(ctx.totalUsed) + ' (' + pct + '%)</span>');
-        
-                const reqEntries = ctx.entries.filter(e => e.priority === "required");
-                if (reqEntries.length) {
-                  lines.push('    <span style="color:#888">Обязательный:</span>');
-                  for (const e of reqEntries) {
-                    const lbl = esc(CTX_LABELS[e.key] || e.key);
-                    if (e.status === "found") {
-                      const subTag = e.isSubstitute
-                        ? ' <span style="color:#9b59b6;font-size:9px;letter-spacing:0.5px">[замена]</span>'
-                        : '';
-                      lines.push('      <span style="color:#4db87a">✓</span> ' + lbl +
-                        ' — <span style="color:#4db87a">' + num(e.len) + ' симв.</span>' + subTag);
-                    } else if (e.status === "dropped") {
-                      lines.push('      <span style="color:#e06060">✗</span> ' + lbl +
-                        ' — <span style="color:#e06060">утрачён</span> ' +
-                        '<span style="color:#777777">[' + esc(e.note || "") + ']</span>');
-                    } else {
-                      lines.push('      <span style="color:#e06060">✗</span> ' + lbl +
-                        ' — <span style="color:#e06060;font-weight:600">НЕ НАЙДЕН</span>');
-                    }
-                  }
-                }
-        
-                const optEntries = ctx.entries.filter(e => e.priority === "optional");
-                if (optEntries.length) {
-                  lines.push('    <span style="color:#888">Опциональный:</span>');
-                  for (const e of optEntries) {
-                    const lbl = esc(CTX_LABELS[e.key] || e.key);
-                    if (e.status === "found") {
-                      const subTag = e.isSubstitute
-                        ? ' <span style="color:#9b59b6;font-size:9px;letter-spacing:0.5px">[замена]</span>'
-                        : '';
-                      lines.push('      <span style="color:#4db87a">✓</span> ' + lbl +
-                        ' — <span style="color:#4db87a">' + num(e.len) + ' симв.</span>' + subTag);
-                    } else if (e.status === "truncated") {
-                      const subTag = e.isSubstitute
-                        ? ' <span style="color:#9b59b6;font-size:9px;letter-spacing:0.5px">[замена]</span>'
-                        : '';
-                      lines.push('      <span style="color:#d4a017">◦</span> ' + lbl +
-                        ' — <span style="color:#d4a017">' + num(e.len) + ' симв.</span>' + subTag + ' ' +
-                        '<span style="color:#888888">[' + esc(e.note || "") + ']</span>');
-                    } else if (e.status === "skipped_budget") {
-                      lines.push('      <span style="color:#888888">◌</span> ' + lbl +
-                        ' — <span style="color:#888888">пропущен</span> ' +
-                        '<span style="color:#777777">[' + esc(e.note || "") + ']</span>');
-                    } else if (e.status === "dropped") {
-                      lines.push('      <span style="color:#e06060">✗</span> ' + lbl +
-                        ' — <span style="color:#e06060">утрачён</span> ' +
-                        '<span style="color:#777777">[' + esc(e.note || "") + ']</span>');
-                    } else {
-                      lines.push('      <span style="color:#e06060">✗</span> ' + lbl +
-                        ' — <span style="color:#888888">не найден</span>');
-                    }
-                  }
-                }
-              }
-            } else {
-              lines.push('  Контекст пред. разделов' + ' '.repeat(5) +
-                '<span style="color:#888888">— (первый раздел)</span>');
-            }
-        
-            lines.push('  Задание секции             ' +
-              '<span style="color:#7ba7e8">' + num(g.taskChars).padStart(7) + ' симв.</span>');
-        
-            const ratioIn = g.inputChars > 0 && g.inputTokens > 0
-              ? ' <span style="color:#888888">(' + (g.inputChars / g.inputTokens).toFixed(1) + ' с/т)</span>'
-              : '';
-            lines.push('  ' + ' '.repeat(23) +
-              '<span style="font-weight:600">ИТОГО</span> ' +
-              '<span style="color:#7ba7e8;font-weight:600">' + num(g.inputChars).padStart(7) + ' симв.</span>' +
-              ' → <span style="color:#7ba7e8;font-weight:600">' + num(g.inputTokens) + ' ток.</span>' + ratioIn);
-        
-            // --- Выход ---
-            lines.push('');
-            if (g.status === "streaming") {
-              lines.push('<span style="color:#aaa;font-weight:500">ВЫХОД:</span> ' +
-                '<span style="color:#7ba7e8">' + num(g.outputChars) + ' симв.</span>' +
-                ' <span style="color:#7ba7e8">⟳ генерация...</span>');
-            } else if (g.status === "error") {
-              lines.push('<span style="color:#aaa;font-weight:500">ВЫХОД:</span> ' +
-                '<span style="color:#e06060;font-weight:600">⚠ ОШИБКА: ' + esc(g.error) + '</span>');
-            } else {
-              const ratioOut = g.outputChars > 0 && g.outputTokens > 0
-                ? ' <span style="color:#888888">(' + (g.outputChars / g.outputTokens).toFixed(1) + ' с/т)</span>'
-                : '';
-              lines.push('<span style="color:#aaa;font-weight:500">ВЫХОД:</span> ' +
-                '<span style="color:#4db87a">' + num(g.outputChars) + ' симв.</span>' +
-                ' → <span style="color:#4db87a;font-weight:600">' + num(g.outputTokens) + ' ток.</span>' + ratioOut);
-              lines.push('  Стоимость: <span style="color:#d4a017;font-weight:600">$' +
-                g.cost.toFixed(4) + '</span> (' + (g.cost * 100).toFixed(2) + '¢)');
-              if (g.error) {
-                lines.push('  <span style="color:#e06060;font-weight:600">⚠ ОШИБКА: ' +
-                  esc(g.error) + '</span>');
-              }
+            // Маркер версии: "  ВЕРСИЯ v2  ·  01.04.2026, 14:30"
+            // Золотой для "ВЕРСИЯ vN", приглушённый для " · дата"
+            if (/ВЕРСИЯ\s+v\d/.test(l)) {
+              return l.replace(/^(\s*ВЕРСИЯ\s+v\d+)(.*)?$/,
+                '<span style="color:' + C.gold + ';font-weight:700;font-size:13px">$1</span>' +
+                '<span style="color:' + C.dim + '">$2</span>');
             }
 
-            // ── Посекционная разбивка ──
-            const subs = g.subsections || [];
-            const expected = g.expectedSubsections || [];
-            if (expected.length > 0) {
-              lines.push('');
-              lines.push('  <span style="color:#aaa;font-weight:500">СЕКЦИИ:</span>');
+            // Маркер удаления: "  ✗ УДАЛЁН: § 2 — Историческая справка  ·  дата"
+            if (/УДАЛЁН:/.test(l)) {
+              l = l.replace(/(✗|✘)/,
+                '<span style="color:' + C.red + '">$1</span>');
+              l = l.replace(/(УДАЛЁН:)/,
+                '<span style="color:' + C.red + ';font-weight:600">$1</span>');
+              l = l.replace(/(·\s*.+)$/,
+                '<span style="color:' + C.dim + '">$1</span>');
+              return l;
+            }
 
-              const foundMap = {};
-              for (const s of subs) foundMap[s.name] = s;
+            // Ошибки (полная строка с ⚠)
+            if (/⚠\s*ОШИБКА/.test(l))
+              return '<span style="color:' + C.red + ';font-weight:600">' + l + '</span>';
 
-              for (const secName of expected) {
-                const s = foundMap[secName];
-                const lbl = esc(secName).padEnd(40);
-                if (s) {
-                  if (s.status === "streaming") {
-                    lines.push('    <span style="color:#7ba7e8">⟳</span> ' + lbl +
-                      '<span style="color:#7ba7e8">' + num(s.chars) + ' симв.</span>' +
-                      ' <span style="color:#7ba7e8;font-size:9px">генерация</span>');
-                  } else {
-                    lines.push('    <span style="color:#4db87a">✓</span> ' + lbl +
-                      '<span style="color:#4db87a">' + num(s.chars) + ' симв.</span>');
-                  }
+            // Действия в маркерах версии
+            if (/^\s*Перегенерировано:/.test(l))
+              return l.replace(/^(\s*Перегенерировано:)/,
+                '<span style="color:' + C.blue + '">$1</span>');
+            if (/^\s*Удалено:/.test(l))
+              return l.replace(/^(\s*Удалено:)/,
+                '<span style="color:' + C.red + '">$1</span>');
+            if (/^\s*Добавлено:/.test(l))
+              return l.replace(/^(\s*Добавлено:)/,
+                '<span style="color:' + C.green + '">$1</span>');
+
+            // "— (первый раздел)"
+            if (/—\s*\(первый раздел\)/.test(l))
+              return '<span style="color:' + C.dim + '">' + l + '</span>';
+
+            // ════ БЛОЧНЫЕ МЕТКИ ════
+
+            // "ОБЩИЕ ЭЛЕМЕНТЫ ПРОМПТА (одинаковы для всех запросов):"
+            // Заголовок #aaa, скобочная часть #888888 — как в оригинале
+            if (/^ОБЩИЕ ЭЛЕМЕНТЫ ПРОМПТА/.test(l)) {
+              return l.replace(
+                /^(ОБЩИЕ ЭЛЕМЕНТЫ ПРОМПТА)(\s*\([^)]*\))?(:?)/,
+                '<span style="color:' + C.label + ';font-weight:500">$1</span>' +
+                '<span style="color:' + C.dim + '">$2$3</span>'
+              );
+            }
+
+            // "ВХОД:" / "ВЫХОД:" / "  СЕКЦИИ:"
+            // Обёртка \s* позволяет поймать "  СЕКЦИИ:" с отступом
+            if (/^\s*(ВХОД|ВЫХОД|СЕКЦИИ):/.test(l)) {
+              l = l.replace(/^(\s*)(ВХОД:|ВЫХОД:|СЕКЦИИ:)/,
+                '$1<span style="color:' + C.label + ';font-weight:500">$2</span>');
+
+              // Если ВЫХОД содержит числа — раскрасить inline
+              if (/ВЫХОД/.test(l)) {
+                if (/⟳/.test(l)) {
+                  // Streaming: "ВЫХОД: 123 симв. ⟳ генерация..."
+                  l = colorNums(l, C.blue);
+                  l = l.replace(/(⟳\s*генерация\.{0,3})/g,
+                    '<span style="color:' + C.blue + '">$1</span>');
                 } else {
-                  lines.push('    <span style="color:#555">◌</span> ' + lbl +
-                    '<span style="color:#555">—</span>');
+                  // Done: числа зелёные (когда на той же строке, теоретически)
+                  l = colorNums(l, C.green);
+                  l = colorArrow(l, C.green);
+                  l = colorRatio(l);
                 }
               }
+
+              return l;
             }
-            lines.push('<span style="color:#555555">' + '─'.repeat(60) + '</span>');
-          }
-        
-          // --- Итоги ---
-          const doneEntries = genLog.filter(g => g.status === "done" || g.status === "error" || !g.status);
-          const isStreaming = genLog.some(g => g.type !== "version-marker" && g.status === "streaming");
-          if (doneEntries.length > 0 || isStreaming) {
-            const t = doneEntries.reduce((a, g) => ({
-              inC: a.inC + g.inputChars, outC: a.outC + g.outputChars,
-              inT: a.inT + g.inputTokens, outT: a.outT + g.outputTokens,
-              cost: a.cost + g.cost,
-            }), { inC: 0, outC: 0, inT: 0, outT: 0, cost: 0 });
-        
-            lines.push('');
-            lines.push('<span style="color:#d4a017;font-weight:600">═══ ИТОГО ═══</span>');
-            lines.push('Разделов: ' + doneEntries.length + ' из ' + genLog.length +
-              (isStreaming ? ' <span style="color:#7ba7e8">⟳ генерация...</span>' : ''));
-            lines.push('Вход:  <span style="color:#7ba7e8">' + num(t.inC) +
-              ' симв.</span> → <span style="color:#7ba7e8;font-weight:600">' +
-              num(t.inT) + ' ток.</span>');
-            lines.push('Выход: <span style="color:#4db87a">' + num(t.outC) +
-              ' симв.</span> → <span style="color:#4db87a;font-weight:600">' +
-              num(t.outT) + ' ток.</span>');
-            lines.push('Стоимость: <span style="color:#d4a017;font-weight:600">$' +
-              t.cost.toFixed(4) + '</span> (' + (t.cost * 100).toFixed(2) + '¢)');
-            lines.push('<span style="color:#d4a017">' + '═'.repeat(60) + '</span>');
-          }
-        
-          return lines.join("\n");
+
+            // ════ СТРОКИ С ЧИСЛОВЫМИ ДАННЫМИ ════
+
+            // "  Системный промпт / Параметры синтеза / ..." — в блоке ОБЩИЕ, цвет синий
+            if (/^\s{2}(Системный промпт|Параметры синтеза|Правила форматирования|Требования к качеству|Служебный каркас)/.test(l)) {
+              return colorNums(l, C.blue);
+            }
+
+            // "  Общие элементы   N симв." — в блоке ВХОД, цвет приглушённый (#888888)
+            if (/^\s{2}Общие элементы\s/.test(l)) {
+              return colorNums(l, C.dim);
+            }
+
+            // "  Контекст пред. разделов    5 678 симв."
+            if (/^\s{2}Контекст пред\. разделов/.test(l)) {
+              return colorNums(l, C.gold);
+            }
+
+            // "  Задание секции              1 234 симв."
+            if (/^\s{2}Задание секции/.test(l)) {
+              return colorNums(l, C.blue);
+            }
+
+            // "                       ИТОГО  12 345 симв. → 4 567 токенов (3.1 с/т)"
+            if (/ИТОГО/.test(l)) {
+              l = l.replace(/(ИТОГО)/,
+                '<span style="font-weight:600">$1</span>');
+              l = colorNums(l, C.blue);
+              l = colorArrow(l, C.blue);
+              l = colorRatio(l);
+              return l;
+            }
+
+            // "  Стоимость: $0.0234 (2.34¢)"  — с отступом, внутри блока секции
+            if (/^\s{2}Стоимость:/.test(l)) {
+              return colorCost(l);
+            }
+
+            // "  1 234 симв. → 567 токенов (3.1 с/т)" — строка выхода без метки ВЫХОД
+            if (/^\s{2}\d/.test(l) && /симв\./.test(l) && /ток/.test(l)) {
+              l = colorNums(l, C.green);
+              l = colorArrow(l, C.green);
+              l = colorRatio(l);
+              return l;
+            }
+
+            // ════ БЮДЖЕТ И КОНТЕКСТ ════
+
+            // "    Бюджет: 48 000 симв., использовано: 32 000 (67%)"
+            if (/^\s{4}Бюджет:/.test(l)) {
+              l = colorNums(l, C.dim);
+              l = colorPct(l);
+              return '<span style="color:' + C.dim + '">' + l + '</span>';
+            }
+
+            // "    Обязательный:" / "    Опциональный:"
+            if (/^\s{4}(Обязательный|Опциональный):/.test(l)) {
+              return '<span style="color:' + C.dim + '">' + l + '</span>';
+            }
+
+            // ════ ЗАПИСИ КОНТЕКСТА (с ✓ ✗ ◦ ◌) — отступ 6 пробелов ════
+
+            // "      ✓ Граф → Таблица категорий        1 234 симв."
+            if (/^\s{6}✓/.test(l)) {
+              l = l.replace(/✓/, '<span style="color:' + C.green + '">✓</span>');
+              l = colorNums(l, C.green);
+              l = l.replace(/(\[замена\])/g,
+                '<span style="color:' + C.violet + ';font-size:9px">$1</span>');
+              return l;
+            }
+
+            // "      ✗ ... утрачён [...] / НЕ НАЙДЕН / не найден"
+            if (/^\s{6}✗/.test(l)) {
+              l = l.replace(/✗/, '<span style="color:' + C.red + '">✗</span>');
+              l = l.replace(/(НЕ НАЙДЕН)/g,
+                '<span style="color:' + C.red + ';font-weight:600">$1</span>');
+              l = l.replace(/(утрачён)/g,
+                '<span style="color:' + C.red + '">$1</span>');
+              l = l.replace(/(не найден)/g,
+                '<span style="color:' + C.dim + '">$1</span>');
+              l = l.replace(/\[([^\]]*)\]/g,
+                '<span style="color:' + C.dimmer + '">[$1]</span>');
+              return l;
+            }
+
+            // "      ◦ ... 1 234 симв. [обрезан с 5000 до 3000]"
+            if (/^\s{6}◦/.test(l)) {
+              l = l.replace(/◦/, '<span style="color:' + C.gold + '">◦</span>');
+              l = colorNums(l, C.gold);
+              l = l.replace(/(\[замена\])/g,
+                '<span style="color:' + C.violet + ';font-size:9px">$1</span>');
+              l = l.replace(/\[([^\]]*)\]/g,
+                '<span style="color:' + C.dim + '">[$1]</span>');
+              return l;
+            }
+
+            // "      ◌ ... пропущен [бюджет исчерпан]"
+            if (/^\s{6}◌/.test(l)) {
+              l = l.replace(/◌/, '<span style="color:' + C.dim + '">◌</span>');
+              l = l.replace(/(пропущен)/g,
+                '<span style="color:' + C.dim + '">$1</span>');
+              l = l.replace(/\[([^\]]*)\]/g,
+                '<span style="color:' + C.dimmer + '">[$1]</span>');
+              return l;
+            }
+
+            // ════ СЕКЦИИ (подразделы) — отступ 4 пробела ════
+
+            // "    ✓ Таблица категорий                     1 234 симв."
+            if (/^\s{4}✓/.test(l)) {
+              l = l.replace(/✓/, '<span style="color:' + C.green + '">✓</span>');
+              l = colorNums(l, C.green);
+              return l;
+            }
+
+            // "    ⟳ Таблица связей                        567 симв.  генерация"
+            if (/^\s{4}⟳/.test(l)) {
+              l = l.replace(/⟳/, '<span style="color:' + C.blue + '">⟳</span>');
+              l = colorNums(l, C.blue);
+              l = l.replace(/(генерация)/g,
+                '<span style="color:' + C.blue + ';font-size:9px">$1</span>');
+              return l;
+            }
+
+            // "    ◌ Топология графа                       —"
+            if (/^\s{4}◌/.test(l)) {
+              l = l.replace(/◌/, '<span style="color:' + C.muted + '">◌</span>');
+              l = l.replace(/(—)/, '<span style="color:' + C.muted + '">$1</span>');
+              return l;
+            }
+
+            // ════ ИТОГИ ════
+
+            // "Разделов: 5 из 8"
+            if (/^Разделов:/.test(l)) {
+              if (/⟳/.test(l)) {
+                l = l.replace(/(⟳\s*генерация\.{0,3})/g,
+                  '<span style="color:' + C.blue + '">$1</span>');
+              }
+              return l;
+            }
+
+            // "Вход:  12 345 симв. → 4 567 токенов"
+            if (/^Вход:/.test(l)) {
+              l = colorNums(l, C.blue);
+              l = colorArrow(l, C.blue);
+              return l;
+            }
+
+            // "Выход: 8 000 симв. → 2 345 токенов"
+            if (/^Выход:/.test(l)) {
+              l = colorNums(l, C.green);
+              l = colorArrow(l, C.green);
+              return l;
+            }
+
+            // "Стоимость: $0.1234 (12.34¢)"  — без отступа, итоговая строка
+            if (/^Стоимость:/.test(l)) {
+              return colorCost(l);
+            }
+
+            // ════ FALLBACK: минимальная раскраска ════
+            l = colorCost(l);
+            l = l.replace(/(\[замена\])/g,
+              '<span style="color:' + C.violet + ';font-size:9px">$1</span>');
+
+            return l;
+          }).join("\n");
         }
+
+      /** Обратная совместимость: вызывается из viewCtxLog, refreshCtxLogIfOpen */
+      function formatCtxLogHTML() {
+        const plain = formatCtxLog();
+        if (plain === "Лог пуст. Сгенерируйте документ.")
+          return '<span style="color:#8a8278">' + plain + '</span>';
+        return colorizeLog(plain);
+      }
 
       function viewCtxLog() {
         document.getElementById("ctxLogContent").innerHTML = formatCtxLogHTML();
