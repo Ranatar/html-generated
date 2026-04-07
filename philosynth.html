@@ -2795,91 +2795,323 @@
       .concept-card-status.err { color: var(--red); }
       .concept-card-status.warn { color: var(--gold); }
 
-      .gen-node { margin: 4px 0 4px 16px; }
-      .gen-depth-0 { margin-left: 0; }
-      .gen-concept-summary {
-        cursor: pointer;
-        list-style: none;
-        display: flex;
-        align-items: baseline;
-        gap: 8px;
+      /* ══════════════════════════════════════
+       GENEALOGY TREE — CSS org-chart
+       ══════════════════════════════════════ */
+
+    .gen-tree {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 16px 8px 8px;
+      overflow-x: auto;
+    }
+
+    /* ── Уровень: горизонтальный ряд детей ── */
+    .gen-tree ul {
+      display: flex;
+      justify-content: center;
+      padding-top: 20px;
+      position: relative;
+      list-style: none;
+      margin: 0;
+      padding-left: 0;
+    }
+
+    /* Вертикальная линия от родителя к горизонтальной перемычке */
+    .gen-tree ul::before {
+      content: "";
+      position: absolute;
+      top: 0;
+      left: 50%;
+      width: 1px;
+      height: 20px;
+      background: rgba(255, 255, 255, 0.2);
+    }
+
+    /* ── Узел (li) ── */
+    .gen-tree li {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      position: relative;
+      padding: 20px 6px 0;
+    }
+
+    /* Горизонтальная перемычка между сиблингами */
+    .gen-tree li::before,
+    .gen-tree li::after {
+      content: "";
+      position: absolute;
+      top: 0;
+      width: 50%;
+      height: 1px;
+      background: rgba(255, 255, 255, 0.2);
+    }
+    .gen-tree li::before { right: 50%; }
+    .gen-tree li::after  { left: 50%; }
+
+    /* Первый ребёнок: убрать левую часть перемычки */
+    .gen-tree li:first-child::before { display: none; }
+    /* Последний ребёнок: убрать правую часть перемычки */
+    .gen-tree li:last-child::after { display: none; }
+    /* Единственный ребёнок: убрать обе части (остаётся только вертикаль) */
+    .gen-tree li:only-child::before,
+    .gen-tree li:only-child::after { display: none; }
+
+    /* Вертикальная линия от перемычки к карточке */
+    .gen-tree li > .gen-card,
+    .gen-tree li > .gen-phil {
+      position: relative;
+    }
+    .gen-tree li > .gen-card::before,
+    .gen-tree li > .gen-phil::before {
+      content: "";
+      position: absolute;
+      top: -20px;
+      left: 50%;
+      width: 1px;
+      height: 20px;
+      background: rgba(255, 255, 255, 0.2);
+    }
+
+    /* Корневой узел: без входящей линии сверху */
+    .gen-tree > .gen-card::before { display: none; }
+    /* Первый ul: без линии от псевдородителя 
+    .gen-tree > ul::before { display: none; }*/
+
+    /* ── Карточка концепции ── */
+    .gen-card {
+      background: rgba(107, 0, 170, 0.12);
+      border: 1px solid rgba(107, 0, 170, 0.35);
+      padding: 10px 14px;
+      min-width: 160px;
+      max-width: 280px;
+      text-align: center;
+      position: relative;
+    }
+    .gen-card-name {
+      font-family: var(--serif);
+      font-size: 13px;
+      font-weight: 700;
+      color: var(--violet);
+      line-height: 1.3;
+      margin-bottom: 4px;
+    }
+    .gen-card-meta {
+      font-family: var(--mono);
+      font-size: 8px;
+      letter-spacing: 1px;
+      text-transform: uppercase;
+      color: rgba(255, 255, 255, 0.45);
+      margin-bottom: 2px;
+    }
+    .gen-card-seed {
+      font-family: var(--sans);
+      font-size: 10px;
+      font-style: italic;
+      color: rgba(255, 255, 255, 0.5);
+      line-height: 1.4;
+      margin-top: 4px;
+      max-height: 2.8em;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    /* ── Капсула внутри карточки (раскрывающаяся) ── */
+    .gen-card-capsule {
+      margin-top: 6px;
+      text-align: left;
+    }
+    .gen-card-capsule summary {
+      cursor: pointer;
+      font-family: var(--mono);
+      font-size: 8px;
+      letter-spacing: 1px;
+      text-transform: uppercase;
+      color: var(--gold);
+      list-style: none;
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      justify-content: center;
+    }
+    .gen-card-capsule summary::-webkit-details-marker { display: none; }
+    .gen-card-capsule summary::before {
+      content: "▸";
+      font-size: 8px;
+      transition: transform 0.2s;
+    }
+    .gen-card-capsule[open] summary::before {
+      transform: rotate(90deg);
+    }
+    .gen-card-capsule-body {
+      font-family: var(--sans);
+      font-size: 10px;
+      line-height: 1.5;
+      color: rgba(255, 255, 255, 0.65);
+      margin-top: 6px;
+      padding: 6px 8px;
+      background: rgba(0, 0, 0, 0.15);
+      border-left: 2px solid var(--gold);
+      max-height: 200px;
+      overflow-y: auto;
+      text-align: left;
+      white-space: pre-wrap;
+    }
+
+    /* ── Философ (простой узел) ── */
+    .gen-phil {
+      background: rgba(255, 255, 255, 0.06);
+      border: 1px solid rgba(255, 255, 255, 0.15);
+      padding: 8px 14px;
+      min-width: 100px;
+      text-align: center;
+      position: relative;
+    }
+    .gen-phil-name {
+      font-family: var(--sans);
+      font-size: 12px;
+      font-weight: 500;
+      color: rgba(255, 255, 255, 0.8);
+    }
+
+    /* ── Корень: акцентировать ── */
+    .gen-tree > .gen-card {
+      border-color: var(--gold);
+      background: rgba(184, 134, 11, 0.12);
+    }
+    .gen-tree > .gen-card .gen-card-name {
+      color: var(--gold-light);
+      font-size: 14px;
+    }
+
+    /* ── Адаптация для светлого фона (сохранённый файл) ── */
+    @media (prefers-color-scheme: light) {
+      .gen-tree ul::before,
+      .gen-tree li::before,
+      .gen-tree li::after,
+      .gen-tree li > .gen-card::before,
+      .gen-tree li > .gen-phil::before {
+        background: var(--rule);
       }
-      .gen-concept-summary::-webkit-details-marker { display: none; }
-      .gen-concept-summary::before {
-        content: "▶";
-        font-size: 7px;
-        transition: transform 0.2s;
-        display: inline-block;
+      .gen-card {
+        background: var(--violet-light);
+        border-color: var(--violet);
       }
-      .gen-node[open] > .gen-concept-summary::before {
-        transform: rotate(90deg);
+      .gen-card-meta { color: var(--ink-dim); }
+      .gen-card-seed { color: var(--ink-dim); }
+      .gen-card-capsule-body {
+        color: var(--ink-mid);
+        background: rgba(0,0,0,0.03);
       }
-      .gen-concept-name {
-        font-family: var(--serif);
-        font-size: 12px;
-        font-weight: 700;
-        color: var(--violet);
+      .gen-phil {
+        background: var(--off);
+        border-color: var(--rule);
       }
-      .gen-concept-meta {
-        font-family: var(--mono);
-        font-size: 9px;
-        color: rgba(255,255,255,0.5);
-        letter-spacing: 0.5px;
+      .gen-phil-name { color: var(--ink); }
+      .gen-tree > .gen-card {
+        border-color: var(--gold);
+        background: #fffbee;
       }
-      .gen-seed {
-        font-family: var(--sans);
-        font-size: 11px;
-        font-style: italic;
-        color: rgba(255,255,255,0.6);
-        margin: 4px 0;
+    }
+
+    /* ── Печать ── */
+    @media print {
+      .gen-tree { overflow: visible; }
+      .gen-card-capsule { display: none; } /* капсулы скрыть при печати */
+      .gen-card, .gen-phil { break-inside: avoid; }
+    }
+
+    /* ── Мобильные: вертикальный стек при нехватке ширины ── */
+    @media (max-width: 500px) {
+      .gen-tree ul {
+        flex-direction: column;
+        align-items: center;
+        padding-top: 12px;
       }
-      .gen-philosopher {
-        font-family: var(--sans);
-        font-size: 12px;
-        color: rgba(255,255,255,0.8);
+      .gen-tree li {
+        padding: 12px 0 0;
       }
-      .gen-children {
-        list-style: none;
-        padding-left: 8px;
-        border-left: 1px solid rgba(255,255,255,0.1);
+      .gen-tree li::before,
+      .gen-tree li::after {
+        display: none;
       }
-      .gen-children li {
-        margin: 3px 0;
-        padding-left: 8px;
+      /* Уровень 3+ — компактные карточки */
+      .gen-tree li li li .gen-card {
+        padding: 6px 10px;
+        min-width: 120px;
+        max-width: 200px;
       }
-      .gen-children li::before {
-        content: "├ ";
-        font-family: var(--mono);
-        font-size: 10px;
-        color: rgba(255,255,255,0.25);
+      .gen-tree li li li .gen-card-name { font-size: 11px; }
+      .gen-tree li li li .gen-card-meta { font-size: 7px; }
+      .gen-tree li li li .gen-card-seed { display: none; }
+      .gen-tree li li li .gen-card-capsule summary { font-size: 7px; }
+      
+      .gen-tree ul {
+        flex-wrap: wrap;
+        gap: 4px 0;
       }
-      .gen-children li:last-child::before {
-        content: "└ ";
+      .gen-tree ul::before {
+        height: 12px;
+      }
+      .gen-tree ul.gen-vertical {
+        flex-direction: column;
+        align-items: center;
+        padding-top: 12px;
+      }
+      .gen-tree ul.gen-vertical > li {
+        padding: 8px 0 0;
+      }
+      .gen-tree ul.gen-vertical > li::before,
+      .gen-tree ul.gen-vertical > li::after {
+        /* Вертикальная линия вместо горизонтальной */
+        width: 1px;
+        height: 8px;
+        top: 0;
+        left: 50%;
+        right: auto;
+      }
+      .gen-tree ul.gen-vertical > li::after { display: none; }
+      .gen-tree ul.gen-vertical > li:first-child::before { display: block; }
+        .gen-tree li > .gen-card::before,
+        .gen-tree li > .gen-phil::before {
+          height: 12px;
+          top: -12px;
+        }
       }
 
-      .gen-capsule-details {
-        margin: 4px 0;
-        border-left: 2px solid var(--gold);
-        padding-left: 8px;
+      /* Светлый контекст: дерево внутри body (не в шапке) */
+      .gen-tree-light .gen-card {
+        background: var(--violet-light);
+        border-color: var(--violet);
       }
-      .gen-capsule-summary {
-        cursor: pointer;
-        font-family: var(--mono);
-        font-size: 9px;
-        color: var(--gold);
-        letter-spacing: 1px;
-        text-transform: uppercase;
-        list-style: none;
+      .gen-tree-light .gen-card-name { color: var(--violet); }
+      .gen-tree-light .gen-card-meta { color: var(--ink-dim); }
+      .gen-tree-light .gen-card-seed { color: var(--ink-dim); }
+      .gen-tree-light .gen-card-capsule-body {
+        color: var(--ink-mid);
+        background: var(--off);
       }
-      .gen-capsule-summary::-webkit-details-marker { display: none; }
-      .gen-capsule-body {
-        font-family: var(--sans);
-        font-size: 11px;
-        line-height: 1.6;
-        color: rgba(255,255,255,0.7);
-        margin-top: 4px;
-        white-space: pre-wrap;
+      .gen-tree-light .gen-phil {
+        background: var(--off);
+        border-color: var(--rule);
       }
+      .gen-tree-light .gen-phil-name { color: var(--ink); }
+      .gen-tree-light ul::before,
+      .gen-tree-light li::before,
+      .gen-tree-light li::after,
+      .gen-tree-light li > .gen-card::before,
+      .gen-tree-light li > .gen-phil::before {
+        background: var(--rule);
+      }
+      .gen-tree-light > .gen-card {
+        background: #fffbee;
+        border-color: var(--gold);
+      }
+      .gen-tree-light > .gen-card .gen-card-name { color: var(--gold); }
+
+
     </style>
   </head>
   <body>
@@ -6155,9 +6387,7 @@
         // Капсула хранится в DOC_STATE, не в DOM — обрабатываем до проверки el
         if (contextKey === "capsule:full") {
           if (!DOC_STATE.capsuleHTML) return null;
-          const tmp = document.createElement("div");
-          tmp.innerHTML = DOC_STATE.capsuleHTML;
-          return tmp.innerText?.trim() || null;
+          return extractCapsuleText(DOC_STATE.capsuleHTML) || null;
         }
         if (!el) return null;
         switch (contextKey) {
@@ -8526,6 +8756,34 @@ ${LEVEL_DIALOGUE_STRUCT(p)[dialogueLevel]}
         }
       }
 
+      /**
+       * Извлекает чистый текст капсулы из HTML-строки.
+       * Убирает заголовок <h4>, слово «Капсула» в начале, нормализует переносы.
+       *
+       * @param {string} capsuleHTML — innerHTML контейнера капсулы (DOC_STATE.capsuleHTML и т.п.)
+       * @returns {string} — чистый текст
+       */
+      function extractCapsuleText(capsuleHTML) {
+        if (!capsuleHTML) return "";
+        const tmp = document.createElement("div");
+        tmp.innerHTML = capsuleHTML;
+        
+        // Целимся в содержимое, минуя section-num и section-title
+        const target = tmp.querySelector('[data-section="Капсула"]')
+                    || tmp.querySelector('.doc-content')
+                    || tmp;
+        
+        const clone = target.cloneNode(true);
+        const h4 = clone.querySelector("h4");
+        if (h4) h4.remove();
+        
+        return (clone.innerText || "")
+          .replace(/^\s*Капсула\s*/i, "")
+          .replace(/\n\s+/g, "\n")
+          .replace(/\n{3,}/g, "\n\n")
+          .trim();
+      }
+
       /** Добавляет или обновляет капсулу в шапке документа */
       function updateCapsuleInHeader() {
         const container = document.getElementById("docHeaderExtras");
@@ -8536,11 +8794,7 @@ ${LEVEL_DIALOGUE_STRUCT(p)[dialogueLevel]}
         if (old) old.remove();
 
         // Извлекаем текст из HTML капсулы
-        const tmp = document.createElement("div");
-        tmp.innerHTML = DOC_STATE.capsuleHTML;
-        const text = tmp.querySelector(".doc-content")?.innerText?.trim()
-                  || tmp.innerText?.trim()
-                  || "";
+        const text = extractCapsuleText(DOC_STATE.capsuleHTML);
         if (!text) return;
 
         const details = document.createElement("details");
@@ -8732,13 +8986,22 @@ ${LEVEL_DIALOGUE_STRUCT(p)[dialogueLevel]}
         document.getElementById("docDepth").textContent = DL[depth];
         document.getElementById("docSynthLevel").textContent = SL[synthLevel];
         document.getElementById("docTitle").textContent = "Синтез Философской Концепции";
-        // Подзаголовок — всегда перечень философов; зерно уходит только в раскрывающееся поле
-        document.getElementById("docSubtitle").textContent = `На основе: ${phil.join(", ")}`;
+        // Подзаголовок — всегда перечень философов/концепций; зерно уходит только в раскрывающееся поле
+        if (hasConceptParticipants(p)) {
+          const philPart = philNames(p).join(", ");
+          const conceptPart = conceptNames(p).join(", ");
+          const parts = [];
+          if (philPart) parts.push(philPart);
+          if (conceptPart) parts.push(conceptPart);
+          document.getElementById("docSubtitle").textContent = "На основе: " + parts.join(" + ");
+        } else {
+          document.getElementById("docSubtitle").textContent = `На основе: ${p.phil.join(", ")}`;
+        }
         document.getElementById("sessionId").textContent = docNum;
 
         // Заполняем раскрывающиеся поля шапки (зерно, контекст)
         buildDocHeaderExtras(seed, ctx);
-        document.getElementById("footerPhil").textContent = phil.join(", ");
+        document.getElementById("footerPhil").textContent = p.phil.join(", ");
 
         const effectiveDeps = buildEffectiveDeps(p.sec, resolveContextDeps(p));
         const dynamicOrder  = buildDynamicOrder(effectiveDeps, p.sec, resolveContextDeps(p))
@@ -8980,14 +9243,14 @@ ${LEVEL_DIALOGUE_STRUCT(p)[dialogueLevel]}
           method: p.method,
           synthLevel: p.synthLevel,
           seed: p.seed || "",
-          capsule: "", // будет заполнена после генерации раздела capsule
+          // capsule НЕ включаем — она в шапке (DOC_STATE.capsuleHTML)
           participants: (p.participants || []).map(x => {
             if (x.type === "philosopher") return { type: "philosopher", name: x.name };
-            // Для концепции — копируем генеалогию и добавляем капсулу
             const node = x.genealogy
-              ? JSON.parse(JSON.stringify(x.genealogy)) // глубокая копия
-              : { type: "concept", name: x.name };
-            node.capsule = x.capsule || "";
+              ? JSON.parse(JSON.stringify(x.genealogy))
+              : { type: "concept", name: x.name, method: x.method, synthLevel: x.synthLevel, seed: x.seed };
+            // Капсула предка — только здесь, одна копия
+            if (!node.capsule && x.capsule) node.capsule = x.capsule;
             return node;
           }),
         };
@@ -9006,14 +9269,6 @@ ${LEVEL_DIALOGUE_STRUCT(p)[dialogueLevel]}
             updateCapsuleInHeader();
             removeCapsuleFromDocBodies();
           }
-        }
-
-        if (DOC_STATE.genealogy && DOC_STATE.capsuleHTML) {
-          const tmp = document.createElement("div");
-          tmp.innerHTML = DOC_STATE.capsuleHTML;
-          DOC_STATE.genealogy.capsule =
-            tmp.querySelector(".doc-content")?.innerText?.trim() ||
-            tmp.innerText?.trim() || "";
         }
 
         // Показываем/скрываем кнопки режимов
@@ -12905,6 +13160,22 @@ ${LEVEL_DIALOGUE_STRUCT(p)[dialogueLevel]}
         if (tocEl) tocEl.remove();
         document.querySelectorAll("#docBodies .toc-back-btn").forEach(el => el.remove());
 
+        const cleanParticipants = (DOC_STATE.participants || []).map(x => {
+          if (x.type === "philosopher") return x;
+          // Для concept — оставляем только метаданные, убираем контекст
+          return {
+            type: x.type,
+            name: x.name,
+            method: x.method,
+            synthLevel: x.synthLevel,
+            seed: x.seed,
+            genealogy: x.genealogy,
+            _filename: x._filename,
+            _nodeCount: x._nodeCount,
+            _thesesCount: x._thesesCount,
+          };
+        });
+
         // ── Встраиваем состояние для импорта ──
         let stateJSON = "";
         try {
@@ -12917,8 +13188,8 @@ ${LEVEL_DIALOGUE_STRUCT(p)[dialogueLevel]}
             sectionOrder: DOC_STATE.ready ? DOC_STATE.sectionOrder : null,
             editedSections: DOC_STATE.ready ? [...DOC_STATE.editedSections] : [],
             docVersion: DOC_STATE.docVersion || 1,
-            participants: DOC_STATE.participants || [],
-            genealogy: DOC_STATE.genealogy || null,
+            participants: cleanParticipants,
+            genealogy: DOC_STATE.genealogy,
           };
           stateJSON = `\n<script type="application/json" id="philosynth-state">\n${JSON.stringify(stateData, null, 2)}\n<\/script>`;
 
@@ -16293,11 +16564,24 @@ ${LEVEL_DIALOGUE_STRUCT(p)[dialogueLevel]}
 
         // Извлечение конкретных фрагментов
         const capsuleText = (() => {
-          if (meta.capsuleText) return meta.capsuleText;
+          // Приоритет 1: embedded state содержит полный HTML капсулы
           if (embeddedState?.capsuleHTML) {
-            const tmp = document.createElement("div");
-            tmp.innerHTML = embeddedState.capsuleHTML;
-            return tmp.innerText?.trim() || "";
+            return extractCapsuleText(embeddedState.capsuleHTML);
+          }
+          // Приоритет 2: meta.capsuleText — уже текст из disclosure-body шапки
+          if (meta.capsuleText) {
+            return meta.capsuleText
+              .replace(/^\s*Капсула\s*/i, "")
+              .replace(/\n\s+/g, "\n")
+              .replace(/\n{3,}/g, "\n\n")
+              .trim();
+          }
+          // Приоритет 3: disclosure-body в шапке импортируемого документа
+          const capsuleDisc = doc.querySelector(".header-disclosure-capsule .disclosure-body");
+          if (capsuleDisc) {
+            return capsuleDisc.textContent
+              .replace(/^\s*Капсула\s*/i, "")
+              .trim();
           }
           return "";
         })();
@@ -16321,6 +16605,15 @@ ${LEVEL_DIALOGUE_STRUCT(p)[dialogueLevel]}
 
         // ── 7. Реконструкция генеалогии ──
         const genealogy = reconstructGenealogy(meta, embeddedState, doc);
+
+        // При построении genealogy из participant:
+        if (!node.capsule && x.capsule) {
+          node.capsule = x.capsule
+            .replace(/^\s*Капсула\s*/i, "")
+            .replace(/\n\s+/g, "\n")
+            .replace(/\n{3,}/g, "\n\n")
+            .trim();
+        }
 
         // ── 8. Сборка участника ──
         return {
@@ -16505,55 +16798,70 @@ ${LEVEL_DIALOGUE_STRUCT(p)[dialogueLevel]}
       }
 
       /**
-       * @typedef {Object} GenealogyNode
-       * @property {"philosopher"|"concept"} type
-       * @property {string} name
-       * Только для type === "concept":
-       * @property {string} [method]
-       * @property {string} [synthLevel]
-       * @property {string} [seed]
-       * @property {string} [capsule] — текст капсулы (для просмотра из дерева)
-       * @property {GenealogyNode[]} [participants]
+       * Рендерит генеалогическое дерево как CSS org-chart.
+       *
+       * @param {GenealogyNode} node — корень дерева
+       * @param {Object} [opts] — опции
+       * @param {boolean} [opts.isRoot=true] — текущий узел — корень (не показывать капсулу)
+       * @param {boolean} [opts.light=false] — светлый фон (для body, не для шапки)
+       * @returns {string} — HTML
        */
-      function renderGenealogyTree(node, depth = 0) {
+      function renderGenealogyTree(node, opts) {
         if (!node) return "";
+        var isRoot = !opts || opts.isRoot !== false;
+        var light = opts && opts.light;
 
-        if (node.type === "philosopher") {
-          return '<span class="gen-philosopher">' + esc(node.name) + '</span>';
+        // renderNode — вложенная функция, вызывается рекурсивно
+        function renderNode(n, isRootNode) {
+          // Философ → простой блок
+          if (n.type === "philosopher") {
+            return '<div class="gen-phil"><div class="gen-phil-name">' +
+                   esc(n.name) + '</div></div>';
+          }
+
+          // Концепция → карточка
+          var methodLabel = ML[n.method] || n.method || "?";
+          var levelLabel = SL[n.synthLevel] || n.synthLevel || "?";
+
+          var seedHTML = n.seed
+            ? '<div class="gen-card-seed">«' +
+              esc(n.seed.length > 80 ? n.seed.slice(0, 80) + "…" : n.seed) +
+              '»</div>'
+            : "";
+
+          var capsuleHTML = (n.capsule && !isRootNode)
+            ? '<details class="gen-card-capsule">' +
+              '<summary>Капсула</summary>' +
+              '<div class="gen-card-capsule-body">' + esc(n.capsule) + '</div>' +
+              '</details>'
+            : "";
+
+          var html = '<div class="gen-card">' +
+            '<div class="gen-card-name">◈ ' + esc(n.name) + '</div>' +
+            '<div class="gen-card-meta">' + esc(methodLabel) + ' × ' + esc(levelLabel) + '</div>' +
+            seedHTML + capsuleHTML +
+            '</div>';
+
+          // Дети → <ul><li>...рекурсия...</li></ul>
+          if (n.participants && n.participants.length > 0) {
+            var ulClass = n.participants.length > 4 ? ' class="gen-vertical"' : '';
+            html += '<ul' + ulClass + '>' +
+              n.participants.map(function(child) {
+                return '<li>' + renderNode(child, false) + '</li>';
+                                          //  ↑ рекурсия: ребёнок — не корень
+              }).join("") +
+              '</ul>';
+          }
+
+          return html;
         }
 
-        const methodLabel = ML[node.method] || node.method || "?";
-        const levelLabel = SL[node.synthLevel] || node.synthLevel || "?";
-
-        const seedSnippet = node.seed
-          ? '<div class="gen-seed">Зерно: «' + esc(node.seed.slice(0, 100)) +
-            (node.seed.length > 100 ? '…' : '') + '»</div>'
-          : "";
-
-        const capsuleSnippet = node.capsule
-          ? '<details class="gen-capsule-details">' +
-            '<summary class="gen-capsule-summary">Капсула</summary>' +
-            '<div class="gen-capsule-body">' + esc(node.capsule) + '</div>' +
-            '</details>'
-          : "";
-
-        const childrenHTML = (node.participants || []).map(p =>
-          '<li>' + renderGenealogyTree(p, depth + 1) + '</li>'
-        ).join("");
-
-        const isOpen = depth === 0 ? " open" : "";
-
-        return '<details class="gen-node gen-depth-' + Math.min(depth, 3) + '"' + isOpen + '>' +
-          '<summary class="gen-concept-summary">' +
-            '<span class="gen-concept-name">◈ ' + esc(node.name) + '</span>' +
-            '<span class="gen-concept-meta">' + esc(methodLabel) + ' × ' + esc(levelLabel) + '</span>' +
-          '</summary>' +
-          '<div class="gen-concept-body">' +
-            seedSnippet +
-            capsuleSnippet +
-            '<ul class="gen-children">' + childrenHTML + '</ul>' +
-          '</div>' +
-        '</details>';
+        // Точка входа: renderNode вызывается для корня
+        var treeClass = "gen-tree" + (light ? " gen-tree-light" : "");
+        return '<div class="' + treeClass + '">' +
+               renderNode(node, isRoot) +
+                        // ↑ первый вызов: корень
+               '</div>';
       }
 
       /**
@@ -16574,13 +16882,17 @@ ${LEVEL_DIALOGUE_STRUCT(p)[dialogueLevel]}
 
         const details = document.createElement("details");
         details.className = "header-disclosure header-disclosure-genealogy";
+        details.open = true;
+
         const summary = document.createElement("summary");
         summary.textContent = "Генеалогическое древо";
+
         const body = document.createElement("div");
         body.className = "disclosure-body";
-        body.style.background = "rgba(107,0,170,0.06)";
-        body.style.padding = "14px";
-        body.innerHTML = renderGenealogyTree(DOC_STATE.genealogy);
+        body.style.cssText = "padding: 16px; overflow-x: auto;";
+        // Шапка — тёмный фон, используем основной стиль (без light)
+        body.innerHTML = renderGenealogyTree(DOC_STATE.genealogy, { isRoot: true, light: false });
+
         details.appendChild(summary);
         details.appendChild(body);
         container.appendChild(details);
