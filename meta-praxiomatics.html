@@ -2001,11 +2001,13 @@
 
     #tutorial-overlay.active {
       display: block;
-      pointer-events: auto;
+      /* pointer-events остаётся none, чтобы overlay не перехватывал клики —
+         кликабелен только сам .tutorial-tooltip (см. ниже) */
     }
 
     .tutorial-tooltip {
       position: absolute;
+      pointer-events: auto;
       background: rgba(10, 8, 4, 0.95);
       border: 1px solid rgba(201, 168, 76, 0.3);
       padding: 1rem 1.2rem;
@@ -2966,7 +2968,7 @@
   </div>
 
   <!-- RITUAL TRACKER -->
-  <div id="ritual-tracker" id="ritual-tracker"></div>
+  <div id="ritual-tracker"></div>
 
   <!-- TUTORIAL OVERLAY -->
   <div id="tutorial-overlay"></div>
@@ -6606,45 +6608,79 @@
         closeTutorial();
         return;
       }
-      const step = TUTORIAL_STEPS[tutStep];
-      const el = document.querySelector(step.target);
-      if (!el) {
-        tutStep++;
-        showTutStep();
-        return;
+      try {
+        const step = TUTORIAL_STEPS[tutStep];
+        const el = document.querySelector(step.target);
+        if (!el) {
+          tutStep++;
+          // страховка: если все оставшиеся шаги промахнулись — гарантированно закрываемся
+          if (tutStep >= TUTORIAL_STEPS.length) {
+            closeTutorial();
+            return;
+          }
+          showTutStep();
+          return;
+        }
+        const rect = el.getBoundingClientRect();
+        // Highlight
+        const hl = document.createElement('div');
+        hl.className = 'tutorial-highlight';
+        hl.style.left = (rect.left - 4) + 'px';
+        hl.style.top = (rect.top - 4) + 'px';
+        hl.style.width = (rect.width + 8) + 'px';
+        hl.style.height = (rect.height + 8) + 'px';
+        ov.appendChild(hl);
+        // Tooltip
+        const tt = document.createElement('div');
+        tt.className = 'tutorial-tooltip';
+        tt.innerHTML = '<div class="tut-title">' + step.title + '</div><div>' + step.text + '</div><button class="tut-next">' + (tutStep < TUTORIAL_STEPS.length - 1 ? 'ДАЛЕЕ →' : 'ЗАВЕРШИТЬ') + '</button>';
+        // Position
+        if (step.pos === 'right') {
+          tt.style.left = (rect.right + 16) + 'px';
+          tt.style.top = rect.top + 'px';
+        } else if (step.pos === 'left') {
+          tt.style.right = (window.innerWidth - rect.left + 16) + 'px';
+          tt.style.top = rect.top + 'px';
+        } else if (step.pos === 'top') {
+          tt.style.left = rect.left + 'px';
+          tt.style.bottom = (window.innerHeight - rect.top + 16) + 'px';
+        } else {
+          tt.style.left = rect.left + 'px';
+          tt.style.top = (rect.bottom + 16) + 'px';
+        }
+        ov.appendChild(tt);
+        // Корректируем позицию, если тултип вышел за границы вьюпорта
+        requestAnimationFrame(() => {
+          const ttRect = tt.getBoundingClientRect();
+          const vw = window.innerWidth;
+          const vh = window.innerHeight;
+          const margin = 12;
+          if (ttRect.right > vw - margin) {
+            tt.style.left = '';
+            tt.style.right = margin + 'px';
+          }
+          if (ttRect.left < margin) {
+            tt.style.right = '';
+            tt.style.left = margin + 'px';
+          }
+          if (ttRect.bottom > vh - margin) {
+            tt.style.top = '';
+            tt.style.bottom = margin + 'px';
+          }
+          if (ttRect.top < margin) {
+            tt.style.bottom = '';
+            tt.style.top = margin + 'px';
+          }
+        });
+        tt.querySelector('.tut-next').addEventListener('click', () => {
+          tutStep++;
+          showTutStep();
+        });
+      } catch (err) {
+        // любой неожиданный сбой не должен оставлять overlay активным
+        console.warn('[tutorial] step failed, closing:', err);
+        closeTutorial();
       }
-      const rect = el.getBoundingClientRect();
-      // Highlight
-      const hl = document.createElement('div');
-      hl.className = 'tutorial-highlight';
-      hl.style.left = (rect.left - 4) + 'px';
-      hl.style.top = (rect.top - 4) + 'px';
-      hl.style.width = (rect.width + 8) + 'px';
-      hl.style.height = (rect.height + 8) + 'px';
-      ov.appendChild(hl);
-      // Tooltip
-      const tt = document.createElement('div');
-      tt.className = 'tutorial-tooltip';
-      tt.innerHTML = '<div class="tut-title">' + step.title + '</div><div>' + step.text + '</div><button class="tut-next">' + (tutStep < TUTORIAL_STEPS.length - 1 ? 'ДАЛЕЕ →' : 'ЗАВЕРШИТЬ') + '</button>';
-      // Position
-      if (step.pos === 'right') {
-        tt.style.left = (rect.right + 16) + 'px';
-        tt.style.top = rect.top + 'px';
-      } else if (step.pos === 'left') {
-        tt.style.right = (window.innerWidth - rect.left + 16) + 'px';
-        tt.style.top = rect.top + 'px';
-      } else if (step.pos === 'top') {
-        tt.style.left = rect.left + 'px';
-        tt.style.bottom = (window.innerHeight - rect.top + 16) + 'px';
-      } else {
-        tt.style.left = rect.left + 'px';
-        tt.style.top = (rect.bottom + 16) + 'px';
-      }
-      ov.appendChild(tt);
-      tt.querySelector('.tut-next').addEventListener('click', () => {
-        tutStep++;
-        showTutStep();
-      });
     }
 
     function closeTutorial() {
