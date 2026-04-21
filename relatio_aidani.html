@@ -1,0 +1,1006 @@
+<!DOCTYPE html>
+<html lang="la">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Relatio Fratris Aidani · De Terra Eldarorum</title>
+<link href="https://fonts.googleapis.com/css2?family=Uncial+Antiqua&family=IM+Fell+English:ital@0;1&display=swap" rel="stylesheet">
+<style>
+  *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    background-color: #100a04;
+    background-image:
+      repeating-linear-gradient(0deg, transparent, transparent 18px, rgba(0,0,0,0.12) 18px, rgba(0,0,0,0.12) 19px),
+      repeating-linear-gradient(90deg, transparent, transparent 24px, rgba(0,0,0,0.05) 24px, rgba(0,0,0,0.05) 25px),
+      radial-gradient(ellipse at 20% 50%, #1c0f06 0%, #0d0702 100%);
+    min-height: 100vh;
+    display: flex;
+    justify-content: center;
+    align-items: flex-start;
+    padding: 60px 20px 80px;
+    font-family: 'IM Fell English', Georgia, serif;
+  }
+
+  .outer-wrap {
+    position: relative;
+    width: 100%;
+    max-width: 900px;
+  }
+
+  /* Shadow under the parchment.
+     Previously this was a separate blurred <div> — on a 5000px-tall
+     document the blur created a huge GPU texture. Replaced with a
+     box-shadow on .parchment itself, which the compositor handles
+     natively without allocating an element-sized backing surface.   */
+  .parchment-shadow {
+    display: none;
+  }
+
+  .parchment {
+    position: relative;
+    z-index: 1;
+    padding: 72px 112px 80px 112px;
+    /* Backgrounds and SVG filter live on .parchment-bg (own GPU layer).
+       Keeping only structural/shadow properties here. */
+    box-shadow:
+      0 0 0 1px rgba(80,40,0,0.4),
+      0 8px 40px rgba(0,0,0,0.55),
+      0 2px 8px rgba(0,0,0,0.4),
+      inset 0 0 40px rgba(100,55,5,0.25),
+      inset 0 0 80px rgba(80,40,0,0.10);
+    /* Establish stacking context so children z-indices work correctly */
+    isolation: isolate;
+  }
+
+  /*
+   * Parchment texture via two tileable SVG data-URLs:
+   *   1) 512×512 tile with HIGH-frequency feTurbulence — fine paper grain.
+   *   2) 1024×1024 tile with LOW-frequency feTurbulence — warm/cool organic
+   *      colour mottling across the whole sheet. Using a 1024px tile instead
+   *      of 512 because at baseFrequency 0.03 the feature size is ~30px, so
+   *      512px only contains ~17 periods (visible seams); 1024px holds ~34
+   *      and stitchTiles stitches them cleanly.
+   * Both tiles are <1KB each, filters bake once per tile at decode time,
+   * and the compositor just blits them — no GPU texture of document size,
+   * no overflow, no black tail, no scroll stutter.
+   * Every original gradient layer (foxing / stains / worn patches / soil /
+   * base gradient) sits underneath, identical to the old version.
+   */
+  .parchment-bg {
+    position: absolute;
+    inset: 0;
+    z-index: 0;
+    pointer-events: none;
+
+    background-color: #ccb98c;
+    background-image:
+      /* Fine paper grain — 512px tile, high-frequency turbulence */
+      url("data:image/svg+xml;charset=utf-8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='512' height='512' viewBox='0 0 512 512'%3E%3Cdefs%3E%3Cfilter id='p' x='0' y='0' width='100%25' height='100%25'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85 0.75' numOctaves='3' stitchTiles='stitch' result='g'/%3E%3CfeColorMatrix in='g' values='0 0 0 0 0  0 0 0 0 0  0 0 0 0 0  0 0 0 0.22 0'/%3E%3C/filter%3E%3C/defs%3E%3Crect width='512' height='512' fill='transparent' filter='url(%23p)'/%3E%3C/svg%3E"),
+      /* Coarse warm/cool mottling — 1024px tile, low-frequency turbulence */
+      url("data:image/svg+xml;charset=utf-8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='1024' height='1024' viewBox='0 0 1024 1024'%3E%3Cdefs%3E%3Cfilter id='p' x='0' y='0' width='100%25' height='100%25'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.03 0.04' numOctaves='3' seed='8' stitchTiles='stitch' result='c'/%3E%3CfeColorMatrix in='c' values='0 0 0 0 0.09  0 0 0 0 0.045  0 0 0 0 0  0 0 0 0.28 0'/%3E%3C/filter%3E%3C/defs%3E%3Crect width='1024' height='1024' fill='transparent' filter='url(%23p)'/%3E%3C/svg%3E"),
+      /* Foxing spots */
+      radial-gradient(circle 3px at 12% 8%, rgba(90,50,10,0.5) 0%, transparent 100%),
+      radial-gradient(circle 2px at 87% 5%, rgba(80,40,8,0.4) 0%, transparent 100%),
+      radial-gradient(circle 4px at 34% 18%, rgba(70,35,5,0.3) 0%, transparent 100%),
+      radial-gradient(circle 2px at 72% 22%, rgba(95,55,12,0.5) 0%, transparent 100%),
+      radial-gradient(circle 3px at 5%  45%, rgba(80,40,8,0.4) 0%, transparent 100%),
+      radial-gradient(circle 2px at 91% 38%, rgba(70,35,5,0.3) 0%, transparent 100%),
+      radial-gradient(circle 4px at 58% 52%, rgba(90,50,10,0.4) 0%, transparent 100%),
+      radial-gradient(circle 2px at 18% 67%, rgba(80,40,8,0.5) 0%, transparent 100%),
+      radial-gradient(circle 3px at 78% 71%, rgba(70,35,5,0.4) 0%, transparent 100%),
+      radial-gradient(circle 2px at 44% 83%, rgba(95,55,12,0.3) 0%, transparent 100%),
+      radial-gradient(circle 4px at 9%  89%, rgba(80,40,8,0.4) 0%, transparent 100%),
+      radial-gradient(circle 2px at 63% 94%, rgba(70,35,5,0.5) 0%, transparent 100%),
+      radial-gradient(circle 3px at 92% 88%, rgba(90,50,10,0.3) 0%, transparent 100%),
+      radial-gradient(circle 2px at 28% 96%, rgba(80,40,8,0.4) 0%, transparent 100%),
+      /* Water stains - large diffuse patches */
+      radial-gradient(ellipse 30% 18% at 80% 25%, rgba(160,110,40,0.25) 0%, transparent 100%),
+      radial-gradient(ellipse 20% 30% at 8%  70%, rgba(140,90,30,0.20) 0%, transparent 100%),
+      radial-gradient(ellipse 25% 15% at 50% 90%, rgba(150,100,35,0.18) 0%, transparent 100%),
+      radial-gradient(ellipse 15% 20% at 65% 5%,  rgba(130,85,25,0.22) 0%, transparent 100%),
+      /* Lighter worn patches */
+      radial-gradient(ellipse 40% 25% at 30% 40%, rgba(220,185,120,0.35) 0%, transparent 70%),
+      radial-gradient(ellipse 35% 30% at 70% 75%, rgba(215,180,115,0.30) 0%, transparent 70%),
+      /* Darker soiled areas */
+      radial-gradient(ellipse 50% 20% at 50% 0%,  rgba(110,70,20,0.25) 0%, transparent 80%),
+      radial-gradient(ellipse 60% 15% at 50% 100%,rgba(110,70,20,0.20) 0%, transparent 80%),
+      /* Base gradient: desaturated, shifted away from orange toward the
+         cooler cream-grey of real calfskin vellum; still warm overall but
+         without the decorative-paper orange cast.                        */
+      linear-gradient(162deg, #dec89a 0%, #bfa67a 20%, #d0ba8c 45%, #b39872 65%, #ccb384 85%, #a88e60 100%);
+
+    background-size:
+      512px 512px,
+      1024px 1024px,
+      auto, auto, auto, auto, auto, auto, auto, auto, auto, auto, auto, auto, auto, auto, auto, auto, auto, auto, auto, auto, auto, auto, auto;
+    background-repeat:
+      repeat,
+      repeat,
+      no-repeat, no-repeat, no-repeat, no-repeat, no-repeat, no-repeat, no-repeat, no-repeat, no-repeat, no-repeat, no-repeat, no-repeat, no-repeat, no-repeat, no-repeat, no-repeat, no-repeat, no-repeat, no-repeat, no-repeat, no-repeat, no-repeat, no-repeat;
+  }
+
+  /* Subtle horizontal writing lines */
+  .parchment::before {
+    content: '';
+    position: absolute;
+    inset: 70px 104px;
+    background-image: repeating-linear-gradient(
+      0deg,
+      transparent,
+      transparent 28px,
+      rgba(100,60,10,0.07) 28px,
+      rgba(100,60,10,0.07) 29px
+    );
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  /* Content z-index above lines */
+  .doc-content { position: relative; z-index: 1; }
+
+  /* ========== TYPOGRAPHY ========== */
+
+  .doc-title {
+    font-family: 'Uncial Antiqua', serif;
+    color: #6a1208;
+    text-align: center;
+    font-size: 1.05em;
+    line-height: 2.0;
+    letter-spacing: 0.04em;
+    margin-bottom: 6px;
+    text-shadow: 1px 1px 2px rgba(0,0,0,0.25);
+  }
+
+  .doc-subtitle {
+    font-family: 'Uncial Antiqua', serif;
+    color: #5a0e07;
+    text-align: center;
+    font-size: 0.78em;
+    line-height: 1.9;
+    letter-spacing: 0.06em;
+    margin-bottom: 2px;
+    text-shadow: 1px 1px 2px rgba(0,0,0,0.2);
+  }
+
+  .rubric {
+    font-family: 'Uncial Antiqua', serif;
+    color: #7a1208;
+    text-align: center;
+    font-size: 0.82em;
+    letter-spacing: 0.08em;
+    display: block;
+    margin: 28px 0 14px;
+    text-shadow: 1px 1px 1px rgba(0,0,0,0.2);
+  }
+
+  p {
+    color: #17080000;
+    color: #18090200;
+    color: #1c0e03;
+    font-size: 0.97em;
+    line-height: 1.95;
+    text-align: justify;
+    margin-bottom: 14px;
+    text-indent: 2.2em;
+    hyphens: auto;
+    position: relative;
+    z-index: 1;
+  }
+
+  p.no-indent { text-indent: 0; }
+
+  .dropcap {
+    text-indent: 0;
+    padding-top: 2px;
+  }
+  .dropcap::first-letter {
+    font-family: 'Uncial Antiqua', serif;
+    font-size: 4.8em;
+    float: left;
+    line-height: 0.74;
+    color: #7a1208;
+    margin-right: 6px;
+    margin-bottom: -4px;
+    margin-top: 4px;
+    text-shadow: 2px 2px 5px rgba(0,0,0,0.3), -1px -1px 0 rgba(200,100,0,0.15);
+  }
+
+  .smcaps { font-variant: small-caps; letter-spacing: 0.04em; }
+  em { font-style: italic; color: #1c0e03; }
+  /* Эльфийские слова (Ilúvatar, Telperion, Aman и т.д.): теперь унциал,
+     зелёный цвет сохранён как узнаваемый маркер "чужой" речи-рода.
+     font-style:normal нужен, т.к. Uncial Antiqua не имеет italic начертания. */
+  .elvish {
+    font-family: 'Uncial Antiqua', serif;
+    font-style: normal;
+    color: #2a3a08;
+    font-size: 0.92em;
+    letter-spacing: 0.02em;
+  }
+  .theological { color: #1a3050; font-style: italic; }
+
+  .divider {
+    text-align: center;
+    color: #7a1208;
+    font-family: 'Uncial Antiqua', serif;
+    font-size: 0.9em;
+    letter-spacing: 0.5em;
+    margin: 18px 0 4px;
+    opacity: 0.8;
+  }
+
+  .ornament-line {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 16px;
+    margin: 22px 0 18px;
+    color: rgba(100,50,10,0.5);
+    font-size: 1.1em;
+    letter-spacing: 0.3em;
+  }
+  .ornament-line::before,
+  .ornament-line::after {
+    content: '';
+    flex: 1;
+    height: 1px;
+    background: linear-gradient(90deg, transparent, rgba(100,50,10,0.35), transparent);
+  }
+
+  .colophon {
+    margin-top: 44px;
+    padding-top: 22px;
+    border-top: 1px solid rgba(100,55,10,0.35);
+    font-size: 0.80em;
+    color: #2a1a08;
+    text-align: center;
+    font-style: italic;
+    line-height: 1.8;
+    text-indent: 0;
+  }
+
+  .later-hand {
+    font-size: 0.78em;
+    color: #1a3020;
+    font-style: italic;
+    display: block;
+    margin-top: 12px;
+    text-align: center;
+    text-indent: 0;
+    opacity: 0.85;
+  }
+
+  /* ===== MARGINALIA ===== */
+  .margin-wrap {
+    position: relative;
+  }
+
+  .marginalia {
+    position: absolute;
+    width: 92px;
+    font-size: 0.60em;
+    color: #1e3018;
+    font-family: 'IM Fell English', serif;
+    font-style: italic;
+    line-height: 1.55;
+    text-align: left;
+    pointer-events: none;
+  }
+
+  .mg-right { right: -104px; }
+  .mg-left  { left:  -104px; text-align: right; }
+
+  .mg-red { color: #6a1208; font-style: normal; font-family: 'Uncial Antiqua', serif; font-size: 0.95em; }
+
+  /* ===== INK STAINS ===== */
+  .blob {
+    position: absolute;
+    border-radius: 50%;
+    pointer-events: none;
+    z-index: 2;
+  }
+
+  /* ===== SEAL ===== */
+  .seal-area {
+    display: flex;
+    justify-content: center;
+    margin-top: 36px;
+    position: relative;
+  }
+
+  .seal {
+    width: 68px;
+    height: 68px;
+    border-radius: 50%;
+    background:
+      radial-gradient(circle at 40% 38%, rgba(120,40,20,0.7) 0%, rgba(80,15,5,0.9) 50%, rgba(60,8,2,0.95) 100%);
+    box-shadow:
+      0 3px 10px rgba(0,0,0,0.5),
+      inset 0 2px 5px rgba(200,100,50,0.3),
+      inset 0 -2px 6px rgba(0,0,0,0.4);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-family: 'Uncial Antiqua', serif;
+    color: rgba(200,160,100,0.7);
+    font-size: 0.5em;
+    text-align: center;
+    letter-spacing: 0.02em;
+    line-height: 1.3;
+    opacity: 0.75;
+    transform: rotate(-8deg);
+    filter: url(#seal-fx);
+    padding: 8px;
+  }
+
+  /* ===== INK DRIP MARKS ===== */
+  .ink-drip {
+    position: absolute;
+    width: 2px;
+    background: linear-gradient(180deg, rgba(15,7,0,0.6) 0%, transparent 100%);
+    border-radius: 0 0 50% 50%;
+    pointer-events: none;
+    z-index: 2;
+  }
+
+  /* Worn corner effect - applied via pseudo-elements on parchment */
+  .corner-wear {
+    position: absolute;
+    pointer-events: none;
+    z-index: 3;
+  }
+
+  /* ===== UNCIAL PASSAGES =====
+     Applied wherever the narrative carries OTHER speech or an elvish
+     translation: incipits, direct speech (Finrod, Aidan-in-dialogue,
+     Finanus the abbot, the voice from the sea, God), and the closing
+     prayer. Mimics insular scriptorium practice where uncial was used
+     for incipits, rubrics, and emphasised citations.                  */
+  .uncial-passage {
+    font-family: 'Uncial Antiqua', serif;
+    font-style: normal;          /* override em italic; Uncial has no italic face */
+    font-size: 0.86em;
+    line-height: 2.15;
+    letter-spacing: 0.015em;
+    color: #2a1408;
+  }
+  /* Inline uncial inside a normal paragraph: used for <em class="uncial-passage">
+     around direct speech and translations, and <span class="uncial-passage">
+     for an incipit. font-size kept close to 1em so it doesn't drop below
+     surrounding text baseline, since Uncial is visually larger than IM Fell. */
+  span.uncial-passage,
+  em.uncial-passage {
+    display: inline;
+    font-size: 0.92em;
+    line-height: inherit;
+    letter-spacing: 0.02em;
+  }
+
+  /* ===== NARROW-SCREEN ADAPTATION =====
+     Below 760px the negative-margin marginalia cannot fit beside the
+     parchment. Reflow them inline as side-notes instead of hiding.
+     The heavy texture effects (SVG filter, blur shadow, forced GPU
+     layers) are no longer a problem on mobile because the parchment
+     texture now uses a small tileable SVG background instead of a
+     full-height filter — so nothing here needs to be dumbed down.    */
+  @media (max-width: 760px) {
+    .parchment {
+      padding: 56px 36px 64px 36px;
+    }
+    .parchment::before {
+      inset: 50px 28px;
+    }
+    .marginalia {
+      position: static;
+      width: auto;
+      display: block;
+      margin: 10px 0 14px;
+      padding: 8px 12px;
+      font-size: 0.72em;
+      border-left: 2px solid rgba(100,50,10,0.35);
+      background: rgba(200,160,100,0.10);
+      text-align: left;
+    }
+    .mg-right, .mg-left {
+      right: auto;
+      left: auto;
+      text-align: left;
+    }
+    .marginalia br { display: inline; }
+    .marginalia br::after { content: ' '; }
+  }
+</style>
+</head>
+<body>
+
+<!-- ========== SVG FILTERS ========== -->
+<svg width="0" height="0" style="position:absolute;overflow:hidden;">
+  <defs>
+    <!-- Main parchment texture (optimised: fewer octaves, no displacement) -->
+    <filter id="parchment-fx" x="0%" y="0%" width="100%" height="100%" color-interpolation-filters="sRGB">
+      <!-- Fine grain noise: 2 octaves instead of 4 -->
+      <feTurbulence type="fractalNoise" baseFrequency="0.85 0.75" numOctaves="2" stitchTiles="stitch" result="grain"/>
+      <feColorMatrix type="matrix" in="grain"
+        values="0 0 0 0 0   0 0 0 0 0   0 0 0 0 0   0 0 0 0.12 0"
+        result="grainAlpha"/>
+      <feBlend in="SourceGraphic" in2="grainAlpha" mode="multiply" result="grained"/>
+
+      <!-- Coarse unevenness: 2 octaves instead of 3 -->
+      <feTurbulence type="fractalNoise" baseFrequency="0.03 0.04" numOctaves="2" seed="8" stitchTiles="stitch" result="coarse"/>
+      <feColorMatrix type="matrix" in="coarse"
+        values="0 0 0 0 0.08  0 0 0 0 0.04  0 0 0 0 0  0 0 0 0.10 0"
+        result="coarseColor"/>
+      <feBlend in="grained" in2="coarseColor" mode="multiply"/>
+
+      <!-- NB: feDisplacementMap removed — it was the single most expensive
+           op and forced the whole parchment-bg into a huge GPU texture
+           that overflowed the mobile device limit (→ black tail of doc). -->
+    </filter>
+
+    <!-- Ink roughening -->
+    <filter id="ink-rough">
+      <feTurbulence type="turbulence" baseFrequency="0.04" numOctaves="2" seed="12" result="noise"/>
+      <feDisplacementMap in="SourceGraphic" in2="noise" scale="1.5" xChannelSelector="R" yChannelSelector="G"/>
+    </filter>
+
+    <!-- Wax seal filter -->
+    <filter id="seal-fx">
+      <feTurbulence type="turbulence" baseFrequency="0.08" numOctaves="3" seed="7" result="noise"/>
+      <feDisplacementMap in="SourceGraphic" in2="noise" scale="4" xChannelSelector="R" yChannelSelector="G"/>
+    </filter>
+
+    <!-- Ink blob filter -->
+    <filter id="blob-fx">
+      <feTurbulence type="turbulence" baseFrequency="0.1" numOctaves="2" seed="2" result="noise"/>
+      <feDisplacementMap in="SourceGraphic" in2="noise" scale="6" xChannelSelector="R" yChannelSelector="G" result="warped"/>
+      <feGaussianBlur in="warped" stdDeviation="1.5"/>
+    </filter>
+  </defs>
+</svg>
+
+<div class="outer-wrap">
+  <div class="parchment-shadow"></div>
+
+  <!-- Ink blobs positioned absolutely on parchment -->
+  <div class="parchment" id="parchment">
+
+    <!-- Separate GPU layer for the SVG-filtered texture — renders once, never repaints on scroll -->
+    <div class="parchment-bg" aria-hidden="true"></div>
+
+    <!-- Ink stains -->
+    <div class="blob" style="width:38px;height:24px;top:64px;left:54px;
+      background:radial-gradient(ellipse at 40% 45%, rgba(10,5,0,0.65) 0%, rgba(10,5,0,0.2) 55%, transparent 80%);
+      transform:rotate(15deg);filter:url(#blob-fx)"></div>
+    <div class="blob" style="width:14px;height:14px;top:312px;right:74px;
+      background:radial-gradient(circle, rgba(15,7,0,0.55) 0%, transparent 75%);
+      filter:url(#blob-fx)"></div>
+    <div class="blob" style="width:9px;height:7px;top:520px;left:90px;
+      background:radial-gradient(ellipse, rgba(12,5,0,0.5) 0%, transparent 80%);
+      filter:url(#blob-fx)"></div>
+    <div class="blob" style="width:22px;height:12px;bottom:380px;right:90px;
+      background:radial-gradient(ellipse at 35% 50%, rgba(10,4,0,0.4) 0%, transparent 80%);
+      transform:rotate(-12deg);filter:url(#blob-fx)"></div>
+    <div class="blob" style="width:6px;height:6px;bottom:220px;left:120px;
+      background:radial-gradient(circle, rgba(15,7,0,0.6) 0%, transparent 80%);
+      filter:url(#blob-fx)"></div>
+    <div class="blob" style="width:5px;height:5px;top:740px;right:200px;
+      background:radial-gradient(circle, rgba(12,5,0,0.5) 0%, transparent 80%);
+      filter:url(#blob-fx)"></div>
+
+    <!-- Ink drip from large blob -->
+    <div class="ink-drip" style="height:18px;top:82px;left:70px;transform:rotate(3deg);opacity:0.5"></div>
+    <div class="ink-drip" style="height:9px;top:318px;right:80px;width:1.5px;opacity:0.4"></div>
+
+    <div class="doc-content">
+
+      <!-- ======= TITLE ======= -->
+      <div style="text-align:center;margin-bottom:4px;">
+        <div class="doc-title">
+          INCIPIT RELATIO<br>
+          FRATRIS AIDANI MONACHI<br>
+          INSVLAE HII
+        </div>
+        <div class="doc-subtitle" style="margin-top:8px;">
+          De Peregrinatione Svā Mirā<br>
+          Ad Terram Vltra Occidentale Mare<br>
+          <span style="font-size:0.85em;letter-spacing:0.03em;">Qvam Eldar Incolere Dicvntvr</span><br>
+          <span style="font-size:0.78em;color:#4a0a06;letter-spacing:0.02em;">Scriptvm Anno Domini <span class="smcaps">DCCCXCII</span></span>
+        </div>
+      </div>
+
+      <div class="ornament-line">✦ ✦ ✦</div>
+
+      <!-- ======= PROLOGUE ======= -->
+      <div class="margin-wrap">
+        <div class="marginalia mg-left" style="top: 0px;">
+          <span class="mg-red">☩</span> De auctore:<br>
+          Aidanus monachus<br>
+          de Ì, discipulus<br>
+          Columbani patris.<br>
+          Testis ipse solus —<br>
+          sed Deus vidit.
+        </div>
+
+        <p class="dropcap">Ego Aidanus, peccator et servus inutilis Domini nostri Iesu Christi, monachus indignus in monasterio quod fundavit beatus Columba in insula quam Scotice <em>Ì</em> vocamus et Latine <em>Insula Columbae</em> appellamus, haec scribo ad honorem Dei omnipotentis in Trinitate adorandi, rogante fratre Finano abbate nostro carissimo, ne haec quae vidi oblivioni perpetuae traderentur. Sciunt fratres nostri me non esse hominem visionum: nunquam antea mihi apparuit angelus, nunquam in extasi elevatus sum. Sed quod narraturus sum verum est, quantum homo fallibilis et peccatis oneratus verum narrare potest coram Deo cuius oculus omnia penetrat.</p>
+
+        <p>Rogabant me multi — et hoc fateor — cur non siluerim de his rebus. Respondeo: quia tacendo forsitan peccaretur contra Deum qui haec mihi ostendere dignatus est. Quid sint illa mirabilia in schemate divinae providentiae, non ego definire audeo: id doctoribus Ecclesiae relinquo. Ego solum narro quod vidi, quod audivi, quod manu propria tetigi.</p>
+      </div>
+
+      <!-- ======= SECTION I ======= -->
+      <span class="rubric">✦ De Navigatione Prima ✦</span>
+
+      <div class="margin-wrap">
+        <div class="marginalia mg-right" style="top: 10px;">
+          Cf. Navigatio<br>
+          Brendani abbatis —<br>
+          et ille ad Occidentem<br>
+          navigavit &amp; mira<br>
+          vidit. Forte eadem<br>
+          terra est?
+        </div>
+
+        <p>Erat annus ab incarnatione Domini <span class="smcaps">DCCCXCII</span> cum primum cor meum quasi flamma aliqua incendi coepit, et in oratione nocturna post Matutinas videbam quasi in imagine mentis mare occidentale, et ex illo mari lumen surgebat non solis, non lunae, sed tertii generis omnino. Dixi hoc Finano abbati. Ipse vir prudens et in scripturis exercitatus respondit: <em class="uncial-passage">«Si Deus vocat, noli tardare. Si diabolus tentat, oratio et ieiunium discernent.»</em> Et iiunavi septem diebus, et oravi, et visio non recessit sed confirmata est. Tunc intellexi me vocandum esse.</p>
+
+        <p>In mense Augusto, post festum sancti Columbani, cymbam parvam de ligneis tabulis factam conscendi. Frater Cellach portum videns signum crucis super me fecit et lacrimas non celavit. Navigavi in Occidentem, Polari stella post tergum relinquens. Per tres dies ventus mirabilis — nec nimis validus nec nimis languidus, quasi manu alicuius Potestatis directus — vela mea implebat. Delphini me comitabantur primo die, secundo die aves quas non noveram, tertio die silentium absolutum, mare factum est quasi speculum immensum, et caelum et pontus unum videbantur.</p>
+      </div>
+
+      <!-- ======= SECTION II ======= -->
+      <span class="rubric">✦ De Tempestate ac Lumine Insolito ✦</span>
+
+      <div class="margin-wrap">
+        <div class="marginalia mg-left" style="top: 5px;">
+          Nota de tempori:<br>
+          Quattuor dies et<br>
+          noctes — quasi<br>
+          Ionae in ventre<br>
+          piscis triduum.<br>
+          Numerus mysticus.
+        </div>
+
+        <p>Die quarta surrexit tempestas magna, et fluctus in montes assurgebant, et cymba mea — misera tabula inter pelagi vastitudinem — iactabatur ut folium autumnale in vento. Erat nox et tenebrae absque stella. Orabam voce magna et voce cordis, Deum et Columban sanctum et omnes sanctos Hiberniae et Britanniae invocans. Et vota feci, ut si salvus exirem ex his aquis, reliquam vitam in silentio et ieiunio et oratione agerem, nullum humanae gloriae buccellam amplius quaerens.</p>
+
+        <p>Tunc — subito, non gradatim — tempestas cessavit. Non ut tempestates cessant naturaliter, quasi vires suas paulatim consumens, sed quasi aliquis manum imposuisset super aquas et dixisset eis: <em class="uncial-passage">Quiescite.</em> Mare factum est tam quietum quam lacus alpinus in aurora. Et vox audivi — non ex aere exteriori, sed in profundo cordis mei, quasi lux in spelaeo accensa — quae dixit: <em class="uncial-passage">«Noli timere, serve Dei. Vis videre quod ante saecula praeparatum est. Vade quo ventus te ducit.»</em> Et ventus novus surrexit de septentrione, levis et certus, et cymba mea sponte se vertit ad Occidentem.</p>
+
+        <div class="marginalia mg-right" style="top: 240px;">
+          Hoc loco manus<br>
+          scriptoris tremuit —<br>
+          vide litteras<br>
+          perturbatas in<br>
+          exemplari veteri.
+        </div>
+
+        <p>In tertia vigilia noctis illius lux apparuit in horizonte occidentali. Non erat lux solis — sol enim ad Orientem erat oriens — nec lunae, quae post tergum meum fulgebat plena. Erat duplex lumen: unum argenteum, frigidum et purum quasi prima stella vespertina multiplicata in mille; alterum aureum, calidum et laetum quasi sol aestivus in hora sexta. Et haec duo lumina non confundebantur sed separatim fulgebant, et inter ea quasi chorus quidam erat, alternatio solemnis ac mirabilis, ita ut terra ante me nunquam in tenebris esset, sed semper in aliquo lumine maneret.</p>
+      </div>
+
+      <div class="ornament-line">· · ·</div>
+
+      <!-- ======= SECTION III ======= -->
+      <span class="rubric">✦ De Terra Eldarorum ✦</span>
+
+      <div class="margin-wrap">
+        <div class="marginalia mg-left" style="top: 15px;">
+          Terra sine sole<br>
+          proprio — cf.<br>
+          Apocalypsin cap.<br>
+          XXI: «civitas non<br>
+          eget sole neque<br>
+          luna.» Sed illa<br>
+          civitas caelestis<br>
+          est — haec autem<br>
+          terrestris videtur.
+        </div>
+
+        <p><span class="uncial-passage">In aurora cymba mea in portum quendam pulcherrimum perducta est, nullo me remigio, quasi manus invisibilis puppim teneret.</span> Egredi pede trepidante ex cymba et humum tetigit pes meus — et herba erat sub pedibus meis viridior quam ulla herba Hiberniae vel Britanniae vel cuiusquam terrae quam oculis meis vidi. Flores erant quorum nomina nescio, quarum odor erat quasi omnes flores mundi in unum collecti. Arbores altissimae, quarum folia quasi gemmae translucentes lucebant etiam sine sole. Et aer ipse — Deus bone! — aer ipse erat quasi aqua limpidissima biberes et non esses satur, sed semper plus sitires.</p>
+
+        <p>Non erat sol in caelo. Hoc primum notavi et primo territus sum: caelum erat pallidum et altum et purissimum, quasi caelum post pluviam magnae aestatis, sed sol aberat. Lux veniebat — et hoc postea intellexi — ex duabus arboribus mirabilibus quas in monte procul videbam, de quibus infra dicendum est.</p>
+
+        <div class="marginalia mg-right" style="top: 330px;">
+          <span style="color:#6a1208">✦ Nota bene:</span><br>
+          De arboribus<br>
+          duabus vide<br>
+          sectionem sequentem.<br>
+          Mirum et<br>
+          incredibile.
+        </div>
+
+        <p>Et montes erant in horizonte, alti et nivosi, nobilissimi quos unquam videram — et in his montibus quasi turres albae lucebant ex longiquo, tot et tam altae ut primo putarem nubes esse conformatas in imaginem civitatis. Sed non erant nubes. Erant aedificia vera, ex lapide albo qui ipse propriam lucem habere videbatur, aedificata arte tanta quam nulla manus hominis aequare posset.</p>
+      </div>
+
+      <!-- ======= SECTION IV ======= -->
+      <span class="rubric">✦ De Arboribus Mirabilibus ✦</span>
+
+      <div class="margin-wrap">
+        <div class="marginalia mg-left" style="top: 0px;">
+          Duae arbores lumen<br>
+          dantes sine sole —<br>
+          forte memoriam<br>
+          Paradisi ante<br>
+          lapsum servant?<br>
+          «In principio creavit<br>
+          Deus caelum et<br>
+          terram» — et prius<br>
+          quam sol factus est,<br>
+          lux erat. Gen. I.
+        </div>
+
+        <p>Ductus sum ab incolis — de quibus mox dicam — ad montem ubi stabant arbores illae. Et cum propius accessi, primum timui et procidere in faciem volui, quia splendor earum erat quasi duorum angelorum in veste alba simul apparentium. Deinde surrexi et steti et spectavi et non potui non spectare.</p>
+
+        <p><span class="smcaps">Arbor Prima</span> erat magna et vetustissima, folia habens viridia et flores argenteos, et ex his floribus lumen manabat purum et frigidulum quasi luna plena sed sine umbra et sine intermissione. Incolae eam voce sua <span class="elvish">Telperion</span> nominabant, quod in sermonem Latinum reddere conor quasi <em class="uncial-passage">«Argentea Frondositas»</em> vel <em class="uncial-passage">«Splendor Argenti»</em>. Radices eius terram totam sub se tenere videbantur, et cum venti — si venti in illa terra erant — ramos eius moverent, lux ipsa quasi cantabat, scintillans inter folia.</p>
+
+        <p><span class="smcaps">Arbor Secunda</span>, paululum minor sed ardentior, flores aureos habebat ex quibus lux calida et gaudosa fluebat, similis soli aestivo sed sine ardore nocivo — lux pura et benigna, sub qua omnia visa sunt pulchriora quam sunt. Eam <span class="elvish">Laurelin</span> nominabant incolae, id est — ut intellexi — quasi <em class="uncial-passage">«Canens aurum»</em> vel <em class="uncial-passage">«Aurea Melodia»</em>. Et nomen aptum erat, quia lux illius arboris quasi musica videbatur: non quam aure auditur, sed quam oculus et corpus totum sentit.</p>
+
+        <div class="marginalia mg-right" style="top: 320px;">
+          Quid sunt hae<br>
+          arbores in ordine<br>
+          creationis? Numquid<br>
+          lignum vitae de<br>
+          quo in Genesi?<br>
+          Sed illa in Eden<br>
+          erat, non ultra<br>
+          oceanum...
+        </div>
+
+        <p>Tunc Finrothus, videns stuporem in facie mea, ad me conversus est, et verba eius in corde meo ut ignis cecidere: <em class="uncial-passage">«Noli putare te videre illas ipsas Arbores quae in principio lumen mundo praebebant. Illae enim olim perierunt, manu nigra Inimici primi vulneratae, de quo hodie non loquar. Quod vides memoria est et soboles earum: lux eadem, radix alia. In terra Aman multa sic sunt — non quod olim fuit, sed quod ex illo superfuit et renatum est. Ilúvatar nihil quod pulchrum fuit penitus perire sinit.»</em></p>
+
+        <p>Et haec verba — <em class="uncial-passage">«quod perire non sinit»</em> — in corde meo diu resonuerunt. Nam in catechismo nostro cotidie dicimus Christum mortuum et resurgentem. Hic, in terra quam Eldar <em>suam vivorum</em> appellant, eadem figura occurrit: lux occisa quae rediit. Non audebam tunc Finrotho respondere, nec forsitan adhuc intellexi quantum intellegendum esset. Servavi tantum in corde meo, ut Maria verba pastorum.</p>
+
+        <div class="marginalia mg-left" style="top: 640px;">
+          Lux occisa quae<br>
+          rediit — hoc Eldar<br>
+          per imaginem<br>
+          Arborum audierunt,<br>
+          nos per Evangelium.<br>
+          Una veritas,<br>
+          duae viae?<br>
+          — <em>frater Coemanus</em>
+        </div>
+
+        <p>Et alternatim lucebant, ita ut lux argentea paulatim decresceret dum aurea crescebat, et rursum aurea minuebatur et argentea florebat — et in brevi spatio temporis ambo simul fulgebant, in mixtura luminis tam pretiosa tam mirabilis ut lacrimas non tenuerim. Cogitavi tunc in corde meo: <em>Hoc erat lumen ante solem et lunam, quod Scriptura in primo die Geneseos memorat, antequam luminaria maiora facta sunt. Hoc Deus servant in terra sua quam oculi mortalium non viderunt.</em></p>
+      </div>
+
+      <!-- ======= SECTION V ======= -->
+      <span class="rubric">✦ De Incolis ac Facie Eorum ✦</span>
+
+      <div class="margin-wrap">
+        <div class="marginalia mg-left" style="top: 0px;">
+          Quaere: angeli<br>
+          corporei? — Non<br>
+          videntur. Praeter-<br>
+          adamitae? — Sed<br>
+          ubi in Scriptura?<br>
+          Alia species a Deo<br>
+          creata, extra<br>
+          intelligentiam<br>
+          nostram. Timendum<br>
+          et adorandum Deum<br>
+          qui talia fecit.
+        </div>
+
+        <p>Incolae terrae illius — quos postea intellexi esse eos qui se <span class="elvish">Eldar</span> nominant, id est Latine quasi <em class="uncial-passage">«Qui stellas primum viderunt»</em>, quia nati sunt ante solem et lunam, sub lumine stellarum primordialium — erant in forma humani similes, sed quantum homo cogitari potest praestantiores.</p>
+
+        <p>Statura eorum erat procera, ut viri bene formati, sed omnes quodammodo maiestuosi et sereni, quasi nemo eorum umquam timuit vel laboravit nimium vel aegrotavit. Facies eorum lucebant — non modo sicut facies hominis sani et laeti lucere solet, sed luce quadam interiore, quasi crystallum ante candelam, in qua candela ipsa quodammodo videatur. Capilli eorum erant auri vel argenti vivi, non coloris eorum, sed quasi ipsa materia illa esset in capillis viva. Et oculi — Domine Deus! — oculi eorum erant quasi putei sine fundo, in quibus videre poteras quasi memoriam omnium quae ab initio mundi facta sunt, et stellas, et cantus quos nulla auris humana audit.</p>
+
+        <div class="marginalia mg-right" style="top: 270px;">
+          «Formosi nimis» —<br>
+          Sic et angeli<br>
+          quando apparent.<br>
+          Sed angeli non<br>
+          vescuntur, hi<br>
+          autem edunt et<br>
+          rident. Quod<br>
+          mirabile est.
+        </div>
+
+        <p>Nihil in eis erat deforme, nihil turpe, nihil mortale visu. Vestimenta eorum erant alba et grisea et argentea, nusquam lacerata vel sordida. Et quod maxime mirum videbatur: non poterant horum in facie videri timor vel tristitia — non quia eas non agnoscerent, sed quia quasi ultra eas erant, quasi qui dolorem bene scit et tamen ex eo emergens iam altius stat. Postea Finrothus — de quo mox dicam — mihi explicavit: <em class="uncial-passage">«Nos non vivimus in tempore sicut vos. Nos memores sumus omnium quae fuere. Hoc et donum est et onus grave.»</em></p>
+
+        <p>Lingua eorum — o quam mirabilis lingua! — erat quasi musica facta verbis, aut verba facta musica: singulae voces quasi chorda citharae pulsatae resonabant, et quando multi simul loquebantur erat quasi chorus cantorum in nocte Nativitatis Domini. Ego Hibernice locutus sum, et Latine, et paululum Saxonice quod a fratribus nostris Anglis in monasterio didiceram. Unus eorum maior — non in statura sed in quodam splendore quasi nimbus circa eum — signum fecit quietis ceteris et ad me loqui coepit nova lingua.</p>
+
+        <p>Et mirum mirorum et gratia Dei: intellexi eum. Non sicut peregrinus qui post multos menses linguam barbaram paulatim discit, sed quasi somnium: sensus perveniebat in mentem meam sine labore, quasi vox eius directe in cor meum loqueretur, verbis tanquam lumine transfixo.</p>
+
+        <p class="no-indent" style="text-indent:0;margin-left:2em;margin-right:2em;font-style:italic;color:#2a1a08;font-size:0.93em;line-height:2.0;">
+          <em class="uncial-passage">«Veni,»</em> dixit ille, <em class="uncial-passage">«hospes es in Aman. Non multis filiis Mortis datum est huc pervenire. Quis te misit?»</em>
+        </p>
+
+        <p>Respondi ego, genibus paene flexis: <em class="uncial-passage">«Deus meus, Creator caeli et terrae, qui in tribus personis adoratur, et sanctus Columba patronus meus, quem ille ad hanc viam misit.»</em></p>
+
+        <p>Et vultus illius factus est quasi sol post nubes longas emergens — gaudium et maerstitia simul, mirabiliter permixta, et oculi eius — iam dixi quod oculi eorum profundi erant — quasi aque profundas movebantur in his verbis. Et dixit voce submissa, quasi nomen sacrum proferens in sancto sanctorum: <span class="elvish">«Ilúvatar.»</span></p>
+      </div>
+
+      <!-- ======= SECTION VI ======= -->
+      <span class="rubric">✦ De Colloquio cum Finrotho ✦</span>
+
+      <div class="margin-wrap">
+        <div class="marginalia mg-left" style="top: 5px;">
+          Finrothus — nomen<br>
+          Latinum ex ipsorum<br>
+          lingua redditum.<br>
+          Significat quasi<br>
+          «Sapientia aurea»<br>
+          vel «Corona auri<br>
+          et sapientiae.»<br>
+          Vir magnificus.
+        </div>
+
+        <p>Nomen illius — quantum ex ipsorum lingua in Latinum reducere potui — erat <span class="smcaps">Findaratus</span> vel <span class="smcaps">Finrothus</span>: «Finis aureus» significare videbatur, aut «Coronatus sapientia et auro». Inter suos erat quasi rex vel pontifex, non per violentiam aut timorem, sed quia omnes eum amabant et cum eo loqui cupiebant. Ipse dixit se de gente esse quae se <span class="elvish">Noldor</span> nominat — id est ut interpretabatur, <em class="uncial-passage">«Qui multa sciunt»</em> vel <em class="uncial-passage">«Sapientiae filii»</em>.</p>
+
+        <p>Duxit me in civitatem quam de navicula mea videram — et maior erat quam longe credideram. Erat in monte aedificata ex lapide albo proprio lumine micante, cum turribus tot et tam altis ut paene nubes tangerent. Viae strata erant lapide nitido et levi. Per mediam viam rivus cantans currebat, et arbores in via ipsa crescebant quasi in horto amplissimo. Populus totus nos inspiciebat, non hostiliter sed curiositate misericordi: ego enim eram — intellexi postea — quasi avis peregrini generis inter illos, curiosa res, tenera, fragilis, mortalis.</p>
+
+        <div class="marginalia mg-right" style="top: 220px;">
+          Civitas alba in<br>
+          monte — cf. civitatem<br>
+          in Apocalypsi:<br>
+          «descendentem de<br>
+          caelo a Deo, habent-<br>
+          em claritatem Dei»<br>
+          (Apoc. XXI, 10).<br>
+          Sed haec nondum<br>
+          descendit — iam<br>
+          ibi est.
+        </div>
+
+        <p>In aula magna — tota ex crystallo et marmore constructa, in cuius culmine illa duplex lux arborum per fenestras vastas intrabat et omnia ex utroque colore simultim tingebat — sedimus, ego et Finrothus, et longa colloquia habuimus per horas quas numerare non valui, quia horae ibi aliter fluunt.</p>
+
+        <p>Narravit mihi Finrothus de origine mundi. Narravit de <em>Cantu Magno</em> — quem ego Creationem intellexi — quando <span class="elvish">Ilúvatar</span> ipse in principio cantavit et Potestatibus suis — <span class="elvish">Ainur</span> eos vocabat, quos ego Angelos Maiores esse intellexi — mandavit ut secum canerent melodias ineffabiles. Et cantaverunt, et ex cantu eorum et voluntate <span class="elvish">Ilúvatar</span> mundus formatus est — non sicut figulus vas fingit, sed sicut cantor harmoniam creat: ex ipso sono, ex ipsa pulchritudine.</p>
+
+        <p>Sed unus ex Angelis Maioribus — quem <span class="elvish">Melkor</span> nominabant et quem ego sine dubio Adversarium esse intellexi, quem nos Satanam vocamus — contra harmoniam cantare voluit et discordiam seminavit in cantum. Et <span class="elvish">Ilúvatar</span> illam discordiam non annihilavit sed in se recepit et ex ea quoque pulchritudinem extraxit mirabiliorem — ut quasi tenebrae quaedam in pictura lucem circumstantem magis lucere faciant. Haec cogitans obstupui: etiam in theologia horum Immortalium idem mysterium quod nos in Providentia Dei veneramur!</p>
+      </div>
+
+      <!-- ======= SECTION VII ======= -->
+      <span class="rubric">✦ De Immortalitate Eorum ac Sorte ✦</span>
+
+      <div class="margin-wrap">
+        <div class="marginalia mg-right" style="top: 0px;">
+          Hic locus maxime<br>
+          theologice difficilis.<br>
+          Si non moriuntur<br>
+          in peccato, non<br>
+          indigent redempt-<br>
+          ione? Sed Augustinus<br>
+          docet omnem crea-<br>
+          turam post lapsum<br>
+          Adae affectam esse.<br>
+          Quomodo hi?
+        </div>
+
+        <p>Interrogavi Finrothum de statu post mortem eorum. Et hic primum vidi in facie illius aliquid quasi nubis transeuntis — non tristitia simpliciter, sed quaedam profunda interrogatio, quasi homo qui speculum inspicit et videt se et non se, et utrumque miratur.</p>
+
+        <p><em class="uncial-passage">«Nos non morimur sicut vos morimini,»</em> dixit lente, quasi verba ponderans. <em class="uncial-passage">«Corpus nostrum perire potest in bello vel in vulnere gravi. Sed spiritus noster — quod vos animam vocatis — in saecula permanet in mundo isto, ad carnem novam evocandus ubi tempus venerit. Nos sumus ligati huic Creationis cantui, huic mundo, usque ad finem ultimum eius.»</em> Pausa. <em class="uncial-passage">«Vos autem — filii Mortis, filii Donationis Ignotae — sicut flamma brevis ardetis et post mortem ad ignotum iter pergitis. Quo eatis, Ilúvatar sibi reservavit. Nobis non revelavit. Et hoc est,»</em> et hic mirabili modo voce usus est quasi de re pretiosa et paene invidiosa, <em class="uncial-passage">«donum vobis datum quod nobis negatum est.»</em></p>
+
+        <div class="marginalia mg-left" style="top: 220px;">
+          Mors ut donum!<br>
+          Paradoxum mirabile.<br>
+          Numquid isti<br>
+          Immortales mortem<br>
+          nostram invident?<br>
+          Quid est libertas<br>
+          a mundo — nisi<br>
+          mors ipsa?
+        </div>
+
+        <p>Diu haesi super his verbis. <em>Donum</em> — mors, donum? Nos qui tota vita morti resistimus, qui parentum et amicorum et fratrum mortes cum lacrimis planximus, qui in timore ultimo viaticum petimus — nos mortem ut donum habemus? Et isti Immortales, quibus nos quasi miseri et breves et periturum esse videmur, nos propter illam ipsam brevitatem et mortalitatem mirantur?</p>
+
+        <p>Finrothus vidit cogitationem meam in facie et subrisit — et subrisus eius erat quasi aurora: <em class="uncial-passage">«Noli hoc male interpretari. Non invidemus vobis, non contemnimus. Sed post tot saecula vidimus multos ex genere vestro — paucos, valde paucos, qui huc pervenerunt — et in omnibus vobis quoddam lumen est quod in nobis non est: lumen rerum brevis sed ardentem. Vos amatis intensius quia cito amittitis. Cantatis fortius quia cantus vester finiri scit. In hoc similes estis flammae — et flamma splendidior est stella, quamvis stella longior vivat.»</em></p>
+      </div>
+
+      <!-- ======= SECTION VIII ======= -->
+      <span class="rubric">✦ De Praedicatione et Responsione Mirifica ✦</span>
+
+      <div class="margin-wrap">
+        <div class="marginalia mg-right" style="top: 5px;">
+          Hic nodus gordius<br>
+          totius narrationis.<br>
+          Si Eldar Ilúvatar<br>
+          noverunt ante<br>
+          Christum — quid<br>
+          de eis post Chr-<br>
+          istum? Habent-ne<br>
+          salutem? Patres<br>
+          Ecclesiae hoc non<br>
+          tractaverunt.
+        </div>
+
+        <p>Tunc — et hoc, fratres, ex caritate et officio meo feci, non ex arrogantia — narravi Finrotho ea quae scimus et credimus et praedicamus: de Deo Patre qui tantum mundum dilexit; de Filio aeterno qui carnem nostram humanam assumpsit — mirabile et stupendum! — et in illa carne passus est et mortuus est et in tertia die resurrexit; de Spiritu Sancto qui Ecclesiam vivificat. Narravi quomodo per hanc passionem et resurrectionem porta aeterna aperta sit hominibus ad vitam.</p>
+
+        <p>Et Finrothus me audiebat — et hoc etiam mirabile erat — non modo aures praebendo sed toto corpore, tota mente, quasi homo qui longam historiam a multis narratam tandem ex fonte primo audit. Et quando nominavi Filium Dei in carnem descendentem et in cruce mortuum, vultus eius factus est quasi caelum quando nubes graves super solem transeunt: umbra, sed non obscuritas.</p>
+
+        <div class="marginalia mg-left" style="top: 300px;">
+          Prophetia inter<br>
+          Eldar — quomodo<br>
+          et a quo data?<br>
+          Si noverunt de<br>
+          Incarnatione, eis<br>
+          quoque Spiritus<br>
+          Dei locutus est?<br>
+          Magna quaestio.
+        </div>
+
+        <p>Cum finivi loqui, siluit diu. Ita diu ut putarem me offendisse. Sed non erat ira in silentio eius — erat consideratio profunda, quasi qui calculum longum in animo ponit. Tandem dixit:</p>
+
+        <p class="no-indent uncial-passage" style="text-indent:0;margin-left:2em;margin-right:2em;">«De hoc Uno qui descendit in mortem ut mortem vinceret — et qui natus est ex muliere mortali et portavit in carne omnem tristitiam carnis — habuimus inter nos prophetias antiquas, voces quasi in visione auditas, de quibus non omnes concordabant nec clara erant. Iam intelligo melius. Sed haec via — ut tu dicis — via est filiorum Mortis, via est quod Donum Ignotum recipit. Nos non sumus filii Mortis. Via nostra alia est — et an habemus viam, vel an egimus via, vel an nos quoque indigemus manus quae nos ducat — hoc quaerimus et non invenimus, et in hac quaestione sumus saecula et saecula.»</p>
+
+        <p>Et surrexit Finrothus et ivit ad fenestram ubi lux argentea <span class="elvish">Telperionis</span> intrabat et voltum eius argenteum faciebat, et dixit ultima verba quae de eo in hoc libro scribo:</p>
+
+        <p class="no-indent uncial-passage" style="text-indent:0;margin-left:2em;margin-right:2em;">«Tu habes peccatum unius hominis in historia carnis tuae. Nos habemus peccatum unius Angeli in historia memoriae nostrae. Forsitan utrique misericordia egent — sed misericordia alia et alia, sicut vulnera alia et alia. Illam discretionem Ilúvatar solus novit. Nos servimus. Amamus. Creamus. Custodimus. Cantamus. An sufficiat — in ipsius manu est, non in mea.»</p>
+
+        <p>Et non potui ei respondere. Et hodie adhuc non possum.</p>
+      </div>
+
+      <div class="ornament-line">· · ·</div>
+
+      <!-- ======= SECTION IX ======= -->
+      <span class="rubric">✦ De Reditu et Dono Dato ✦</span>
+
+      <div class="margin-wrap">
+        <div class="marginalia mg-right" style="top: 0px;">
+          Septem dies ibi —<br>
+          numerus perfectus.<br>
+          Tres anni foris?<br>
+          Similis est fabulis<br>
+          Hibernicis de terra<br>
+          Faerica — qui intrat,<br>
+          exiens tempus<br>
+          amisit. Cavendum.
+        </div>
+
+        <p>Post septem dies — vel quantum mihi septem dies esse videbatur, quia tempus in terra illa aliter fluit, leniter et abundanter quasi mel e cupa versus quam aqua per torrentem — ivit Finrothus mecum ad portum ubi cymba mea expectabat. Vidi in ea aliqua provisorum quae non posui: panem non putridum et aquam in vasculo. Manus aliqua invisibilis providerat.</p>
+
+        <p>In ultimo momento, Finrothus manu sua — longa et lucida — parvam gemmam in manus meas posuit. Erat alba, quasi quartz alpinus, sed intus levis quaedam lux sita erat, non calida ut aurum, non frigida ut luna, sed quasi utriusque mixtura in puncto minimae quiescentis. <em class="uncial-passage">«Haec,»</em> dixit, <em class="uncial-passage">«in tenebris fuerit tibi quasi parvum sidus recordationis. Noli oblivioni tradere quae hic vidisti. Non multos ex genere tuo videbimus amplius — tempus veniet — sed memoriam tui in nobis manebimus.»</em></p>
+
+        <div class="marginalia mg-left" style="top: 240px;">
+          Gemma ab Aidano<br>
+          relicta in theca<br>
+          monasterii. Vidi<br>
+          eam anno Dom.<br>
+          CMXV. Lux intus<br>
+          est. Testimonium.<br>
+          — <em>frater Coemanus</em>
+        </div>
+
+        <p>Gemmam illam adhuc habeo, in pera mea secretissima, sub habitu. Noctu aliquando eam inspicio et lux intus est. Nescio quid sit. Nescio si miraculum sit an natura incognita. Deo committens teneo eam et taceo.</p>
+
+        <p>Navigavi. Et post tres dies — vel tres annos, quia fratres mihi postea dixerunt triennium me abfuisse, quod ego non credidi donec calendarium vidi — in aquas notas perveni, et phocas Hibernicas agnovi, et aves Hibernicas, et tandem clivum Hiberniae in Oriente aspexi. Et in portum qui prope monasterium nostrum est applicui, et Cellach frater qui me planantem vidit annos tres nunc ridebat et flebat simul in porta.</p>
+
+        <p>Abii per tres annos. Mihi tres dies videbantur. Tempus in terra <span class="elvish">Aman</span> aliter fluit. Hoc inter cetera iudicio Dei relinquo.</p>
+      </div>
+
+      <!-- ======= CONCLUSIO ======= -->
+      <div class="ornament-line">✦ ✦ ✦</div>
+      <span class="rubric">✦ Conclusio et Confessio ✦</span>
+
+      <div class="margin-wrap">
+        <div class="marginalia mg-right" style="top: 10px;">
+          Haec cum legerem<br>
+          primo putavi aut<br>
+          fictionem aut<br>
+          deliramentum.<br>
+          Sed gemma testis<br>
+          est. — <em>Abbas Finanus</em>
+        </div>
+
+        <p>Haec vera sunt, quantum homo fallibilis et peccatis multis pressus verum narrare potest. Deo et sanctis eius, et Ecclesiae matri nostrae, iudicandum relinquo quid <span class="smcaps">Eldar</span> illi sint in schemate divinae providentiae et quid de eis sperandum vel timendum sit. Non sum Augustinus. Non sum Hieronymus. Piscator sum et monachus pauperculus qui in cymbam suam ascendit et rediit mutatus.</p>
+
+        <p>Hoc solum dico, fratres, et in corde vestro ponite: In facie Finrothi vidi plus verae bonitatis quam in multis faciis hominum qui se Christianos vocant et ad Eucharistiam accedunt sed proximum suum oderunt. In verbis eius de <span class="elvish">Ilúvatare</span> — quem nos Deum Patrem agnoscimus — magis veram reverentiam audivi quam in sermonibus multis qui e cathedris per totam Ecclesiam praedicantur et ad aures cito labuntur. In quaestione eorum de via salutis suae — in illa profunda et nobili ignorantia — plus humilitatis et honestatis vidi quam in multis qui omnia scire se putant et nullam viam amplius quaerunt quia se iam pervenisse credunt.</p>
+
+        <div class="marginalia mg-left" style="top: 250px;">
+          Orate pro Eldar<br>
+          qui ultra mare<br>
+          manent, si eos<br>
+          Deus ad preces<br>
+          nostras respicere<br>
+          dignatur. Non<br>
+          nocet orare.
+        </div>
+
+        <p class="theological">An <span class="elvish">Eldar</span> salventur — hoc quaero et non respondeo. An baptismum desiderent — nescio, quia nescivi eis de eo recte loqui. An Christus pro eis passus est — forsitan, quia Deus pro omni creatura suae benignitatis aliquid habet. Sed haec theologi tractent — ego tantum testor.</p>
+
+        <p>Orate pro me, fratre Aidano peccatore, et orate — si fas est — pro illis <span class="smcaps">Immortalibus</span> ultra oceanum, quos Deus ipse novit quomodo et quantum, et qui — hoc certo scio — Deum suum <span class="elvish">Ilúvatar</span> amant et ei serviunt fideliter in terra sua, et cantant cantus de quibus mundus iste nescit, et memoriam rerum ab initio mundi custodiunt ne pereat.</p>
+
+        <p class="uncial-passage" style="text-align:center;text-indent:0;margin-top:20px;">
+          Miserere nobis omnibus, Domine, et iudica nos misericorditer —<br>
+          scientes et nescientes, mortales et immortales,<br>
+          filios Donationis et filios Cantus.
+        </p>
+
+        <div class="colophon">
+          Scriptum in monasterio Insulae Columbae manu propria fratris Aidani,<br>
+          anno ab incarnatione Domini <span class="smcaps">DCCCXCII</span>, mense Novembri.<br>
+          Hunc libellum, cum finitus erit, in arca lignea sub altari recondam,<br>
+          ne per casus temporum pereat, et si quando pax redierit<br>
+          fratres sequentes forsitan inveniant.<br>
+          Sit laus Deo soli. Amen.
+
+          <span class="later-hand">
+            ☩ Hunc libellum in arca lignea sub altari invenit frater Coemanus anno <span class="smcaps">CMXVII</span>,<br>
+            post tempus longum in quo monasterium hoc multa passum est,<br>
+            et copiam eius fecit ad perpetuam rei memoriam. De fratre Aidano<br>
+            auctore post annum <span class="smcaps">DCCCXCIV</span> nihil scimus.<br>
+            Gemma de qua scribit in theca argentea servatur.<br>
+            Lux in ea adhuc videtur noctu. ☩
+          </span>
+        </div>
+      </div>
+
+      <!-- SEAL -->
+      <div class="seal-area">
+        <div class="seal">☩<br>INSVLA<br>COLVM<br>BAE ☩</div>
+      </div>
+
+    </div><!-- /doc-content -->
+
+  </div><!-- /parchment -->
+</div><!-- /outer-wrap -->
+
+<script>
+  // Generate torn parchment edges via CSS clip-path
+  function seededRand(seed) {
+    let s = seed;
+    return function() {
+      s = (s * 1664525 + 1013904223) >>> 0;
+      return s / 4294967296;
+    };
+  }
+
+  function buildTornClipPath(w, h) {
+    const rand = seededRand(0xAB3F17);
+    const points = [];
+    const N = 55;
+
+    // TOP edge — most torn, fiber-like tears
+    for (let i = 0; i <= N; i++) {
+      const t = i / N;
+      const x = t * w;
+      const base = rand() * rand(); // biased toward small values
+      const spike = (rand() < 0.12) ? rand() * 22 : 0; // occasional deeper tear
+      const y = Math.max(0, base * 12 + spike);
+      points.push(`${x.toFixed(1)}px ${y.toFixed(1)}px`);
+    }
+
+    // RIGHT edge — moderate
+    for (let i = 0; i <= N; i++) {
+      const t = i / N;
+      const y = t * h;
+      const inset = Math.max(0, rand() * rand() * 8 + (rand() < 0.08 ? rand() * 14 : 0));
+      const x = w - inset;
+      points.push(`${x.toFixed(1)}px ${y.toFixed(1)}px`);
+    }
+
+    // BOTTOM edge — pronounced tears
+    for (let i = N; i >= 0; i--) {
+      const t = i / N;
+      const x = t * w;
+      const base = rand() * rand();
+      const spike = (rand() < 0.15) ? rand() * 20 : 0;
+      const yOff = base * 14 + spike;
+      const y = h - Math.max(0, yOff);
+      points.push(`${x.toFixed(1)}px ${y.toFixed(1)}px`);
+    }
+
+    // LEFT edge — slight irregularity
+    for (let i = N; i >= 0; i--) {
+      const t = i / N;
+      const y = t * h;
+      const inset = Math.max(0, rand() * rand() * 6 + (rand() < 0.07 ? rand() * 12 : 0));
+      const x = inset;
+      points.push(`${x.toFixed(1)}px ${y.toFixed(1)}px`);
+    }
+
+    return `polygon(${points.join(', ')})`;
+  }
+
+  function applyTornEdge() {
+    const parch = document.getElementById('parchment');
+    const w = parch.offsetWidth;
+    const h = parch.offsetHeight;
+    parch.style.clipPath = buildTornClipPath(w, h);
+  }
+
+  window.addEventListener('load', applyTornEdge);
+  window.addEventListener('resize', () => {
+    document.getElementById('parchment').style.clipPath = '';
+    requestAnimationFrame(applyTornEdge);
+  });
+</script>
+
+</body>
+</html>
