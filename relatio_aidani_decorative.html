@@ -89,6 +89,13 @@
       url("data:image/svg+xml;charset=utf-8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='512' height='512' viewBox='0 0 512 512'%3E%3Cdefs%3E%3Cfilter id='p' x='0' y='0' width='100%25' height='100%25'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85 0.75' numOctaves='3' stitchTiles='stitch' result='g'/%3E%3CfeColorMatrix in='g' values='0 0 0 0 0  0 0 0 0 0  0 0 0 0 0  0 0 0 0.22 0'/%3E%3C/filter%3E%3C/defs%3E%3Crect width='512' height='512' fill='transparent' filter='url(%23p)'/%3E%3C/svg%3E"),
       /* Coarse warm/cool mottling — 1024px tile, low-frequency turbulence */
       url("data:image/svg+xml;charset=utf-8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='1024' height='1024' viewBox='0 0 1024 1024'%3E%3Cdefs%3E%3Cfilter id='p' x='0' y='0' width='100%25' height='100%25'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.03 0.04' numOctaves='3' seed='8' stitchTiles='stitch' result='c'/%3E%3CfeColorMatrix in='c' values='0 0 0 0 0.09  0 0 0 0 0.045  0 0 0 0 0  0 0 0 0.28 0'/%3E%3C/filter%3E%3C/defs%3E%3Crect width='1024' height='1024' fill='transparent' filter='url(%23p)'/%3E%3C/svg%3E"),
+      /* Ultra-coarse "continental" mottling — 1024px tile, very low frequency.
+         Period ≈ 150px at baseFrequency 0.006; the tile holds ~6–8 full
+         oscillations and stitchTiles removes seams. This fills the 50–500px
+         scale gap that was previously absent in the middle of the sheet
+         and is the main cure for horizontal monotony. Decoded once, cached
+         as a tiled bitmap — zero cost on scroll. */
+      url("data:image/svg+xml;charset=utf-8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='1024' height='1024' viewBox='0 0 1024 1024'%3E%3Cdefs%3E%3Cfilter id='p' x='0' y='0' width='100%25' height='100%25'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.006 0.008' numOctaves='2' seed='23' stitchTiles='stitch' result='m'/%3E%3CfeColorMatrix in='m' values='0 0 0 0 0.14  0 0 0 0 0.09  0 0 0 0 0.03  0 0 0 0.20 0'/%3E%3C/filter%3E%3C/defs%3E%3Crect width='1024' height='1024' fill='transparent' filter='url(%23p)'/%3E%3C/svg%3E"),
       /* Foxing spots */
       radial-gradient(circle 3px at 12% 8%, rgba(90,50,10,0.5) 0%, transparent 100%),
       radial-gradient(circle 2px at 87% 5%, rgba(80,40,8,0.4) 0%, transparent 100%),
@@ -120,25 +127,67 @@
       radial-gradient(ellipse 20% 30% at 8%  70%, rgba(140,90,30,0.20) 0%, transparent 100%),
       radial-gradient(ellipse 25% 15% at 50% 90%, rgba(150,100,35,0.18) 0%, transparent 100%),
       radial-gradient(ellipse 15% 20% at 65% 5%,  rgba(130,85,25,0.22) 0%, transparent 100%),
+      /* Mid-zone patches — target the middle 20–80% of width where the
+         edge-biased ellipse foxing does not reach. Positions chosen off
+         the 30/50/70 grid (38, 62, 45, 55, 33) so nothing reads as regular
+         spacing. Low alpha so they feel like soaked-in tonal variation
+         rather than explicit stains. */
+      radial-gradient(ellipse 22% 14% at 38% 23%, rgba(155,115,55,0.22) 0%, transparent 80%),
+      radial-gradient(ellipse 18% 22% at 62% 48%, rgba(175,140,90,0.18) 0%, transparent 75%),
+      radial-gradient(ellipse 26% 12% at 45% 67%, rgba(140,95,40,0.20) 0%, transparent 80%),
+      radial-gradient(ellipse 15% 18% at 55% 82%, rgba(165,130,75,0.16) 0%, transparent 75%),
+      radial-gradient(ellipse 20% 10% at 33% 54%, rgba(150,105,50,0.14) 0%, transparent 80%),
       /* Lighter worn patches */
       radial-gradient(ellipse 40% 25% at 30% 40%, rgba(220,185,120,0.35) 0%, transparent 70%),
       radial-gradient(ellipse 35% 30% at 70% 75%, rgba(215,180,115,0.30) 0%, transparent 70%),
       /* Darker soiled areas */
       radial-gradient(ellipse 50% 20% at 50% 0%,  rgba(110,70,20,0.25) 0%, transparent 80%),
       radial-gradient(ellipse 60% 15% at 50% 100%,rgba(110,70,20,0.20) 0%, transparent 80%),
+      /* Cross-axis tonal drift — shallow 105° gradient, nearly perpendicular
+         to the base 162° gradient below. Gives every horizontal slice a
+         gentle left-to-right tone walk so the sheet is no longer symmetric
+         along the vertical axis. Kept low-alpha (0.14/0.12) so it reads as
+         uneven dye absorption, not as a deliberate sweep — bump to 0.20+
+         if a stronger tilt is desired. */
+      linear-gradient(105deg, rgba(180,150,100,0.14) 0%, transparent 40%, rgba(140,115,80,0.12) 100%),
       /* Base gradient: desaturated, shifted away from orange toward the
          cooler cream-grey of real calfskin vellum; still warm overall but
          without the decorative-paper orange cast.                        */
       linear-gradient(162deg, #d6c99f 0%, #baa582 20%, #c8b68b 45%, #ae997a 65%, #c4ae87 85%, #a2906a 100%);
 
+    /* Sizes and repeats: one slot per background-image layer.
+       Tiles 1–3 are repeating bitmaps; slots 4–40 are analytic gradients
+       that sit once on the element. The list lengths MUST match the
+       image-layer count — if they are shorter the spec silently cycles
+       them, which previously caused the 2nd–3rd water-stain gradients
+       to get sized at 512px/1024px and to `repeat`, producing a faint
+       regular tiling artefact that also contributed to the monotony. */
     background-size:
-      512px 512px,
-      1024px 1024px,
-      auto, auto, auto, auto, auto, auto, auto, auto, auto, auto, auto, auto, auto, auto, auto, auto, auto, auto, auto, auto, auto, auto, auto;
+      512px 512px,                                                      /* fine grain tile */
+      1024px 1024px,                                                    /* coarse mottling tile */
+      1024px 1024px,                                                    /* ultra-coarse continental tile */
+      auto, auto, auto, auto, auto, auto, auto,
+      auto, auto, auto, auto, auto, auto, auto,                         /* 14 foxing spots */
+      auto, auto, auto, auto, auto, auto, auto, auto,                   /* 8 edge-biased ellipses */
+      auto, auto, auto, auto,                                           /* 4 water stains */
+      auto, auto, auto, auto, auto,                                     /* 5 mid-zone patches */
+      auto, auto,                                                       /* 2 worn patches */
+      auto, auto,                                                       /* 2 soiled top/bottom bands */
+      auto,                                                             /* 105° cross-axis drift */
+      auto;                                                             /* 162° base gradient */
     background-repeat:
       repeat,
       repeat,
-      no-repeat, no-repeat, no-repeat, no-repeat, no-repeat, no-repeat, no-repeat, no-repeat, no-repeat, no-repeat, no-repeat, no-repeat, no-repeat, no-repeat, no-repeat, no-repeat, no-repeat, no-repeat, no-repeat, no-repeat, no-repeat, no-repeat, no-repeat;
+      repeat,
+      no-repeat, no-repeat, no-repeat, no-repeat, no-repeat, no-repeat, no-repeat,
+      no-repeat, no-repeat, no-repeat, no-repeat, no-repeat, no-repeat, no-repeat,
+      no-repeat, no-repeat, no-repeat, no-repeat, no-repeat, no-repeat, no-repeat, no-repeat,
+      no-repeat, no-repeat, no-repeat, no-repeat,
+      no-repeat, no-repeat, no-repeat, no-repeat, no-repeat,
+      no-repeat, no-repeat,
+      no-repeat, no-repeat,
+      no-repeat,
+      no-repeat;
   }
 
   /* Subtle horizontal writing lines */
@@ -155,6 +204,84 @@
     );
     pointer-events: none;
     z-index: 0;
+  }
+
+  /* ===== .parchment::after — edge wear =====
+     Clip-path родителя даёт зазубренный силуэт, но сам по себе он читается
+     лишь как «неровно обрезано». Аутентичный старый свиток несёт три
+     независимых класса пограничных повреждений, которые этот слой и
+     имитирует:
+
+     (a) Потемнение по периметру — оксидативное и от многократного
+         прикосновения рук. Реализовано двумя линейными градиентами
+         (горизонтальный + вертикальный). Максимум тёмного (α≈0.45)
+         приходится на саму внешнюю рамку прямоугольника, которая в
+         большинстве позиций обрезана clip-path'ом. Видимая часть —
+         это полоса α≈0.15–0.18 на 1.5–2% вглубь, быстро спадающая в
+         прозрачность к 4–5%. Там где clip-path идёт ближе к границе,
+         потемнение выглядит резким; где глубже впадает — мягким. Эта
+         естественная неравномерность — главный выигрыш подхода.
+
+     (b) Сколы — мелкие утраты чернил/верхнего слоя на самой кромке.
+         Каждый — radial-gradient с центром на 0% или 100% (т.е. вне
+         видимой области, срезан clip-path'ом); видно только шлейф,
+         расходящийся внутрь — как будто в этом месте «клюнуло». 13 штук
+         распределены по всем четырём сторонам, с bias к длинным левому
+         и правому краям (свиток чаще изнашивается по длинным сторонам).
+
+     (c) Одна косая трещина у левого края (~28% по высоте) — тонкая
+         чернильно-тёмная полоса, размещённая через background-position
+         без повторения. Одна-две трещины максимум; больше читается как
+         орнамент, а не как повреждение.
+
+     Псевдоэлемент наследует clip-path родителя (clip-path клипирует
+     всех потомков), так что все эффекты аккуратно обрезаются по зубцам.
+     Позиционирование z-index: 2 ставит слой выше .doc-content (z:1) —
+     физически правильно: грязь лежит на поверхности письма, а не под
+     ним. На практике ни чернильные пятна, ни основной текст в зону
+     периметра не заходят, так что перекрытий почти не возникает.
+
+     Производительность: ничего нового в GPU не загружается — никаких
+     SVG-тайлов или фильтров; 15 аналитических градиентов на один слой,
+     растеризация один раз при первой компоновке, на скролле бесплатно. */
+  .parchment::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    z-index: 2;
+    background:
+      /* --- (c) diagonal crack near left edge --- */
+      linear-gradient(73deg,
+        transparent 44%,
+        rgba(35,15,5,0.32) 47.5%,
+        rgba(30,12,4,0.55) 49.5%,
+        rgba(30,12,4,0.55) 50.5%,
+        rgba(35,15,5,0.28) 52.5%,
+        transparent 56%) 0% 27% / 78px 3px no-repeat,
+      /* --- (b) edge chips — left side --- */
+      radial-gradient(ellipse 14px 6px at 0% 17%, rgba(25,10,2,0.60) 0%, transparent 100%),
+      radial-gradient(ellipse 10px 4px at 0% 43%, rgba(30,13,3,0.55) 0%, transparent 100%),
+      radial-gradient(ellipse 16px 7px at 0% 68%, rgba(22, 9,2,0.58) 0%, transparent 100%),
+      radial-gradient(ellipse 11px 5px at 0% 89%, rgba(28,12,3,0.52) 0%, transparent 100%),
+      /* --- (b) edge chips — right side --- */
+      radial-gradient(ellipse 12px 5px at 100% 11%, rgba(25,10,2,0.55) 0%, transparent 100%),
+      radial-gradient(ellipse 15px 6px at 100% 32%, rgba(28,12,3,0.60) 0%, transparent 100%),
+      radial-gradient(ellipse  9px 4px at 100% 57%, rgba(22, 9,2,0.50) 0%, transparent 100%),
+      radial-gradient(ellipse 13px 6px at 100% 78%, rgba(30,13,3,0.57) 0%, transparent 100%),
+      /* --- (b) edge chips — top and bottom (fewer, smaller bias) --- */
+      radial-gradient(ellipse 38px 8px at 18%   0%, rgba(28,12,3,0.48) 0%, transparent 100%),
+      radial-gradient(ellipse 28px 6px at 61%   0%, rgba(25,10,2,0.45) 0%, transparent 100%),
+      radial-gradient(ellipse 32px 7px at 88%   0%, rgba(30,13,3,0.50) 0%, transparent 100%),
+      radial-gradient(ellipse 30px 7px at 29% 100%, rgba(28,12,3,0.50) 0%, transparent 100%),
+      radial-gradient(ellipse 36px 8px at 74% 100%, rgba(25,10,2,0.48) 0%, transparent 100%),
+      /* --- (a) perimeter darkening, horizontal + vertical --- */
+      linear-gradient(90deg,
+        rgba(40,20,5,0.45) 0%, rgba(40,20,5,0.18) 1.8%, transparent 5%,
+        transparent 95%, rgba(40,20,5,0.18) 98.2%, rgba(40,20,5,0.45) 100%),
+      linear-gradient(0deg,
+        rgba(45,22,6,0.40) 0%, rgba(45,22,6,0.15) 1.5%, transparent 4%,
+        transparent 96%, rgba(45,22,6,0.15) 98.5%, rgba(45,22,6,0.40) 100%);
   }
 
   /* Content z-index above lines */
@@ -262,7 +389,97 @@
     font-size: 1.0em;
     letter-spacing: 0.01em;
   }
-  .theological { color: #1a3050; font-style: italic; }
+  /* Латинизированные имена исключительной важности, которые не являются
+     эльфийскими и не вложены в прямую речь в роли цитаты: Findaratus,
+     Finrothus, Arborem Primam, Secunda Arbor. Рубрицированный унциал
+     (красный, как у крестов и начальных литер) — надёжный инвариантный
+     маркер: он различим и на фоне чёрного основного текста narratiо-
+     шрифта, и внутри коричневого унциала диалогов. Это соответствует
+     реальной практике инсулярных рукописей, где особо значимые имена
+     выделялись минием (свинцовым суриком) или киноварью. */
+  .nomen-illustre {
+    font-family: '0550 Uncialis', 'Uncial Antiqua', serif;
+    font-style: normal;
+    color: #6a1208;
+    font-size: 1.0em;
+    letter-spacing: 0.01em;
+  }
+  /* ===== .theological — теологическая рефлексия автора =====
+     Маркируется двумя красными крестами ☩ на полях (слева и справа),
+     не цветом и не начертанием самого текста. Это ближе к реальной
+     инсулярной практике IX в., где особо значимые пассажи — молитвы,
+     цитаты Писания, доктринальные тезисы — отмечались paragraphus
+     signum (чаще всего крестом) в левом поле. Симметричная постановка
+     (слева и справа) — сознательная стилизация для тех случаев, когда
+     абзац окружён маргиналиями с обеих сторон.
+
+     Курсив убран как анахронизм (курсивное начертание изобретено только
+     в XV в.); синий цвет убран как не характерный для инсулярных
+     рукописей этого периода (синие чернила из лазурита — прерогатива
+     каролингских и поздних рукописей, а не Ионы / Ì 892 г.).
+
+     .theological-cont — модификатор для случая, когда теологический
+     абзац получен разделением более крупного исходного абзаца. Убирает
+     7-пиксельный зазор между частями, чтобы оба фрагмента читались как
+     типографически непрерывный блок (их разводит только пара крестов
+     на полях), и — что важно — чтобы вертикальная координата следующих
+     маргиналий в margin-wrap не смещалась. */
+  .theological {
+    /* нет визуального стиля: маркировка только крестами на полях */
+  }
+  .theological-cont {
+    margin-top: -7px; /* компенсирует добавленный split'ом paragraph-gap */
+  }
+  .theological::before,
+  .theological::after {
+    content: '';
+    position: absolute;
+    top: 0.08em;
+    bottom: 0.08em;
+    aspect-ratio: 1 / 1;   /* квадратный блок: ширина = высота абзаца */
+    max-width: 6.5em;      /* потолок для самых высоких абзацев,
+                              чтобы не вылезти за пергамент (7em margin) */
+    /* Иерусалимский крест — crux potentata cum quattuor crucibus: крупный
+       центральный греческий крест (равноконечный) с «потент»-окончаниями
+       (Т-образными шапками на концах каждого луча) и четырьмя малыми
+       крестами в квадрантах. Исторически — герб Иерусалимского
+       королевства; в рукописной традиции — знак особо значимого
+       доктринального места. ViewBox 60×60 квадратный, так что
+       background-size: contain вписывает SVG в элемент по меньшей
+       из сторон (высоте или max-width), результат — всегда квадрат. */
+    background: url("data:image/svg+xml;charset=utf-8,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 60 60' fill='%236a1208'%3E%3Crect x='28' y='12' width='4' height='36'/%3E%3Crect x='12' y='28' width='36' height='4'/%3E%3Crect x='24' y='10' width='12' height='2'/%3E%3Crect x='24' y='48' width='12' height='2'/%3E%3Crect x='10' y='24' width='2' height='12'/%3E%3Crect x='48' y='24' width='2' height='12'/%3E%3Crect x='17' y='16' width='2' height='6'/%3E%3Crect x='15' y='18' width='6' height='2'/%3E%3Crect x='41' y='16' width='2' height='6'/%3E%3Crect x='39' y='18' width='6' height='2'/%3E%3Crect x='17' y='38' width='2' height='6'/%3E%3Crect x='15' y='40' width='6' height='2'/%3E%3Crect x='41' y='38' width='2' height='6'/%3E%3Crect x='39' y='40' width='6' height='2'/%3E%3C/svg%3E") no-repeat center center;
+    background-size: contain;
+    opacity: 0.82;
+    pointer-events: none;
+  }
+  .theological::before { left: -7em; }
+  .theological::after  { right: -7em; }
+
+  /* Переопределение для комбинированного класса uncial-passage.theological
+     (сейчас это только Miserere). Абзац центрирован, его максимальная
+     строка (451px на 676px ширины бокса) оставляет ~113px пустого поля
+     слева и справа. Крест шириной 104px помещается в это поле при
+     смещении 0 — его внутренний край остаётся в 8–9px от визуального
+     начала/конца текста, как и у «обычных» theological-абзацев.
+     В результате связка «крест + центрированный текст + крест»
+     занимает по ширине примерно столько же, сколько типичный не-
+     центрированный абзац, и визуально перестаёт выпадать из ритма. */
+  .uncial-passage.theological::before { left: 0; }
+  .uncial-passage.theological::after  { right: 0; }
+
+  /* На мобильном padding у .parchment падает со 112px до 36px, поэтому
+     кресту нужно и в ширину поскромнее. Маргиналии на мобильном всё
+     равно становятся inline-блоками (position: static), так что проблема
+     пересечения крест↔маргиналия здесь снимается автоматически. */
+  @media (max-width: 768px) {
+    .theological::before,
+    .theological::after {
+      max-width: 2em;
+      opacity: 0.78;
+    }
+    .theological::before { left: -2.2em; }
+    .theological::after  { right: -2.2em; }
+  }
 
   .divider {
     text-align: center;
@@ -344,6 +561,10 @@
     line-height: 1.55;
     text-align: left;
     pointer-events: none;
+    /* Маргиналия всегда сверху крестов .theological::before/::after
+       (которые живут внутри абзаца с z-index: 1). Без этого z-index
+       абзац со своим stacking context перекрывает маргиналию. */
+    z-index: 2;
   }
 
   .mg-right { right: -104px; }
@@ -698,7 +919,7 @@ body {
           terra est?
         </div>
 
-        <p>Erat annus ab incarnatione Domini <span class="smcaps">DCCCXCII</span> cum primum cor meum quasi flamma aliqua incendi coepit, et in oratione nocturna post Matutinas videbam quasi in imagine mentis mare occidentale, et ex illo mari lumen surgebat non solis, non lunae, sed tertii generis omnino. Dixi hoc Finano abbati. Ipse vir prudens et in scripturis exercitatus respondit: <em class="uncial-passage">«Si Deus vocat, noli tardare. Si diabolus tentat, oratio et ieiunium discernent.»</em> Et ieiunavi septem diebus, et oravi, et visio non recessit sed confirmata est. Tunc intellexi me vocandum esse.</p>
+        <p>Erat annus ab incarnatione Domini <span class="smcaps">DCCCXCII</span> cum primum cor meum quasi flamma aliqua incendi coepit, et in oratione nocturna post Matutinas videbam quasi in imagine mentis mare occidentale, et ex illo mari lumen surgebat non solis, non lunae, sed tertii generis omnino. Dixi hoc Finano abbati. Ipse vir prudens et in scripturis exercitatus respondit: <em class="uncial-passage">Si Deus vocat, noli tardare. Si diabolus tentat, oratio et ieiunium discernent.</em> Et ieiunavi septem diebus, et oravi, et visio non recessit sed confirmata est. Tunc intellexi me vocandum esse.</p>
 
         <p>In mense Augusto, post festum sancti Columbani, cymbam parvam de ligneis tabulis factam conscendi. Frater Cellach portum videns signum crucis super me fecit et lacrimas non celavit. Navigavi in Occidentem, Polari stella post tergum relinquens. Per tres dies ventus mirabilis — nec nimis validus nec nimis languidus, quasi manu alicuius Potestatis directus — vela mea implebat. Delphini me comitabantur primo die, secundo die aves quas non noveram, tertio die silentium absolutum, mare factum est quasi speculum immensum, et caelum et pontus unum videbantur.</p>
       </div>
@@ -718,7 +939,7 @@ body {
 
         <p>Die quarta surrexit tempestas magna, et fluctus in montes assurgebant, et cymba mea — misera tabula inter pelagi vastitudinem — iactabatur ut folium autumnale in vento. Erat nox et tenebrae absque stella. Orabam voce magna et voce cordis, Deum et Columban sanctum et omnes sanctos Hiberniae et Britanniae invocans. Et vota feci, ut si salvus exirem ex his aquis, reliquam vitam in silentio et ieiunio et oratione agerem, nullum humanae gloriae buccellam amplius quaerens.</p>
 
-        <p>Tunc — subito, non gradatim — tempestas cessavit. Non ut tempestates cessant naturaliter, quasi vires suas paulatim consumens, sed quasi aliquis manum imposuisset super mare et dixisset ei: <em class="uncial-passage">Tace, obmutesce.</em> Mare factum est tam quietum quam stagnum silvae in aurora. Et vox audivi — non ex aere exteriori, sed in profundo cordis mei, quasi lux in spelaeo accensa — quae dixit: <em class="uncial-passage">«Noli timere, serve Dei. Vis videre quod ante saecula praeparatum est. Vade quo ventus te ducit.»</em> Et ventus novus surrexit de septentrione, levis et certus, et cymba mea sponte se vertit ad Occidentem.</p>
+        <p>Tunc — subito, non gradatim — tempestas cessavit. Non ut tempestates cessant naturaliter, quasi vires suas paulatim consumens, sed quasi aliquis manum imposuisset super mare et dixisset ei: <em class="uncial-passage">Tace, obmutesce.</em> Mare factum est tam quietum quam stagnum silvae in aurora. Et vox audivi — non ex aere exteriori, sed in profundo cordis mei, quasi lux in spelaeo accensa — quae dixit: <em class="uncial-passage">Noli timere, serve Dei. Vis videre quod ante saecula praeparatum est. Vade quo ventus te ducit.</em> Et ventus novus surrexit de septentrione, levis et certus, et cymba mea sponte se vertit ad Occidentem.</p>
 
         <div class="marginalia mg-right" style="top: 240px;">
           Hoc loco manus<br>
@@ -741,9 +962,9 @@ body {
           Terra sine sole<br>
           proprio — cf.<br>
           Apocalypsin cap.<br>
-          XXI: «civitas non<br>
+          XXI: civitas non<br>
           eget sole neque<br>
-          luna.» Sed illa<br>
+          luna. Sed illa<br>
           civitas caelestis<br>
           est — haec autem<br>
           terrestris videtur.
@@ -782,16 +1003,16 @@ body {
           forte memoriam<br>
           Paradisi ante<br>
           lapsum servant?<br>
-          «In principio creavit<br>
+          In principio creavit<br>
           Deus caelum et<br>
-          terram» — et prius<br>
+          terram — et prius<br>
           quam sol factus est,<br>
           lux erat. Gen. I.
         </div>
 
         <p>Cum paulatim oculi mei se lumini illius terrae accommodavissent, in monte procul post civitatem duo fontes luminis notavi, ex quibus — ut mihi tunc videbatur — omnis lux regionis manabat. Longe erant, fortasse itinere diei vel amplius, et non videbam eos ut res cum forma propria, sed ut duas scintillantes sedes in alto monte positas: unam argento puro quasi luna in nocte pruinosa, alteram auro calido quasi sol Augusti mensis. Et vicibus lucebant: cum unum languesceret, alterum crescebat; et cum aliquando ambo simul fulgebant, tanta pulchritudo erat ut lacrimae sine causa nota mihi venirent.</p>
 
-        <p>Et quia monachus sum et assuetus omnia per verba Scripturae et creaturae nominare, vocavi eas apud me <em>duo luminaria magna</em> vel <em>duas Arbores Luminis</em>, quamvis de tanta distantia nescirem utrum arbores essent vere an columnae lucis an turres an aliquid aliud quod nondum noveram. Sicut enim qui navigium procul in mari videt dicit «navigium», etiamsi forsitan insula sit vel nubes vel res alia.</p>
+        <p>Et quia monachus sum et assuetus omnia per verba Scripturae et creaturae nominare, vocavi eas apud me <em>duo luminaria magna</em> vel <em>duas Arbores Luminis</em>, quamvis de tanta distantia nescirem utrum arbores essent vere an columnae lucis an turres an aliquid aliud quod nondum noveram. Sicut enim qui navigium procul in mari videt dicit navigium, etiamsi forsitan insula sit vel nubes vel res alia.</p>
 
         <div class="marginalia mg-right" style="top: 240px;">
           Quid sunt hae<br>
@@ -806,11 +1027,11 @@ body {
 
         <p>Comes autem meus — unus ex altioribus <span class="elvish">Eldar</span>, quem postea, in alio loco et in alio die, nomine eius Finrothum cognovi, sed tunc tacitus iuxta me ambulabat quasi dux — videns quo oculi mei converterentur, voce leni atque gravi dixit:</p>
 
-        <p class="no-indent" style="text-indent:0;margin-left:2em;margin-right:2em;"><em class="uncial-passage">«Lumen vulneratum vides, hospes peregrine. Inimicus primus hoc olim percussit — de quo hodie non loquar. Sed lumen verum tenebras semper pellit, quamvis aliter quam prius. Aspice, et noli te fallere.»</em></p>
+        <p class="no-indent" style="text-indent:0;margin-left:2em;margin-right:2em;"><em class="uncial-passage">Lumen vulneratum vides, hospes peregrine. Inimicus primus hoc olim percussit — de quo hodie non loquar. Sed lumen verum tenebras semper pellit, quamvis aliter quam prius. Aspice, et noli te fallere.</em></p>
 
         <p>Horum verborum sensum tunc non ex toto intellexi: quis esset Inimicus ille primus, de quo tacere voluit, omnino nescivi, neque audebam interrogare ex arbitrio meo. Sed vox eius auctoritatem habebat tantam ut non dubitaverim verum esse quod dixit, et servavi haec verba in corde meo quasi semen occultum, quod suo tempore germinaret. Homo enim qui in loco alieno primum venit, prius tacere debet et audire.</p>
 
-        <p>Reliquum diei illius spectabam de longe montem illum et alternationem luminum inter argentum et aurum, et erat hoc mihi quasi longa oratio silens, etiamsi verba mea in ea non erant. Et cum lux — si fas est dicere de eis quae non sunt sol nostrum — languere cepisset et hora vespertina appropinquaret, dixit mihi ille comes: <em class="uncial-passage">«Satis est hodie. Intremus civitatem.»</em> Et intravimus.</p>
+        <p>Reliquum diei illius spectabam de longe montem illum et alternationem luminum inter argentum et aurum, et erat hoc mihi quasi longa oratio silens, etiamsi verba mea in ea non erant. Et cum lux — si fas est dicere de eis quae non sunt sol nostrum — languere cepisset et hora vespertina appropinquaret, dixit mihi ille comes: <em class="uncial-passage">Satis est hodie. Intremus civitatem.</em> Et intravimus.</p>
 
         <p>Quod vidi illo die de longe, non oblitus sum, neque potui oblivisci; sed quid esset revera, hoc postea didici, et suis locis in hoc libello scribam — et quod ad oculos meos pertinet, et quod ad cor.</p>
       </div>
@@ -833,12 +1054,12 @@ body {
           qui talia fecit.
         </div>
 
-        <p>Incolae terrae illius — quos postea intellexi esse eos qui se <span class="elvish">Eldar</span> nominant, id est Latine quasi <em class="uncial-passage">«Qui stellas primum viderunt»</em>, quia nati sunt ante solem et lunam, sub lumine stellarum primordialium — erant in forma humani similes, sed quantum homo cogitari potest praestantiores.</p>
+        <p>Incolae terrae illius — quos postea intellexi esse eos qui se <span class="elvish">Eldar</span> nominant, id est Latine quasi <em class="uncial-passage">Qui stellas primum viderunt</em>, quia nati sunt ante solem et lunam, sub lumine stellarum primordialium — erant in forma humani similes, sed quantum homo cogitari potest praestantiores.</p>
 
         <p>Statura eorum erat procera, ut viri bene formati, sed omnes quodammodo maiestuosi et sereni, quasi nemo eorum umquam timuit vel laboravit nimium vel aegrotavit. Facies eorum lucebant — non modo sicut facies hominis sani et laeti lucere solet, sed luce quadam interiore, quasi crystallum ante candelam, in qua candela ipsa quodammodo videatur. Capilli eorum erant auri vel argenti vivi, non coloris eorum, sed quasi ipsa materia illa esset in capillis viva. Et oculi — Domine Deus! — oculi eorum erant quasi putei sine fundo, in quibus videre poteras quasi memoriam omnium quae ab initio mundi facta sunt, et stellas, et cantus quos nulla auris humana audit.</p>
 
         <div class="marginalia mg-right" style="top: 270px;">
-          «Formosi nimis» —<br>
+          Formosi nimis —<br>
           Sic et angeli<br>
           quando apparent.<br>
           Sed angeli non<br>
@@ -848,19 +1069,19 @@ body {
           mirabile est.
         </div>
 
-        <p>Nihil in eis erat deforme, nihil turpe, nihil mortale visu. Vestimenta eorum erant alba et grisea et argentea, nusquam lacerata vel sordida. Et quod maxime mirum videbatur: non poterant horum in facie videri timor vel tristitia — non quia eas non agnoscerent, sed quia quasi ultra eas erant, quasi qui dolorem bene scit et tamen ex eo emergens iam altius stat. Postea Finrothus — de quo mox dicam — mihi explicavit: <em class="uncial-passage">«Nos non vivimus in tempore sicut vos. Nos memores sumus omnium quae fuere. Hoc et donum est et onus grave.»</em></p>
+        <p>Nihil in eis erat deforme, nihil turpe, nihil mortale visu. Vestimenta eorum erant alba et grisea et argentea, nusquam lacerata vel sordida. Et quod maxime mirum videbatur: non poterant horum in facie videri timor vel tristitia — non quia eas non agnoscerent, sed quia quasi ultra eas erant, quasi qui dolorem bene scit et tamen ex eo emergens iam altius stat. Postea Finrothus — de quo mox dicam — mihi explicavit: <em class="uncial-passage">Nos non vivimus in tempore sicut vos. Nos memores sumus omnium quae fuere. Hoc et donum est et onus grave.</em></p>
 
         <p>Lingua eorum — o quam mirabilis lingua! — erat quasi musica facta verbis, aut verba facta musica: singulae voces quasi chorda citharae pulsatae resonabant, et quando multi simul loquebantur erat quasi chorus cantorum in nocte Nativitatis Domini. Ego Hibernice locutus sum, et Latine, et paululum Saxonice quod a fratribus nostris Anglis in monasterio didiceram. Unus eorum maior — non in statura sed in quodam splendore quasi nimbus circa eum — signum fecit quietis ceteris et ad me loqui coepit nova lingua.</p>
 
         <p>Et mirum mirorum et gratia Dei: intellexi eum. Non sicut peregrinus qui post multos menses linguam barbaram paulatim discit, sed quasi somnium: sensus perveniebat in mentem meam sine labore, sine strepitu verborum, quasi vox eius directe in cor meum loqueretur, verbis tanquam lumine transfixo.</p>
 
         <p class="no-indent" style="text-indent:0;margin-left:2em;margin-right:2em;font-style:italic;color:#2a1a08;font-size:0.93em;line-height:2.0;">
-          <em class="uncial-passage">«Veni,»</em> dixit ille, <em class="uncial-passage">«hospes es in <span class="elvish">Aman</span>. Non multis filiis Mortis datum est huc pervenire. Quis te misit?»</em>
+          <em class="uncial-passage">Veni,</em> dixit ille, <em class="uncial-passage">hospes es in <span class="elvish">Aman</span>. Non multis filiis Mortis datum est huc pervenire. Quis te misit?</em>
         </p>
 
-        <p>Respondi ego, genibus paene flexis: <em class="uncial-passage">«Deus meus, Creator caeli et terrae, qui in tribus personis adoratur, et sanctus Columba patronus meus, quem ille ad hanc viam misit.»</em></p>
+        <p>Respondi ego, genibus paene flexis: <em class="uncial-passage">Deus meus, Creator caeli et terrae, qui in tribus personis adoratur, et sanctus Columba patronus meus, quem ille ad hanc viam misit.</em></p>
 
-        <p>Et vultus illius factus est quasi sol post nubes longas emergens — gaudium et maestitia simul, mirabiliter permixta, et oculi eius — iam dixi quod oculi eorum profundi erant — quasi aque profundas movebantur in his verbis. Et dixit voce submissa, quasi nomen sacrum proferens in sancto sanctorum: <em class="uncial-passage">«<span class="elvish">Ilúvatar</span>.»</em></p>
+        <p>Et vultus illius factus est quasi sol post nubes longas emergens — gaudium et maestitia simul, mirabiliter permixta, et oculi eius — iam dixi quod oculi eorum profundi erant — quasi aque profundas movebantur in his verbis. Et dixit voce submissa, quasi nomen sacrum proferens in sancto sanctorum: <em class="uncial-passage"><span class="elvish">Ilúvatar</span>.</em></p>
       </div>
 
       <!-- ======= SECTION VI ======= -->
@@ -872,13 +1093,13 @@ body {
           Latinum ex ipsorum<br>
           lingua redditum.<br>
           Significat quasi<br>
-          «Sapientia aurea»<br>
-          vel «Corona auri<br>
-          et sapientiae.»<br>
+          Sapientia aurea<br>
+          vel Corona auri<br>
+          et sapientiae.<br>
           Vir magnificus.
         </div>
 
-        <p>Nomen illius — quantum ex ipsorum lingua in Latinum reducere potui — erat <span class="smcaps">Findaratus</span> vel <span class="smcaps">Finrothus</span>: <em class="uncial-passage">«Finis aureus»</em> significare videbatur, aut <em class="uncial-passage">«Coronatus sapientia et auro»</em>. Inter suos erat quasi rex vel sacerdos, non per violentiam aut timorem, sed quia omnes eum amabant et cum eo loqui cupiebant. Ipse dixit se de gente esse quae se <span class="elvish">Noldor</span> nominat — id est ut interpretabatur, <em class="uncial-passage">«Qui multa sciunt»</em> vel <em class="uncial-passage">«Sapientiae filii»</em>.</p>
+        <p>Nomen illius — quantum ex ipsorum lingua in Latinum reducere potui — erat <span class="nomen-illustre">Findaratus</span> vel <span class="nomen-illustre">Finrothus</span>: <em class="uncial-passage">Finis aureus</em> significare videbatur, aut <em class="uncial-passage">Coronatus sapientia et auro</em>. Inter suos erat quasi rex vel sacerdos, non per violentiam aut timorem, sed quia omnes eum amabant et cum eo loqui cupiebant. Ipse dixit se de gente esse quae se <span class="elvish">Noldor</span> nominat — id est ut interpretabatur, <em class="uncial-passage">Qui multa sciunt</em> vel <em class="uncial-passage">Sapientiae filii</em>.</p>
 
         <p>Duxit me in civitatem quam de navicula mea videram — et maior erat quam longe credideram. Erat in monte aedificata ex lapide albo proprio lumine micante, cum turribus tot et tam altis ut paene nubes tangerent. Viae strata erant lapide nitido et levi. Per mediam viam rivus cantans currebat, et arbores in via ipsa crescebant quasi in horto amplissimo. Populus totus nos inspiciebat, non hostiliter sed curiositate misericordi: ego enim eram — intellexi postea — quasi avis peregrini generis inter illos, curiosa res, tenera, fragilis, mortalis.</p>
 
@@ -886,9 +1107,9 @@ body {
           Civitas alba in<br>
           monte — cf. civitatem<br>
           in Apocalypsi:<br>
-          «descendentem de<br>
+          descendentem de<br>
           caelo a Deo, habent-<br>
-          em claritatem Dei»<br>
+          em claritatem Dei<br>
           (Apoc. XXI, 10).<br>
           Sed haec nondum<br>
           descendit — iam<br>
@@ -899,16 +1120,16 @@ body {
 
         <p>Narravit mihi Finrothus de origine mundi. Narravit de <em>Cantu Magno</em> — quem ego Creationem intellexi — quando <span class="elvish">Ilúvatar</span> ipse in principio cantavit et Potestatibus suis — <span class="elvish">Ainur</span> eos vocabat, quos ego Angelos Maiores esse intellexi — mandavit ut secum canerent melodias ineffabiles. Et cantaverunt, et ex cantu eorum et voluntate <span class="elvish">Ilúvatar</span> mundus formatus est — non sicut figulus vas fingit, sed sicut cantor harmoniam creat: ex ipso sono, ex ipsa pulchritudine.</p>
 
-        <p>Sed unus ex Angelis Maioribus — quem <span class="elvish">Melkor</span> nominabant et quem ego sine dubio Adversarium esse intellexi, quem nos Satanam vocamus — contra harmoniam cantare voluit et discordiam seminavit in cantum. Et cum hoc nomen <span class="elvish">Melkor</span> audivi, subito mihi in memoriam rediit quod ante dies aliquot iuxta montem luminum a comite meo audiveram: de <em class="uncial-passage">«Inimico primo»</em> de quo tunc tacere voluerat. Intellexi igitur eundem esse: vocem quae harmoniam primam corrupit, et manum — ut mox patefiet — quae lumina mundi postea occidit. <em class="uncial-passage">Una est manus, unum peccatum, quamvis opera eius multa et diversa per saecula.</em> Et <span class="elvish">Ilúvatar</span> illam discordiam non annihilavit sed in se recepit et ex ea quoque pulchritudinem extraxit mirabiliorem — ut quasi tenebrae quaedam in pictura lucem circumstantem magis lucere faciant. Haec cogitans obstupui: etiam in theologia horum Immortalium idem mysterium quod nos in Providentia Dei veneramur!
+        <p>Sed unus ex Angelis Maioribus — quem <span class="elvish">Melkor</span> nominabant et quem ego sine dubio Adversarium esse intellexi, quem nos Satanam vocamus — contra harmoniam cantare voluit et discordiam seminavit in cantum. Et cum hoc nomen <span class="elvish">Melkor</span> audivi, subito mihi in memoriam rediit quod ante dies aliquot iuxta montem luminum a comite meo audiveram: de <em class="uncial-passage">Inimico primo</em> de quo tunc tacere voluerat. Intellexi igitur eundem esse: vocem quae harmoniam primam corrupit, et manum — ut mox patefiet — quae lumina mundi postea occidit. <em class="uncial-passage">Una est manus, unum peccatum, quamvis opera eius multa et diversa per saecula.</em></p>
 
-        </p>
+        <p class="theological theological-cont">Et <span class="elvish">Ilúvatar</span> illam discordiam non annihilavit sed in se recepit et ex ea quoque pulchritudinem extraxit mirabiliorem — ut quasi tenebrae quaedam in pictura lucem circumstantem magis lucere faciant. Haec cogitans obstupui: etiam in theologia horum Immortalium idem mysterium quod nos in Providentia Dei veneramur!</p>
 
         <div class="marginalia mg-left" style="top: 440px;">
           Lux ante solem —<br>
           sicut in Genesi<br>
-          dicitur: «Dixit<br>
+          dicitur: Dixit<br>
           Deus: fiat lux.<br>
-          Et facta est lux.»<br>
+          Et facta est lux.<br>
           Hoc fuit primo<br>
           die. Sol autem<br>
           quarto. Quid<br>
@@ -918,27 +1139,27 @@ body {
 
         <p>Tunc Finrothus, vidensque me intentum, vocem quasi cantantis sumpsit — aliquid enim mutat in voce <span class="elvish">Eldar</span> cum de rebus antiquioribus loquuntur — et narrare coepit de luminibus primis mundi, antequam sol et luna facta essent. Quae narratio me adeo movit ut postea nocte illa somnum non potuerim capere, et hodie quoque, cum ea recordor, sentio quasi fenestram aliquam in corde meo apertam esse quam claudere non possum.</p>
 
-        <p><em class="uncial-passage">«Olim,»</em> dixit, <em class="uncial-passage">«cum mundus iuvenis esset et sol nondum in caelo esset positus, <span class="elvish">Valar</span> — quos vos Potestates vocare possetis — in terra nostra duas Arbores plantaverunt ad lumen praebendum Amanorum. Non erant arbores sicut istae quas vides in horto isto: illae enim erant quasi ipsa lux in formam arboris contracta, quasi Sapientia <span class="elvish">Ilúvatar</span> se manifestans per radicem et frondem et florem.»</em></p>
+        <p><em class="uncial-passage">Olim,</em> dixit, <em class="uncial-passage">cum mundus iuvenis esset et sol nondum in caelo esset positus, <span class="elvish">Valar</span> — quos vos Potestates vocare possetis — in terra nostra duas Arbores plantaverunt ad lumen praebendum Amanorum. Non erant arbores sicut istae quas vides in horto isto: illae enim erant quasi ipsa lux in formam arboris contracta, quasi Sapientia <span class="elvish">Ilúvatar</span> se manifestans per radicem et frondem et florem.</em></p>
 
-        <p>Et descripsit eas voce tam clara ut ego paene eas oculis meis viderem: <span class="smcaps">Arborem Primam</span>, quam <span class="elvish">Telperion</span> vocabant, magnam et vetustissimam, folia habentem viridia et flores argenteos, ex quorum floribus lumen manabat purum et frigidulum quasi luna plena sed sine umbra et sine intermissione. <em class="uncial-passage">«Nomen eius,»</em> inquit, <em class="uncial-passage">«in sermonem tuum forsitan reddere possim quasi «Argentea Frondositas» vel «Splendor Argenti». Radices eius — aiunt — terram Amani totam sub se tenebant, et cum venti leves ramos eius moverent, lux ipsa quasi cantabat, scintillans inter folia. Hoc primum lumen erat mundi.»</em></p>
+        <p>Et descripsit eas voce tam clara ut ego paene eas oculis meis viderem: <span class="nomen-illustre">Arborem Primam</span>, quam <span class="elvish">Telperion</span> vocabant, magnam et vetustissimam, folia habentem viridia et flores argenteos, ex quorum floribus lumen manabat purum et frigidulum quasi luna plena sed sine umbra et sine intermissione. <em class="uncial-passage">Nomen eius,</em> inquit, <em class="uncial-passage">in sermonem tuum forsitan reddere possim quasi Argentea Frondositas vel Splendor Argenti. Radices eius — aiunt — terram Amani totam sub se tenebant, et cum venti leves ramos eius moverent, lux ipsa quasi cantabat, scintillans inter folia. Hoc primum lumen erat mundi.</em></p>
 
-        <div class="marginalia mg-right" style="top: 800px;">
+        <div class="marginalia mg-right" style="top: 520px;">
           Creatio per cantum —<br>
           mirum! In Psalmis<br>
           David cantu Deum<br>
           laudat, angeli<br>
-          cantant «Gloria in<br>
-          excelsis»; sed hic<br>
+          cantant Gloria in<br>
+          excelsis; sed hic<br>
           cantu ipso mundus<br>
           factus est? Mira<br>
           theologia — sed<br>
           non impia.
         </div>
 
-        <p><em class="uncial-passage">«Secunda Arbor,»</em> dixit, <em class="uncial-passage">«paululum minor sed ardentior, flores aureos habebat ex quibus lux calida et gaudosa fluebat, similis soli aestivo sed sine ardore nocivo — lux pura et benigna, sub qua omnia visa sunt pulchriora quam sunt. Eam</em> <span class="elvish">Laurelin</span> <em class="uncial-passage">nominavimus, id est quasi «Canens aurum» vel «Aurea Melodia». Nam lux illius arboris quasi musica erat: non quam aure audis, sed quam oculus et corpus totum sentit. Alternatim lucebant, ita ut lux argentea paulatim decresceret dum aurea crescebat, et rursum aurea minueretur et argentea floreret — et in brevi spatio temporis ambo simul fulgebant, in mixtura luminis tam pretiosa ut nunc, cum de hoc loquor, lacrimae mihi subveniunt, etiamsi multi anni transierunt.»</em></p>
+        <p><em class="uncial-passage"><span class="nomen-illustre">Secunda Arbor</span>,</em> dixit, <em class="uncial-passage">paululum minor sed ardentior, flores aureos habebat ex quibus lux calida et gaudosa fluebat, similis soli aestivo sed sine ardore nocivo — lux pura et benigna, sub qua omnia visa sunt pulchriora quam sunt. Eam</em> <span class="elvish">Laurelin</span> <em class="uncial-passage">nominavimus, id est quasi Canens aurum vel Aurea Melodia. Nam lux illius arboris quasi musica erat: non quam aure audis, sed quam oculus et corpus totum sentit. Alternatim lucebant, ita ut lux argentea paulatim decresceret dum aurea crescebat, et rursum aurea minueretur et argentea floreret — et in brevi spatio temporis ambo simul fulgebant, in mixtura luminis tam pretiosa ut nunc, cum de hoc loquor, lacrimae mihi subveniunt, etiamsi multi anni transierunt.</em></p>
 
         <div class="marginalia mg-left" style="top: 1140px;">
-          <span class="elvish">Melkor</span> = Satanas?<br>
+          Melkor = Satanas?<br>
           Nomen aliud,<br>
           substantia eadem:<br>
           angelus primus qui<br>
@@ -950,9 +1171,9 @@ body {
           alia.
         </div>
 
-        <p>Et tacuit paululum, et vidi oculos eius humectari — quod apud <span class="elvish">Eldar</span> res rarissima est. Deinde, voce mutata, continuavit: <em class="uncial-passage">«Sed <span class="elvish">Melkor</span> ille, de quo tibi modo locutus sum, cuius discordia in Cantu audita est, postea — cum iam eiectus fuisset et rursus in mundum venisset — Arbores illas odio persecutus est. Nam lux earum omnem opus eius tenebrosum accusabat. Et consilium iniit cum creatura quadam monstrosa — cuius nomen non libenter profero in lucem diurnam, ne forte attendat — quae tenebras bibebat sicut alii aquam, et tam antiqua erat ut neque <span class="elvish">Valar</span> ipsi sciunt unde venerit. Haec duo simul, <span class="elvish">Melkor</span> et tenebrarum illa bestia, venerunt in aurora quadam festa ad Arbores, et vulneraverunt eas, et exsugsit illa tenebrarum potestas omnem lucem earum et vitam.»</em></p>
+        <p>Et tacuit paululum, et vidi oculos eius humectari — quod apud <span class="elvish">Eldar</span> res rarissima est. Deinde, voce mutata, continuavit: <em class="uncial-passage">Sed <span class="elvish">Melkor</span> ille, de quo tibi modo locutus sum, cuius discordia in Cantu audita est, postea — cum iam eiectus fuisset et rursus in mundum venisset — Arbores illas odio persecutus est. Nam lux earum omnem opus eius tenebrosum accusabat. Et consilium iniit cum creatura quadam monstrosa — cuius nomen non libenter profero in lucem diurnam, ne forte attendat — quae tenebras bibebat sicut alii aquam, et tam antiqua erat ut neque <span class="elvish">Valar</span> ipsi sciunt unde venerit. Haec duo simul, <span class="elvish">Melkor</span> et tenebrarum illa bestia, venerunt in aurora quadam festa ad Arbores, et vulneraverunt eas, et exsugsit illa tenebrarum potestas omnem lucem earum et vitam.</em></p>
 
-        <p><em class="uncial-passage">«Nox vera tunc primum cecidit super <span class="elvish">Aman</span>. Quod antea non cognoveramus: quod lux posset occidi. <span class="elvish">Valar</span> planxerunt ut nulla creatura umquam plangere poterit in hoc mundo, quia ipsi fecerant Arbores manu propria et quasi cor suum in eis posuerant. Et nos —</em> <span class="elvish">Eldar</span> <em class="uncial-passage">— qui sub luce illa nati fueramus et sub ea vixeramus tot saecula, stabamus muti, nescientes quid esset tenebrae verae. Multa ex hoc tempore manarunt quorum tibi hodie non expediat audire: exilium, gladius, fratres contra fratres, et labor longus et amarus. Hoc tantum scias: lumen primum mundi occisum est.»</em></p>
+        <p><em class="uncial-passage">Nox vera tunc primum cecidit super <span class="elvish">Aman</span>. Quod antea non cognoveramus: quod lux posset occidi. <span class="elvish">Valar</span> planxerunt ut nulla creatura umquam plangere poterit in hoc mundo, quia ipsi fecerant Arbores manu propria et quasi cor suum in eis posuerant. Et nos —</em> <span class="elvish">Eldar</span> <em class="uncial-passage">— qui sub luce illa nati fueramus et sub ea vixeramus tot saecula, stabamus muti, nescientes quid esset tenebrae verae. Multa ex hoc tempore manarunt quorum tibi hodie non expediat audire: exilium, gladius, fratres contra fratres, et labor longus et amarus. Hoc tantum scias: lumen primum mundi occisum est.</em></p>
 
         <div class="marginalia mg-right" style="top: 1520px;">
           Lacrimae Eldar —<br>
@@ -968,9 +1189,9 @@ body {
 
         <p>Et haec cum dixisset, ego cogitans in corde meo de morte Christi — de luce mundi quae in Golgotham extincta est — silui, et non potui ei respondere. Quomodo ei diceretur? Neque enim tunc sciebam dicere. Sed scripsi in memoria mea, ut Maria verba pastorum scripsit in corde suo, ut res quam Deus aliquando explicabit.</p>
 
-        <p><em class="uncial-passage">«Quaedam tamen,»</em> dixit Finrothus postea, quasi sensum animi mei percipiens, <em class="uncial-passage">«ex Arboribus superstes est, et ante reditum tuum videbis — si placuerit tibi. Non autem illa ipsa quae fuerunt: nam illa perierunt, ut dixi. Sed quae superest — memoria est, quam <span class="elvish">Ilúvatar</span> non sinit penitus perire. Nam quod vere pulchrum fuit, apud eum servatur quodammodo, quamvis non eodem modo quo prius erat. Sed de hoc agemus cum tempus erit.»</em></p>
+        <p><em class="uncial-passage">Quaedam tamen,</em> dixit Finrothus postea, quasi sensum animi mei percipiens, <em class="uncial-passage">ex Arboribus superstes est, et ante reditum tuum videbis — si placuerit tibi. Non autem illa ipsa quae fuerunt: nam illa perierunt, ut dixi. Sed quae superest — memoria est, quam <span class="elvish">Ilúvatar</span> non sinit penitus perire. Nam quod vere pulchrum fuit, apud eum servatur quodammodo, quamvis non eodem modo quo prius erat. Sed de hoc agemus cum tempus erit.</em></p>
 
-        <p>Et ego intellexi me aliquid magnum adhuc visurum esse, et hoc verbum — <em class="uncial-passage">«quod vere pulchrum fuit, apud eum servatur»</em> — in corde meo sicut semen positum est, quod postea flores suos daret.</p>
+        <p>Et ego intellexi me aliquid magnum adhuc visurum esse, et hoc verbum — <em class="uncial-passage">quod vere pulchrum fuit, apud eum servatur</em> — in corde meo sicut semen positum est, quod postea flores suos daret.</p>
       </div>
 
       <!-- ======= SECTION VII ======= -->
@@ -992,7 +1213,7 @@ body {
 
         <p>Interrogavi Finrothum de statu post mortem eorum. Et hic iterum vidi in facie illius aliquid quasi nubis transeuntis — non tristitia illa quam iam pridie cum de Arboribus loqueretur notaveram, sed quaedam alia: profunda interrogatio, quasi homo qui speculum inspicit et videt se et non se, et utrumque miratur.</p>
 
-        <p><em class="uncial-passage">«Nos non morimur sicut vos morimini,»</em> dixit lente, quasi verba ponderans. <em class="uncial-passage">«Corpus nostrum perire potest in bello vel in vulnere gravi. Sed spiritus noster — quod vos animam vocatis — in saecula permanet in mundo isto, ad carnem novam evocandus ubi tempus venerit. Nos sumus ligati huic Creationis cantui, huic mundo, usque ad finem ultimum eius.»</em> Pausa. <em class="uncial-passage">«Vos autem — filii Mortis, filii Donationis Ignotae — sicut flamma brevis ardetis et post mortem ad ignotum iter pergitis. Quo eatis, <span class="elvish">Ilúvatar</span> sibi reservavit. Nobis non revelavit. Et hoc est,»</em> et hic mirabili modo voce usus est quasi de re pretiosa et paene invidiosa, <em class="uncial-passage">«donum vobis datum quod nobis negatum est.»</em></p>
+        <p><em class="uncial-passage">Nos non morimur sicut vos morimini,</em> dixit lente, quasi verba ponderans. <em class="uncial-passage">Corpus nostrum perire potest in bello vel in vulnere gravi. Sed spiritus noster — quod vos animam vocatis — in saecula permanet in mundo isto, ad carnem novam evocandus ubi tempus venerit. Nos sumus ligati huic Creationis cantui, huic mundo, usque ad finem ultimum eius.</em> Pausa. <em class="uncial-passage">Vos autem — filii Mortis, filii Donationis Ignotae — sicut flamma brevis ardetis et post mortem ad ignotum iter pergitis. Quo eatis, <span class="elvish">Ilúvatar</span> sibi reservavit. Nobis non revelavit. Et hoc est,</em> et hic mirabili modo voce usus est quasi de re pretiosa et paene invidiosa, <em class="uncial-passage">donum vobis datum quod nobis negatum est.</em></p>
 
         <div class="marginalia mg-left" style="top: 220px;">
           Mors ut donum!<br>
@@ -1007,7 +1228,7 @@ body {
 
         <p>Diu haesi super his verbis. <em>Donum</em> — mors, donum? Nos qui tota vita morti resistimus, qui parentum et amicorum et fratrum mortes cum lacrimis planximus, qui in timore ultimo viaticum petimus — nos mortem ut donum habemus? Et isti Immortales, quibus nos quasi miseri et breves et periturum esse videmur, nos propter illam ipsam brevitatem et mortalitatem mirantur?</p>
 
-        <p>Finrothus vidit cogitationem meam in facie et subrisit — et subrisus eius erat quasi aurora: <em class="uncial-passage">«Noli hoc male interpretari. Non invidemus vobis, non contemnimus. Sed post tot saecula vidimus multos ex genere vestro — paucos, valde paucos, qui huc pervenerunt — et in omnibus vobis quoddam lumen est quod in nobis non est: lumen rerum brevis sed ardentem. Vos amatis intensius quia cito amittitis. Cantatis fortius quia cantus vester finiri scit. In hoc similes estis flammae — et flamma splendidior est stella, quamvis stella longior vivat.»</em></p>
+        <p>Finrothus vidit cogitationem meam in facie et subrisit — et subrisus eius erat quasi aurora: <em class="uncial-passage">Noli hoc male interpretari. Non invidemus vobis, non contemnimus. Sed post tot saecula vidimus multos ex genere vestro — paucos, valde paucos, qui huc pervenerunt — et in omnibus vobis quoddam lumen est quod in nobis non est: lumen rerum brevis sed ardentem. Vos amatis intensius quia cito amittitis. Cantatis fortius quia cantus vester finiri scit. In hoc similes estis flammae — et flamma splendidior est stella, quamvis stella longior vivat.</em></p>
       </div>
 
       <!-- ======= SECTION VIII ======= -->
@@ -1044,11 +1265,11 @@ body {
 
         <p>Cum finivi loqui, siluit diu. Ita diu ut putarem me offendisse. Sed non erat ira in silentio eius — erat consideratio profunda, quasi qui calculum longum in animo ponit. Tandem dixit:</p>
 
-        <p class="no-indent uncial-passage" style="text-indent:0;margin-left:2em;margin-right:2em;">«De hoc Uno qui descendit in mortem ut mortem vinceret — et qui natus est ex muliere mortali et portavit in carne omnem tristitiam carnis — habuimus inter nos prophetias antiquas, voces quasi in visione auditas, de quibus non omnes concordabant nec clara erant. Iam intelligo melius. Sed haec via — ut tu dicis — via est filiorum Mortis, via est quod Donum Ignotum recipit. Nos non sumus filii Mortis. Via nostra alia est — et an habemus viam, vel an egimus via, vel an nos quoque indigemus manus quae nos ducat — hoc quaerimus et non invenimus, et in hac quaestione sumus saecula et saecula.»</p>
+        <p class="no-indent uncial-passage" style="text-indent:0;margin-left:2em;margin-right:2em;">De hoc Uno qui descendit in mortem ut mortem vinceret — et qui natus est ex muliere mortali et portavit in carne omnem tristitiam carnis — habuimus inter nos prophetias antiquas, voces quasi in visione auditas, de quibus non omnes concordabant nec clara erant. Iam intelligo melius. Sed haec via — ut tu dicis — via est filiorum Mortis, via est quod Donum Ignotum recipit. Nos non sumus filii Mortis. Via nostra alia est — et an habemus viam, vel an egimus via, vel an nos quoque indigemus manus quae nos ducat — hoc quaerimus et non invenimus, et in hac quaestione sumus saecula et saecula.</p>
 
         <p>Et surrexit Finrothus et ivit ad fenestram ubi lux argentea intrabat et voltum eius argenteum faciebat, et dixit ultima verba quae de eo in hoc libro scribo:</p>
 
-        <p class="no-indent uncial-passage" style="text-indent:0;margin-left:2em;margin-right:2em;">«Tu habes peccatum unius hominis in historia carnis tuae. Nos habemus peccatum unius Angeli in historia memoriae nostrae. Forsitan utrique misericordia egent — sed misericordia alia et alia, sicut vulnera alia et alia. Illam discretionem <span class="elvish">Ilúvatar</span> solus novit. Nos servimus. Amamus. Creamus. Custodimus. Cantamus. An sufficiat — in ipsius manu est, non in mea.»</p>
+        <p class="no-indent uncial-passage" style="text-indent:0;margin-left:2em;margin-right:2em;">Tu habes peccatum unius hominis in historia carnis tuae. Nos habemus peccatum unius Angeli in historia memoriae nostrae. Forsitan utrique misericordia egent — sed misericordia alia et alia, sicut vulnera alia et alia. Illam discretionem <span class="elvish">Ilúvatar</span> solus novit. Nos servimus. Amamus. Creamus. Custodimus. Cantamus. An sufficiat — in ipsius manu est, non in mea.</p>
 
         <p>Et non potui ei respondere. Et hodie adhuc non possum.</p>
       </div>
@@ -1072,7 +1293,7 @@ body {
           — <em>frater Coemanus</em>
         </div>
 
-        <p>Cum tandem dies venisset quo redire debebam — non quia Finrothus me expellere vellet, sed quia ipse mihi dixerat tempus meum in illa terra finem habere, ne radices iam alterius generis in me crescerent — surrexit ille in aurora illius diei, et me de loco ubi dormiebam evocavit. Et dixit voce leni quasi qui amicum ad secretum aliquod ducere vult: <em class="uncial-passage">«Veni mecum. Unum restat tibi antequam dimittam te. Sequere et tace.»</em></p>
+        <p>Cum tandem dies venisset quo redire debebam — non quia Finrothus me expellere vellet, sed quia ipse mihi dixerat tempus meum in illa terra finem habere, ne radices iam alterius generis in me crescerent — surrexit ille in aurora illius diei, et me de loco ubi dormiebam evocavit. Et dixit voce leni quasi qui amicum ad secretum aliquod ducere vult: <em class="uncial-passage">Veni mecum. Unum restat tibi antequam dimittam te. Sequere et tace.</em></p>
 
         <p>Et sequebar eum per vias civitatis quas nondum calcaveram, per hortos iam clausos ante lucem plenam, per portam occidentalem quam custos sine verbis aperuit nobis ut qui expectaverat nos. Exivimus de civitate et ascendimus collem non altum sed procul a moenibus positum, in quo arbores solitae paucae stabant et silentium tale erat ut sanguinem meum in auribus meis audirem. Et cum ascenderemus, subito mihi in animum venit: hunc ipsum collem de longe videram in primo die meo, cum adhuc nescirem quid esset. Tunc vocaveram <em>montem luminum</em>, et scintillas argenti et auri in summitate eius aspexeram. Nunc veniebam ad illud quod tunc oculus meus procul apprehenderat sed mens non intellexerat.</p>
 
@@ -1080,8 +1301,8 @@ body {
           Collis secretus —<br>
           cf. Cant. Canti-<br>
           corum IV, 12:<br>
-          «hortus conclusus,<br>
-          fons signatus.»<br>
+          hortus conclusus,<br>
+          fons signatus.<br>
           Locus a Deo<br>
           servatus videtur.
         </div>
@@ -1113,7 +1334,7 @@ body {
           — <em>frater Coemanus</em>
         </div>
 
-        <p>Quam diu stetimus ibi, nescio. Finrothus tacebat, et ego tacebam, et horae ibi quidquid erant. Cum tandem lux paulatim decrescere cepisset, quasi dies ipse collem relinqueret, dixit Finrothus voce plus mota quam ullo alio die audiveram: <em class="uncial-passage">«Sic est. Quod vere pulchrum fuit, <span class="elvish">Ilúvatar</span> non sinit penitus perire. Plura hodie non dicam.»</em></p>
+        <p>Quam diu stetimus ibi, nescio. Finrothus tacebat, et ego tacebam, et horae ibi quidquid erant. Cum tandem lux paulatim decrescere cepisset, quasi dies ipse collem relinqueret, dixit Finrothus voce plus mota quam ullo alio die audiveram: <em class="uncial-passage">Sic est. Quod vere pulchrum fuit, <span class="elvish">Ilúvatar</span> non sinit penitus perire. Plura hodie non dicam.</em></p>
 
         <p>Et posuit manum in humero meo — leve pondus sicut aves — et descendimus per eandem viam, silentio pleni, et sciebam mutatum esse in corde meo quod videram. Quid precise mutatum esset, tunc nondum noveram. Sed de illo die ad hunc non cessat haec visio in somnis meis redire. <em class="uncial-passage">Quod perit et quod non perit.</em></p>
       </div>
@@ -1139,7 +1360,7 @@ body {
 
         <p>Post visionem illius collis — quasi septem dies in illa terra fuissem, vel quantum septem dies esse videbatur mihi, quia tempus ibi aliter fluit, leniter et abundanter quasi mel e cupa versus quam aqua per torrentem — ivit Finrothus mecum ad portum ubi cymba mea expectabat. Vidi in ea aliqua provisorum quae non posui: panem non putridum et aquam in vasculo. Manus aliqua invisibilis providerat.</p>
 
-        <p>In ultimo momento, Finrothus manu sua — longa et lucida — parvam gemmam in manus meas posuit. Erat alba, quasi quartz alpinus, sed intus levis quaedam lux sita erat, non calida ut aurum, non frigida ut luna, sed quasi utriusque mixtura in puncto minimae quiescentis. <em class="uncial-passage">«Haec,»</em> dixit, <em class="uncial-passage">«in tenebris fuerit tibi quasi parvum sidus recordationis. Sine lumen hoc lucere contra tenebras ubicumque illas inveneris. Ne occultaveris illud tibi soli: qui lumen suum celat, in tenebris ipse errat — quod etiam maximis nostrum aliquando evenit. Noli oblivioni tradere quae hic vidisti. Non multos ex genere tuo videbimus amplius — tempus veniet — sed memoriam tui in nobis manebimus.»</em></p>
+        <p>In ultimo momento, Finrothus manu sua — longa et lucida — parvam gemmam in manus meas posuit. Erat alba, quasi quartz alpinus, sed intus levis quaedam lux sita erat, non calida ut aurum, non frigida ut luna, sed quasi utriusque mixtura in puncto minimae quiescentis. <em class="uncial-passage">Haec,</em> dixit, <em class="uncial-passage">in tenebris fuerit tibi quasi parvum sidus recordationis. Sine lumen hoc lucere contra tenebras ubicumque illas inveneris. Ne occultaveris illud tibi soli: qui lumen suum celat, in tenebris ipse errat — quod etiam maximis nostrum aliquando evenit. Noli oblivioni tradere quae hic vidisti. Non multos ex genere tuo videbimus amplius — tempus veniet — sed memoriam tui in nobis manebimus.</em></p>
 
         <div class="marginalia mg-left mg-coemanus" style="top: 240px;">
           Gemma ab Aidano<br>
@@ -1190,9 +1411,9 @@ body {
 
         <p>Unum addo — non ut respondeam quod respondere non possum, sed quia tacere neque hoc possum. Cum in colle ultimo die steti, vidi: quod Inimicus occiderat, Deus non permiserat penitus perire. Lumen in terra adhuc manebat. Nescio quid hoc significet de sorte eorum qui lumen illud custodierunt. Sed si Deus lucem vulneratam non obliviscitur, forsitan neque eos obliviscatur qui eam amaverunt. <em class="uncial-passage">Hoc non doceo; hoc spero.</em></p>
 
-        <p>Orate pro me, fratre Aidano peccatore, et orate — si fas est — pro illis <span class="smcaps">Immortalibus</span> ultra oceanum, quos Deus ipse novit quomodo et quantum, et qui — hoc certo scio — Deum suum <span class="elvish">Ilúvatar</span> amant et ei serviunt fideliter in terra sua, et cantant cantus de quibus mundus iste nescit, et memoriam rerum ab initio mundi custodiunt ne pereat.</p>
+        <p>Orate pro me, fratre Aidano peccatore, et orate — si fas est — pro illis <em class="uncial-passage">Immortalibus</em> ultra oceanum, quos Deus ipse novit quomodo et quantum, et qui — hoc certo scio — Deum suum <span class="elvish">Ilúvatar</span> amant et ei serviunt fideliter in terra sua, et cantant cantus de quibus mundus iste nescit, et memoriam rerum ab initio mundi custodiunt ne pereat.</p>
 
-        <p class="uncial-passage" style="text-align:center;text-indent:0;margin-top:20px;">
+        <p class="uncial-passage theological" style="text-align:center;text-indent:0;margin-top:20px;">
           Miserere nobis omnibus, Domine,<br>
           et iudica nos misericorditer —<br>
           scientes et nescientes,<br>
