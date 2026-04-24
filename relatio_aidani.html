@@ -546,10 +546,9 @@
      принесённым с континента после разорения Ионы викингами.
      Шрифт Remedius (по рукописи Codex 348 из Санкт-Галлена, ок. 800)
      сам содержит случайные альтернативы букв в feature `liga`, так что
-     дополнительный jitter (.ink-l) для этой руки не нужен — шрифт
-     имитирует живой ductus средствами GSUB. dlig даёт автоматические
-     nomina sacra (Christum, Dominum, Deus, Ihesum, nostrum, kalendas),
-     et→&, r-/nt-/per-лигатуры. */
+     шрифт имитирует живой ductus средствами GSUB. dlig даёт
+     автоматические nomina sacra (Christum, Dominum, Deus, Ihesum,
+     nostrum, kalendas), et→&, r-/nt-/per-лигатуры. */
   .later-hand {
     font-family: 'MedievalSharp', serif;
     font-feature-settings: "liga" on, "dlig" on;
@@ -756,16 +755,6 @@ body {
   font-feature-settings: "liga" on, "dlig" on;
 }
 
-/* Ink-letters — только в маргиналиях. inline-block с transform
-   БЕЗОПАСЕН, потому что маргиналии position:absolute (их высота
-   не входит в body) и text-align:left|right (нет justify). */
-.ink-l {
-  display: inline-block;
-  vertical-align: baseline;
-  line-height: inherit;
-  transform: translate(var(--x, 0), var(--y, 0)) rotate(var(--r, 0deg));
-  transform-origin: 50% 85%;
-}
 </style>
 </head>
 <body>
@@ -1687,89 +1676,6 @@ body {
   });
 </script>
 
-
-<script id="ink-hand-init">
-(function() {
-  'use strict';
-
-  function seeded(seed) {
-    let s = seed >>> 0;
-    return function() {
-      s = (s * 1664525 + 1013904223) >>> 0;
-      return s / 4294967296;
-    };
-  }
-  const rand = seeded(0xAB3F17);
-  const sym = () => rand() * 2 - 1;
-
-  // Jitter убран для версии на Google Fonts: Bardo сам по себе рукописный,
-  // дополнительное дрожание избыточно. Оставляем CFG с нулевыми амплитудами
-  // (а не удаляем логику целиком), чтобы можно было быстро включить обратно,
-  // подправив любое из значений, если какой-то глиф окажется слишком регулярным.
-  const CFG = { rot: 0, tx: 0, ty: 0 };
-
-  function fmt(v) {
-    const s = v.toFixed(2);
-    return s.startsWith('0.')  ? s.slice(1)
-         : s.startsWith('-0.') ? '-' + s.slice(2)
-         : s;
-  }
-
-  function wrapLetter(ch) {
-    const sp = document.createElement('span');
-    sp.className = 'ink-l';
-    sp.style.cssText =
-      '--r:' + fmt(sym() * CFG.rot) + 'deg;' +
-      '--x:' + fmt(sym() * CFG.tx)  + 'px;' +
-      '--y:' + fmt(sym() * CFG.ty)  + 'px';
-    sp.textContent = ch;
-    return sp;
-  }
-
-  function processTextNode(node) {
-    const frag = document.createDocumentFragment();
-    for (const ch of node.nodeValue) {
-      if (ch === ' ' || ch === '\n' || ch === '\t') {
-        frag.appendChild(document.createTextNode(ch));
-      } else {
-        frag.appendChild(wrapLetter(ch));
-      }
-    }
-    return frag;
-  }
-
-  const SKIP_TAGS = new Set(['SCRIPT', 'STYLE', 'SVG']);
-
-  function walk(el) {
-    if (SKIP_TAGS.has(el.tagName)) return;
-    const kids = Array.from(el.childNodes);
-    for (const kid of kids) {
-      if (kid.nodeType === Node.TEXT_NODE) {
-        if (!/\S/.test(kid.nodeValue)) continue;
-        el.replaceChild(processTextNode(kid), kid);
-      } else if (kid.nodeType === Node.ELEMENT_NODE) {
-        walk(kid);
-      }
-    }
-  }
-
-  function run() {
-    // Skip Coemanus marginalia — Remedius has its own random glyph alternates (liga)
-    document.querySelectorAll('.marginalia:not(.mg-coemanus)').forEach(walk);
-    window.__inkHandDone = true;
-  }
-
-  function schedule() {
-    if ('requestIdleCallback' in window) {
-      requestIdleCallback(run, { timeout: 2000 });
-    } else {
-      setTimeout(run, 50);
-    }
-  }
-  if (document.readyState === 'complete') schedule();
-  else window.addEventListener('load', schedule);
-})();
-</script>
 
 <script id="marginalia-cross-collision">
 (function() {
