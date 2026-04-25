@@ -178,18 +178,31 @@
       no-repeat;
   }
 
-  /* Разлиновка (ruling lines) — как в оригинале ::before у .parchment */
+  /* PATCH B2: drypoint ruling — две тонкие линии (тень канавки +
+     блик верхнего края) дают эффект вдавленного линования стилем,
+     каким делалась разметка инсулярных рукописей до ~1100 г.
+     На пергаментном фоне читается как ребро, не как нарисованная линия. */
   .folio::before {
     content: '';
     position: absolute;
     inset: 56px 42px;
-    background-image: repeating-linear-gradient(
-      0deg,
-      transparent,
-      transparent 28px,
-      rgba(100,60,10,0.06) 28px,
-      rgba(100,60,10,0.06) 29px
-    );
+    background-image:
+      /* Тень во вдавлении (нижний край канавки) */
+      repeating-linear-gradient(
+        0deg,
+        transparent,
+        transparent 28px,
+        rgba(0,0,0,0.05) 28px,
+        rgba(0,0,0,0.05) 29px
+      ),
+      /* Блик на верхнем крае канавки (на 1 px выше тени) */
+      repeating-linear-gradient(
+        0deg,
+        transparent,
+        transparent 27px,
+        rgba(255,250,235,0.06) 27px,
+        rgba(255,250,235,0.06) 28px
+      );
     pointer-events: none;
     z-index: 0;
   }
@@ -375,7 +388,7 @@
     word-spacing: 0.35em;
   }
   p {
-    color: #1c0e03;
+    color: #2a1808;
     font-size: 0.86em;
     line-height: 1.5;
     /* Исторически ирландские insular рукописи НЕ использовали
@@ -426,7 +439,7 @@
   }
 
   .smcaps { font-variant: small-caps; letter-spacing: 0.04em; }
-  em { font-style: italic; color: #1c0e03; }
+  em { font-style: italic; color: #2a1808; }
 
   .elvish {
     font-family: '0550 Uncialis', 'Uncial Antiqua', serif;
@@ -564,7 +577,7 @@
     padding-top: 18px;
     border-top: 1px solid rgba(100,55,10,0.35);
     font-size: 0.78em;
-    color: #2a1a08;
+    color: #2a1808;
     text-align: center;
     line-height: 1.8;
     text-indent: 0;
@@ -586,7 +599,7 @@
     top: 0;  /* placeholder, перезаписывается JS */
     width: 68px;
     font-size: 0.58em;
-    color: #1e3018;
+    color: #3a2a14;
     font-family: '0746 Beda', serif;
     font-style: italic;
     line-height: 1.35;
@@ -651,7 +664,7 @@
     font-family: '0800 Remedius', '0746 Beda', serif;
     font-feature-settings: "liga" on, "dlig" on;
     font-style: normal;
-    color: #2a1a0a;
+    color: #2a1808;
     font-size: 0.68em;
     line-height: 1.45;
   }
@@ -672,7 +685,7 @@
     font-family: '0800 Remedius', '0746 Beda', serif;
     font-feature-settings: "liga" on, "dlig" on;
     font-style: normal;
-    color: #2a1a0a;
+    color: #2a1808;
     font-size: 0.92em;
     line-height: 1.5;
   }
@@ -685,7 +698,7 @@
     font-family: '0800 Remedius', '0746 Beda', serif;
     font-feature-settings: "liga" on, "dlig" on;
     font-style: normal;
-    color: #2a1a0a;
+    color: #2a1808;
     font-size: 0.92em;
     line-height: 1.5;
     border-top: 1px dotted rgba(80,40,10,0.28);
@@ -793,7 +806,7 @@
     font-size: 0.86em;
     line-height: 1.7;
     letter-spacing: 0.01em;
-    color: #2a1408;
+    color: #2a1808;
     word-spacing: 0.28em;
   }
   span.uncial-passage,
@@ -929,6 +942,455 @@
     display: inline-block;
     white-space: nowrap;
   }
+
+  /* PATCH D3: вертикальные bounding lines — две тонкие линии, ограничи-
+     вающие текстовый блок слева и справа. В инсулярных рукописях такие
+     линии часто чертили вместе с горизонтальной разлиновкой (тоже drypoint).
+     Реализованы через ::before и ::after у .folio-content. Они поднимутся
+     к ближайшему position:relative предку — это сама .folio. */
+  .folio-content::before,
+  .folio-content::after {
+    content: '';
+    position: absolute;
+    top: 56px;
+    bottom: 56px;
+    width: 2px;
+    pointer-events: none;
+    z-index: 1;
+    background-image: linear-gradient(
+      90deg,
+      rgba(0,0,0,0.05) 0px, rgba(0,0,0,0.05) 1px,
+      rgba(255,250,235,0.06) 1px, rgba(255,250,235,0.06) 2px
+    );
+  }
+  .page-verso .folio-content::before { left: 80px; }
+  .page-verso .folio-content::after  { right: 30px; }
+  .page-recto .folio-content::before { left: 30px; }
+  .page-recto .folio-content::after  { right: 80px; }
+  /* На декоративных страницах bounding lines не нужны */
+  .incipit-verso .folio-content::before,
+  .incipit-verso .folio-content::after,
+  .final-recto .folio-content::before,
+  .final-recto .folio-content::after { display: none; }
+
+  /* PATCH F: standalone обложки — carpet (передняя) и final (задняя).
+     Не входят в .spread, рендерятся как одиночные folio. Размеры те же
+     (620×820), но padding и box-shadow симметричные — нет gutter'а рядом.
+     Drop-shadow дублирует тот, что у разворотов, чтобы все они "лежали
+     на одном столе". */
+  .folio-cover {
+    width: 620px;
+    margin: 0 auto 40px;
+    position: relative;
+    filter: drop-shadow(0 8px 20px rgba(0,0,0,0.45))
+            drop-shadow(0 20px 50px rgba(0,0,0,0.25));
+  }
+
+  .folio-cover .folio {
+    /* Перекрываем асимметричные padding/shadow от .page-verso/.page-recto */
+    padding-left: 56px;
+    padding-right: 56px;
+    box-shadow: inset 0 0 60px rgba(80,40,0,0.14);
+  }
+
+  .folio-cover-front { margin-top: 0; }
+  .folio-cover-back  { margin-bottom: 0; }
+
+  /* PATCH D2: pricked dots на внешнем поле — крошечные точки от иглы,
+     которой писец делал разметку строк. Ставятся каждые 28 px (шаг
+     drypoint ruling). На verso — у левого края folio (внешнее поле),
+     на recto — у правого. */
+  .parchment-bg::after {
+    content: '';
+    position: absolute;
+    top: 56px;
+    bottom: 56px;
+    width: 2px;
+    pointer-events: none;
+    background-image: radial-gradient(
+      circle 0.7px at 50% 50%,
+      rgba(80,40,10,0.55) 0%,
+      transparent 100%
+    );
+    background-repeat: repeat-y;
+    background-size: 2px 28px;
+  }
+  .page-verso .parchment-bg::after { left: 16px; }
+  .page-recto .parchment-bg::after { right: 16px; }
+  /* На декоративных страницах prick'ов нет */
+  .incipit-verso .parchment-bg::after,
+  .final-recto .parchment-bg::after { display: none; }
+
+  /* PATCH D1: ghost-слой просвечивающего текста с verso на recto.
+     Запекается один раз при загрузке через canvas (Range API + fillText).
+     Затем вставляется как PNG background-image в .ghost-layer div,
+     который размещается между parchment-bg и folio-content. */
+  .ghost-layer {
+    position: absolute;
+    inset: 56px 42px;
+    pointer-events: none;
+    z-index: 0;
+    background-size: 100% 100%;
+    background-repeat: no-repeat;
+    mix-blend-mode: multiply;
+    opacity: 0.55;
+  }
+  /* На полностью декоративных страницах (carpet и final) ghost-слой
+     перекрывает SVG-арт и читается как мусор. Прячем его.
+     cover-blank — orphan-страница (PATCH E), партнёра нет, ghost не
+     запекается; правило защитное. */
+  .incipit-verso .ghost-layer,
+  .final-recto .ghost-layer,
+  .cover-blank .ghost-layer { display: none; }
+
+  /* PATCH C3: diminuendo на инципите — каскад убывающих букв после
+     большого иллюминированного инициала. Классическая инсулярная
+     практика (Book of Kells f.34r и др.): первая буква огромная, потом
+     2–4 яруса постепенно уменьшающихся букв в унциале с убывающей
+     красной интенсивностью, и финальный переход к обычному размеру. */
+  .dim-1 {
+    font-family: '0550 Uncialis', 'Uncial Antiqua', serif;
+    font-size: 1.7em;
+    line-height: 1.0;
+    color: #6a1208;
+    letter-spacing: 0.03em;
+    text-transform: uppercase;
+    text-shadow: var(--ink-bleed-red);
+  }
+  .dim-2 {
+    font-family: '0550 Uncialis', 'Uncial Antiqua', serif;
+    font-size: 1.35em;
+    line-height: 1.0;
+    color: #7a1808;
+    letter-spacing: 0.025em;
+    text-transform: uppercase;
+    text-shadow: var(--ink-bleed-red);
+  }
+  .dim-3 {
+    font-family: '0550 Uncialis', 'Uncial Antiqua', serif;
+    font-size: 1.12em;
+    line-height: 1.0;
+    color: #4a1808;
+    letter-spacing: 0.02em;
+    text-transform: uppercase;
+  }
+
+  /* ═══════════════════════════════════════════════════════════════
+     PATCH A: 12 вариантов пергамента (Hair/Flesh × 6).
+     Классы назначаются в JS после renderBook, по правилу Грегори
+     (HH-FF-HH-FF — чередование разворотов). */
+
+  .folio.parch-h1 .parchment-bg {
+    background-color: #c4b088;
+    background-image:
+      url("data:image/svg+xml;charset=utf-8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='512' height='512' viewBox='0 0 512 512'%3E%3Cdefs%3E%3Cfilter id='p' x='0' y='0' width='100%25' height='100%25'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85 0.75' numOctaves='3' seed='1' stitchTiles='stitch' result='g'/%3E%3CfeColorMatrix in='g' values='0 0 0 0 0  0 0 0 0 0  0 0 0 0 0  0 0 0 0.18 0'/%3E%3C/filter%3E%3C/defs%3E%3Crect width='512' height='512' fill='transparent' filter='url(%23p)'/%3E%3C/svg%3E"),
+      url("data:image/svg+xml;charset=utf-8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='1024' height='1024' viewBox='0 0 1024 1024'%3E%3Cdefs%3E%3Cfilter id='p' x='0' y='0' width='100%25' height='100%25'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.03 0.04' numOctaves='3' seed='8' stitchTiles='stitch' result='c'/%3E%3CfeColorMatrix in='c' values='0 0 0 0 0.09  0 0 0 0 0.045  0 0 0 0 0  0 0 0 0.2 0'/%3E%3C/filter%3E%3C/defs%3E%3Crect width='1024' height='1024' fill='transparent' filter='url(%23p)'/%3E%3C/svg%3E"),
+      radial-gradient(circle 3px at 14% 12%, rgba(80,40,8,0.27) 0%, transparent 100%),
+      radial-gradient(circle 2px at 82% 18%, rgba(80,40,8,0.24) 0%, transparent 100%),
+      radial-gradient(circle 4px at 38% 45%, rgba(80,40,8,0.19) 0%, transparent 100%),
+      radial-gradient(circle 2px at 68% 58%, rgba(80,40,8,0.29) 0%, transparent 100%),
+      radial-gradient(circle 3px at 22% 78%, rgba(80,40,8,0.25) 0%, transparent 100%),
+      radial-gradient(circle 2px at 76% 88%, rgba(80,40,8,0.23) 0%, transparent 100%),
+      radial-gradient(ellipse 60% 20% at 50% 100%, rgba(120,70,20,0.13) 0%, transparent 80%),
+      radial-gradient(ellipse 25% 30% at 8% 94%, rgba(140,90,30,0.12) 0%, transparent 75%),
+      radial-gradient(ellipse 22% 28% at 92% 94%, rgba(140,90,30,0.12) 0%, transparent 75%),
+      radial-gradient(ellipse 28% 16% at 72% 22%, rgba(160,110,40,0.18) 0%, transparent 90%),
+      linear-gradient(105deg, rgba(180,150,100,0.12) 0%, transparent 40%, rgba(140,115,80,0.09) 100%),
+      linear-gradient(162deg, #c4b088 0%, #bca480 20%, #c0ac84 45%, #b8a07c 65%, #bca880 85%, #b09c78 100%);
+    background-size:
+      512px 512px, 1024px 1024px,
+      auto, auto, auto, auto, auto, auto,
+      auto, auto, auto, auto, auto, auto;
+    background-repeat:
+      repeat, repeat,
+      no-repeat, no-repeat, no-repeat, no-repeat, no-repeat, no-repeat,
+      no-repeat, no-repeat, no-repeat, no-repeat, no-repeat, no-repeat;
+  }
+
+  .folio.parch-h2 .parchment-bg {
+    background-color: #c8b48c;
+    background-image:
+      url("data:image/svg+xml;charset=utf-8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='512' height='512' viewBox='0 0 512 512'%3E%3Cdefs%3E%3Cfilter id='p' x='0' y='0' width='100%25' height='100%25'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85 0.75' numOctaves='3' seed='7' stitchTiles='stitch' result='g'/%3E%3CfeColorMatrix in='g' values='0 0 0 0 0  0 0 0 0 0  0 0 0 0 0  0 0 0 0.16 0'/%3E%3C/filter%3E%3C/defs%3E%3Crect width='512' height='512' fill='transparent' filter='url(%23p)'/%3E%3C/svg%3E"),
+      url("data:image/svg+xml;charset=utf-8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='1024' height='1024' viewBox='0 0 1024 1024'%3E%3Cdefs%3E%3Cfilter id='p' x='0' y='0' width='100%25' height='100%25'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.03 0.04' numOctaves='3' seed='23' stitchTiles='stitch' result='c'/%3E%3CfeColorMatrix in='c' values='0 0 0 0 0.09  0 0 0 0 0.045  0 0 0 0 0  0 0 0 0.18 0'/%3E%3C/filter%3E%3C/defs%3E%3Crect width='1024' height='1024' fill='transparent' filter='url(%23p)'/%3E%3C/svg%3E"),
+      radial-gradient(circle 2px at 28% 8%, rgba(80,40,8,0.29) 0%, transparent 100%),
+      radial-gradient(circle 3px at 74% 32%, rgba(80,40,8,0.32) 0%, transparent 100%),
+      radial-gradient(circle 2px at 52% 52%, rgba(80,40,8,0.24) 0%, transparent 100%),
+      radial-gradient(circle 3px at 18% 64%, rgba(80,40,8,0.28) 0%, transparent 100%),
+      radial-gradient(circle 2px at 88% 74%, rgba(80,40,8,0.27) 0%, transparent 100%),
+      radial-gradient(circle 4px at 42% 88%, rgba(80,40,8,0.24) 0%, transparent 100%),
+      radial-gradient(ellipse 60% 20% at 50% 100%, rgba(120,70,20,0.13) 0%, transparent 80%),
+      radial-gradient(ellipse 25% 30% at 8% 94%, rgba(140,90,30,0.12) 0%, transparent 75%),
+      radial-gradient(ellipse 22% 28% at 92% 94%, rgba(140,90,30,0.12) 0%, transparent 75%),
+      radial-gradient(ellipse 28% 16% at 72% 22%, rgba(160,110,40,0.18) 0%, transparent 90%),
+      linear-gradient(105deg, rgba(180,150,100,0.12) 0%, transparent 40%, rgba(140,115,80,0.09) 100%),
+      linear-gradient(162deg, #c8b48c 0%, #bca480 20%, #c4b088 45%, #b8a47c 65%, #c0ac80 85%, #b09c74 100%);
+    background-size:
+      512px 512px, 1024px 1024px,
+      auto, auto, auto, auto, auto, auto,
+      auto, auto, auto, auto, auto, auto;
+    background-repeat:
+      repeat, repeat,
+      no-repeat, no-repeat, no-repeat, no-repeat, no-repeat, no-repeat,
+      no-repeat, no-repeat, no-repeat, no-repeat, no-repeat, no-repeat;
+  }
+
+  .folio.parch-h3 .parchment-bg {
+    background-color: #c0ac84;
+    background-image:
+      url("data:image/svg+xml;charset=utf-8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='512' height='512' viewBox='0 0 512 512'%3E%3Cdefs%3E%3Cfilter id='p' x='0' y='0' width='100%25' height='100%25'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85 0.75' numOctaves='3' seed='14' stitchTiles='stitch' result='g'/%3E%3CfeColorMatrix in='g' values='0 0 0 0 0  0 0 0 0 0  0 0 0 0 0  0 0 0 0.18 0'/%3E%3C/filter%3E%3C/defs%3E%3Crect width='512' height='512' fill='transparent' filter='url(%23p)'/%3E%3C/svg%3E"),
+      url("data:image/svg+xml;charset=utf-8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='1024' height='1024' viewBox='0 0 1024 1024'%3E%3Cdefs%3E%3Cfilter id='p' x='0' y='0' width='100%25' height='100%25'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.03 0.04' numOctaves='3' seed='41' stitchTiles='stitch' result='c'/%3E%3CfeColorMatrix in='c' values='0 0 0 0 0.09  0 0 0 0 0.045  0 0 0 0 0  0 0 0 0.2 0'/%3E%3C/filter%3E%3C/defs%3E%3Crect width='1024' height='1024' fill='transparent' filter='url(%23p)'/%3E%3C/svg%3E"),
+      radial-gradient(circle 3px at 8% 22%, rgba(80,40,8,0.31) 0%, transparent 100%),
+      radial-gradient(circle 2px at 44% 28%, rgba(80,40,8,0.27) 0%, transparent 100%),
+      radial-gradient(circle 3px at 62% 48%, rgba(80,40,8,0.29) 0%, transparent 100%),
+      radial-gradient(circle 2px at 84% 62%, rgba(80,40,8,0.32) 0%, transparent 100%),
+      radial-gradient(circle 4px at 18% 82%, rgba(80,40,8,0.25) 0%, transparent 100%),
+      radial-gradient(circle 2px at 74% 92%, rgba(80,40,8,0.28) 0%, transparent 100%),
+      radial-gradient(ellipse 60% 20% at 50% 100%, rgba(120,70,20,0.13) 0%, transparent 80%),
+      radial-gradient(ellipse 25% 30% at 8% 94%, rgba(140,90,30,0.12) 0%, transparent 75%),
+      radial-gradient(ellipse 22% 28% at 92% 94%, rgba(140,90,30,0.12) 0%, transparent 75%),
+      radial-gradient(ellipse 28% 16% at 72% 22%, rgba(160,110,40,0.18) 0%, transparent 90%),
+      linear-gradient(105deg, rgba(180,150,100,0.12) 0%, transparent 40%, rgba(140,115,80,0.09) 100%),
+      linear-gradient(162deg, #c0ac84 0%, #b8a47c 20%, #bca880 45%, #b09c74 65%, #b8a47c 85%, #ac9870 100%);
+    background-size:
+      512px 512px, 1024px 1024px,
+      auto, auto, auto, auto, auto, auto,
+      auto, auto, auto, auto, auto, auto;
+    background-repeat:
+      repeat, repeat,
+      no-repeat, no-repeat, no-repeat, no-repeat, no-repeat, no-repeat,
+      no-repeat, no-repeat, no-repeat, no-repeat, no-repeat, no-repeat;
+  }
+
+  .folio.parch-h4 .parchment-bg {
+    background-color: #c8b890;
+    background-image:
+      url("data:image/svg+xml;charset=utf-8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='512' height='512' viewBox='0 0 512 512'%3E%3Cdefs%3E%3Cfilter id='p' x='0' y='0' width='100%25' height='100%25'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85 0.75' numOctaves='3' seed='21' stitchTiles='stitch' result='g'/%3E%3CfeColorMatrix in='g' values='0 0 0 0 0  0 0 0 0 0  0 0 0 0 0  0 0 0 0.14 0'/%3E%3C/filter%3E%3C/defs%3E%3Crect width='512' height='512' fill='transparent' filter='url(%23p)'/%3E%3C/svg%3E"),
+      url("data:image/svg+xml;charset=utf-8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='1024' height='1024' viewBox='0 0 1024 1024'%3E%3Cdefs%3E%3Cfilter id='p' x='0' y='0' width='100%25' height='100%25'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.03 0.04' numOctaves='3' seed='67' stitchTiles='stitch' result='c'/%3E%3CfeColorMatrix in='c' values='0 0 0 0 0.09  0 0 0 0 0.045  0 0 0 0 0  0 0 0 0.16 0'/%3E%3C/filter%3E%3C/defs%3E%3Crect width='1024' height='1024' fill='transparent' filter='url(%23p)'/%3E%3C/svg%3E"),
+      radial-gradient(circle 2px at 24% 8%, rgba(80,40,8,0.19) 0%, transparent 100%),
+      radial-gradient(circle 3px at 66% 22%, rgba(80,40,8,0.21) 0%, transparent 100%),
+      radial-gradient(circle 2px at 46% 38%, rgba(80,40,8,0.17) 0%, transparent 100%),
+      radial-gradient(circle 3px at 28% 58%, rgba(80,40,8,0.20) 0%, transparent 100%),
+      radial-gradient(circle 2px at 82% 72%, rgba(80,40,8,0.22) 0%, transparent 100%),
+      radial-gradient(circle 3px at 58% 88%, rgba(80,40,8,0.18) 0%, transparent 100%),
+      radial-gradient(ellipse 60% 20% at 50% 100%, rgba(120,70,20,0.13) 0%, transparent 80%),
+      radial-gradient(ellipse 25% 30% at 8% 94%, rgba(140,90,30,0.12) 0%, transparent 75%),
+      radial-gradient(ellipse 22% 28% at 92% 94%, rgba(140,90,30,0.12) 0%, transparent 75%),
+      radial-gradient(ellipse 28% 16% at 72% 22%, rgba(160,110,40,0.18) 0%, transparent 90%),
+      linear-gradient(105deg, rgba(180,150,100,0.12) 0%, transparent 40%, rgba(140,115,80,0.09) 100%),
+      linear-gradient(162deg, #c8b890 0%, #c0ac80 20%, #c4b088 45%, #b8a07c 65%, #bca880 85%, #b09c74 100%);
+    background-size:
+      512px 512px, 1024px 1024px,
+      auto, auto, auto, auto, auto, auto,
+      auto, auto, auto, auto, auto, auto;
+    background-repeat:
+      repeat, repeat,
+      no-repeat, no-repeat, no-repeat, no-repeat, no-repeat, no-repeat,
+      no-repeat, no-repeat, no-repeat, no-repeat, no-repeat, no-repeat;
+  }
+
+  .folio.parch-h5 .parchment-bg {
+    background-color: #c4ac80;
+    background-image:
+      url("data:image/svg+xml;charset=utf-8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='512' height='512' viewBox='0 0 512 512'%3E%3Cdefs%3E%3Cfilter id='p' x='0' y='0' width='100%25' height='100%25'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85 0.75' numOctaves='3' seed='29' stitchTiles='stitch' result='g'/%3E%3CfeColorMatrix in='g' values='0 0 0 0 0  0 0 0 0 0  0 0 0 0 0  0 0 0 0.16 0'/%3E%3C/filter%3E%3C/defs%3E%3Crect width='512' height='512' fill='transparent' filter='url(%23p)'/%3E%3C/svg%3E"),
+      url("data:image/svg+xml;charset=utf-8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='1024' height='1024' viewBox='0 0 1024 1024'%3E%3Cdefs%3E%3Cfilter id='p' x='0' y='0' width='100%25' height='100%25'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.03 0.04' numOctaves='3' seed='89' stitchTiles='stitch' result='c'/%3E%3CfeColorMatrix in='c' values='0 0 0 0 0.09  0 0 0 0 0.045  0 0 0 0 0  0 0 0 0.18 0'/%3E%3C/filter%3E%3C/defs%3E%3Crect width='1024' height='1024' fill='transparent' filter='url(%23p)'/%3E%3C/svg%3E"),
+      radial-gradient(circle 3px at 14% 12%, rgba(80,40,8,0.27) 0%, transparent 100%),
+      radial-gradient(circle 2px at 82% 18%, rgba(80,40,8,0.24) 0%, transparent 100%),
+      radial-gradient(circle 4px at 38% 45%, rgba(80,40,8,0.19) 0%, transparent 100%),
+      radial-gradient(circle 2px at 68% 58%, rgba(80,40,8,0.29) 0%, transparent 100%),
+      radial-gradient(circle 3px at 22% 78%, rgba(80,40,8,0.25) 0%, transparent 100%),
+      radial-gradient(circle 2px at 76% 88%, rgba(80,40,8,0.23) 0%, transparent 100%),
+      radial-gradient(ellipse 60% 20% at 50% 100%, rgba(120,70,20,0.13) 0%, transparent 80%),
+      radial-gradient(ellipse 25% 30% at 8% 94%, rgba(140,90,30,0.12) 0%, transparent 75%),
+      radial-gradient(ellipse 22% 28% at 92% 94%, rgba(140,90,30,0.12) 0%, transparent 75%),
+      radial-gradient(ellipse 28% 16% at 72% 22%, rgba(160,110,40,0.18) 0%, transparent 90%),
+      linear-gradient(105deg, rgba(180,150,100,0.12) 0%, transparent 40%, rgba(140,115,80,0.09) 100%),
+      linear-gradient(162deg, #c4ac80 0%, #b8a07c 20%, #bca884 45%, #b09870 65%, #b8a47c 85%, #ac9470 100%);
+    background-size:
+      512px 512px, 1024px 1024px,
+      auto, auto, auto, auto, auto, auto,
+      auto, auto, auto, auto, auto, auto;
+    background-repeat:
+      repeat, repeat,
+      no-repeat, no-repeat, no-repeat, no-repeat, no-repeat, no-repeat,
+      no-repeat, no-repeat, no-repeat, no-repeat, no-repeat, no-repeat;
+  }
+
+  .folio.parch-h6 .parchment-bg {
+    background-color: #c0ac84;
+    background-image:
+      url("data:image/svg+xml;charset=utf-8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='512' height='512' viewBox='0 0 512 512'%3E%3Cdefs%3E%3Cfilter id='p' x='0' y='0' width='100%25' height='100%25'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85 0.75' numOctaves='3' seed='35' stitchTiles='stitch' result='g'/%3E%3CfeColorMatrix in='g' values='0 0 0 0 0  0 0 0 0 0  0 0 0 0 0  0 0 0 0.16 0'/%3E%3C/filter%3E%3C/defs%3E%3Crect width='512' height='512' fill='transparent' filter='url(%23p)'/%3E%3C/svg%3E"),
+      url("data:image/svg+xml;charset=utf-8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='1024' height='1024' viewBox='0 0 1024 1024'%3E%3Cdefs%3E%3Cfilter id='p' x='0' y='0' width='100%25' height='100%25'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.03 0.04' numOctaves='3' seed='104' stitchTiles='stitch' result='c'/%3E%3CfeColorMatrix in='c' values='0 0 0 0 0.09  0 0 0 0 0.045  0 0 0 0 0  0 0 0 0.18 0'/%3E%3C/filter%3E%3C/defs%3E%3Crect width='1024' height='1024' fill='transparent' filter='url(%23p)'/%3E%3C/svg%3E"),
+      radial-gradient(circle 2px at 28% 8%, rgba(80,40,8,0.25) 0%, transparent 100%),
+      radial-gradient(circle 3px at 74% 32%, rgba(80,40,8,0.28) 0%, transparent 100%),
+      radial-gradient(circle 2px at 52% 52%, rgba(80,40,8,0.20) 0%, transparent 100%),
+      radial-gradient(circle 3px at 18% 64%, rgba(80,40,8,0.24) 0%, transparent 100%),
+      radial-gradient(circle 2px at 88% 74%, rgba(80,40,8,0.23) 0%, transparent 100%),
+      radial-gradient(circle 4px at 42% 88%, rgba(80,40,8,0.21) 0%, transparent 100%),
+      radial-gradient(ellipse 60% 20% at 50% 100%, rgba(120,70,20,0.13) 0%, transparent 80%),
+      radial-gradient(ellipse 25% 30% at 8% 94%, rgba(140,90,30,0.12) 0%, transparent 75%),
+      radial-gradient(ellipse 22% 28% at 92% 94%, rgba(140,90,30,0.12) 0%, transparent 75%),
+      radial-gradient(ellipse 28% 16% at 72% 22%, rgba(160,110,40,0.18) 0%, transparent 90%),
+      linear-gradient(105deg, rgba(180,150,100,0.12) 0%, transparent 40%, rgba(140,115,80,0.09) 100%),
+      linear-gradient(162deg, #c0ac84 0%, #b8a07c 20%, #bca880 45%, #b09c74 65%, #b8a47c 85%, #ac9470 100%);
+    background-size:
+      512px 512px, 1024px 1024px,
+      auto, auto, auto, auto, auto, auto,
+      auto, auto, auto, auto, auto, auto;
+    background-repeat:
+      repeat, repeat,
+      no-repeat, no-repeat, no-repeat, no-repeat, no-repeat, no-repeat,
+      no-repeat, no-repeat, no-repeat, no-repeat, no-repeat, no-repeat;
+  }
+
+  .folio.parch-f1 .parchment-bg {
+    background-color: #d0c494;
+    background-image:
+      url("data:image/svg+xml;charset=utf-8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='512' height='512' viewBox='0 0 512 512'%3E%3Cdefs%3E%3Cfilter id='p' x='0' y='0' width='100%25' height='100%25'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85 0.75' numOctaves='3' seed='2' stitchTiles='stitch' result='g'/%3E%3CfeColorMatrix in='g' values='0 0 0 0 0  0 0 0 0 0  0 0 0 0 0  0 0 0 0.12 0'/%3E%3C/filter%3E%3C/defs%3E%3Crect width='512' height='512' fill='transparent' filter='url(%23p)'/%3E%3C/svg%3E"),
+      url("data:image/svg+xml;charset=utf-8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='1024' height='1024' viewBox='0 0 1024 1024'%3E%3Cdefs%3E%3Cfilter id='p' x='0' y='0' width='100%25' height='100%25'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.03 0.04' numOctaves='3' seed='12' stitchTiles='stitch' result='c'/%3E%3CfeColorMatrix in='c' values='0 0 0 0 0.09  0 0 0 0 0.045  0 0 0 0 0  0 0 0 0.14 0'/%3E%3C/filter%3E%3C/defs%3E%3Crect width='1024' height='1024' fill='transparent' filter='url(%23p)'/%3E%3C/svg%3E"),
+      radial-gradient(circle 2px at 18% 22%, rgba(80,40,8,0.11) 0%, transparent 100%),
+      radial-gradient(circle 1px at 72% 48%, rgba(80,40,8,0.10) 0%, transparent 100%),
+      radial-gradient(circle 2px at 32% 78%, rgba(80,40,8,0.10) 0%, transparent 100%),
+      radial-gradient(circle 1px at 84% 84%, rgba(80,40,8,0.09) 0%, transparent 100%),
+      radial-gradient(ellipse 60% 20% at 50% 100%, rgba(120,70,20,0.09) 0%, transparent 80%),
+      radial-gradient(ellipse 25% 30% at 8% 94%, rgba(140,90,30,0.08) 0%, transparent 75%),
+      radial-gradient(ellipse 22% 28% at 92% 94%, rgba(140,90,30,0.08) 0%, transparent 75%),
+      radial-gradient(ellipse 28% 16% at 72% 22%, rgba(160,110,40,0.18) 0%, transparent 90%),
+      linear-gradient(105deg, rgba(180,150,100,0.12) 0%, transparent 40%, rgba(140,115,80,0.09) 100%),
+      linear-gradient(162deg, #d0c494 0%, #c4b888 20%, #ccc090 45%, #bcb084 65%, #c8bc8c 85%, #b8ac80 100%);
+    background-size:
+      512px 512px, 1024px 1024px,
+      auto, auto, auto, auto,
+      auto, auto, auto, auto, auto, auto;
+    background-repeat:
+      repeat, repeat,
+      no-repeat, no-repeat, no-repeat, no-repeat,
+      no-repeat, no-repeat, no-repeat, no-repeat, no-repeat, no-repeat;
+  }
+
+  .folio.parch-f2 .parchment-bg {
+    background-color: #ccc090;
+    background-image:
+      url("data:image/svg+xml;charset=utf-8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='512' height='512' viewBox='0 0 512 512'%3E%3Cdefs%3E%3Cfilter id='p' x='0' y='0' width='100%25' height='100%25'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85 0.75' numOctaves='3' seed='9' stitchTiles='stitch' result='g'/%3E%3CfeColorMatrix in='g' values='0 0 0 0 0  0 0 0 0 0  0 0 0 0 0  0 0 0 0.1 0'/%3E%3C/filter%3E%3C/defs%3E%3Crect width='512' height='512' fill='transparent' filter='url(%23p)'/%3E%3C/svg%3E"),
+      url("data:image/svg+xml;charset=utf-8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='1024' height='1024' viewBox='0 0 1024 1024'%3E%3Cdefs%3E%3Cfilter id='p' x='0' y='0' width='100%25' height='100%25'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.03 0.04' numOctaves='3' seed='34' stitchTiles='stitch' result='c'/%3E%3CfeColorMatrix in='c' values='0 0 0 0 0.09  0 0 0 0 0.045  0 0 0 0 0  0 0 0 0.12 0'/%3E%3C/filter%3E%3C/defs%3E%3Crect width='1024' height='1024' fill='transparent' filter='url(%23p)'/%3E%3C/svg%3E"),
+      radial-gradient(circle 1px at 44% 18%, rgba(80,40,8,0.07) 0%, transparent 100%),
+      radial-gradient(circle 2px at 22% 52%, rgba(80,40,8,0.08) 0%, transparent 100%),
+      radial-gradient(circle 1px at 74% 68%, rgba(80,40,8,0.07) 0%, transparent 100%),
+      radial-gradient(circle 2px at 56% 86%, rgba(80,40,8,0.08) 0%, transparent 100%),
+      radial-gradient(ellipse 60% 20% at 50% 100%, rgba(120,70,20,0.09) 0%, transparent 80%),
+      radial-gradient(ellipse 25% 30% at 8% 94%, rgba(140,90,30,0.08) 0%, transparent 75%),
+      radial-gradient(ellipse 22% 28% at 92% 94%, rgba(140,90,30,0.08) 0%, transparent 75%),
+      radial-gradient(ellipse 28% 16% at 72% 22%, rgba(160,110,40,0.18) 0%, transparent 90%),
+      linear-gradient(105deg, rgba(180,150,100,0.12) 0%, transparent 40%, rgba(140,115,80,0.09) 100%),
+      linear-gradient(162deg, #ccc090 0%, #bcb084 20%, #c4b88c 45%, #b8a880 65%, #c0b488 85%, #b4a87c 100%);
+    background-size:
+      512px 512px, 1024px 1024px,
+      auto, auto, auto, auto,
+      auto, auto, auto, auto, auto, auto;
+    background-repeat:
+      repeat, repeat,
+      no-repeat, no-repeat, no-repeat, no-repeat,
+      no-repeat, no-repeat, no-repeat, no-repeat, no-repeat, no-repeat;
+  }
+
+  .folio.parch-f3 .parchment-bg {
+    background-color: #d4c898;
+    background-image:
+      url("data:image/svg+xml;charset=utf-8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='512' height='512' viewBox='0 0 512 512'%3E%3Cdefs%3E%3Cfilter id='p' x='0' y='0' width='100%25' height='100%25'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85 0.75' numOctaves='3' seed='17' stitchTiles='stitch' result='g'/%3E%3CfeColorMatrix in='g' values='0 0 0 0 0  0 0 0 0 0  0 0 0 0 0  0 0 0 0.12 0'/%3E%3C/filter%3E%3C/defs%3E%3Crect width='512' height='512' fill='transparent' filter='url(%23p)'/%3E%3C/svg%3E"),
+      url("data:image/svg+xml;charset=utf-8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='1024' height='1024' viewBox='0 0 1024 1024'%3E%3Cdefs%3E%3Cfilter id='p' x='0' y='0' width='100%25' height='100%25'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.03 0.04' numOctaves='3' seed='51' stitchTiles='stitch' result='c'/%3E%3CfeColorMatrix in='c' values='0 0 0 0 0.09  0 0 0 0 0.045  0 0 0 0 0  0 0 0 0.14 0'/%3E%3C/filter%3E%3C/defs%3E%3Crect width='1024' height='1024' fill='transparent' filter='url(%23p)'/%3E%3C/svg%3E"),
+      radial-gradient(circle 2px at 18% 22%, rgba(80,40,8,0.11) 0%, transparent 100%),
+      radial-gradient(circle 1px at 72% 48%, rgba(80,40,8,0.10) 0%, transparent 100%),
+      radial-gradient(circle 2px at 32% 78%, rgba(80,40,8,0.10) 0%, transparent 100%),
+      radial-gradient(circle 1px at 84% 84%, rgba(80,40,8,0.09) 0%, transparent 100%),
+      radial-gradient(ellipse 60% 20% at 50% 100%, rgba(120,70,20,0.09) 0%, transparent 80%),
+      radial-gradient(ellipse 25% 30% at 8% 94%, rgba(140,90,30,0.08) 0%, transparent 75%),
+      radial-gradient(ellipse 22% 28% at 92% 94%, rgba(140,90,30,0.08) 0%, transparent 75%),
+      radial-gradient(ellipse 28% 16% at 72% 22%, rgba(160,110,40,0.18) 0%, transparent 90%),
+      linear-gradient(105deg, rgba(180,150,100,0.12) 0%, transparent 40%, rgba(140,115,80,0.09) 100%),
+      linear-gradient(162deg, #d4c898 0%, #c4b88c 20%, #ccc090 45%, #bcb084 65%, #c8bc8c 85%, #b8ac80 100%);
+    background-size:
+      512px 512px, 1024px 1024px,
+      auto, auto, auto, auto,
+      auto, auto, auto, auto, auto, auto;
+    background-repeat:
+      repeat, repeat,
+      no-repeat, no-repeat, no-repeat, no-repeat,
+      no-repeat, no-repeat, no-repeat, no-repeat, no-repeat, no-repeat;
+  }
+
+  .folio.parch-f4 .parchment-bg {
+    background-color: #ccc090;
+    background-image:
+      url("data:image/svg+xml;charset=utf-8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='512' height='512' viewBox='0 0 512 512'%3E%3Cdefs%3E%3Cfilter id='p' x='0' y='0' width='100%25' height='100%25'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85 0.75' numOctaves='3' seed='25' stitchTiles='stitch' result='g'/%3E%3CfeColorMatrix in='g' values='0 0 0 0 0  0 0 0 0 0  0 0 0 0 0  0 0 0 0.1 0'/%3E%3C/filter%3E%3C/defs%3E%3Crect width='512' height='512' fill='transparent' filter='url(%23p)'/%3E%3C/svg%3E"),
+      url("data:image/svg+xml;charset=utf-8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='1024' height='1024' viewBox='0 0 1024 1024'%3E%3Cdefs%3E%3Cfilter id='p' x='0' y='0' width='100%25' height='100%25'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.03 0.04' numOctaves='3' seed='78' stitchTiles='stitch' result='c'/%3E%3CfeColorMatrix in='c' values='0 0 0 0 0.09  0 0 0 0 0.045  0 0 0 0 0  0 0 0 0.12 0'/%3E%3C/filter%3E%3C/defs%3E%3Crect width='1024' height='1024' fill='transparent' filter='url(%23p)'/%3E%3C/svg%3E"),
+      radial-gradient(circle 1px at 14% 38%, rgba(80,40,8,0.06) 0%, transparent 100%),
+      radial-gradient(circle 2px at 68% 56%, rgba(80,40,8,0.07) 0%, transparent 100%),
+      radial-gradient(circle 1px at 42% 82%, rgba(80,40,8,0.07) 0%, transparent 100%),
+      radial-gradient(ellipse 60% 20% at 50% 100%, rgba(120,70,20,0.09) 0%, transparent 80%),
+      radial-gradient(ellipse 25% 30% at 8% 94%, rgba(140,90,30,0.08) 0%, transparent 75%),
+      radial-gradient(ellipse 22% 28% at 92% 94%, rgba(140,90,30,0.08) 0%, transparent 75%),
+      radial-gradient(ellipse 28% 16% at 72% 22%, rgba(160,110,40,0.18) 0%, transparent 90%),
+      linear-gradient(105deg, rgba(180,150,100,0.12) 0%, transparent 40%, rgba(140,115,80,0.09) 100%),
+      linear-gradient(162deg, #ccc090 0%, #bcb084 20%, #c8bc8c 45%, #b8a880 65%, #c4b888 85%, #b4a87c 100%);
+    background-size:
+      512px 512px, 1024px 1024px,
+      auto, auto, auto, auto,
+      auto, auto, auto, auto, auto, auto;
+    background-repeat:
+      repeat, repeat,
+      no-repeat, no-repeat, no-repeat, no-repeat,
+      no-repeat, no-repeat, no-repeat, no-repeat, no-repeat, no-repeat;
+  }
+
+  .folio.parch-f5 .parchment-bg {
+    background-color: #d0c494;
+    background-image:
+      url("data:image/svg+xml;charset=utf-8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='512' height='512' viewBox='0 0 512 512'%3E%3Cdefs%3E%3Cfilter id='p' x='0' y='0' width='100%25' height='100%25'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85 0.75' numOctaves='3' seed='31' stitchTiles='stitch' result='g'/%3E%3CfeColorMatrix in='g' values='0 0 0 0 0  0 0 0 0 0  0 0 0 0 0  0 0 0 0.12 0'/%3E%3C/filter%3E%3C/defs%3E%3Crect width='512' height='512' fill='transparent' filter='url(%23p)'/%3E%3C/svg%3E"),
+      url("data:image/svg+xml;charset=utf-8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='1024' height='1024' viewBox='0 0 1024 1024'%3E%3Cdefs%3E%3Cfilter id='p' x='0' y='0' width='100%25' height='100%25'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.03 0.04' numOctaves='3' seed='92' stitchTiles='stitch' result='c'/%3E%3CfeColorMatrix in='c' values='0 0 0 0 0.09  0 0 0 0 0.045  0 0 0 0 0  0 0 0 0.14 0'/%3E%3C/filter%3E%3C/defs%3E%3Crect width='1024' height='1024' fill='transparent' filter='url(%23p)'/%3E%3C/svg%3E"),
+      radial-gradient(circle 1px at 44% 18%, rgba(80,40,8,0.07) 0%, transparent 100%),
+      radial-gradient(circle 2px at 22% 52%, rgba(80,40,8,0.08) 0%, transparent 100%),
+      radial-gradient(circle 1px at 74% 68%, rgba(80,40,8,0.07) 0%, transparent 100%),
+      radial-gradient(circle 2px at 56% 86%, rgba(80,40,8,0.08) 0%, transparent 100%),
+      radial-gradient(ellipse 60% 20% at 50% 100%, rgba(120,70,20,0.09) 0%, transparent 80%),
+      radial-gradient(ellipse 25% 30% at 8% 94%, rgba(140,90,30,0.08) 0%, transparent 75%),
+      radial-gradient(ellipse 22% 28% at 92% 94%, rgba(140,90,30,0.08) 0%, transparent 75%),
+      radial-gradient(ellipse 28% 16% at 72% 22%, rgba(160,110,40,0.18) 0%, transparent 90%),
+      linear-gradient(105deg, rgba(180,150,100,0.12) 0%, transparent 40%, rgba(140,115,80,0.09) 100%),
+      linear-gradient(162deg, #d0c494 0%, #c0b488 20%, #c8bc8c 45%, #b8ac80 65%, #c4b888 85%, #b8ac80 100%);
+    background-size:
+      512px 512px, 1024px 1024px,
+      auto, auto, auto, auto,
+      auto, auto, auto, auto, auto, auto;
+    background-repeat:
+      repeat, repeat,
+      no-repeat, no-repeat, no-repeat, no-repeat,
+      no-repeat, no-repeat, no-repeat, no-repeat, no-repeat, no-repeat;
+  }
+
+  .folio.parch-f6 .parchment-bg {
+    background-color: #ccc090;
+    background-image:
+      url("data:image/svg+xml;charset=utf-8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='512' height='512' viewBox='0 0 512 512'%3E%3Cdefs%3E%3Cfilter id='p' x='0' y='0' width='100%25' height='100%25'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85 0.75' numOctaves='3' seed='38' stitchTiles='stitch' result='g'/%3E%3CfeColorMatrix in='g' values='0 0 0 0 0  0 0 0 0 0  0 0 0 0 0  0 0 0 0.1 0'/%3E%3C/filter%3E%3C/defs%3E%3Crect width='512' height='512' fill='transparent' filter='url(%23p)'/%3E%3C/svg%3E"),
+      url("data:image/svg+xml;charset=utf-8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='1024' height='1024' viewBox='0 0 1024 1024'%3E%3Cdefs%3E%3Cfilter id='p' x='0' y='0' width='100%25' height='100%25'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.03 0.04' numOctaves='3' seed='115' stitchTiles='stitch' result='c'/%3E%3CfeColorMatrix in='c' values='0 0 0 0 0.09  0 0 0 0 0.045  0 0 0 0 0  0 0 0 0.12 0'/%3E%3C/filter%3E%3C/defs%3E%3Crect width='1024' height='1024' fill='transparent' filter='url(%23p)'/%3E%3C/svg%3E"),
+      radial-gradient(circle 2px at 18% 22%, rgba(80,40,8,0.11) 0%, transparent 100%),
+      radial-gradient(circle 1px at 72% 48%, rgba(80,40,8,0.10) 0%, transparent 100%),
+      radial-gradient(circle 2px at 32% 78%, rgba(80,40,8,0.10) 0%, transparent 100%),
+      radial-gradient(circle 1px at 84% 84%, rgba(80,40,8,0.09) 0%, transparent 100%),
+      radial-gradient(ellipse 60% 20% at 50% 100%, rgba(120,70,20,0.09) 0%, transparent 80%),
+      radial-gradient(ellipse 25% 30% at 8% 94%, rgba(140,90,30,0.08) 0%, transparent 75%),
+      radial-gradient(ellipse 22% 28% at 92% 94%, rgba(140,90,30,0.08) 0%, transparent 75%),
+      radial-gradient(ellipse 28% 16% at 72% 22%, rgba(160,110,40,0.18) 0%, transparent 90%),
+      linear-gradient(105deg, rgba(180,150,100,0.12) 0%, transparent 40%, rgba(140,115,80,0.09) 100%),
+      linear-gradient(162deg, #ccc090 0%, #bcb084 20%, #c4b88c 45%, #b8a880 65%, #c0b488 85%, #b4a87c 100%);
+    background-size:
+      512px 512px, 1024px 1024px,
+      auto, auto, auto, auto,
+      auto, auto, auto, auto, auto, auto;
+    background-repeat:
+      repeat, repeat,
+      no-repeat, no-repeat, no-repeat, no-repeat,
+      no-repeat, no-repeat, no-repeat, no-repeat, no-repeat, no-repeat;
+  }
+
 </style>
 
 <style>
@@ -1048,7 +1510,7 @@
   <g transform="translate(20.000 78.869) scale(0.07558 -0.07558) translate(-80.000 30.082)" fill="#7a1208" stroke="#4a0906" stroke-width="8" stroke-linejoin="round">
     <path d="M530 680C244 652 94 529 80 310C82 138 185 28 389 -22C532 -47 675 -14 820 77C849 100 855 115 838 124C824 131 810 128 797 113C729 46 644 19 543 30C387 54 286 144 242 300C230 360 244 392 281 396C444 403 559 403 626 396C662 387 690 384 710 387C729 388 743 398 752 417C760 434 757 441 743 437C708 431 683 428 666 430C458 423 324 423 263 430C248 434 242 447 245 469C273 589 369 648 535 646C643 625 713 576 747 499C748 484 752 476 759 475C770 475 773 483 770 499C756 549 763 583 792 601C802 618 802 629 792 632C776 635 764 636 755 636C670 670 595 685 530 680Z"/>
   </g>
-</svg></span>go Aidanus, peccator et servus inutilis Domini nostri Iesu Christi, monachus indignus in monasterio quod fundavit beatus Columba in insula quam Scotice <em>Ì</em> vocamus et Latine <em>Insula Columbae</em> appellamus, haec scribo ad honorem Dei omnipotentis in Trinitate adorandi, rogante fratre Finano abbate nostro carissimo, ne haec quae vidi oblivioni perpetuae traderentur. Sciunt fratres nostri me non esse hominem visionum: nunquam antea mihi apparuit angelus, nunquam in extasi elevatus sum. Sed quod narraturus sum verum est, quantum homo fallibilis et peccatis oneratus verum narrare potest coram Deo cuius oculus omnia penetrat.</p>
+</svg></span><span class="dim-1">go</span> <span class="dim-2">Aidanus,</span> <span class="dim-3">peccator</span> et servus inutilis Domini nostri Iesu Christi, monachus indignus in monasterio quod fundavit beatus Columba in insula quam Scotice <em>Ì</em> vocamus et Latine <em>Insula Columbae</em> appellamus, haec scribo ad honorem Dei omnipotentis in Trinitate adorandi, rogante fratre Finano abbate nostro carissimo, ne haec quae vidi oblivioni perpetuae traderentur. Sciunt fratres nostri me non esse hominem visionum: nunquam antea mihi apparuit angelus, nunquam in extasi elevatus sum. Sed quod narraturus sum verum est, quantum homo fallibilis et peccatis oneratus verum narrare potest coram Deo cuius oculus omnia penetrat.</p>
 
         <div class="marginalia mg-left">
           <span class="mg-red">☩</span> De auctore:<br>
@@ -2187,6 +2649,8 @@
   function makeFolio(side, item) {
     const folio = document.createElement('div');
     const classes = ['folio', 'page-' + side];
+    if (item.kind === 'cover-blank') classes.push('cover-blank');
+    if (item.kind === 'blank-after-carpet') classes.push('blank-leaf');
     if (item.kind === 'carpet') classes.push('incipit-verso');
     if (item.kind === 'incipit') classes.push('incipit-recto');
     if (item.kind === 'final') classes.push('final-recto');
@@ -2225,28 +2689,25 @@
 
     // Последовательность физических страниц
     const sequence = [];
-    sequence.push({
-      kind: 'carpet',
-      nodes: Array.from(carpetFrag.childNodes),
-    });
+    // PATCH F: carpet и final рендерятся standalone (см. ниже).
+    // Sequence стартует с verso листа 1 — пустой страницы, парной
+    // standalone-carpet'у, открывающейся первой при перелистывании.
+    sequence.push({ kind: 'blank-after-carpet', nodes: [] });
     pages.forEach(function(pg, i) {
       sequence.push({
         kind: i === 0 ? 'incipit' : 'regular',
         nodes: pg,
       });
     });
-    if ((sequence.length + 1) % 2 !== 0) {
-      sequence.push({ kind: 'blank', nodes: [] });
-    }
-    sequence.push({
-      kind: 'final',
-      nodes: Array.from(finalFrag.childNodes),
-    });
+    // PATCH F: final выведен из sequence — рендерится standalone после spread'ов.
 
-    // Нумерация: только incipit + regular пронумерованы.
+    // PATCH C2: foliation вместо pagination — нумеруются только recto
+    // страницы (нечётные индексы в sequence: incipit, recto-regular).
+    // Verso соответствующего folio номера не получает — это
+    // средневековая норма (Book of Mulling, Book of Dimma).
     let counter = 0;
-    sequence.forEach(function(item) {
-      if (item.kind === 'incipit' || item.kind === 'regular') {
+    sequence.forEach(function(item, idx) {
+      if ((item.kind === 'incipit' || item.kind === 'regular') && (idx % 2 === 1)) {
         counter++;
         item.num = toRoman(counter);
       } else {
@@ -2256,6 +2717,17 @@
 
     // Построить разворотки
     const fragment = document.createDocumentFragment();
+
+    // PATCH F: standalone carpet — recto листа 1 (передняя обложка).
+    // Не входит в spread-flow: симметричный padding, нет gutter'а рядом.
+    var carpetItem = { kind: 'carpet', nodes: Array.from(carpetFrag.childNodes), num: null };
+    var carpetWrap = document.createElement('div');
+    carpetWrap.className = 'folio-cover folio-cover-front';
+    var carpetFolio = makeFolio('cover', carpetItem);
+    carpetFolio.classList.add('parch-f3');
+    carpetWrap.appendChild(carpetFolio);
+    fragment.appendChild(carpetWrap);
+
     for (let i = 0; i < sequence.length; i += 2) {
       const verso = sequence[i];
       const recto = sequence[i + 1] || { kind: 'blank', nodes: [], num: null };
@@ -2270,6 +2742,16 @@
       spread.appendChild(makeFolio('recto', recto));
       fragment.appendChild(spread);
     }
+
+    // PATCH F: standalone final — verso последнего листа (задняя обложка).
+    var finalItem = { kind: 'final', nodes: Array.from(finalFrag.childNodes), num: null };
+    var finalWrap = document.createElement('div');
+    finalWrap.className = 'folio-cover folio-cover-back';
+    var finalFolio = makeFolio('cover', finalItem);
+    finalFolio.classList.add('parch-f3');
+    finalWrap.appendChild(finalFolio);
+    fragment.appendChild(finalWrap);
+
     book.appendChild(fragment);
   }
 
@@ -2648,6 +3130,272 @@
     positionMarginalia();
   }
 
+  // ═════════════════════════════════════════════════════════════════
+  // PATCH D1: запекание ghost-слоя.
+  // Идея: реальный пергамент тонкий, текст с обратной стороны слабо
+  // просвечивает. Делаем это через canvas: проходим по text node'ам
+  // verso, для каждого слова берём bounding rect (Range API), рисуем
+  // canvas.fillText в той же позиции тем же шрифтом. Затем зеркалим,
+  // блюрим, переводим в PNG и кладём как background на recto.
+  // Пергамент, иллюминации, маргиналии-якоря — исключаются из ghost.
+  // ═════════════════════════════════════════════════════════════════
+
+  const GHOST_W = 620, GHOST_H = 820;
+
+  // Элементы, которые НЕ просвечивают сквозь пергамент
+  const GHOST_EXCLUDE = {
+    classes: [
+      'parchment-bg', 'illuminated-initial', 'arbor-vitae', 'arbor-argentea',
+      'folio-number', 'blob', 'ink-drip', 'ghost-layer', 'big-initial',
+    ],
+    tags: { STYLE: 1, SCRIPT: 1, SVG: 1 },
+  };
+
+  function isGhostExcluded(el) {
+    while (el && el.nodeType === 1) {
+      if (GHOST_EXCLUDE.tags[el.tagName]) return true;
+      if (el.classList) {
+        for (let i = 0; i < GHOST_EXCLUDE.classes.length; i++) {
+          if (el.classList.contains(GHOST_EXCLUDE.classes[i])) return true;
+        }
+      }
+      el = el.parentNode;
+    }
+    return false;
+  }
+
+  function bakeOneGhost(versoFolio) {
+    if (!versoFolio) return { url: null, words: 0 };
+
+    const folioRect = versoFolio.getBoundingClientRect();
+    if (folioRect.width < 50 || folioRect.height < 50) {
+      return { url: null, words: 0 };
+    }
+
+    const canvas = document.createElement('canvas');
+    canvas.width = GHOST_W;
+    canvas.height = GHOST_H;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return { url: null, words: 0 };
+
+    // Цвет берётся из getComputedStyle каждого фрагмента — так
+    // киноварные рубрики (rgb из ~#7a1808) рисуются красным, основной
+    // текст iron gall — тёплым коричневым. Финальное затухание идёт
+    // через globalAlpha при перерисовке во второй canvas + CSS opacity.
+    ctx.textBaseline = 'alphabetic';
+
+    const sx = GHOST_W / folioRect.width;
+    const sy = GHOST_H / folioRect.height;
+
+    const walker = document.createTreeWalker(
+      versoFolio, NodeFilter.SHOW_TEXT, null, false
+    );
+    let node;
+    let wordsDrawn = 0;
+    while ((node = walker.nextNode())) {
+      const text = node.nodeValue;
+      if (!/\S/.test(text)) continue;
+      if (isGhostExcluded(node.parentNode)) continue;
+
+      const parent = node.parentNode;
+      const cs = window.getComputedStyle(parent);
+      const fSize = parseFloat(cs.fontSize);
+      if (!isFinite(fSize) || fSize < 5) continue;
+
+      const fFamily = cs.fontFamily;
+      const fWeight = cs.fontWeight || 'normal';
+      const fStyle = cs.fontStyle || 'normal';
+      ctx.font = fStyle + ' ' + fWeight + ' ' + fSize + 'px ' + fFamily;
+      ctx.fillStyle = cs.color || 'rgb(30, 18, 6)';
+
+      const re = /(\S+)/g;
+      let m;
+      while ((m = re.exec(text)) !== null) {
+        const word = m[1];
+        const start = m.index;
+        const end = start + word.length;
+        const r = document.createRange();
+        try {
+          r.setStart(node, start);
+          r.setEnd(node, end);
+        } catch (e) { continue; }
+        const rect = r.getBoundingClientRect();
+        if (rect.width < 0.5) continue;
+        if (rect.bottom < folioRect.top || rect.top > folioRect.bottom) continue;
+        const x = (rect.left - folioRect.left) * sx;
+        const y = (rect.bottom - folioRect.top - fSize * 0.18) * sy;
+        ctx.fillText(word, x, y);
+        wordsDrawn++;
+      }
+    }
+
+    if (wordsDrawn === 0) return { url: null, words: 0 };
+
+    // Финальный canvas: blur + mirror + alpha
+    const final = document.createElement('canvas');
+    final.width = GHOST_W;
+    final.height = GHOST_H;
+    const fctx = final.getContext('2d');
+    fctx.filter = 'blur(1.4px)';
+    fctx.translate(GHOST_W, 0);
+    fctx.scale(-1, 1);
+    fctx.globalAlpha = 0.42;
+    fctx.drawImage(canvas, 0, 0);
+
+    try {
+      return { url: final.toDataURL('image/png'), words: wordsDrawn };
+    } catch (e) {
+      return { url: null, words: 0 };
+    }
+  }
+
+  async function bakeVersoGhosts() {
+    // Дождаться всех custom-шрифтов, иначе canvas.fillText
+    // нарисует в Times-fallback.
+    if (document.fonts && document.fonts.ready) {
+      try { await document.fonts.ready; } catch (e) { /* ignore */ }
+    }
+
+    const allFolios = Array.from(document.querySelectorAll('.spread .folio'));
+    let baked = 0, totalWords = 0, skipped = 0;
+
+    // PATCH E структура: лист 1: recto = carpet (allFolios[1]),
+    // verso = blank-after-carpet (allFolios[2]). Лист 2: recto = incipit
+    // (allFolios[3]), verso = page 2 (allFolios[4]). И так далее.
+    // Пары одного физического листа — (allFolios[1], allFolios[2]),
+    // (allFolios[3], allFolios[4]), ..., начиная с i=1.
+    // allFolios[0] = cover-blank — orphan (нет партнёра, до карпета).
+    // Последний folio (final или fallback-blank) тоже orphan.
+
+    function injectGhost(folio, dataUrl) {
+      const div = document.createElement('div');
+      div.className = 'ghost-layer';
+      div.style.backgroundImage = 'url(' + dataUrl + ')';
+      const content = folio.querySelector('.folio-content');
+      if (content) folio.insertBefore(div, content);
+      else folio.appendChild(div);
+    }
+
+    for (let i = 1; i + 1 < allFolios.length; i += 2) {
+      const folioR = allFolios[i];      // recto листа
+      const folioV = allFolios[i + 1];  // verso того же листа
+
+      // Bake R → ghost на V (V просвечивает recto того же листа)
+      const r1 = bakeOneGhost(folioR);
+      if (r1.url) { injectGhost(folioV, r1.url); baked++; totalWords += r1.words; }
+      else { skipped++; }
+
+      // Bake V → ghost на R (R просвечивает verso того же листа)
+      const r2 = bakeOneGhost(folioV);
+      if (r2.url) { injectGhost(folioR, r2.url); baked++; totalWords += r2.words; }
+      else { skipped++; }
+    }
+
+    // PATCH G: текстовый ghost от standalone-обложек на их физических
+    // партнёров. carpet и final выведены из spread-flow патчем F и не
+    // попадают в основной цикл; запекаем их явно.
+    if (allFolios.length > 0) {
+      var standaloneCarpet = document.querySelector('.folio-cover-front .folio');
+      if (standaloneCarpet) {
+        var rC = bakeOneGhost(standaloneCarpet);
+        if (rC.url) { injectGhost(allFolios[0], rC.url); baked++; totalWords += rC.words; }
+        else { skipped++; }
+      }
+      var standaloneFinal = document.querySelector('.folio-cover-back .folio');
+      if (standaloneFinal) {
+        var rF = bakeOneGhost(standaloneFinal);
+        if (rF.url) { injectGhost(allFolios[allFolios.length - 1], rF.url); baked++; totalWords += rF.words; }
+        else { skipped++; }
+      }
+    }
+    console.log('[D1 ghost] baked: ' + baked + ' folios, ' +
+                totalWords + ' words total, skipped: ' + skipped);
+  }
+
+  // ═════════════════════════════════════════════════════════════════
+  // PATCH B3: активация .blob и .ink-drip — кляксы тяготеют к полям
+  // (там, где писец обмакивал перо). Около 30% страниц без артефактов
+  // (писец работал аккуратно), остальные — 1–2 кляксы. Иногда — потёк
+  // вниз. Seeded RNG: один и тот же кодекс всегда даёт ту же раскладку.
+  // ═════════════════════════════════════════════════════════════════
+  function addInkArtifacts() {
+    const rng = seeded(0xB10B17);
+    const folios = document.querySelectorAll(
+      '.folio:not(.incipit-verso):not(.final-recto)'
+    );
+    folios.forEach(function(folio) {
+      // 30% страниц чистые
+      if (rng() < 0.30) return;
+      const count = (rng() < 0.70) ? 1 : 2;
+      for (let i = 0; i < count; i++) {
+        const blob = document.createElement('div');
+        blob.className = 'blob';
+        const size = 3 + Math.floor(rng() * 7);
+        // Тяготение к полям: 50/50 левое/правое поле
+        const x = (rng() < 0.5)
+          ? 0.04 + rng() * 0.12
+          : 0.84 + rng() * 0.12;
+        const y = 0.10 + rng() * 0.78;
+        const opacity = 0.35 + rng() * 0.30;
+        const rot = (rng() * 360).toFixed(0);
+        blob.style.cssText =
+          'left:' + (x * 100).toFixed(1) + '%;' +
+          'top:' + (y * 100).toFixed(1) + '%;' +
+          'width:' + size + 'px;' +
+          'height:' + size + 'px;' +
+          'background:rgba(20,12,3,' + opacity.toFixed(2) + ');' +
+          'border-radius:' + (40 + Math.floor(rng() * 60)) + '% ' +
+                             (40 + Math.floor(rng() * 60)) + '% ' +
+                             (40 + Math.floor(rng() * 60)) + '% ' +
+                             (40 + Math.floor(rng() * 60)) + '%;' +
+          'transform:rotate(' + rot + 'deg);';
+        folio.appendChild(blob);
+        // 18% шанс потёка вниз
+        if (rng() < 0.18) {
+          const drip = document.createElement('div');
+          drip.className = 'ink-drip';
+          const dripH = 4 + Math.floor(rng() * 14);
+          drip.style.cssText =
+            'left:calc(' + (x * 100).toFixed(1) + '% + ' + (size / 2).toFixed(1) + 'px);' +
+            'top:calc(' + (y * 100).toFixed(1) + '% + ' + (size / 2).toFixed(0) + 'px);' +
+            'height:' + dripH + 'px;' +
+            'width:1.5px;';
+          folio.appendChild(drip);
+        }
+      }
+    });
+  }
+
+  // ═════════════════════════════════════════════════════════════════
+  // PATCH A: назначение вариантов пергамента.
+  // Каждый разворот в нашей UI показывает обе стороны одного листа
+  // (recto LEFT, verso RIGHT). На реальном листе одна сторона hair,
+  // другая flesh — поэтому ВНУТРИ разворота: pair (H,F) или (F,H).
+  // Между листами recto-сторона чередуется H/F/H/F (правило Грегори
+  // для соседних листов в quire). Выбор 1-из-6 внутри группы —
+  // детерминированный (seeded RNG), один и тот же кодекс всегда
+  // выглядит одинаково при перерендере.
+  // ═════════════════════════════════════════════════════════════════
+  function assignParchmentVariants() {
+    const parchRng = seeded(0xC0DE42);
+    const spreads = document.querySelectorAll('.spread');
+    spreads.forEach(function(spread, i) {
+      const folios = spread.querySelectorAll('.folio');
+      if (folios.length < 2) return;
+      // Структура с PATCH F (carpet/final standalone, вне spread-flow):
+      //   Spread 0 = (blank-after-carpet, incipit) = HH (правило Грегори)
+      //   Spread 1 = (page 2, page 3)              = FF
+      //   Spread 2 = (page 4, page 5)              = HH
+      //   Spread 3 = (page 6, page 7)              = FF
+      //   ...
+      // i чётное → HH, i нечётное → FF.
+      const isHair = (i % 2 === 0);
+      const prefix = isHair ? 'parch-h' : 'parch-f';
+      folios[0].classList.add(prefix + (Math.floor(parchRng() * 6) + 1));
+      folios[1].classList.add(prefix + (Math.floor(parchRng() * 6) + 1));
+    });
+  }
+
   // ═══════════════════════════════════════════════════════════════
   // Запуск: шрифты → пагинация → рендер → маргиналии → jitter → fade-in.
   // ═══════════════════════════════════════════════════════════════
@@ -2701,11 +3449,14 @@
     measurer.remove();
 
     renderBook(pages);
+    try { assignParchmentVariants(); } catch (e) { console.error('Patch A failed:', e); }
     positionMarginalia();
     runJitter();
     // Повторно позиционируем после jitter — разметка строк могла
     // сместиться из-за inline-span wrappers в маргиналиях Аидана.
     positionMarginalia();
+    bakeVersoGhosts().catch(function(e) { console.error('Patch D1 failed:', e); });
+    try { addInkArtifacts(); } catch (e) { console.error('Patch B3 failed:', e); }
 
     document.body.classList.add('ready');
 
