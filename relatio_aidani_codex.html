@@ -2358,52 +2358,207 @@
     return true;
   }
 
-  // Находит индексы концов предложений в HTML-строке (точки, восклицания,
-  // вопросительные), игнорируя содержимое внутри тегов.
-  function findSentenceBoundaries(html) {
+  // ─────────────────────────────────────────────────────────────────
+  // DOM-СПЛИТТЕР с сохранением inline-обёрток через Range API.
+  //
+  // Старая реализация работала со строкой innerHTML и резала её через
+  // substring() по позициям пунктуации. Если граница попадала ВНУТРЬ
+  // inline-элемента (например, <em class="uncial-passage">A. B.</em>),
+  // вторая половина оказывалась с осиротевшим </em>, который HTML-парсер
+  // молча отбрасывал, — и текст после реза терял класс uncial-passage,
+  // меняя шрифт и цвет в середине прямой речи.
+  //
+  // Решение: ищем точки реза прямо в DOM-дереве клона <p> (TreeWalker
+  // по текстовым узлам), а сам разрез делаем через Range.deleteContents().
+  // Range API правильно обрабатывает полу-открытые предки: незакрытый
+  // в точке реза <em> остаётся и в первой части, и во второй — каждая
+  // получает свою копию открывающего тега и закрывающий на месте.
+  // ─────────────────────────────────────────────────────────────────
+
+  // Возвращает массив { node, offset } — точек реза в DOM-дереве root,
+  // соответствующих границам предложений (после ./?/! и подряд идущих
+  // знаков, если за ними следует whitespace или конец текстового узла).
+  // Содержимое декоративных контейнеров (SVG, иллюминированные
+  // инициалы) исключается — там нет смысловых концов предложений.
+  function findSentenceBoundariesDOM(root) {
     const cuts = [];
-    let i = 0;
-    while (i < html.length) {
-      const c = html[i];
-      if (c === '<') {
-        const end = html.indexOf('>', i);
-        if (end === -1) break;
-        i = end + 1;
-        continue;
-      }
-      if (c === '.' || c === '?' || c === '!') {
-        let j = i + 1;
-        while (j < html.length && '.?!'.indexOf(html[j]) >= 0) j++;
-        if (j < html.length && ' \n\t<'.indexOf(html[j]) >= 0) {
-          cuts.push(j);
+    const walker = document.createTreeWalker(
+      root,
+      NodeFilter.SHOW_TEXT,
+      {
+        acceptNode: function(node) {
+          let p = node.parentNode;
+          while (p && p !== root) {
+            const tag = p.tagName;
+            if (tag === 'svg' || tag === 'SVG') return NodeFilter.FILTER_REJECT;
+            if (p.classList && (
+                p.classList.contains('illuminated-initial') ||
+                p.classList.contains('big-initial'))) {
+              return NodeFilter.FILTER_REJECT;
+            }
+            p = p.parentNode;
+          }
+          return NodeFilter.FILTER_ACCEPT;
         }
-        i = j;
-        continue;
+      },
+      false
+    );
+    let node;
+    while ((node = walker.nextNode())) {
+      const text = node.nodeValue;
+      let i = 0;
+      while (i < text.length) {
+        const c = text[i];
+        if (c !== '.' && c !== '?' && c !== '!') { i++; continue; }
+        // Проглотить подряд идущие .?!  (например, "?!" или "...")
+        let j = i;
+        while (j + 1 < text.length && '.?!'.indexOf(text[j + 1]) >= 0) j++;
+        const nextOff = j + 1;
+        // Валидная граница: либо следующий символ — whitespace, либо
+        // мы достигли конца текстового узла (что эквивалентно ситуации,
+        // когда в исходном HTML за пунктуацией шёл закрывающий тег).
+        if (nextOff < text.length) {
+          const nc = text[nextOff];
+          if (nc === ' ' || nc === '\n' || nc === '\t') {
+            cuts.push({ node: node, offset: nextOff });
+          }
+        } else {
+          // Конец текстового узла. Не ставим cut, если этот узел —
+          // самый последний text node в root: за ним нет содержимого,
+          // которое могло бы стать второй частью.
+          cuts.push({ node: node, offset: nextOff });
+        }
+        i = nextOff;
       }
-      i++;
     }
     return cuts;
   }
 
-  function textLengthOfHtml(html) {
-    const d = document.createElement('div');
-    d.innerHTML = html;
-    return d.textContent.replace(/\s+/g, ' ').trim().length;
+  // Удаляет полностью пустые inline-элементы из root. Применяется после
+  // Range.deleteContents() для зачистки осиротевших обёрток (<em>, <span>),
+  // которые могли остаться без содержимого, если граница реза совпала
+  // с границей самого элемента. Декоративные/void-теги защищены.
+  function removeEmptyInline(root) {
+    const PROTECTED = { BR: 1, IMG: 1, SVG: 1, WBR: 1, INPUT: 1, HR: 1 };
+    let safety = 50;
+    let changed = true;
+    while (changed && safety-- > 0) {
+      changed = false;
+      const all = Array.from(root.querySelectorAll('*'));
+      for (let i = 0; i < all.length; i++) {
+        const el = all[i];
+        if (PROTECTED[el.tagName]) continue;
+        if (el.childNodes.length === 0) {
+          el.parentNode && el.parentNode.removeChild(el);
+          changed = true;
+        }
+      }
+    }
   }
 
-  // Создаёт <p>, копируя класс и style оригинала. Если removeDropcap — убирает.
-  function makeSplitP(original, innerHtml, removeDropcap) {
-    const p = document.createElement('p');
-    const classes = Array.from(original.classList);
-    if (removeDropcap) {
-      const idx = classes.indexOf('dropcap');
-      if (idx >= 0) classes.splice(idx, 1);
+  // Триммирует whitespace на левой и правой границе DFS-обхода root —
+  // в том числе если этот whitespace оказался внутри inline-обёртки
+  // (например, " Vis videre…" внутри <em class="uncial-passage">).
+  function trimEdgeWhitespace(root) {
+    function leftmost(node) {
+      if (node.nodeType === 3) return node;
+      for (let i = 0; i < node.childNodes.length; i++) {
+        const r = leftmost(node.childNodes[i]);
+        if (r) return r;
+      }
+      return null;
     }
-    if (classes.length) p.className = classes.join(' ');
-    const style = original.getAttribute('style');
-    if (style) p.setAttribute('style', style);
-    p.innerHTML = innerHtml;
-    return p;
+    function rightmost(node) {
+      if (node.nodeType === 3) return node;
+      for (let i = node.childNodes.length - 1; i >= 0; i--) {
+        const r = rightmost(node.childNodes[i]);
+        if (r) return r;
+      }
+      return null;
+    }
+    let safety = 100;
+    while (safety-- > 0) {
+      const t = leftmost(root);
+      if (!t) break;
+      const trimmed = t.nodeValue.replace(/^\s+/, '');
+      if (trimmed === '') {
+        const parent = t.parentNode;
+        parent && parent.removeChild(t);
+        // Возможно, после удаления опустел inline-предок — повторим
+        // проход removeEmptyInline в конце; здесь продолжаем.
+        continue;
+      }
+      if (trimmed !== t.nodeValue) t.nodeValue = trimmed;
+      break;
+    }
+    safety = 100;
+    while (safety-- > 0) {
+      const t = rightmost(root);
+      if (!t) break;
+      const trimmed = t.nodeValue.replace(/\s+$/, '');
+      if (trimmed === '') {
+        const parent = t.parentNode;
+        parent && parent.removeChild(t);
+        continue;
+      }
+      if (trimmed !== t.nodeValue) t.nodeValue = trimmed;
+      break;
+    }
+  }
+
+  // Режет originalP по cutIdx-й точке предложения. Возвращает
+  // { firstP, secondP } — два самостоятельных <p>, КАЖДЫЙ из которых
+  // получает все классы оригинала (вторая часть — кроме dropcap, как
+  // и в старой логике), и в каждом сохранены inline-обёртки (em, span)
+  // вокруг своей половины текста, даже если граница реза попала внутрь
+  // обёртки. Возвращает null, если cutIdx вне диапазона или вторая
+  // часть пуста после трима.
+  function splitParagraphAtCut(originalP, cutIdx) {
+    const firstP = originalP.cloneNode(true);
+    const firstCuts = findSentenceBoundariesDOM(firstP);
+    if (cutIdx >= firstCuts.length) return null;
+    const fb = firstCuts[cutIdx];
+
+    const secondP = originalP.cloneNode(true);
+    if (secondP.classList.contains('dropcap')) {
+      secondP.classList.remove('dropcap');
+    }
+    const secondCuts = findSentenceBoundariesDOM(secondP);
+    if (cutIdx >= secondCuts.length) return null;
+    const sb = secondCuts[cutIdx];
+
+    // Удаляем содержимое ПОСЛЕ точки реза в firstP. Range от точки
+    // реза до конца самого <p>: если граница лежит внутри <em>, то
+    // <em> в первой части автоматически закроется на месте.
+    try {
+      const r1 = document.createRange();
+      r1.setStart(fb.node, fb.offset);
+      r1.setEnd(firstP, firstP.childNodes.length);
+      r1.deleteContents();
+    } catch (e) { return null; }
+
+    // Удаляем содержимое ДО точки реза в secondP. Range от начала
+    // <p> до точки реза: если граница лежит внутри <em>, то <em>
+    // во второй части автоматически откроется заново вокруг хвоста.
+    try {
+      const r2 = document.createRange();
+      r2.setStart(secondP, 0);
+      r2.setEnd(sb.node, sb.offset);
+      r2.deleteContents();
+    } catch (e) { return null; }
+
+    // Зачистка: пустые inline-обёртки, оставшийся пограничный whitespace.
+    removeEmptyInline(firstP);
+    removeEmptyInline(secondP);
+    trimEdgeWhitespace(firstP);
+    trimEdgeWhitespace(secondP);
+    removeEmptyInline(firstP);
+    removeEmptyInline(secondP);
+
+    if (secondP.textContent.replace(/\s+/g, '').length === 0) return null;
+    if (firstP.textContent.replace(/\s+/g, '').length === 0) return null;
+
+    return { firstP: firstP, secondP: secondP };
   }
 
   function fits(measurerContent) {
@@ -2460,26 +2615,29 @@
   //      параграф лучше перенести целиком.
   function trySplitParagraph(p, prevNodes, measurerContent, lineHeight, reserve) {
     reserve = reserve || 0;
-    const html = p.innerHTML;
-    const cuts = findSentenceBoundaries(html);
-    if (cuts.length === 0) return null;
+
+    // Эталонный клон только для подсчёта количества точек реза. Каждая
+    // последующая операция splitParagraphAtCut работает со СВОИМ свежим
+    // клоном (поскольку Range.deleteContents изменяет дерево); индексы
+    // точек реза детерминированны — TreeWalker идёт в document order.
+    const refClone = p.cloneNode(true);
+    const numCuts = findSentenceBoundariesDOM(refClone).length;
+    if (numCuts === 0) return null;
 
     function fitsWithReserve() {
-      // См. комментарий в fits(): scrollHeight в двойном overflow:hidden
-      // обрезается до clientHeight, надо геометрически.
       const usedH = computeUsedHeight(measurerContent);
       return usedH + reserve <= measurerContent.clientHeight + 0.5;
     }
 
-    // Бинарный поиск: максимум, при котором prev + first + reserve
+    // Бинарный поиск: максимум cutIdx, при котором prev + first + reserve
     // всё ещё влезают.
-    let lo = 0, hi = cuts.length - 1, best = -1;
+    let lo = 0, hi = numCuts - 1, best = -1;
     while (lo <= hi) {
       const mid = (lo + hi) >> 1;
-      const firstHtml = html.substring(0, cuts[mid]).replace(/\s+$/, '');
-      const probeP = makeSplitP(p, firstHtml, false);
+      const split = splitParagraphAtCut(p, mid);
+      if (!split) { hi = mid - 1; continue; }
       const probe = prevNodes.map(function(n) { return n.cloneNode(true); });
-      probe.push(probeP);
+      probe.push(split.firstP);
       measurerContent.replaceChildren.apply(measurerContent, probe);
       if (fitsWithReserve()) {
         best = mid;
@@ -2497,31 +2655,37 @@
     const minTwoLines = 2 * lineHeight - 2;
 
     while (best >= 0) {
-      const firstHtml = html.substring(0, cuts[best]).replace(/\s+$/, '');
-      const secondHtml = html.substring(cuts[best]).replace(/^\s+/, '');
-      if (textLengthOfHtml(secondHtml) === 0) { best--; continue; }
+      const split = splitParagraphAtCut(p, best);
+      if (!split) { best--; continue; }
 
-      const probeSecond = makeSplitP(p, secondHtml, true);
-      const secondH = measureHeight(probeSecond);
+      // Сначала проверяем secondP: должен занимать ≥ 2 строк (защита
+      // от сироты). Передаём именно split.secondP — measureHeight его
+      // переместит в measurer; если secondP в итоге пройдёт все проверки,
+      // мы вернём НОВЫЙ результат splitParagraphAtCut — split.firstP/secondP
+      // не переиспользуем.
+      const secondProbe = split.secondP;
+      const secondH = measureHeight(secondProbe);
       if (secondH >= minTwoLines) {
-        const probeFirst = makeSplitP(p, firstHtml, false);
-        const firstH = measureHeight(probeFirst);
+        const firstProbe = split.firstP;
+        const firstH = measureHeight(firstProbe);
         if (firstH < minTwoLines) {
-          return null;
+          return null;  // защита от вдовы — лучше перенести целиком
         }
         // Финальная проверка: prev + first + reserve действительно
         // помещается (инвариант мог сместиться).
+        const finalSplit = splitParagraphAtCut(p, best);
+        if (!finalSplit) { best--; continue; }
         const finalProbe = prevNodes.map(function(n) { return n.cloneNode(true); });
-        finalProbe.push(makeSplitP(p, firstHtml, false));
+        finalProbe.push(finalSplit.firstP);
         measurerContent.replaceChildren.apply(measurerContent, finalProbe);
         if (!fitsWithReserve()) {
           best--;
           continue;
         }
-        return [
-          makeSplitP(p, firstHtml, false),
-          makeSplitP(p, secondHtml, true),
-        ];
+        // Возвращаем СВЕЖИЕ копии, не те, что были перемещены в measurer.
+        const out = splitParagraphAtCut(p, best);
+        if (!out) return null;
+        return [out.firstP, out.secondP];
       }
       best--;
     }
