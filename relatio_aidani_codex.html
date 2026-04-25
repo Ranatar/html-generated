@@ -695,6 +695,20 @@
     color: #2a1808;
   }
 
+  .signum {
+    display: inline-block;
+    font-style: normal;
+    font-size: 0.88em;
+    letter-spacing: 0.01em;
+    margin-top: 0.25em;
+    opacity: 0.92;
+  }
+
+  .signum.s-abbas {
+    font-size: 0.92em;
+    color: #5a1208;
+  }
+
   /* ── «Поздняя рука» в колофоне: приписка Коемана (917 г.) ──
      Стоит прямо в колофоне после завершающего «Amen» оригинала. */
   .later-hand {
@@ -1887,7 +1901,7 @@
           vitam. Nunc<br>
           credo hoc fieri<br>
           posse.<br>
-          — <em>frater Coemanus</em>
+          — <span class="signum">frater Coemanus</span>
         </div>
 <p>Et sequebar eum per vias civitatis quas nondum calcaveram, per hortos iam clausos ante lucem plenam, per portam occidentalem quam custos sine verbis aperuit nobis ut qui expectaverat nos. Exivimus de civitate et ascendimus collem non altum sed procul a moenibus positum, in quo arbores solitae paucae stabant et silentium tale erat ut sanguinem meum in auribus meis audirem. Et cum ascenderemus, subito mihi in animum venit: hunc ipsum collem de longe videram in primo die meo, cum adhuc nescirem quid esset. Tunc vocaveram montem luminum, et scintillas argenti et auri in summitate eius aspexeram. Nunc veniebam ad illud quod tunc oculus meus procul apprehenderat sed mens non intellexerat.</p>
 
@@ -1926,7 +1940,7 @@
           audierunt, nos per<br>
           Evangelium. Una<br>
           veritas, duae viae?<br>
-          — <em>frater Coemanus</em>
+          — <span class="signum">frater Coemanus</span>
         </div>
 
 
@@ -1961,7 +1975,7 @@
           eam anno Dom.<br>
           CMXV. Lux intus<br>
           est. Testimonium.<br>
-          <em>frater Coemanus</em>
+          <span class="signum">frater Coemanus</span>
         </div>
 
 <span class="rubric">☩ Conclusio et Confessio ☩</span>
@@ -1977,7 +1991,7 @@
           fictionem aut<br>
           deliramentum.<br>
           Sed gemma testis<br>
-          est.<br><em>Abbas Finanus</em>
+          est.<br><span class="signum s-abbas">Abbas Finanus</span>
         </div>
 <p>Hoc solum dico, fratres, et in corde vestro ponite: In facie Finrothi vidi plus verae bonitatis quam in multis faciis hominum qui se Christianos vocant et ad Eucharistiam accedunt sed proximum suum oderunt. In verbis eius de <span class="elvish">Ilúvatare</span> — quem nos Deum Patrem agnoscimus — magis veram reverentiam audivi quam in sermonibus multis qui e cathedris per totam Ecclesiam praedicantur et ad aures cito labuntur. In quaestione eorum de via salutis suae — in illa profunda et nobili ignorantia — plus humilitatis et honestatis vidi quam in multis qui omnia scire se putant et nullam viam amplius quaerunt quia se iam pervenisse credunt.</p>
 
@@ -2788,30 +2802,30 @@
     return prev;
   }
   function positionMarginalia() {
-    document.querySelectorAll('.folio').forEach(function(folio) {
-      const folioRect = folio.getBoundingClientRect();
-      const margs = Array.from(folio.querySelectorAll('.marginalia'));
-      const placed = [];
-      margs.forEach(function(mg) {
-        const anchor = anchorOf(mg);
-        if (!anchor) return;
-        const aRect = anchor.getBoundingClientRect();
-        const top = aRect.top - folioRect.top;
-        mg.style.top = top + 'px';
-        placed.push({ el: mg, top: top });
-      });
-      placed.sort(function(a, b) { return a.top - b.top; });
-      for (let i = 1; i < placed.length; i++) {
-        const prev = placed[i - 1];
-        const cur = placed[i];
-        const prevBottom = prev.top + prev.el.offsetHeight + 8;
-        if (cur.top < prevBottom) {
-          cur.top = prevBottom;
-          cur.el.style.top = cur.top + 'px';
-        }
-      }
+  document.querySelectorAll('.folio').forEach(function(folio) {
+    const folioRect = folio.getBoundingClientRect();
+    const margs = Array.from(folio.querySelectorAll('.marginalia'));
+
+    // ─ Фаза READ: всё чтение layout до любых write ─
+    const placed = [];
+    margs.forEach(function(mg) {
+      const anchor = anchorOf(mg);
+      if (!anchor) return;
+      const aTop = anchor.getBoundingClientRect().top - folioRect.top;
+      placed.push({ el: mg, top: aTop, h: mg.offsetHeight });
     });
-  }
+
+    // ─ Чистая логика: ни одного DOM-доступа ─
+    placed.sort(function(a, b) { return a.top - b.top; });
+    for (let i = 1; i < placed.length; i++) {
+      const prevBottom = placed[i - 1].top + placed[i - 1].h + 8;
+      if (placed[i].top < prevBottom) placed[i].top = prevBottom;
+    }
+
+    // ─ Фаза WRITE: все style.top одним проходом ─
+    placed.forEach(function(p) { p.el.style.top = p.top + 'px'; });
+  });
+}
 
   // ═══════════════════════════════════════════════════════════════
   // «Живая рука» — jitter букв маргиналий Аидана (не Коемана).
@@ -3470,15 +3484,38 @@
 
     measurer.remove();
 
+    // ── Фаза 1: построение DOM книги ──
+    // Все вставки и присвоения классов до первого layout read.
     renderBook(pages);
     try { assignParchmentVariants(); } catch (e) { console.error('Patch A failed:', e); }
-    positionMarginalia();
-    runJitter();
-    // Повторно позиционируем после jitter — разметка строк могла
-    // сместиться из-за inline-span wrappers в маргиналиях Аидана.
-    positionMarginalia();
-    bakeVersoGhosts().catch(function(e) { console.error('Patch D1 failed:', e); });
+
+    // ── Фаза 2: DOM-мутации внутри маргиналий и фолио ──
+    // Никаких layout reads здесь — браузер копит инвалидации,
+    // первый последующий read форсирует ровно один reflow.
+    //   normalizeMarginaliaBreaks: <br> → пробелы во всех маргиналиях
+    //   walkJitter:    маргиналии Аидана (jitter букв через ink-l span)
+    //   walkWbrOnly:   маргиналии Коемана (только <wbr>, без обёрток —
+    //                  чтобы не сломать лигатуры)
+    //   addInkArtifacts: чернильные blob/drip на полях фолио
+    // Эти четыре операции — чистый DOM append/replace, в порядке
+    // не критичны, но сгруппированы здесь, чтобы фаза 3 шла на
+    // полностью устаканенной DOM-структуре.
+    normalizeMarginaliaBreaks();
+    document.querySelectorAll('.marginalia:not(.mg-coemanus)').forEach(walkJitter);
+    document.querySelectorAll('.marginalia.mg-coemanus').forEach(walkWbrOnly);
     try { addInkArtifacts(); } catch (e) { console.error('Patch B3 failed:', e); }
+
+    // ── Фаза 3: единственный read/write проход по геометрии ──
+    // Здесь происходит forced layout flush — но всего один, на всю
+    // подготовку. Сама positionMarginalia реструктурирована в
+    // read-all → compute → write-all, без thrashing внутри overlap-loop.
+    positionMarginalia();
+
+    // ── Фаза 4: async-задачи, которым нужна стабильная геометрия ──
+    // bakeVersoGhosts читает getBoundingClientRect() каждого слова
+    // через Range API; запускается fire-and-forget, рисует в офскрин
+    // canvas и навешивает background на recto, не двигая основной DOM.
+    bakeVersoGhosts().catch(function(e) { console.error('Patch D1 failed:', e); });
 
     document.body.classList.add('ready');
 
@@ -3487,11 +3524,21 @@
                   ' ms → ' + pages.length + ' content pages');
     }
 
-    // Репозиционирование при resize
+    // Репозиционирование при resize. Дебаунс 150 мс — типичное
+    // дрожание при ротации экрана / DevTools resize не должно
+    // вызывать каскад reflow'ов.
+    //
+    // На mobile-ветке (max-width: 940px) маргиналии становятся
+    // position: static, и top, выставленный positionMarginalia,
+    // полностью игнорируется. Чтобы не платить за бесполезный
+    // forced layout — ранний выход.
     let resizeT = null;
     window.addEventListener('resize', function() {
       clearTimeout(resizeT);
-      resizeT = setTimeout(positionMarginalia, 150);
+      resizeT = setTimeout(function() {
+        if (window.matchMedia('(max-width: 940px)').matches) return;
+        positionMarginalia();
+      }, 150);
     });
   }
 
