@@ -644,7 +644,7 @@
     color: #3a2a14;
     font-family: '0746 Beda', serif;
     /*font-style: italic;*/
-    font-style: italic;
+    font-style: normal;
     line-height: 1.35;
     /*pointer-events: none;*/
     z-index: 3;
@@ -995,6 +995,109 @@
     transform-origin: 50% 85%;
   }
 
+  /* ──────────────────────────────────────────────────────────────
+     PATCH TR: двухслойная маргиналия Аидана.
+     Source-слой — целые text-узлы для Translate / Ctrl+F / скринридеров /
+     осмысленного копирования. Jitter-слой — оригинальные побуквенные
+     <span class="ink-l">, помечены translate="no" + aria-hidden="true".
+     Введено потому, что walkJitter дробит слова на одно-символьные text-
+     узлы, и Translate перестаёт их распознавать как слова.
+     ────────────────────────────────────────────────────────────── */
+
+  /* Source: visually-hidden рецепт (1×1 + clip + overflow). user-select:
+     none гарантирует, что выделение мышью всегда уйдёт в видимый jitter-
+     слой, а не в скрытый источник; иначе copy-event получал бы
+     невидимое содержимое. pointer-events:none защищает от случайного
+     перехвата кликов в зоне 1×1. */
+  .mg-translate-source {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    margin: -1px;
+    padding: 0;
+    border: 0;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+    clip-path: inset(50%);
+    white-space: pre-wrap;
+    word-break: normal;
+    overflow-wrap: normal;
+    user-select: none;
+    -webkit-user-select: none;
+    pointer-events: none;
+  }
+
+  /* Jitter-render: структурный маркер, никаких визуальных правил.
+     translate="no" + aria-hidden="true" заданы атрибутами в JS. */
+  .mg-jitter-render { /* no-op */ }
+
+  /* Активный режим перевода. Chrome навешивает translated-ltr /
+     translated-rtl на <html>; setupTranslationObserver транслирует
+     это в body.mg-translated. Сторонние переводчики (translate.google
+     .com через iframe, расширения) часто не ставят класс — fallback
+     ловит мутацию content внутри source. В обоих случаях итог один:
+     прячем jitter, выводим source в нормальный поток. */
+  body.mg-translated .marginalia:not(.mg-coemanus) .mg-jitter-render {
+    display: none;
+  }
+  body.mg-translated .marginalia:not(.mg-coemanus) .mg-translate-source {
+    position: static;
+    width: auto;
+    height: auto;
+    margin: 0;
+    clip: auto;
+    clip-path: none;
+    overflow: visible;
+    white-space: normal;
+    user-select: text;
+    -webkit-user-select: text;
+    pointer-events: auto;
+  }
+
+  /* ──────────────────────────────────────────────────────────────
+     PATCH TR3: visually-hidden source-span'ы рядом с каждой abbr.med
+     в основном тексте кодекса. Содержат полную форму слова из
+     data-expand. Translate видит "Domini" вместо "DNI" и переводит
+     стабильно. В обычном режиме скрыты (1×1 + clip), в режиме
+     mg-translated abbr скрывается, source встаёт в поток.
+     ────────────────────────────────────────────────────────────── */
+  .abbr-translate-source {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    margin: -1px;
+    padding: 0;
+    border: 0;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+    clip-path: inset(50%);
+    white-space: nowrap;
+    user-select: none;
+    -webkit-user-select: none;
+    pointer-events: none;
+  }
+
+  /* Режим перевода: abbr схлопываются, source-span'ы встают в поток.
+     display:none на abbr безопасен — titulus-svg внутри abbr тоже
+     схлопывается вместе с ней (он именно её ребёнок), никаких
+     "висящих" линий титла не остаётся. */
+  body.mg-translated abbr.med {
+    display: none;
+  }
+  body.mg-translated .abbr-translate-source {
+    position: static;
+    width: auto;
+    height: auto;
+    margin: 0;
+    clip: auto;
+    clip-path: none;
+    overflow: visible;
+    white-space: inherit;
+    user-select: text;
+    -webkit-user-select: text;
+    pointer-events: auto;
+  }
+
   /* Слог — единица, которая может переноситься целиком, но не
      рассыпаться по буквам. inline-block + nowrap делают слог
      атомарным для целей word-breaking; переносы возможны только
@@ -1107,6 +1210,124 @@
   .incipit-verso .ghost-layer,
   .final-recto .ghost-layer,
   .cover-blank .ghost-layer { display: none; }
+  
+/* ═══════════════════════════════════════════════════════════════
+     ПАЛЕОГРАФИЧЕСКИЕ АББРЕВИАТУРЫ
+     Сокращения через <abbr class="med ..."> с titulus в виде SVG,
+     лежащим внутри <span class="tit">. Применяются авто-регэкспами
+     в applyAbbreviations ДО walkJitter; walkJitter и walkWbrOnly
+     пропускают ABBR через SKIP_TAGS. Слова, покрытые FONT_NATIVE
+     для активного шрифта, получают <span class="liga-protect">
+     вместо abbr — чтобы шрифт сам отрисовал собственную лигатуру
+     без помех от <wbr>.                                            */
+
+  abbr.med {
+    text-decoration: none;
+    border-bottom: none;
+    cursor: help;
+    font-style: inherit;
+    font-variant: inherit;
+    /* Сокращение — единая графическая группа, разрыв строки
+       посередине палеографически невозможен. */
+    white-space: nowrap;
+  }
+
+  /* SVG-titulus живёт ВНУТРИ <span class="tit">, не внутри <abbr>.
+     Это даёт корректное поведение для обоих типов:
+     — contraction (DNI, IHS, XPS): .tit охватывает все буквы
+       сокращения, линия идёт над ними целиком;
+     — suspension (omni[u], eor[u], aut[e]): .tit охватывает
+       только последнюю гласную, линия стоит ровно над ней.
+     Поэтому position: relative задаём на .tit — SVG позиционируется
+     абсолютно относительно него. */
+  abbr.med .tit {
+    position: relative;
+    text-decoration: none;
+  }
+
+  abbr.med .tit .titulus-svg {
+    position: absolute;
+    left: 0;
+    width: 100%;
+    height: 0.18em;
+    pointer-events: none;
+    overflow: visible;
+    /* Вертикальная позиция задаётся per-context ниже. Дефолт —
+       для Kells (основной текст). */
+    top: 0.08em;
+  }
+
+  abbr.med .tit .titulus-svg path {
+    stroke: currentColor;
+    fill: none;
+    stroke-linecap: round;
+    /* stroke-width задаётся внутри SVG через атрибут, чтобы
+       варьировать в pixel-units независимо от em-кегля. */
+  }
+
+  /* ── Per-context вертикальная позиция titulus ────────────────── */
+
+  /* Маргиналии Айдана (Beda, italic, мелкий кегль).
+     Beda заявляет умеренный ascent. */
+  .marginalia abbr.med .tit .titulus-svg {
+    top: -0.04em;
+  }
+
+  /* Маргиналии Коэмана (Remedius, normal, 0.68em внутри маргиналии).
+     Remedius заявляет очень широкий ascent — без коррекции линия
+     уходит почти на середину межстрочного интервала и зрительно
+     сцепляется с засечками строки выше. Тащим её ВНИЗ. */
+  .mg-coemanus abbr.med .tit .titulus-svg {
+    top: 0.36em;
+  }
+
+  /* Колофон Айдана */
+  .colophon abbr.med .tit .titulus-svg {
+    top: 0.15em;
+  }
+  
+  /* Колофон Коэмана (Remedius, полный кегль) */
+  .later-hand-colophon abbr.med .tit .titulus-svg {
+    top: 0.10em;
+  }
+
+  /* ── Стилевые модификаторы ────────────────────────────────────── */
+
+  /* Nomina sacra — чуть плотнее letter-spacing, как в реальных MS,
+     где DNS / IHS / XPS пишутся плотной группой. */
+  abbr.nomsac {
+    letter-spacing: 0.01em;
+  }
+
+  /* Тиронский et (⁊, U+204A). Глиф не во всех шрифтах, fallback
+     на Cardo. Используется ТОЛЬКО точечно вручную. */
+  abbr.tiro {
+    font-family: 'Cardo', '0800 Kells', serif;
+    font-feature-settings: normal;
+  }
+
+  /* Контейнер защиты шрифтовой лигатуры. Слова из FONT_NATIVE.
+     walkWbrOnly и walkJitter пропускают этот класс. */
+  .liga-protect {
+    /* Никаких визуальных правил — структурный маркер. */
+  }
+
+  /* В маргиналиях Айдана внутри <abbr> текст идёт прямой,
+     без италика общего правила .marginalia. */
+  .marginalia abbr.med {
+    font-style: normal;
+    letter-spacing: 0.005em;
+  }
+
+  /* Защита от случайного попадания abbr в декоративные зоны.
+     В рубриках, заголовках и иллюминациях SVG-titulus гасится. */
+  .rubric abbr.med .tit .titulus-svg,
+  .doc-title abbr.med .tit .titulus-svg,
+  .doc-subtitle abbr.med .tit .titulus-svg,
+  .illuminated-initial abbr.med .tit .titulus-svg,
+  .carpet-svg abbr.med .tit .titulus-svg {
+    display: none;
+  }
 
   /* PATCH C3: diminuendo на инципите — каскад убывающих букв после
      большого иллюминированного инициала. Классическая инсулярная
@@ -1805,9 +2026,39 @@
   <g id="tri" stroke-linecap="round" stroke-linejoin="round" fill="none"><path id="trl" d="M0 -8C5 -3 5 4 0 7C-5 4 -5 -3 0 -8Z"/><g clip-path="url(#tri-under)"><use href="#trl" stroke="#224008" stroke-width="1.6"/><use href="#trl" stroke="#3a6012" stroke-width="1"/></g><g transform="rotate(120)" clip-path="url(#tri-under)"><use href="#trl" stroke="#224008" stroke-width="1.6"/><use href="#trl" stroke="#3a6012" stroke-width="1"/></g><g transform="rotate(240)" clip-path="url(#tri-under)"><use href="#trl" stroke="#224008" stroke-width="1.6"/><use href="#trl" stroke="#3a6012" stroke-width="1"/></g><circle r="1.5" fill="#d4a820" stroke="#8a6810" stroke-width=".3"/></g>
   <g id="mda"><circle r="40" fill="#ccb98c" stroke="#3a4550" stroke-width="2.5"/><circle r="37" fill="none" stroke="#c0c8d0" stroke-width="3"/><circle r="31" fill="none" stroke="#3a4550" stroke-width=".8"/><circle r="22" fill="none" stroke="#7a1208" stroke-width="3.5"/><rect x="-1.6" y="-31.2" width="3.2" height="62.4" fill="#7a1208"/><rect x="-31.2" y="-1.6" width="62.4" height="3.2" fill="#7a1208"/><circle cy="-31.2" r="3" fill="#7a1208"/><circle cy="31.2" r="3" fill="#7a1208"/><circle cx="-31.2" r="3" fill="#7a1208"/><circle cx="31.2" r="3" fill="#7a1208"/><circle r="3" fill="#c0c8d0" stroke="#3a4550" stroke-width=".6"/><circle r="1.2" fill="#7a1208"/></g>
   <g id="mdb"><circle r="40" fill="#ccb98c" stroke="#5a3e08" stroke-width="2.5"/><circle r="37" fill="none" stroke="#d4a820" stroke-width="3"/><circle r="31" fill="none" stroke="#5a3e08" stroke-width=".8"/><circle r="22" fill="none" stroke="#7a1208" stroke-width="3.5"/><rect x="-1.6" y="-31.2" width="3.2" height="62.4" fill="#7a1208"/><rect x="-31.2" y="-1.6" width="62.4" height="3.2" fill="#7a1208"/><circle cy="-31.2" r="3" fill="#7a1208"/><circle cy="31.2" r="3" fill="#7a1208"/><circle cx="-31.2" r="3" fill="#7a1208"/><circle cx="31.2" r="3" fill="#7a1208"/><circle r="3" fill="#d4a820" stroke="#5a3e08" stroke-width=".6"/><circle r="1.2" fill="#7a1208"/></g>
-  <g id="sol"><path id="solh" d="M-5 -4H5A4 4 0 0 1 5 4H-5A4 4 0 0 1 -5 -4Z" fill="none" stroke-linejoin="round"/><g clip-path="url(#solh-clip)"><use href="#solh" stroke="#224008" stroke-width="1.6"/><use href="#solh" stroke="#3a6012" stroke-width="1"/></g><g clip-path="url(#solv-clip)"><path id="solv" d="M-4 -5A4 4 0 0 1 4 -5V5A4 4 0 0 1 -4 5Z" fill="none" stroke-linejoin="round"/><use href="#solv" stroke="#224008" stroke-width="1.6"/><use href="#solv" stroke="#3a6012" stroke-width="1"/></g><circle r="1.2" fill="#d4a820" stroke="#8a6810" stroke-width=".3"/></g>
-  <clipPath id="solh-clip" clipPathUnits="userSpaceOnUse"><path d="M-100 -100H100V100H-100ZM-4.8 -4.8H-3.2V-3.2H-4.8ZM3.2 3.2H4.8V4.8H3.2Z" clip-rule="evenodd"/></clipPath>
-  <clipPath id="solv-clip" clipPathUnits="userSpaceOnUse"><path d="M-100 -100H100V100H-100ZM3.2 -4.8H4.8V-3.2H3.2ZM-4.8 3.2H-3.2V4.8H-4.8Z" clip-rule="evenodd"/></clipPath>
+  <g id="sol-arg">
+    <path id="solh-arg" d="M-5 -4H5A4 4 0 0 1 5 4H-5A4 4 0 0 1 -5 -4Z" fill="none" stroke-linejoin="round"/>
+    <g clip-path="url(#solh-clip)">
+      <use href="#solh-arg" stroke="#1a1208" stroke-width="2.4"/>
+      <use href="#solh-arg" stroke="#a82818" stroke-width="1.6"/>
+    </g>
+    <g clip-path="url(#solv-clip)">
+      <path id="solv-arg" d="M-4 -5A4 4 0 0 1 4 -5V5A4 4 0 0 1 -4 5Z" fill="none" stroke-linejoin="round"/>
+      <use href="#solv-arg" stroke="#1a1208" stroke-width="2.4"/>
+      <use href="#solv-arg" stroke="#c0c8d0" stroke-width="1.6"/>
+    </g>
+    <circle r="1.4" fill="#c0c8d0" stroke="#5a6670" stroke-width=".3"/>
+  </g>
+  
+  <g id="sol-aur">
+    <path id="solh-aur" d="M-5 -4H5A4 4 0 0 1 5 4H-5A4 4 0 0 1 -5 -4Z" fill="none" stroke-linejoin="round"/>
+    <g clip-path="url(#solh-clip)">
+      <use href="#solh-aur" stroke="#1a1208" stroke-width="2.4"/>
+      <use href="#solh-aur" stroke="#a82818" stroke-width="1.6"/>
+    </g>
+    <g clip-path="url(#solv-clip)">
+      <path id="solv-aur" d="M-4 -5A4 4 0 0 1 4 -5V5A4 4 0 0 1 -4 5Z" fill="none" stroke-linejoin="round"/>
+      <use href="#solv-aur" stroke="#1a1208" stroke-width="2.4"/>
+      <use href="#solv-aur" stroke="#d4a820" stroke-width="1.6"/>
+    </g>
+    <circle r="1.4" fill="#d4a820" stroke="#8a6810" stroke-width=".3"/>
+  </g>
+  <clipPath id="solh-clip" clipPathUnits="userSpaceOnUse">
+    <path d="M-100 -100H100V100H-100ZM-5.2 -5.2H-2.8V-2.8H-5.2ZM2.8 2.8H5.2V5.2H2.8Z" clip-rule="evenodd"/>
+  </clipPath>
+  <clipPath id="solv-clip" clipPathUnits="userSpaceOnUse">
+    <path d="M-100 -100H100V100H-100ZM2.8 -5.2H5.2V-2.8H2.8ZM-5.2 2.8H-2.8V5.2H-5.2Z" clip-rule="evenodd"/>
+  </clipPath>
   <g id="nda"><path d="M0 -4.5L4.5 0 0 4.5-4.5 0Z" fill="#5a6670" stroke="#2a3540" stroke-width=".5"/><circle r="1.4" fill="#c0c8d0" stroke="#7a8590" stroke-width=".3"/></g>
   <g id="ndb"><path d="M0 -4.5L4.5 0 0 4.5-4.5 0Z" fill="#3a6012" stroke="#224008" stroke-width=".5"/><circle r="1.4" fill="#d4a820" stroke="#8a6810" stroke-width=".3"/></g>
   <g id="frta"><circle r="2.8" fill="#c0c8d0" stroke="#7a8590" stroke-width=".5"/><circle r="1.1" fill="#7a1208"/></g>
@@ -2385,7 +2636,7 @@
 
 
       <div class="ornament-line">· · ·</div>
-<span class="rubric">☩ De Reditu et Dono Dato ☩</span>
+<span class="rubric">☩ De Reditu et Viatico ☩</span>
 
         <p>Post visionem illius collis — quasi septem dies in illa terra fuissem, vel quantum septem dies esse videbatur mihi, quia tempus ibi aliter fluit, leniter et abundanter quasi mel e cupa versus quam aqua per torrentem — ivit Finrothus mecum ad portum ubi cymba mea expectabat. Vidi in ea aliqua provisorum quae non posui: panem non putridum et aquam in vasculo. Manus aliqua invisibilis providerat.</p>
 
@@ -2425,7 +2676,7 @@
       
 
       
-        <p>Haec vera sunt, quantum homo fallibilis et peccatis multis pressus verum narrare potest. Deo et sanctis eius, et Ecclesiae matri nostrae, iudicandum relinquo quid <span class="elvish">Eldar</span> illi sint in schemate divinae providentiae et quid de eis sperandum vel timendum sit. Non sum Augustinus. Non sum Hieronymus. Piscator sum et monachus pauperculus qui in cymbam suam ascendit et rediit mutatus.</p>
+        <p>Haec vera sunt, quantum homo fallibilis et peccatis multis pressus verum narrare potest. Deo et sanctis eius, et Ecclesiae matri nostrae, iudicandum relinquo quid <span class="elvish">Eldar</span> illi sint in schemate divinae providentiae et quid de eis sperandum vel timendum sit. Non sum Augustinus. Non sum Hieronymus. Piscator sum et monachus pauperculus qui in curucum suum ascendit et rediit mutatus.</p>
 
         <div class="marginalia mg-right">
           Haec cum legerem<br>
@@ -2491,10 +2742,10 @@
   <use href="#carpet-frame-inner"/>
   <use href="#luna" transform="translate(240 95) scale(1.5)"/>
   <text x="240" y="598" text-anchor="middle" font-family="Cardo, FreeSerif, Cambria, &quot;Apple Symbols&quot;, Symbola, &quot;Noto Serif&quot;, serif" font-size="27" fill="#7a1208">☧</text>
-  <use href="#sol" transform="translate(105 290) scale(2)"/>
-  <use href="#sol" transform="translate(375 290) scale(2)"/>
-  <use href="#sol" transform="translate(105 430) scale(2)"/>
-  <use href="#sol" transform="translate(375 430) scale(2)"/>
+  <use href="#sol-arg" transform="translate(105 290) scale(2.4)"/>
+  <use href="#sol-arg" transform="translate(375 290) scale(2.4)"/>
+  <use href="#sol-arg" transform="translate(105 430) scale(2.4)"/>
+  <use href="#sol-arg" transform="translate(375 430) scale(2.4)"/>
   <g text-anchor="middle" font-family="0550 Uncialis, Uncial Antiqua, serif" font-size="14" fill="#7a1208" letter-spacing="2.5">
     <text x="240" y="140">IN NOMINE PATRIS</text>
     <text x="240" y="164">ET FILII</text>
@@ -2595,10 +2846,10 @@
   <use href="#mdb" x="430" y="630"/>
   <use href="#carpet-frame-inner"/>
   <use href="#solr" transform="translate(240 95) scale(1.5)"/>
-  <use href="#sol" transform="translate(105 290) scale(2)"/>
-  <use href="#sol" transform="translate(375 290) scale(2)"/>
-  <use href="#sol" transform="translate(105 430) scale(2)"/>
-  <use href="#sol" transform="translate(375 430) scale(2)"/>
+  <use href="#sol-aur" transform="translate(105 290) scale(2.4)"/>
+  <use href="#sol-aur" transform="translate(375 290) scale(2.4)"/>
+  <use href="#sol-aur" transform="translate(105 430) scale(2.4)"/>
+  <use href="#sol-aur" transform="translate(375 430) scale(2.4)"/>
   <g text-anchor="middle" font-family="0550 Uncialis, Uncial Antiqua, serif" font-size="14" fill="#7a1208" letter-spacing="2.5">
     <text x="240" y="140">SIT NOMEN</text>
     <text x="240" y="164">DOMINI</text>
@@ -3435,6 +3686,552 @@
       placed.forEach(function(p) { p.el.style.top = p.top + 'px'; });
     });
   }
+  
+  // ═══════════════════════════════════════════════════════════════
+  // ПАЛЕОГРАФИЧЕСКИЕ АББРЕВИАТУРЫ
+  // Применяются ОДИН РАЗ в run() ДО walkJitter и walkWbrOnly.
+  // Превращают text-узлы со словами вроде "Domini" в DOM-фрагменты
+  // <abbr class="med nomsac contr"><span class="tit">DNI</span></abbr>.
+  // Слова, покрытые встроенной шрифтовой лигатурой текущего
+  // контекста (FONT_NATIVE), оборачиваются в .liga-protect, чтобы
+  // walkWbrOnly не вставил <wbr> внутрь и не сломал шейпинг.
+  // ═══════════════════════════════════════════════════════════════
+  (function () {
+    // ── Контекстный детектор шрифта ───────────────────────────────
+    // Определяет, каким шрифтом будет рендериться text-узел. Логика
+    // повторяет CSS-приоритеты: ближайший предок с известным классом
+    // диктует шрифт. Дефолт — Kells (основной текст).
+    function detectFont(node) {
+      let el = node.parentElement;
+      while (el) {
+        if (el.classList) {
+          if (el.classList.contains('mg-coemanus')) return 'remedius';
+          if (el.classList.contains('later-hand-colophon')) return 'remedius';
+          if (el.classList.contains('colophon')) return 'remedius';
+          if (el.classList.contains('marginalia')) return 'beda';
+          if (el.classList.contains('rubric')) return 'uncialis';
+          if (el.classList.contains('uncial-passage')) return 'uncialis';
+          if (el.classList.contains('doc-title')) return 'uncialis';
+          if (el.classList.contains('doc-subtitle')) return 'uncialis';
+          if (el.classList.contains('illuminated-initial')) return 'uncialis';
+        }
+        el = el.parentElement;
+      }
+      return 'kells';
+    }
+
+    // ── Карта встроенных шрифтовых сокращений ─────────────────────
+    // Что покрывает шрифт сам через liga/dlig. Если слово в этом
+    // наборе — applyAbbreviations НЕ переписывает его в <abbr>,
+    // а оборачивает в <span class="liga-protect"> и оставляет шрифту.
+    // Списки взяты из спецификации шрифтов проекта.
+    const FONT_NATIVE = {
+      remedius: new Set([
+        'Christum', 'christum',
+        'Dominum', 'dominum',
+        'Deus',    'deus',
+        'Iesum',   'iesum',
+        'Ihesum',  'ihesum',
+        'Jesum',   'jesum',
+        'Kalendas','kalendas',
+        'nostrum',
+        'et', 'per'
+      ]),
+      kells: new Set([
+        // ВНИМАНИЕ: dominus только lowercase. Capitalized "Dominus"
+        // НЕ покрывается Kells и должен быть заменён.
+        'dominus',
+        'Iesus',  'iesus',
+        'Ihesus', 'ihesus',
+        'Jesus',  'jesus',
+        'Jhesus', 'jhesus'
+      ]),
+      // Beda: nomina sacra нет. Графические лигатуры (Et, ae, ti)
+      // действуют автоматически через шейпер на подстроки внутри
+      // обычных слов и не пересекаются с нашими whole-word заменами.
+      beda: new Set(),
+      uncialis: new Set()
+    };
+
+    // ── Таблица замен ─────────────────────────────────────────────
+    // Каждая запись: [регэксп, HTML-замена, каноническая_форма].
+    // Каноническая форма используется для проверки FONT_NATIVE.
+    // Порядок важен: длинные/специфичные формы идут раньше коротких,
+    // чтобы /\bDomini\b/ не задело "Domine", и т.п. (но \b и так
+    // защищает; порядок — страховка).
+    const ABBREVIATIONS = [
+      // ── Nomina sacra: формы Deus ─────────────────────────────
+      [/\bDeus\b/g,
+       '<abbr class="med nomsac contr" title="Deus" data-expand="Deus"><span class="tit">DS</span></abbr>',
+       'Deus'],
+      [/\bDei\b/g,
+       '<abbr class="med nomsac contr" title="Dei" data-expand="Dei"><span class="tit">DI</span></abbr>',
+       'Dei'],
+      [/\bDeo\b/g,
+       '<abbr class="med nomsac contr" title="Deo" data-expand="Deo"><span class="tit">DO</span></abbr>',
+       'Deo'],
+      [/\bDeum\b/g,
+       '<abbr class="med nomsac contr" title="Deum" data-expand="Deum"><span class="tit">DM</span></abbr>',
+       'Deum'],
+
+      // ── Nomina sacra: формы Dominus ──────────────────────────
+      [/\bDomine\b/g,
+       '<abbr class="med nomsac contr" title="Domine" data-expand="Domine"><span class="tit">DNE</span></abbr>',
+       'Domine'],
+      [/\bDomini\b/g,
+       '<abbr class="med nomsac contr" title="Domini" data-expand="Domini"><span class="tit">DNI</span></abbr>',
+       'Domini'],
+      [/\bDomino\b/g,
+       '<abbr class="med nomsac contr" title="Domino" data-expand="Domino"><span class="tit">DNO</span></abbr>',
+       'Domino'],
+      [/\bDominum\b/g,
+       '<abbr class="med nomsac contr" title="Dominum" data-expand="Dominum"><span class="tit">DNM</span></abbr>',
+       'Dominum'],
+      [/\bDominus\b/g,
+       '<abbr class="med nomsac contr" title="Dominus" data-expand="Dominus"><span class="tit">DNS</span></abbr>',
+       'Dominus'],
+
+      // ── Nomina sacra: формы Iesus ────────────────────────────
+      [/\bIesus\b/g,
+       '<abbr class="med nomsac contr" title="Iesus" data-expand="Iesus"><span class="tit">IHS</span></abbr>',
+       'Iesus'],
+      [/\bIesu\b/g,
+       '<abbr class="med nomsac contr" title="Iesu" data-expand="Iesu"><span class="tit">IHV</span></abbr>',
+       'Iesu'],
+      [/\bIesum\b/g,
+       '<abbr class="med nomsac contr" title="Iesum" data-expand="Iesum"><span class="tit">IHM</span></abbr>',
+       'Iesum'],
+
+      // ── Nomina sacra: формы Christus ─────────────────────────
+      [/\bChristi\b/g,
+       '<abbr class="med nomsac contr" title="Christi" data-expand="Christi"><span class="tit">XPI</span></abbr>',
+       'Christi'],
+      [/\bChristo\b/g,
+       '<abbr class="med nomsac contr" title="Christo" data-expand="Christo"><span class="tit">XPO</span></abbr>',
+       'Christo'],
+      [/\bChristum\b/g,
+       '<abbr class="med nomsac contr" title="Christum" data-expand="Christum"><span class="tit">XPM</span></abbr>',
+       'Christum'],
+      [/\bChristus\b/g,
+       '<abbr class="med nomsac contr" title="Christus" data-expand="Christus"><span class="tit">XPS</span></abbr>',
+       'Christus'],
+
+      // ── Nomina sacra: Spiritus ───────────────────────────────
+      [/\bSpiritus\b/g,
+       '<abbr class="med nomsac contr" title="Spiritus" data-expand="Spiritus"><span class="tit">SPS</span></abbr>',
+       'Spiritus'],
+      [/\bSpiritu\b/g,
+       '<abbr class="med nomsac contr" title="Spiritu" data-expand="Spiritu"><span class="tit">SPV</span></abbr>',
+       'Spiritu'],
+      [/\bSpiritum\b/g,
+       '<abbr class="med nomsac contr" title="Spiritum" data-expand="Spiritum"><span class="tit">SPM</span></abbr>',
+       'Spiritum'],
+
+      // ── sanctus / sancta (только lowercase) ──────────────────
+      [/\bsanctus\b/g,
+       '<abbr class="med nomsac contr" title="sanctus" data-expand="sanctus"><span class="tit">scs</span></abbr>',
+       'sanctus'],
+      [/\bsancti\b/g,
+       '<abbr class="med nomsac contr" title="sancti" data-expand="sancti"><span class="tit">sci</span></abbr>',
+       'sancti'],
+      [/\bsancto\b/g,
+       '<abbr class="med nomsac contr" title="sancto" data-expand="sancto"><span class="tit">sco</span></abbr>',
+       'sancto'],
+      [/\bsanctum\b/g,
+       '<abbr class="med nomsac contr" title="sanctum" data-expand="sanctum"><span class="tit">scm</span></abbr>',
+       'sanctum'],
+      [/\bsancta\b/g,
+       '<abbr class="med nomsac contr" title="sancta" data-expand="sancta"><span class="tit">sca</span></abbr>',
+       'sancta'],
+
+      // ── frater (монашеский контекст) ─────────────────────────
+      [/\bfrater\b/g,
+       '<abbr class="med contr" title="frater" data-expand="frater"><span class="tit">fr</span></abbr>',
+       'frater'],
+      [/\bfratres\b/g,
+       '<abbr class="med contr" title="fratres" data-expand="fratres"><span class="tit">frr</span></abbr>',
+       'fratres'],
+      [/\bfratrem\b/g,
+       '<abbr class="med contr" title="fratrem" data-expand="fratrem"><span class="tit">frm</span></abbr>',
+       'fratrem'],
+      [/\bfratribus\b/g,
+       '<abbr class="med contr" title="fratribus" data-expand="fratribus"><span class="tit">frb</span></abbr>',
+       'fratribus'],
+      [/\bfratrum\b/g,
+       '<abbr class="med contr" title="fratrum" data-expand="fratrum"><span class="tit">frrm</span></abbr>',
+       'fratrum'],
+
+      // ── qu-сокращения ────────────────────────────────────────
+      [/\bquoniam\b/g,
+       '<abbr class="med contr" title="quoniam" data-expand="quoniam">q<span class="tit">m</span></abbr>',
+       'quoniam'],
+      [/\bquod\b/g,
+       '<abbr class="med contr" title="quod" data-expand="quod">q<span class="tit">d</span></abbr>',
+       'quod'],
+      [/\bquia\b/g,
+       '<abbr class="med contr" title="quia" data-expand="quia">q<span class="tit">a</span></abbr>',
+       'quia'],
+
+      // ── Suspensions: -m через titulus над последней гласной ──
+      // НЕ применяется к коротким словам (eum, cum, tum) — экономия
+      // имела смысл только для среднедлинных и длинных.
+      [/\bautem\b/g,
+       '<abbr class="med susp" title="autem" data-expand="autem">aut<span class="tit">e</span></abbr>',
+       'autem'],
+      [/\benim\b/g,
+       '<abbr class="med susp" title="enim" data-expand="enim">en<span class="tit">i</span></abbr>',
+       'enim'],
+      [/\betiam\b/g,
+       '<abbr class="med susp" title="etiam" data-expand="etiam">eti<span class="tit">a</span></abbr>',
+       'etiam'],
+      [/\beorum\b/g,
+       '<abbr class="med susp" title="eorum" data-expand="eorum">eor<span class="tit">u</span></abbr>',
+       'eorum'],
+      [/\bomnium\b/g,
+       '<abbr class="med susp" title="omnium" data-expand="omnium">omni<span class="tit">u</span></abbr>',
+       'omnium'],
+      [/\bomnem\b/g,
+       '<abbr class="med susp" title="omnem" data-expand="omnem">omn<span class="tit">e</span></abbr>',
+       'omnem'],
+      [/\bipsum\b/g,
+       '<abbr class="med susp" title="ipsum" data-expand="ipsum">ips<span class="tit">u</span></abbr>',
+       'ipsum'],
+
+      // ── ВНИМАНИЕ: 'et' через тиронский ⁊ НЕ включён. ─────────
+      // et покрыт лигатурами во всех ваших шрифтах (Beda, Kells,
+      // Remedius). Глобальная замена убила бы шрифтовые лигатуры.
+      // Тиронский знак вставляйте точечно вручную там, где он
+      // нужен по смыслу (быстрая помета, скрипт-сокращение
+      // в маргиналии).
+      // ── ВНИМАНИЕ: 'est' НЕ включён. ──────────────────────────
+      // На каждой странице — массовый эффект. Если хотите
+      // включить, добавьте отдельной строкой:
+      //   [/\best\b/g,
+      //    '<abbr class="med susp" title="est" data-expand="est"><span class="tit">e</span></abbr>',
+      //    'est'],
+    ];
+
+    // ── Контексты, в которые НЕ заходим ────────────────────────
+    const SKIP_TAGS_ABBR = new Set([
+      'SVG', 'STYLE', 'SCRIPT', 'TEMPLATE', 'ABBR', 'CODE', 'PRE'
+    ]);
+    const SKIP_CLASSES_ABBR = [
+      'rubric',
+      'doc-title', 'doc-subtitle',
+      'illuminated-initial',
+      'carpet-svg',
+      'elvish',           // эльфийский язык — никогда не сокращаем
+      'nomen-illustre',   // собственные имена смертных и мест
+      'uncial-passage',   // прямая речь Финрода (приподнятый регистр)
+      'folio-number',
+      'ornament-line'
+    ];
+    // ВНИМАНИЕ: 'colophon' и 'later-hand-colophon' НЕ исключены.
+    // В реальных средневековых колофонах nomina sacra и сокращения
+    // были массовыми. Если визуально не нравится — добавьте сюда.
+
+    function shouldSkipAbbr(node) {
+      let el = node.parentElement;
+      while (el) {
+        if (SKIP_TAGS_ABBR.has(el.tagName)) return true;
+        for (const cls of SKIP_CLASSES_ABBR) {
+          if (el.classList && el.classList.contains(cls)) return true;
+        }
+        el = el.parentElement;
+      }
+      return false;
+    }
+
+    function applyAbbreviations(root) {
+      const walker = document.createTreeWalker(
+        root,
+        NodeFilter.SHOW_TEXT,
+        {
+          acceptNode(n) {
+            if (!n.nodeValue || !n.nodeValue.trim()) return NodeFilter.FILTER_REJECT;
+            if (shouldSkipAbbr(n)) return NodeFilter.FILTER_REJECT;
+            return NodeFilter.FILTER_ACCEPT;
+          }
+        }
+      );
+      const targets = [];
+      let n;
+      while ((n = walker.nextNode())) targets.push(n);
+
+      for (const textNode of targets) {
+        let html = textNode.nodeValue;
+        // Защита: уже преобразованный фрагмент не трогаем.
+        if (html.indexOf('<abbr') !== -1) continue;
+        if (html.indexOf('<span class="liga-protect"') !== -1) continue;
+
+        const font = detectFont(textNode);
+        const native = FONT_NATIVE[font] || new Set();
+
+        let changed = false;
+        for (const entry of ABBREVIATIONS) {
+          const pattern = entry[0];
+          const replacement = entry[1];
+          const expansion = entry[2];
+
+          if (native.has(expansion)) {
+            // Шрифт умеет сам — оборачиваем в liga-protect, чтобы
+            // walkWbrOnly не вставил <wbr> внутрь слова и не сломал
+            // лигатуру. Регэксп тот же, замена другая.
+            const protectReplacement =
+              '<span class="liga-protect">' + expansion + '</span>';
+            if (pattern.test(html)) {
+              html = html.replace(pattern, protectReplacement);
+              changed = true;
+            }
+          } else {
+            // Шрифт не умеет — заменяем на abbr с titulus.
+            if (pattern.test(html)) {
+              html = html.replace(pattern, replacement);
+              changed = true;
+            }
+          }
+          pattern.lastIndex = 0;
+        }
+
+        if (changed) {
+          const tmp = document.createElement('span');
+          tmp.innerHTML = html;
+          const frag = document.createDocumentFragment();
+          while (tmp.firstChild) frag.appendChild(tmp.firstChild);
+          textNode.parentNode.replaceChild(frag, textNode);
+        }
+      }
+    }
+    
+    // ── Отрисовка SVG-titulus ─────────────────────────────────────
+    // Вызывается ПОСЛЕ applyAbbreviations: проходит по всем <abbr.med>
+    // и вставляет в каждый <svg.titulus-svg> с горизонтальной линией.
+    // Линия имеет лёгкие вариации траектории (через quadratic Bézier),
+    // имитируя движение пера — палеографически точнее идеальной
+    // прямой CSS-overline.
+    //
+    // Не зависит от font-метрик: позиционируется CSS'ом per-context
+    // через .titulus-svg { top: ... }. JS отвечает только за
+    // геометрию самой линии внутри viewBox.
+
+    // Псевдослучайный генератор для вариаций — детерминированный,
+    // чтобы повторные рендеры (например, после reflow) давали ту же
+    // картинку, и titulus не "прыгал" между обновлениями.
+    function seededRandTitulus(seed) {
+      let s = seed >>> 0;
+      return function () {
+        s = (s * 1664525 + 1013904223) >>> 0;
+        return s / 4294967296;
+      };
+    }
+    const tituRand = seededRandTitulus(0xC0EAA1);
+
+    // Один titulus = SVG с одним path. ViewBox 100×10 (виртуальные
+    // единицы). Линия идёт горизонтально на y≈5, с двумя контрольными
+    // точками для лёгкого "дрожания" пера: y варьируется в пределах
+    // ±1.2 единицы. Stroke-width в виртуальных единицах ~1.2 при
+    // высоте viewBox=10 — это эквивалентно толщине ~12% от высоты
+    // SVG-контейнера, что в em-mapping даёт пропорционально
+    // адекватную линию (для height: 0.18em → линия ~0.022em).
+    function buildTitulusPath() {
+      // Y-координаты стартовой, средней и конечной точек.
+      // База ~5, отклонения малые, чтобы линия читалась как ровная,
+      // но не машинная.
+      const y0 = 5 + (tituRand() - 0.5) * 7.0;
+      const y1 = 5 + (tituRand() - 0.5) * 1.0;  // средняя контрольная
+      const y2 = 5 + (tituRand() - 0.5) * 5.0;
+      // Quadratic Bezier с управляющей точкой в середине.
+      // M2,y0 — начало с отступом 2 единицы от левого края (чтобы
+      // линия не упиралась в первую букву);
+      // Q50,y1 98,y2 — кривая через контрольную точку (50, y1) к
+      // конечной (98, y2), отступ 2 от правого края.
+      return 'M2,' + y0.toFixed(2) +
+             ' Q50,' + y1.toFixed(2) +
+             ' 98,' + y2.toFixed(2);
+    }
+
+    function decorateTituli(root) {
+      // Селектор теперь — <span class="tit"> внутри abbr.med, а не
+      // сам abbr. SVG живёт внутри tit, и для suspension (где tit
+      // охватывает только последнюю букву) линия становится
+      // короткой и встаёт над этой буквой, как требует
+      // палеографическая норма.
+      const tits = root.querySelectorAll('abbr.med .tit');
+      const svgNS = 'http://www.w3.org/2000/svg';
+      for (let i = 0; i < tits.length; i++) {
+        const tit = tits[i];
+        // Пропускаем уже декорированные.
+        if (tit.querySelector(':scope > .titulus-svg')) continue;
+        // Тиро (⁊) — отдельный знак без titulus. Его abbr.tiro
+        // не имеет дочернего .tit, так что в выборку и не попадёт,
+        // но на всякий случай:
+        const ab = tit.closest('abbr.med');
+        if (ab && ab.classList.contains('tiro')) continue;
+
+        const svg = document.createElementNS(svgNS, 'svg');
+        svg.setAttribute('class', 'titulus-svg');
+        svg.setAttribute('viewBox', '0 0 100 10');
+        svg.setAttribute('preserveAspectRatio', 'none');
+        svg.setAttribute('aria-hidden', 'true');
+
+        const path = document.createElementNS(svgNS, 'path');
+        path.setAttribute('d', buildTitulusPath());
+        path.setAttribute('stroke-width', '5.0');
+
+        svg.appendChild(path);
+        tit.appendChild(svg);
+      }
+    }
+
+    window.decorateTituli = decorateTituli;
+
+    window.applyAbbreviations = applyAbbreviations;
+    
+    // ── Расшифровка сокращений при копировании ────────────────────
+    // При копировании выделения с <abbr class="med"> в буфер обмена
+    // кладётся ПОЛНАЯ форма из data-expand, а не видимая сокращённая.
+    // То есть на экране остаётся "DNI", в буфер обмена попадает
+    // "Domini". Это позволяет копировать текст для цитирования,
+    // поиска, перевода — без необходимости вручную раскрывать
+    // каждое сокращение.
+    //
+    // Работает с любым выделением: целый параграф, отдельное слово,
+    // часть сокращения. Реальный DOM не модифицируется — мы клонируем
+    // фрагмент выделения, заменяем abbr в клоне, и записываем
+    // результат в clipboardData.
+    //
+    // Дополнительно: рядом с plain-text формой кладётся HTML-вариант,
+    // в котором abbr тоже раскрыт. Это нужно, чтобы при вставке
+    // в редакторы, поддерживающие HTML (Word, Google Docs), текст
+    // приходил тоже в полной форме, а не как голый <abbr> без
+    // titulus.
+
+    function expandAbbreviationsInClone(fragment) {
+      // Заменяет в клонированном фрагменте все abbr.med на текстовые
+      // узлы с их data-expand. Работает рекурсивно через TreeWalker.
+      const walker = document.createTreeWalker(
+        fragment,
+        NodeFilter.SHOW_ELEMENT,
+        {
+          acceptNode(el) {
+            if (el.tagName === 'ABBR' && el.classList.contains('med')) {
+              return NodeFilter.FILTER_ACCEPT;
+            }
+            return NodeFilter.FILTER_SKIP;
+          }
+        }
+      );
+
+      const targets = [];
+      let n;
+      while ((n = walker.nextNode())) targets.push(n);
+
+      for (const ab of targets) {
+        // Берём data-expand; если его нет (что не должно случаться,
+        // но на всякий случай) — берём title; если и его нет —
+        // оставляем видимый текст как есть.
+        const expansion =
+          ab.getAttribute('data-expand') ||
+          ab.getAttribute('title') ||
+          ab.textContent;
+        const textNode = document.createTextNode(expansion);
+        if (ab.parentNode) {
+          ab.parentNode.replaceChild(textNode, ab);
+        }
+      }
+    }
+
+    function expandLigaProtectInClone(fragment) {
+      // Слова, обёрнутые в <span class="liga-protect"> (для защиты
+      // шрифтовых лигатур от <wbr>), при копировании просто
+      // разворачиваются: span убирается, остаётся текст внутри.
+      // Это не "раскрытие" сокращения как у abbr, а очистка
+      // структурной разметки.
+      const protects = fragment.querySelectorAll('.liga-protect');
+      for (let i = 0; i < protects.length; i++) {
+        const sp = protects[i];
+        const parent = sp.parentNode;
+        if (!parent) continue;
+        while (sp.firstChild) {
+          parent.insertBefore(sp.firstChild, sp);
+        }
+        parent.removeChild(sp);
+      }
+    }
+
+    function handleCopyEvent(e) {
+      const sel = window.getSelection();
+      if (!sel || sel.rangeCount === 0) return;
+      // Если выделение пустое (просто клик без drag) — ничего
+      // не делаем, отдаём управление браузеру.
+      if (sel.isCollapsed) return;
+
+      // Клонируем содержимое выделения. Это DocumentFragment, в
+      // котором живёт копия DOM — реальный документ остаётся
+      // неприкосновенным.
+      const range = sel.getRangeAt(0);
+      const fragment = range.cloneContents();
+
+      // Проверка: есть ли в клоне хоть одна abbr.med? Если нет,
+      // не вмешиваемся и отдаём дефолтное поведение браузера —
+      // он скопирует обычный текст без нашей помощи.
+      const hasAbbr = fragment.querySelector('abbr.med');
+      const hasLigaProtect = fragment.querySelector('.liga-protect');
+      // PATCH TR3: visually-hidden source-span'ы в выделении тоже
+      // считаем сигналом "наша разметка" — в редких сценариях
+      // (Ctrl+A, programmatic selection) выделение может зацепить
+      // source без прилегающей abbr (например, внутри клона
+      // маргиналии).
+      const hasTranslateSource = fragment.querySelector(
+        '.abbr-translate-source, .mg-translate-source'
+      );
+      if (!hasAbbr && !hasLigaProtect && !hasTranslateSource) return;
+
+      // PATCH TR3: вырезаем source-span'ы из клона ДО expand'а abbr.
+      // Иначе abbr→"Domini" и source→"Domini" сложились бы в
+      // "DominiDomini" в plain-text копии.
+      removeTranslateSourcesInClone(fragment);
+
+      // Раскрываем сокращения и убираем liga-protect обёртки.
+      expandAbbreviationsInClone(fragment);
+      expandLigaProtectInClone(fragment);
+
+      // Готовим plain-text версию. Простейший способ — взять
+      // textContent объединённого фрагмента. Браузер сам подставит
+      // переносы строк там, где были блочные элементы.
+      const wrapper = document.createElement('div');
+      wrapper.appendChild(fragment.cloneNode(true));
+      const plainText = wrapper.textContent;
+
+      // HTML-версия: serializeOuterHTML обёртки.
+      const htmlText = wrapper.innerHTML;
+
+      // Записываем оба формата в буфер обмена. Если редактор-получатель
+      // умеет HTML, возьмёт html; если нет — plain-text.
+      e.clipboardData.setData('text/plain', plainText);
+      e.clipboardData.setData('text/html', htmlText);
+      e.preventDefault();
+    }
+
+    // Регистрируем глобально на document. Проверка свойств в коллбеке
+    // защищает от вмешательства в copy-события на input/textarea
+    // и на контентах вне нашего кодекса (если когда-нибудь страница
+    // обогатится сторонними виджетами).
+    document.addEventListener('copy', function (e) {
+      // Сужаем зону действия: реагируем только на копирование
+      // изнутри книги (#codex-book или его потомков).
+      const sel = window.getSelection();
+      if (!sel || sel.rangeCount === 0) return;
+      const anchor = sel.anchorNode;
+      if (!anchor) return;
+      const anchorEl = anchor.nodeType === 1 ? anchor : anchor.parentElement;
+      if (!anchorEl) return;
+      const codexRoot = document.getElementById('codex-book');
+      if (!codexRoot || !codexRoot.contains(anchorEl)) return;
+      handleCopyEvent(e);
+    });
+    
+  })();
 
   // ═══════════════════════════════════════════════════════════════
   // «Живая рука» — jitter букв маргиналий Аидана (не Коемана).
@@ -3675,9 +4472,10 @@
     return frag;
   }
 
-  const SKIP_TAGS = {SCRIPT: 1, STYLE: 1, SVG: 1};
+  const SKIP_TAGS = {SCRIPT: 1, STYLE: 1, SVG: 1, ABBR: 1};
   function walkJitter(el) {
     if (SKIP_TAGS[el.tagName]) return;
+    if (el.classList && el.classList.contains('liga-protect')) return;
     const kids = Array.from(el.childNodes);
     for (let i = 0; i < kids.length; i++) {
       const kid = kids[i];
@@ -3689,6 +4487,255 @@
       }
     }
   }
+
+  // ═══════════════════════════════════════════════════════════════
+  // PATCH TR: раздвоение маргиналий Аидана на source + jitter-render.
+  //
+  // walkJitter режет каждое слово маргиналии Аидана на цепочку
+  // <span class="ink-l">"X"</span>; каждый text-узел становится длиной
+  // ровно в один символ. Google Translate и подобные сервисы (а также
+  // Ctrl+F и скринридеры в части реализаций) работают на text-узлах
+  // и не реконструируют слово из такой фрагментации — маргиналии
+  // остаются непереведёнными и недоступными для поиска.
+  //
+  // Решение: каждая маргиналия Аидана разделяется на два слоя.
+  //   .mg-translate-source — клон оригинального содержимого, целыми
+  //                          text-узлами, visually-hidden (1×1 + clip).
+  //                          Виден Translate'у, поиску, AT, копированию
+  //                          в режиме перевода. Не выделяется мышью
+  //                          (user-select:none) — copy-handler работает
+  //                          по jitter-слою как раньше.
+  //   .mg-jitter-render    — оригинальные узлы, перенесённые в обёртку
+  //                          с translate="no" + aria-hidden="true".
+  //                          Дальше на ней работает walkJitter.
+  //
+  // Вызывается ПОСЛЕ applyAbbreviations, decorateTituli и
+  // normalizeMarginaliaBreaks: к моменту split'а маргиналия уже содержит
+  // финальные <abbr.med>/<span class="liga-protect">/<svg.titulus-svg>
+  // и не имеет ручных <br>. cloneNode(true) копирует это полностью.
+  //
+  // Идемпотентна: при повторном вызове на сплитнутой маргиналии
+  // ничего не делает (страховка на случай повторного runJitter).
+  // ═══════════════════════════════════════════════════════════════
+  function splitMarginaliaForTranslate(mg) {
+    // :scope > выбирает только прямых детей — вложенные .mg-translate-
+    // source (если когда-то появятся в декоративном поддереве) не
+    // дадут ложного срабатывания.
+    if (mg.querySelector(':scope > .mg-translate-source')) return;
+
+    // Source: глубокий клон. Для CSS-скрытия достаточно класса —
+    // никаких атрибутов на корне source не ставим, чтобы Translate
+    // спокойно его прочитал и перевёл.
+    const source = document.createElement('span');
+    source.className = 'mg-translate-source';
+    const childrenSnapshot = Array.from(mg.childNodes);
+    for (let i = 0; i < childrenSnapshot.length; i++) {
+      source.appendChild(childrenSnapshot[i].cloneNode(true));
+    }
+
+    // PATCH TR2: разворачиваем сокращения в source-клоне до полных форм.
+    //
+    // applyAbbreviations превращает "Dominus" в DOM-фрагмент
+    //   <abbr class="med nomsac contr" data-expand="Dominus">
+    //     <span class="tit">DNS</span>
+    //   </abbr>
+    // — в textContent остаётся "DNS". Google Translate такие
+    // палеографические аббревиатуры распознаёт нестабильно: иногда
+    // достраивает "DNS" → "Dominus" → "Господь", а иногда оставляет
+    // как непонятный токен → выходит "ДС" в переведённой странице.
+    //
+    // Для source-клона (который и читает Translate) разворачиваем
+    // каждую abbr в text-узел с полной формой из data-expand.
+    // Translate теперь видит обычное латинское слово — расшифровка
+    // идёт стабильно. Render-слой нетронут: там abbr с titulus
+    // остаются как есть, визуально ничего не меняется.
+    //
+    // liga-protect не трогаем: внутри уже полная форма слова, лишний
+    // <span> для Translate безвреден (как обычная inline-разметка).
+    const sourceAbbrs = source.querySelectorAll('abbr.med[data-expand]');
+    sourceAbbrs.forEach(function(abbr) {
+      const expansion = abbr.getAttribute('data-expand');
+      if (!expansion) return;
+      const textNode = document.createTextNode(expansion);
+      abbr.parentNode.replaceChild(textNode, abbr);
+    });
+
+    // Render: оригинальные узлы переезжают в обёртку с явными
+    // атрибутами-сигналами для Translate и AT.
+    //   translate="no"      — стандартный HTML5 атрибут, главный сигнал;
+    //   class="notranslate" — старый Google-специфичный маркер для
+    //                         совместимости с translate.google.com;
+    //   aria-hidden="true"  — скринридер пропускает поддерево.
+    const render = document.createElement('span');
+    render.className = 'mg-jitter-render notranslate';
+    render.setAttribute('translate', 'no');
+    render.setAttribute('aria-hidden', 'true');
+    while (mg.firstChild) {
+      render.appendChild(mg.firstChild);
+    }
+
+    // Source первым в DOM, render вторым. Source out-of-flow (CSS),
+    // визуально не виден; render — в нормальном inline-потоке.
+    // Reading order для AT: source → render(skipped via aria-hidden);
+    // т.е. голос читает только source. Visual order: только render.
+    mg.appendChild(source);
+    mg.appendChild(render);
+  }
+
+  // ═══════════════════════════════════════════════════════════════
+  // PATCH TR3: visually-hidden source-span'ы рядом с abbr в основном
+  // тексте кодекса.
+  //
+  // applyAbbreviations превращает "Domini" в DOM-фрагмент
+  //   <abbr class="med ..." data-expand="Domini">
+  //     <span class="tit">DNI</span>
+  //   </abbr>
+  // — в textContent остаётся "DNI". Translate либо реконструирует
+  // "DNI"→"Dominus"→"Господь" (удача), либо оставляет "DNI"/"ДНС"/
+  // "ДС" в переводе. В маргиналиях это решено через split на source/
+  // render-слои; в основном тексте слой один, и развернуть abbr
+  // напрямую нельзя — пропадут titulus-SVG и палеографическая форма.
+  //
+  // Решение: рядом с каждой abbr ставим visually-hidden sibling-span
+  // с полной формой. Translate видит abbr+span как два слова в потоке
+  // ("DNI Domini"), но в обычном режиме span невидим (1×1+clip), а в
+  // режиме перевода CSS-правилом abbr схлопывается, span встаёт в
+  // поток — пользователь видит чистое "Господь".
+  //
+  // ВАЖНО: пропускаем abbr внутри маргиналий — для них работает
+  // split-механизм TR1+TR2. Если бы мы добавили sibling-span'ы и
+  // там, при split'е они попали бы в source-клон параллельно с
+  // развёрнутыми abbr, дав удвоение "Domini Domini".
+  //
+  // Идемпотентна: повторный вызов на уже обработанной abbr
+  // ничего не делает.
+  // ═══════════════════════════════════════════════════════════════
+  function addAbbrTranslateSources(root) {
+    const abbrs = root.querySelectorAll('abbr.med[data-expand]');
+    abbrs.forEach(function(abbr) {
+      // Маргиналии обслуживаются split-механизмом — пропускаем.
+      if (abbr.closest('.marginalia')) return;
+
+      // Идемпотентность: если следующий sibling уже наш source —
+      // значит, для этой abbr всё уже сделано.
+      const next = abbr.nextSibling;
+      if (next && next.nodeType === 1 &&
+          next.classList && next.classList.contains('abbr-translate-source')) {
+        return;
+      }
+
+      const expansion = abbr.getAttribute('data-expand');
+      if (!expansion) return;
+
+      const source = document.createElement('span');
+      source.className = 'abbr-translate-source';
+      source.textContent = expansion;
+
+      // aria-hidden на abbr: скринридер пропустит её и прочитает
+      // source-span с полным словом. abbr с aria-hidden — не редкая
+      // практика, когда настоящий "доступный" текст рендерится
+      // отдельным узлом (визуально это точно так же, как сейчас
+      // люди делают для иконок: <span aria-hidden>★</span><span
+      // class="visually-hidden">избранное</span>).
+      abbr.setAttribute('aria-hidden', 'true');
+
+      // Вставляем сразу после abbr — sibling, не child.
+      // childAfter может быть null (abbr — последний ребёнок),
+      // тогда insertBefore(node, null) === appendChild.
+      abbr.parentNode.insertBefore(source, abbr.nextSibling);
+    });
+  }
+
+  // ═══════════════════════════════════════════════════════════════
+  // PATCH TR3: удаление source-span'ов из клона выделения.
+  // Используется в handleCopyEvent перед expandAbbreviationsInClone.
+  //
+  // Без этого при копировании выделения, охватывающего abbr+source,
+  // expand развернёт abbr → "Domini", и source-span рядом тоже
+  // даст "Domini" → в буфер уйдёт "DominiDomini". Удаляем source
+  // из клона; expand работает с одной abbr, как раньше.
+  //
+  // Также захватывает .mg-translate-source (на случай keyboard-
+  // selection поверх маргиналии Аидана; у пользователя user-select:
+  // none не блокирует Ctrl+A → selectAll).
+  // ═══════════════════════════════════════════════════════════════
+  function removeTranslateSourcesInClone(fragment) {
+    const sources = fragment.querySelectorAll(
+      '.abbr-translate-source, .mg-translate-source'
+    );
+    for (let i = 0; i < sources.length; i++) {
+      const s = sources[i];
+      if (s.parentNode) s.parentNode.removeChild(s);
+    }
+  }
+
+  // ═══════════════════════════════════════════════════════════════
+  // PATCH TR: детектор активного машинного перевода.
+  //
+  // Chrome built-in Translate ставит на <html> класс 'translated-ltr'
+  // или 'translated-rtl' и оборачивает каждый переведённый text-узел
+  // в <font _msttexthash="…">. Мониторим класс на <html> через
+  // MutationObserver — самый чистый сигнал.
+  //
+  // Сторонние переводчики (translate.google.com в iframe-режиме,
+  // расширения вроде Mate/ImTranslator, Yandex.Translate) часто не
+  // выставляют класс на <html> — они подменяют textContent или
+  // вставляют свои <font>-обёртки прямо внутрь узлов. Fallback:
+  // наблюдаем за мутациями content внутри .mg-translate-source.
+  // Наш JS source после split'а не трогает; любое изменение там —
+  // признак работы стороннего переводчика.
+  //
+  // Класс mg-translated один раз поставленный не снимаем. Если
+  // пользователь выключит перевод, render-слой по-прежнему лежит в
+  // DOM нетронутым, но визуально мы покажем source. Стоимость
+  // false-positive (потеря дрожания на маргиналиях после toggle off)
+  // — приемлема ради надёжности детекции.
+  // ═══════════════════════════════════════════════════════════════
+  function setupTranslationObserver() {
+    const html = document.documentElement;
+    const body = document.body;
+
+    function activate() {
+      if (body.classList.contains('mg-translated')) return;
+      body.classList.add('mg-translated');
+      // Маргиналии меняют высоту: source встаёт в поток, render
+      // схлопывается через display:none. Вертикальные позиции
+      // выставляются positionMarginalia — пересчитать на следующем
+      // кадре, когда reflow завершится.
+      requestAnimationFrame(function() {
+        try { positionMarginalia(); } catch (e) {}
+      });
+    }
+
+    function checkHtmlClass() {
+      const cls = html.classList;
+      if (cls.contains('translated-ltr') || cls.contains('translated-rtl')) {
+        activate();
+      }
+    }
+
+    // Путь 1: класс на <html> (Chrome built-in Translate).
+    const htmlObs = new MutationObserver(checkHtmlClass);
+    htmlObs.observe(html, {attributes: true, attributeFilter: ['class']});
+    checkHtmlClass();
+
+    // Путь 2: мутации содержимого source (translate.google.com и
+    // расширения). Один раз сработав, отключаемся — дальнейшие
+    // подмены идут уже в активном mg-translated, и реагировать не
+    // на что: режим уже включён.
+    const sourceObs = new MutationObserver(function() {
+      activate();
+      sourceObs.disconnect();
+    });
+    document.querySelectorAll('.mg-translate-source').forEach(function(src) {
+      sourceObs.observe(src, {
+        childList: true,
+        characterData: true,
+        subtree: true,
+      });
+    });
+  }
+
   // Схлопывание ручных <br> в пробелы. Маргиналии размечены в source
   // с визуальными переводами строк (в расчёте на определённые слова
   // на строку), но фактическая ширина 68px + унциальный шрифт не
@@ -3756,6 +4803,7 @@
 
   function walkWbrOnly(el) {
     if (SKIP_TAGS[el.tagName]) return;
+    if (el.classList && el.classList.contains('liga-protect')) return;
     const kids = Array.from(el.childNodes);
     for (let i = 0; i < kids.length; i++) {
       const kid = kids[i];
@@ -3770,7 +4818,11 @@
 
   function runJitter() {
     normalizeMarginaliaBreaks();
-    document.querySelectorAll('.marginalia:not(.mg-coemanus)').forEach(walkJitter);
+    // PATCH TR: split до walkJitter — иначе jitter применится к
+    // оригинальным узлам и дальше source не получится сделать
+    // "чистым" (там тоже окажутся побуквенные span'ы).
+    document.querySelectorAll('.marginalia:not(.mg-coemanus)').forEach(splitMarginaliaForTranslate);
+    document.querySelectorAll('.marginalia:not(.mg-coemanus) .mg-jitter-render').forEach(walkJitter);
     document.querySelectorAll('.marginalia.mg-coemanus').forEach(walkWbrOnly);
     positionMarginalia();
   }
@@ -3792,6 +4844,13 @@
     classes: [
       'parchment-bg', 'illuminated-initial', 'arbor-vitae', 'arbor-argentea',
       'folio-number', 'blob', 'ink-drip', 'ghost-layer', 'big-initial',
+      // PATCH TR: source-слой — visually-hidden 1×1, его геометрия не
+      // соответствует видимому положению текста; рисовать его в ghost
+      // нельзя (получились бы артефактные кляксы у края страницы).
+      'mg-translate-source',
+      // PATCH TR3: то же для visually-hidden source-span'ов рядом с
+      // abbr в основном тексте — 1×1 не должны попадать в ghost.
+      'abbr-translate-source',
     ],
     tags: { STYLE: 1, SCRIPT: 1, SVG: 1 },
   };
@@ -4159,11 +5218,38 @@
 
     measurer.remove();
 
-    // ── Фаза 1: построение DOM книги ──
+// ── Фаза 1: построение DOM книги ──
     // Все вставки и присвоения классов до первого layout read.
     renderBook(pages);
     try { assignParchmentVariants(); } catch (e) { console.error('Patch A failed:', e); }
     try { addInitialGround(); } catch (e) { console.error('Patch H failed:', e); }
+
+    // ── Фаза 1.5: палеографические аббревиатуры ──
+    // ОБЯЗАТЕЛЬНО до walkJitter и walkWbrOnly. После jitter/wbr
+    // текст уже разорван на <span class="ink-l"> или <wbr>, и
+    // регэксп по text-узлам не сматчит ни одного целого слова.
+    // Применяется к корню книги ОДИН раз — single-pass обход
+    // защищает от двойной обработки.
+    //
+    // Шаг 1: применение замен (DOM-преобразование text-узлов
+    //         в <abbr><span class="tit">XYZ</span></abbr>).
+    // Шаг 2: декорирование — впрыскивание SVG-titulus в каждый
+    //         <abbr>. Делается отдельно от шага 1, чтобы не
+    //         раздувать таблицу замен и держать геометрию titulus
+    //         в одном месте.
+    try {
+      const codexRoot = document.getElementById('codex-book');
+      window.applyAbbreviations(codexRoot);
+      window.decorateTituli(codexRoot);
+      // PATCH TR3: после того, как abbr.med построены и декорированы
+      // titulus-SVG, добавляем рядом с каждой visually-hidden
+      // source-span с полной формой для Translate / Ctrl+F /
+      // скринридеров. Маргиналии пропускаются — для них работает
+      // split (TR1+TR2). Должно идти ДО splitMarginaliaForTranslate
+      // в фазе 2 — иначе порядок не критичен, потому что для маргиналий
+      // эта функция ничего не делает.
+      addAbbrTranslateSources(codexRoot);
+    } catch (e) { console.error('Patch Abbr failed:', e); }
 
     // ── Фаза 2: DOM-мутации внутри маргиналий и фолио ──
     // Никаких layout reads здесь — браузер копит инвалидации,
@@ -4175,11 +5261,22 @@
     //   addInkArtifacts: чернильные blob/drip на полях фолио
     // Эти четыре операции — чистый DOM append/replace, в порядке
     // не критичны, но сгруппированы здесь, чтобы фаза 3 шла на
-    // полностью устаканенной DOM-структуре.
+    // полностью устаканенной DOM-структуре. ABBR-узлы созданы в
+    // фазе 1.5 уже учтены через SKIP_TAGS = {... ABBR: 1}.
     normalizeMarginaliaBreaks();
-    document.querySelectorAll('.marginalia:not(.mg-coemanus)').forEach(walkJitter);
+    // PATCH TR: split маргиналий Аидана на source-слой (для Translate /
+    // Ctrl+F / AT) и jitter-render-слой (визуальная "живая рука").
+    // Должно идти ПОСЛЕ normalizeMarginaliaBreaks (чтобы клонировался
+    // уже чистый контент без <br>) и ДО walkJitter (чтобы дробление
+    // на ink-l span'ы шло только в render-слое).
+    document.querySelectorAll('.marginalia:not(.mg-coemanus)').forEach(splitMarginaliaForTranslate);
+    document.querySelectorAll('.marginalia:not(.mg-coemanus) .mg-jitter-render').forEach(walkJitter);
     document.querySelectorAll('.marginalia.mg-coemanus').forEach(walkWbrOnly);
     try { addInkArtifacts(); } catch (e) { console.error('Patch B3 failed:', e); }
+    // PATCH TR: запуск наблюдателя за активацией перевода. После split
+    // .mg-translate-source узлы существуют — observer'у есть к чему
+    // привязаться для fallback-детекции (мутации content).
+    try { setupTranslationObserver(); } catch (e) { console.error('Patch TR observer failed:', e); }
 
     // ── Фаза 3: единственный read/write проход по геометрии ──
     // Здесь происходит forced layout flush — но всего один, на всю
