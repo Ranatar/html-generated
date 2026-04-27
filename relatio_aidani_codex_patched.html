@@ -1054,6 +1054,50 @@
     pointer-events: auto;
   }
 
+  /* ──────────────────────────────────────────────────────────────
+     PATCH TR3: visually-hidden source-span'ы рядом с каждой abbr.med
+     в основном тексте кодекса. Содержат полную форму слова из
+     data-expand. Translate видит "Domini" вместо "DNI" и переводит
+     стабильно. В обычном режиме скрыты (1×1 + clip), в режиме
+     mg-translated abbr скрывается, source встаёт в поток.
+     ────────────────────────────────────────────────────────────── */
+  .abbr-translate-source {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    margin: -1px;
+    padding: 0;
+    border: 0;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+    clip-path: inset(50%);
+    white-space: nowrap;
+    user-select: none;
+    -webkit-user-select: none;
+    pointer-events: none;
+  }
+
+  /* Режим перевода: abbr схлопываются, source-span'ы встают в поток.
+     display:none на abbr безопасен — titulus-svg внутри abbr тоже
+     схлопывается вместе с ней (он именно её ребёнок), никаких
+     "висящих" линий титла не остаётся. */
+  body.mg-translated abbr.med {
+    display: none;
+  }
+  body.mg-translated .abbr-translate-source {
+    position: static;
+    width: auto;
+    height: auto;
+    margin: 0;
+    clip: auto;
+    clip-path: none;
+    overflow: visible;
+    white-space: inherit;
+    user-select: text;
+    -webkit-user-select: text;
+    pointer-events: auto;
+  }
+
   /* Слог — единица, которая может переноситься целиком, но не
      рассыпаться по буквам. inline-block + nowrap делают слог
      атомарным для целей word-breaking; переносы возможны только
@@ -4133,7 +4177,20 @@
       // он скопирует обычный текст без нашей помощи.
       const hasAbbr = fragment.querySelector('abbr.med');
       const hasLigaProtect = fragment.querySelector('.liga-protect');
-      if (!hasAbbr && !hasLigaProtect) return;
+      // PATCH TR3: visually-hidden source-span'ы в выделении тоже
+      // считаем сигналом "наша разметка" — в редких сценариях
+      // (Ctrl+A, programmatic selection) выделение может зацепить
+      // source без прилегающей abbr (например, внутри клона
+      // маргиналии).
+      const hasTranslateSource = fragment.querySelector(
+        '.abbr-translate-source, .mg-translate-source'
+      );
+      if (!hasAbbr && !hasLigaProtect && !hasTranslateSource) return;
+
+      // PATCH TR3: вырезаем source-span'ы из клона ДО expand'а abbr.
+      // Иначе abbr→"Domini" и source→"Domini" сложились бы в
+      // "DominiDomini" в plain-text копии.
+      removeTranslateSourcesInClone(fragment);
 
       // Раскрываем сокращения и убираем liga-protect обёртки.
       expandAbbreviationsInClone(fragment);
@@ -4476,6 +4533,33 @@
       source.appendChild(childrenSnapshot[i].cloneNode(true));
     }
 
+    // PATCH TR2: разворачиваем сокращения в source-клоне до полных форм.
+    //
+    // applyAbbreviations превращает "Dominus" в DOM-фрагмент
+    //   <abbr class="med nomsac contr" data-expand="Dominus">
+    //     <span class="tit">DNS</span>
+    //   </abbr>
+    // — в textContent остаётся "DNS". Google Translate такие
+    // палеографические аббревиатуры распознаёт нестабильно: иногда
+    // достраивает "DNS" → "Dominus" → "Господь", а иногда оставляет
+    // как непонятный токен → выходит "ДС" в переведённой странице.
+    //
+    // Для source-клона (который и читает Translate) разворачиваем
+    // каждую abbr в text-узел с полной формой из data-expand.
+    // Translate теперь видит обычное латинское слово — расшифровка
+    // идёт стабильно. Render-слой нетронут: там abbr с titulus
+    // остаются как есть, визуально ничего не меняется.
+    //
+    // liga-protect не трогаем: внутри уже полная форма слова, лишний
+    // <span> для Translate безвреден (как обычная inline-разметка).
+    const sourceAbbrs = source.querySelectorAll('abbr.med[data-expand]');
+    sourceAbbrs.forEach(function(abbr) {
+      const expansion = abbr.getAttribute('data-expand');
+      if (!expansion) return;
+      const textNode = document.createTextNode(expansion);
+      abbr.parentNode.replaceChild(textNode, abbr);
+    });
+
     // Render: оригинальные узлы переезжают в обёртку с явными
     // атрибутами-сигналами для Translate и AT.
     //   translate="no"      — стандартный HTML5 атрибут, главный сигнал;
@@ -4496,6 +4580,93 @@
     // т.е. голос читает только source. Visual order: только render.
     mg.appendChild(source);
     mg.appendChild(render);
+  }
+
+  // ═══════════════════════════════════════════════════════════════
+  // PATCH TR3: visually-hidden source-span'ы рядом с abbr в основном
+  // тексте кодекса.
+  //
+  // applyAbbreviations превращает "Domini" в DOM-фрагмент
+  //   <abbr class="med ..." data-expand="Domini">
+  //     <span class="tit">DNI</span>
+  //   </abbr>
+  // — в textContent остаётся "DNI". Translate либо реконструирует
+  // "DNI"→"Dominus"→"Господь" (удача), либо оставляет "DNI"/"ДНС"/
+  // "ДС" в переводе. В маргиналиях это решено через split на source/
+  // render-слои; в основном тексте слой один, и развернуть abbr
+  // напрямую нельзя — пропадут titulus-SVG и палеографическая форма.
+  //
+  // Решение: рядом с каждой abbr ставим visually-hidden sibling-span
+  // с полной формой. Translate видит abbr+span как два слова в потоке
+  // ("DNI Domini"), но в обычном режиме span невидим (1×1+clip), а в
+  // режиме перевода CSS-правилом abbr схлопывается, span встаёт в
+  // поток — пользователь видит чистое "Господь".
+  //
+  // ВАЖНО: пропускаем abbr внутри маргиналий — для них работает
+  // split-механизм TR1+TR2. Если бы мы добавили sibling-span'ы и
+  // там, при split'е они попали бы в source-клон параллельно с
+  // развёрнутыми abbr, дав удвоение "Domini Domini".
+  //
+  // Идемпотентна: повторный вызов на уже обработанной abbr
+  // ничего не делает.
+  // ═══════════════════════════════════════════════════════════════
+  function addAbbrTranslateSources(root) {
+    const abbrs = root.querySelectorAll('abbr.med[data-expand]');
+    abbrs.forEach(function(abbr) {
+      // Маргиналии обслуживаются split-механизмом — пропускаем.
+      if (abbr.closest('.marginalia')) return;
+
+      // Идемпотентность: если следующий sibling уже наш source —
+      // значит, для этой abbr всё уже сделано.
+      const next = abbr.nextSibling;
+      if (next && next.nodeType === 1 &&
+          next.classList && next.classList.contains('abbr-translate-source')) {
+        return;
+      }
+
+      const expansion = abbr.getAttribute('data-expand');
+      if (!expansion) return;
+
+      const source = document.createElement('span');
+      source.className = 'abbr-translate-source';
+      source.textContent = expansion;
+
+      // aria-hidden на abbr: скринридер пропустит её и прочитает
+      // source-span с полным словом. abbr с aria-hidden — не редкая
+      // практика, когда настоящий "доступный" текст рендерится
+      // отдельным узлом (визуально это точно так же, как сейчас
+      // люди делают для иконок: <span aria-hidden>★</span><span
+      // class="visually-hidden">избранное</span>).
+      abbr.setAttribute('aria-hidden', 'true');
+
+      // Вставляем сразу после abbr — sibling, не child.
+      // childAfter может быть null (abbr — последний ребёнок),
+      // тогда insertBefore(node, null) === appendChild.
+      abbr.parentNode.insertBefore(source, abbr.nextSibling);
+    });
+  }
+
+  // ═══════════════════════════════════════════════════════════════
+  // PATCH TR3: удаление source-span'ов из клона выделения.
+  // Используется в handleCopyEvent перед expandAbbreviationsInClone.
+  //
+  // Без этого при копировании выделения, охватывающего abbr+source,
+  // expand развернёт abbr → "Domini", и source-span рядом тоже
+  // даст "Domini" → в буфер уйдёт "DominiDomini". Удаляем source
+  // из клона; expand работает с одной abbr, как раньше.
+  //
+  // Также захватывает .mg-translate-source (на случай keyboard-
+  // selection поверх маргиналии Аидана; у пользователя user-select:
+  // none не блокирует Ctrl+A → selectAll).
+  // ═══════════════════════════════════════════════════════════════
+  function removeTranslateSourcesInClone(fragment) {
+    const sources = fragment.querySelectorAll(
+      '.abbr-translate-source, .mg-translate-source'
+    );
+    for (let i = 0; i < sources.length; i++) {
+      const s = sources[i];
+      if (s.parentNode) s.parentNode.removeChild(s);
+    }
   }
 
   // ═══════════════════════════════════════════════════════════════
@@ -4677,6 +4848,9 @@
       // соответствует видимому положению текста; рисовать его в ghost
       // нельзя (получились бы артефактные кляксы у края страницы).
       'mg-translate-source',
+      // PATCH TR3: то же для visually-hidden source-span'ов рядом с
+      // abbr в основном тексте — 1×1 не должны попадать в ghost.
+      'abbr-translate-source',
     ],
     tags: { STYLE: 1, SCRIPT: 1, SVG: 1 },
   };
@@ -5067,6 +5241,14 @@
       const codexRoot = document.getElementById('codex-book');
       window.applyAbbreviations(codexRoot);
       window.decorateTituli(codexRoot);
+      // PATCH TR3: после того, как abbr.med построены и декорированы
+      // titulus-SVG, добавляем рядом с каждой visually-hidden
+      // source-span с полной формой для Translate / Ctrl+F /
+      // скринридеров. Маргиналии пропускаются — для них работает
+      // split (TR1+TR2). Должно идти ДО splitMarginaliaForTranslate
+      // в фазе 2 — иначе порядок не критичен, потому что для маргиналий
+      // эта функция ничего не делает.
+      addAbbrTranslateSources(codexRoot);
     } catch (e) { console.error('Patch Abbr failed:', e); }
 
     // ── Фаза 2: DOM-мутации внутри маргиналий и фолио ──
