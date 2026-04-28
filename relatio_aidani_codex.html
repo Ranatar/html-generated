@@ -1010,11 +1010,16 @@
      узлы, и Translate перестаёт их распознавать как слова.
      ────────────────────────────────────────────────────────────── */
 
-  /* Source: visually-hidden рецепт (1×1 + clip + overflow). user-select:
-     none гарантирует, что выделение мышью всегда уйдёт в видимый jitter-
-     слой, а не в скрытый источник; иначе copy-event получал бы
-     невидимое содержимое. pointer-events:none защищает от случайного
-     перехвата кликов в зоне 1×1. */
+  /* Source: visually-hidden рецепт (1×1 + clip + overflow).
+     PATCH TR4: user-select:none снят. Раньше он стоял, чтобы при
+     дефолтном copy-event Selection.toString() не подхватил скрытый
+     "DominiDomini". Это создавало баг: drag-выделение в Chrome
+     схлопывается на границе user-select:none, прерываясь на первом
+     встреченном source-spane. Теперь copy-event всегда обрабатывается
+     handleCopyEvent (через range.intersectsNode), который сам управляет
+     содержимым клона; страховка через user-select больше не нужна.
+     pointer-events:none сохраняем — защита от случайного перехвата
+     кликов в зоне 1×1. */
   .mg-translate-source {
     position: absolute;
     width: 1px;
@@ -1028,8 +1033,6 @@
     white-space: pre-wrap;
     word-break: normal;
     overflow-wrap: normal;
-    user-select: none;
-    -webkit-user-select: none;
     pointer-events: none;
   }
 
@@ -1067,6 +1070,8 @@
      стабильно. В обычном режиме скрыты (1×1 + clip), в режиме
      mg-translated abbr скрывается, source встаёт в поток.
      ────────────────────────────────────────────────────────────── */
+  /* PATCH TR4: user-select:none снят (тот же мотив, что в
+     .mg-translate-source выше). */
   .abbr-translate-source {
     position: absolute;
     width: 1px;
@@ -1078,8 +1083,6 @@
     clip: rect(0 0 0 0);
     clip-path: inset(50%);
     white-space: nowrap;
-    user-select: none;
-    -webkit-user-select: none;
     pointer-events: none;
   }
 
@@ -1102,6 +1105,19 @@
     user-select: text;
     -webkit-user-select: text;
     pointer-events: auto;
+  }
+
+  /* PATCH TR4: маргиналии Коемана в режиме перевода.
+     В отличие от Аидана, .mg-coemanus НЕ split'ится на source/render —
+     это другая рука без jitter, текст идёт обычными text-узлами.
+     Поэтому source-слоя там нет, и правило для .mg-translate-source
+     выше его не покрывает. Отдельной строкой включаем выделяемость
+     в режиме перевода — иначе Translate видит и переводит текст,
+     но скопировать переведённое нельзя из-за родительского
+     .marginalia { user-select: none }. */
+  body.mg-translated .marginalia.mg-coemanus {
+    user-select: text;
+    -webkit-user-select: text;
   }
 
   /* Слог — единица, которая может переноситься целиком, но не
@@ -4119,9 +4135,19 @@
     // приходил тоже в полной форме, а не как голый <abbr> без
     // titulus.
 
-    function expandAbbreviationsInClone(fragment) {
-      // Заменяет в клонированном фрагменте все abbr.med на текстовые
-      // узлы с их data-expand. Работает рекурсивно через TreeWalker.
+    // PATCH TR3+TR4: режим-aware обработка abbr.med в клоне.
+    //
+    // Обычный режим: abbr — primary visible content, в clipboard
+    //   попадает её раскрытая форма из data-expand. (До TR3 это
+    //   было главное действие copy-handler'а; смысл сохранён.)
+    //
+    // Режим перевода: abbr.med имеет display:none, primary —
+    //   source-span рядом. processTranslateSourcesInClone уже снял
+    //   с source-span'а обёртку, оставив "Domini" как text-узел.
+    //   Сама abbr теперь — лишний "DNI", который visually-hidden
+    //   на странице, но в textContent клона попал. Удаляем целиком.
+    function processAbbrInClone(fragment) {
+      const isTranslated = document.body.classList.contains('mg-translated');
       const walker = document.createTreeWalker(
         fragment,
         NodeFilter.SHOW_ELEMENT,
@@ -4140,15 +4166,17 @@
       while ((n = walker.nextNode())) targets.push(n);
 
       for (const ab of targets) {
-        // Берём data-expand; если его нет (что не должно случаться,
-        // но на всякий случай) — берём title; если и его нет —
-        // оставляем видимый текст как есть.
-        const expansion =
-          ab.getAttribute('data-expand') ||
-          ab.getAttribute('title') ||
-          ab.textContent;
-        const textNode = document.createTextNode(expansion);
-        if (ab.parentNode) {
+        if (!ab.parentNode) continue;
+        if (isTranslated) {
+          // abbr — ghost в этом режиме, удаляем целиком.
+          ab.parentNode.removeChild(ab);
+        } else {
+          // abbr — primary, заменяем на полную форму.
+          const expansion =
+            ab.getAttribute('data-expand') ||
+            ab.getAttribute('title') ||
+            ab.textContent;
+          const textNode = document.createTextNode(expansion);
           ab.parentNode.replaceChild(textNode, ab);
         }
       }
@@ -4185,28 +4213,32 @@
       const range = sel.getRangeAt(0);
       const fragment = range.cloneContents();
 
-      // Проверка: есть ли в клоне хоть одна abbr.med? Если нет,
-      // не вмешиваемся и отдаём дефолтное поведение браузера —
-      // он скопирует обычный текст без нашей помощи.
+      // Early-return: если в клоне нет ни одной из "наших" структур,
+      // отдаём дефолтное поведение браузера (быстрее, ничего не
+      // ломает — простые copy без сокращений и без маргиналий
+      // сериализуются как plain text).
       const hasAbbr = fragment.querySelector('abbr.med');
       const hasLigaProtect = fragment.querySelector('.liga-protect');
-      // PATCH TR3: visually-hidden source-span'ы в выделении тоже
-      // считаем сигналом "наша разметка" — в редких сценариях
-      // (Ctrl+A, programmatic selection) выделение может зацепить
-      // source без прилегающей abbr (например, внутри клона
-      // маргиналии).
       const hasTranslateSource = fragment.querySelector(
         '.abbr-translate-source, .mg-translate-source'
       );
-      if (!hasAbbr && !hasLigaProtect && !hasTranslateSource) return;
+      const hasMarginalia = fragment.querySelector('.marginalia');
+      if (!hasAbbr && !hasLigaProtect && !hasTranslateSource && !hasMarginalia) {
+        return;
+      }
 
-      // PATCH TR3: вырезаем source-span'ы из клона ДО expand'а abbr.
-      // Иначе abbr→"Domini" и source→"Domini" сложились бы в
-      // "DominiDomini" в plain-text копии.
-      removeTranslateSourcesInClone(fragment);
-
-      // Раскрываем сокращения и убираем liga-protect обёртки.
-      expandAbbreviationsInClone(fragment);
+      // Порядок ВАЖЕН:
+      //   1. filterMarginalia режет render/marginalia сразу — нет
+      //      смысла дальше трогать abbr внутри уже отрезанных узлов.
+      //   2. processTranslateSources в translated режиме делает unwrap
+      //      source-span'ов, поднимая текст на уровень выше; в обычном
+      //      режиме просто удаляет ghost-source'ы.
+      //   3. processAbbr — в translated режиме удаляет abbr (она ghost),
+      //      в обычном раскрывает её в data-expand.
+      //   4. expandLigaProtect — структурная очистка обёрток.
+      filterMarginaliaInClone(fragment);
+      processTranslateSourcesInClone(fragment);
+      processAbbrInClone(fragment);
       expandLigaProtectInClone(fragment);
 
       // Готовим plain-text версию. Простейший способ — взять
@@ -4226,21 +4258,22 @@
       e.preventDefault();
     }
 
-    // Регистрируем глобально на document. Проверка свойств в коллбеке
-    // защищает от вмешательства в copy-события на input/textarea
-    // и на контентах вне нашего кодекса (если когда-нибудь страница
-    // обогатится сторонними виджетами).
+    // Регистрируем глобально на document. Гард пересечения с codex-book
+    // через range.intersectsNode — Ctrl+A (anchor=body) тоже корректно
+    // попадает в handler, так как range покрывает весь body, а codex
+    // его подмножество. Старый гард codexRoot.contains(anchorEl) этого
+    // не ловил (body не contains в codex), и Ctrl+A падал в дефолтное
+    // поведение Chrome — со всеми его артефактами.
     document.addEventListener('copy', function (e) {
-      // Сужаем зону действия: реагируем только на копирование
-      // изнутри книги (#codex-book или его потомков).
       const sel = window.getSelection();
       if (!sel || sel.rangeCount === 0) return;
-      const anchor = sel.anchorNode;
-      if (!anchor) return;
-      const anchorEl = anchor.nodeType === 1 ? anchor : anchor.parentElement;
-      if (!anchorEl) return;
       const codexRoot = document.getElementById('codex-book');
-      if (!codexRoot || !codexRoot.contains(anchorEl)) return;
+      if (!codexRoot) return;
+      const range = sel.getRangeAt(0);
+      let touches;
+      try { touches = range.intersectsNode(codexRoot); }
+      catch (_) { touches = false; }
+      if (!touches) return;
       handleCopyEvent(e);
     });
     
@@ -4660,25 +4693,96 @@
   }
 
   // ═══════════════════════════════════════════════════════════════
-  // PATCH TR3: удаление source-span'ов из клона выделения.
-  // Используется в handleCopyEvent перед expandAbbreviationsInClone.
+  // PATCH TR3+TR4: обработка source-span'ов в клоне выделения.
+  // Используется в handleCopyEvent.
   //
-  // Без этого при копировании выделения, охватывающего abbr+source,
-  // expand развернёт abbr → "Domini", и source-span рядом тоже
-  // даст "Domini" → в буфер уйдёт "DominiDomini". Удаляем source
-  // из клона; expand работает с одной abbr, как раньше.
+  // Поведение зависит от режима страницы:
   //
-  // Также захватывает .mg-translate-source (на случай keyboard-
-  // selection поверх маргиналии Аидана; у пользователя user-select:
-  // none не блокирует Ctrl+A → selectAll).
+  // Обычный режим (body.mg-translated отсутствует):
+  //   abbr.med — primary visible content, в clipboard должна попасть
+  //   её раскрытая форма (через processAbbrInClone). source-span —
+  //   ghost-слой, нужный только Translate'у; в clipboard ему делать
+  //   нечего (иначе при последующем processAbbrInClone выйдет
+  //   "DominiDomini"). Удаляем source-span'ы целиком.
+  //
+  // Режим перевода (body.mg-translated):
+  //   abbr.med имеет display:none — она ghost; processAbbrInClone
+  //   удалит её. source-span — primary visible content, его текст
+  //   (переведённый Translate'ом или нет) должен попасть в clipboard.
+  //   Снимаем обёртку (unwrap), оставляя детей в потоке.
+  //
+  // Захватываем оба класса — .abbr-translate-source (для основного
+  // текста) и .mg-translate-source (для маргиналий Аидана).
   // ═══════════════════════════════════════════════════════════════
-  function removeTranslateSourcesInClone(fragment) {
+  function processTranslateSourcesInClone(fragment) {
+    const isTranslated = document.body.classList.contains('mg-translated');
     const sources = fragment.querySelectorAll(
       '.abbr-translate-source, .mg-translate-source'
     );
     for (let i = 0; i < sources.length; i++) {
       const s = sources[i];
-      if (s.parentNode) s.parentNode.removeChild(s);
+      const parent = s.parentNode;
+      if (!parent) continue;
+      if (isTranslated) {
+        // Unwrap: дети остаются на месте span'а.
+        while (s.firstChild) parent.insertBefore(s.firstChild, s);
+        parent.removeChild(s);
+      } else {
+        // Удалить целиком вместе с детьми.
+        parent.removeChild(s);
+      }
+    }
+  }
+
+  // ═══════════════════════════════════════════════════════════════
+  // PATCH TR4: фильтрация маргиналий в клоне выделения.
+  //
+  // Раньше копированием маргиналий заведовал CSS: .marginalia имеет
+  // user-select:none, и Selection.toString() в дефолтном copy их
+  // молча исключал. С PATCH TR4 copy всегда идёт через handleCopyEvent
+  // (intersectsNode-гард ловит и Ctrl+A, anchor которого — body),
+  // и принципы исключения нужно воспроизвести в клоне явно — иначе
+  // получим маргиналии как "хвост" к каждому абзацу.
+  //
+  // Поведение по режимам:
+  //
+  // body.mg-selectable активен (пользователь только что pointerdown'ал
+  //   в маргиналию — pointerdown-listener в самом конце скрипта это
+  //   toggle'ит): пользователь явно работает с маргиналиями, оставляем
+  //   всё как есть. processTranslateSourcesInClone и processAbbrInClone
+  //   дальше нормализуют структуру под режим.
+  //
+  // body.mg-translated активен (Translate iframe / Chrome built-in
+  //   Translate): в маргиналиях Аидана primary visible — source-слой,
+  //   render-слой (.mg-jitter-render) display:none. cloneContents
+  //   копирует его несмотря на display:none, и его textContent
+  //   (с ink-l/titulus-svg) дублируется к чистому source. Удаляем
+  //   render-слои. .mg-coemanus не split'ится (нет ни source, ни
+  //   jitter-render) — оставляем как есть, у них собственный
+  //   user-select:text-override в этом режиме.
+  //
+  // Обычный режим: воспроизводим старое CSS-исключение — удаляем
+  //   маргиналии целиком.
+  // ═══════════════════════════════════════════════════════════════
+  function filterMarginaliaInClone(fragment) {
+    const body = document.body;
+    if (body.classList.contains('mg-selectable')) return;
+    if (body.classList.contains('mg-translated')) {
+      // В translated режиме оставляем source маргиналий и Коеман.
+      // Удаляем только render-слои Аидана.
+      const renders = fragment.querySelectorAll('.mg-jitter-render');
+      for (let i = 0; i < renders.length; i++) {
+        const r = renders[i];
+        if (r.parentNode) r.parentNode.removeChild(r);
+      }
+      return;
+    }
+    // Обычный режим: маргиналии в clipboard не идут (паритет с
+    // прежним поведением через user-select:none).
+    const margs = fragment.querySelectorAll('.marginalia');
+    for (let i = 0; i < margs.length; i++) {
+      const m = margs[i];
+      if (m.parentNode) m.parentNode.removeChild(m);
     }
   }
 
