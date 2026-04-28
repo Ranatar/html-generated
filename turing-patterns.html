@@ -1349,65 +1349,128 @@
         let nextA = new Float32Array(size * size);
         let nextB = new Float32Array(size * size);
         
+        // Проверка поддержки WebGL и нужных расширений на ОТДЕЛЬНОМ временном canvas.
+        // Это критично: после первого вызова canvas.getContext('webgl') элемент навсегда
+        // связан с WebGL-типом контекста, и canvas.getContext('2d') на нём вернёт null.
+        // Поэтому никогда не тестируем возможности WebGL на основном canvas.
+        function checkWebGLSupport() {
+            let testCanvas = null;
+            let testGl = null;
+            try {
+                testCanvas = document.createElement('canvas');
+                testCanvas.width = 2;
+                testCanvas.height = 2;
+                testGl = testCanvas.getContext('webgl', {
+                    premultipliedAlpha: false,
+                    preserveDrawingBuffer: false,
+                    antialias: false
+                }) || testCanvas.getContext('experimental-webgl');
+
+                if (!testGl) {
+                    return { supported: false, reason: 'WebGL контекст недоступен' };
+                }
+
+                const floatExt = testGl.getExtension('OES_texture_float');
+                if (!floatExt) {
+                    return { supported: false, reason: 'OES_texture_float не поддерживается' };
+                }
+
+                const colorBufExt = testGl.getExtension('WEBGL_color_buffer_float') ||
+                                    testGl.getExtension('EXT_color_buffer_float');
+                if (!colorBufExt) {
+                    return { supported: false, reason: 'WEBGL_color_buffer_float / EXT_color_buffer_float не поддерживается' };
+                }
+
+                return { supported: true };
+            } catch (e) {
+                return { supported: false, reason: 'Исключение при проверке: ' + (e && e.message ? e.message : e) };
+            } finally {
+                // Освобождаем тестовый WebGL контекст, чтобы не висел в памяти GPU
+                if (testGl) {
+                    try {
+                        const loseExt = testGl.getExtension('WEBGL_lose_context');
+                        if (loseExt) loseExt.loseContext();
+                    } catch (e) { /* игнорируем */ }
+                }
+            }
+        }
+
+        // Хелпер: пересоздаёт основной canvas элемент в DOM, чтобы избавиться от
+        // привязки к WebGL-типу контекста и сделать возможным getContext('2d').
+        // Используется только в страховочных ветках initWebGL (например, при ошибке
+        // компиляции шейдеров уже после успешного создания gl).
+        function recreateCanvasForCPU() {
+            if (!canvas || !canvas.parentNode) return;
+            const newCanvas = document.createElement('canvas');
+            newCanvas.id = canvas.id;
+            newCanvas.width = canvas.width;
+            newCanvas.height = canvas.height;
+            // className/style не копируем — стили навешаны через id и .canvas-container > canvas
+            canvas.parentNode.replaceChild(newCanvas, canvas);
+            canvas = newCanvas;
+            console.log('[CPU] Canvas пересоздан для 2D контекста');
+        }
+
         // Попытка инициализации WebGL
         function initWebGL() {
+            // Шаг 1: проверяем поддержку на ВРЕМЕННОМ canvas, не трогая основной.
+            // Если нет WebGL или нужных расширений — основной canvas остаётся "чистым"
+            // и сможет принять 2D-контекст в fallback-ветке.
+            const support = checkWebGLSupport();
+            if (!support.supported) {
+                console.warn('[WebGL] Не поддерживается:', support.reason, '— будет использован CPU режим');
+                useGPU = false;
+                isWebGLReady = false;
+                return false;
+            }
+
             try {
-                // Сначала проверяем, можем ли мы вообще получить WebGL контекст
-                const testGl = canvas.getContext('webgl', {
+                // Шаг 2: поддержка подтверждена — создаём WebGL контекст на основном canvas.
+                gl = canvas.getContext('webgl', {
                     premultipliedAlpha: false,
                     preserveDrawingBuffer: false,
                     antialias: false
                 }) || canvas.getContext('experimental-webgl');
-                
-                if (!testGl) {
-                    console.warn('[WebGL] Контекст недоступен, будет использован CPU режим');
+
+                if (!gl) {
+                    // Маловероятно после успешной checkWebGLSupport, но на всякий случай
+                    console.warn('[WebGL] Не удалось создать контекст на основном canvas, откат на CPU');
+                    recreateCanvasForCPU();
                     useGPU = false;
                     isWebGLReady = false;
                     return false;
                 }
-                
-                // Проверяем необходимые расширения ДО присвоения gl
-                const floatExt = testGl.getExtension('OES_texture_float');
-                const floatLinearExt = testGl.getExtension('OES_texture_float_linear');
-                const colorBufferFloatExt = testGl.getExtension('WEBGL_color_buffer_float') || 
-                                             testGl.getExtension('EXT_color_buffer_float');
-                
-                if (!floatExt) {
-                    console.warn('[WebGL] OES_texture_float не поддерживается, будет использован CPU режим');
-                    // ВАЖНО: Не присваиваем gl, чтобы canvas остался доступен для 2D контекста
-                    useGPU = false;
-                    isWebGLReady = false;
-                    return false;
-                }
-                
-                if (!colorBufferFloatExt) {
-                    console.warn('[WebGL] WEBGL_color_buffer_float не поддерживается, будет использован CPU режим');
-                    useGPU = false;
-                    isWebGLReady = false;
-                    return false;
-                }
-                
-                // Все проверки прошли успешно, теперь присваиваем gl
-                gl = testGl;
-                
+
+                // Активируем расширения на основном контексте (они уже подтверждены как доступные)
+                const floatExt = gl.getExtension('OES_texture_float');
+                const floatLinearExt = gl.getExtension('OES_texture_float_linear');
+                const colorBufferFloatExt = gl.getExtension('WEBGL_color_buffer_float') ||
+                                             gl.getExtension('EXT_color_buffer_float');
+
                 console.log('[WebGL] Расширения загружены:', {
                     float: !!floatExt,
                     floatLinear: !!floatLinearExt,
                     colorBufferFloat: !!colorBufferFloatExt
                 });
-                
+
                 // Компиляция шейдеров
                 simulationProgram = createProgram(gl, vertexShaderSource, simulationFragmentShaderSource);
                 renderProgram = createProgram(gl, vertexShaderSource, renderFragmentShaderSource);
-                
+
                 if (!simulationProgram || !renderProgram) {
-                    console.error('[WebGL] Ошибка компиляции шейдеров');
+                    console.error('[WebGL] Ошибка компиляции шейдеров — откат на CPU');
+                    // Canvas уже привязан к WebGL — пересоздаём элемент, чтобы CPU-режим заработал
+                    try {
+                        const loseExt = gl.getExtension('WEBGL_lose_context');
+                        if (loseExt) loseExt.loseContext();
+                    } catch (e) { /* игнорируем */ }
+                    gl = null;
+                    recreateCanvasForCPU();
                     useGPU = false;
                     isWebGLReady = false;
-                    gl = null;
                     return false;
                 }
-                
+
                 // Создание буфера для полноэкранного квадрата
                 quadBuffer = gl.createBuffer();
                 gl.bindBuffer(gl.ARRAY_BUFFER, quadBuffer);
@@ -1416,24 +1479,32 @@
                     -1, 1,   1, -1,   1, 1
                 ]);
                 gl.bufferData(gl.ARRAY_BUFFER, vertices, gl.STATIC_DRAW);
-                
+
                 // Создание текстур и framebuffer'ов
                 createTextures();
-                
+
                 isWebGLReady = true;
                 useGPU = true;
                 console.log('[WebGL] Успешно инициализирован');
                 return true;
-                
+
             } catch (e) {
                 console.error('[WebGL] Ошибка инициализации:', e);
+                // Если gl уже был создан, основной canvas привязан к WebGL — пересоздаём его
+                if (gl) {
+                    try {
+                        const loseExt = gl.getExtension('WEBGL_lose_context');
+                        if (loseExt) loseExt.loseContext();
+                    } catch (err) { /* игнорируем */ }
+                    gl = null;
+                    recreateCanvasForCPU();
+                }
                 useGPU = false;
                 isWebGLReady = false;
-                gl = null;
                 return false;
             }
         }
-        
+
         // Попытка инициализации WebGL
         const webglSuccess = initWebGL();
 
@@ -1442,16 +1513,17 @@
             console.log('[CPU] Переключение на CPU режим');
             useGPU = false;
             isWebGLReady = false;
-            
-            // Получаем 2D контекст (это сработает только если WebGL не был присвоен)
+
+            // Получаем 2D контекст. Благодаря тому, что initWebGL не трогает основной canvas
+            // в случае неудачной checkWebGLSupport (а в редких случаях ошибки шейдеров canvas
+            // пересоздаётся), здесь getContext('2d') гарантированно сработает.
             ctx = canvas.getContext('2d');
-            
+
             if (!ctx) {
-                console.error('[CPU] КРИТИЧЕСКАЯ ОШИБКА: Не удалось получить 2D контекст');
-                console.error('[CPU] Canvas возможно уже привязан к WebGL');
+                console.error('[CPU] КРИТИЧЕСКАЯ ОШИБКА: Не удалось получить 2D контекст даже после fallback-логики');
             } else {
                 console.log('[CPU] 2D контекст успешно получен, CPU режим активен');
-                
+
                 // Принудительно устанавливаем CPU режим в селекторе
                 setTimeout(() => {
                     const computeModeSelect = document.getElementById('computeMode');
