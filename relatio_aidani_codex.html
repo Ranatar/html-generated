@@ -4207,11 +4207,22 @@
       // не делаем, отдаём управление браузеру.
       if (sel.isCollapsed) return;
 
-      // Клонируем содержимое выделения. Это DocumentFragment, в
-      // котором живёт копия DOM — реальный документ остаётся
-      // неприкосновенным.
-      const range = sel.getRangeAt(0);
-      const fragment = range.cloneContents();
+      // Клонируем содержимое ВСЕХ range'ов в общий fragment. Реальный
+      // документ остаётся неприкосновенным.
+      //
+      // Firefox при Ctrl+A через документ с user-select:none зонами
+      // (.marginalia в нашем случае) делит selection на множество
+      // range'ов, обходя запретные участки. У нас в кодексе сотни
+      // маргиналий — соответственно сотни range'ов.
+      //
+      // Chrome rangeCount=1 — цикл выполнится одну итерацию; результат
+      // тот же, что прежде с getRangeAt(0).
+      const fragment = document.createDocumentFragment();
+      for (let i = 0; i < sel.rangeCount; i++) {
+        try {
+          fragment.appendChild(sel.getRangeAt(i).cloneContents());
+        } catch (_) { /* skip broken ranges, продолжаем */ }
+      }
 
       // Early-return: если в клоне нет ни одной из "наших" структур,
       // отдаём дефолтное поведение браузера (быстрее, ничего не
@@ -4228,6 +4239,9 @@
       }
 
       // Порядок ВАЖЕН:
+      //   0. removeNonVisibleNodes — script/style/template и пр.
+      //      убираются первыми, чтобы не мешать остальным фазам и
+      //      не утечь в clipboard через innerText/textContent.
       //   1. filterMarginalia режет render/marginalia сразу — нет
       //      смысла дальше трогать abbr внутри уже отрезанных узлов.
       //   2. processTranslateSources в translated режиме делает unwrap
@@ -4236,20 +4250,32 @@
       //   3. processAbbr — в translated режиме удаляет abbr (она ghost),
       //      в обычном раскрывает её в data-expand.
       //   4. expandLigaProtect — структурная очистка обёрток.
+      removeNonVisibleNodesInClone(fragment);
       filterMarginaliaInClone(fragment);
       processTranslateSourcesInClone(fragment);
       processAbbrInClone(fragment);
       expandLigaProtectInClone(fragment);
 
-      // Готовим plain-text версию. Простейший способ — взять
-      // textContent объединённого фрагмента. Браузер сам подставит
-      // переносы строк там, где были блочные элементы.
+      // Plain-text сериализация. wrapper.textContent склеил бы соседние
+      // <p>, <div.rubric> и пр. без переводов строк (textContent на CSS
+      // display не смотрит). innerText — учитывает rendered text и
+      // ставит \n между блочными элементами, что и нужно для plain-text
+      // копии. Но innerText вычисляется через computed style, поэтому
+      // wrapper должен быть в документе. Кладём off-screen.
       const wrapper = document.createElement('div');
       wrapper.appendChild(fragment.cloneNode(true));
-      const plainText = wrapper.textContent;
-
-      // HTML-версия: serializeOuterHTML обёртки.
+      wrapper.style.cssText =
+        'position:absolute;left:-99999px;top:0;' +
+        'width:auto;visibility:visible;pointer-events:none;';
+      document.body.appendChild(wrapper);
+      let plainText;
+      try {
+        plainText = wrapper.innerText;
+      } catch (_) {
+        plainText = wrapper.textContent;  // fallback если innerText недоступен
+      }
       const htmlText = wrapper.innerHTML;
+      document.body.removeChild(wrapper);
 
       // Записываем оба формата в буфер обмена. Если редактор-получатель
       // умеет HTML, возьмёт html; если нет — plain-text.
@@ -4259,20 +4285,29 @@
     }
 
     // Регистрируем глобально на document. Гард пересечения с codex-book
-    // через range.intersectsNode — Ctrl+A (anchor=body) тоже корректно
-    // попадает в handler, так как range покрывает весь body, а codex
-    // его подмножество. Старый гард codexRoot.contains(anchorEl) этого
-    // не ловил (body не contains в codex), и Ctrl+A падал в дефолтное
-    // поведение Chrome — со всеми его артефактами.
+    // через range.intersectsNode на КАЖДОМ range — Firefox при Ctrl+A
+    // через документ с user-select:none зонами (маргиналии) даёт
+    // multi-range selection: rangeCount может быть в сотнях, и
+    // getRangeAt(0) указывает в начало документа вне codex. Перебираем
+    // все range'ы — если хоть один пересекается с codex, handler
+    // срабатывает.
+    //
+    // В Chrome rangeCount всегда 1, цикл выполнится одну итерацию;
+    // обратная совместимость сохраняется.
     document.addEventListener('copy', function (e) {
       const sel = window.getSelection();
       if (!sel || sel.rangeCount === 0) return;
       const codexRoot = document.getElementById('codex-book');
       if (!codexRoot) return;
-      const range = sel.getRangeAt(0);
-      let touches;
-      try { touches = range.intersectsNode(codexRoot); }
-      catch (_) { touches = false; }
+      let touches = false;
+      for (let i = 0; i < sel.rangeCount; i++) {
+        try {
+          if (sel.getRangeAt(i).intersectsNode(codexRoot)) {
+            touches = true;
+            break;
+          }
+        } catch (_) { /* ignore individual range failures */ }
+      }
       if (!touches) return;
       handleCopyEvent(e);
     });
@@ -4783,6 +4818,34 @@
     for (let i = 0; i < margs.length; i++) {
       const m = margs[i];
       if (m.parentNode) m.parentNode.removeChild(m);
+    }
+  }
+
+  // ═══════════════════════════════════════════════════════════════
+  // PATCH TR4: удаление невизуальных служебных тегов из клона.
+  //
+  // range.cloneContents() клонирует DOM-узлы по их позиции в дереве,
+  // не учитывая CSS display. Поэтому при Ctrl+A клон может содержать
+  // <script> (его textContent — весь JS-код), <style> (CSS-правила
+  // как текст), <template> (хотя его children лежат в template.content
+  // и не должны быть в основном tree, но сам тег попадает) и пр.
+  //
+  // В Chrome это маскируется тем, что Selection нормализует границы
+  // Ctrl+A до последнего "отображаемого" содержимого, и script-узлы
+  // часто остаются за границей. В Firefox при multi-range selection
+  // один из ranges зачастую заходит на script — и его код утекает
+  // в clipboard.
+  //
+  // Решение: явно вырезаем из клона теги, которые по определению
+  // не имеют visible-текста для пользователя.
+  // ═══════════════════════════════════════════════════════════════
+  function removeNonVisibleNodesInClone(fragment) {
+    const nodes = fragment.querySelectorAll(
+      'script, style, template, link, meta, noscript, head'
+    );
+    for (let i = 0; i < nodes.length; i++) {
+      const n = nodes[i];
+      if (n.parentNode) n.parentNode.removeChild(n);
     }
   }
 
