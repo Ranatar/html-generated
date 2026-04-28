@@ -4256,26 +4256,16 @@
       processAbbrInClone(fragment);
       expandLigaProtectInClone(fragment);
 
-      // Plain-text сериализация. wrapper.textContent склеил бы соседние
-      // <p>, <div.rubric> и пр. без переводов строк (textContent на CSS
-      // display не смотрит). innerText — учитывает rendered text и
-      // ставит \n между блочными элементами, что и нужно для plain-text
-      // копии. Но innerText вычисляется через computed style, поэтому
-      // wrapper должен быть в документе. Кладём off-screen.
+      // Plain-text — через ручной обход с явным списком блочных
+      // узлов (см. fragmentToPlainText). innerText через off-screen
+      // attach в обоих движках имеет quirks с display:block на
+      // span.rubric и shrink-to-fit width на абсолютно-позиционированном
+      // wrapper. Ручной обход надёжен и не требует ни attach, ни
+      // computed style.
       const wrapper = document.createElement('div');
       wrapper.appendChild(fragment.cloneNode(true));
-      wrapper.style.cssText =
-        'position:absolute;left:-99999px;top:0;' +
-        'width:auto;visibility:visible;pointer-events:none;';
-      document.body.appendChild(wrapper);
-      let plainText;
-      try {
-        plainText = wrapper.innerText;
-      } catch (_) {
-        plainText = wrapper.textContent;  // fallback если innerText недоступен
-      }
+      const plainText = fragmentToPlainText(wrapper);
       const htmlText = wrapper.innerHTML;
-      document.body.removeChild(wrapper);
 
       // Записываем оба формата в буфер обмена. Если редактор-получатель
       // умеет HTML, возьмёт html; если нет — plain-text.
@@ -4847,6 +4837,97 @@
       const n = nodes[i];
       if (n.parentNode) n.parentNode.removeChild(n);
     }
+  }
+
+  // ═══════════════════════════════════════════════════════════════
+  // PATCH TR4: plain-text сериализация фрагмента с переносами строк
+  // между блочными узлами.
+  //
+  // textContent склеивает соседние <p> вплотную (display не учитывает).
+  // innerText теоретически учитывает rendered display, но требует
+  // элемент в документе и в обоих движках имеет quirks с off-screen
+  // attach + shrink-to-fit width — span.rubric с display:block не
+  // признаётся блочным, что-то наследуется не вовремя.
+  //
+  // Надёжнее знать структуру самим. У нас в кодексе фиксированный
+  // набор блочных HTML-тегов плюс несколько inline-тегов с CSS
+  // display:block (rubric, doc-title, doc-subtitle, divider, и т.д.).
+  // Список ниже покрывает их полностью; добавление нового блочного
+  // класса в CSS = добавление сюда.
+  //
+  // Алгоритм: рекурсивный обход. Перед и после block-узла
+  // добавляется '\n'. <br> — одиночный '\n'. Inline-узлы и текстовые
+  // узлы выводятся как есть. В конце сжимаем 3+ подряд \n до двух
+  // (\n\n даёт пустую строку между абзацами — стандартный plain-text)
+  // и тримим внешние whitespace.
+  // ═══════════════════════════════════════════════════════════════
+  const BLOCK_TAGS_FOR_TEXT = {
+    P: 1, DIV: 1, H1: 1, H2: 1, H3: 1, H4: 1, H5: 1, H6: 1,
+    LI: 1, UL: 1, OL: 1, BLOCKQUOTE: 1, PRE: 1, HR: 1,
+    SECTION: 1, ARTICLE: 1, ASIDE: 1, NAV: 1, HEADER: 1, FOOTER: 1, MAIN: 1,
+    TABLE: 1, TR: 1, FIGURE: 1, FIGCAPTION: 1
+  };
+  // Inline-теги (span, em, abbr и пр.) с CSS display:block в нашем
+  // файле. Список синхронизирован со стилями codex-styles.
+  const BLOCK_CLASSES_FOR_TEXT = {
+    'rubric': 1, 'section-break-soft': 1,
+    'doc-title': 1, 'doc-subtitle': 1,
+    'ornament-line': 1, 'divider': 1,
+    'colophon': 1, 'later-hand': 1, 'later-hand-colophon': 1,
+    'marginalia': 1, 'signum': 1, 'theological-cont': 1,
+    'illuminated-initial': 1, 'big-initial': 1,
+    'folio': 1, 'folio-content': 1, 'spread': 1, 'folio-cover': 1,
+    'mg-jitter-render': 1, 'mg-translate-source': 1
+  };
+
+  function isBlockForText(el) {
+    if (BLOCK_TAGS_FOR_TEXT[el.tagName]) return true;
+    if (!el.classList || el.classList.length === 0) return false;
+    for (let i = 0; i < el.classList.length; i++) {
+      if (BLOCK_CLASSES_FOR_TEXT[el.classList[i]]) return true;
+    }
+    return false;
+  }
+
+  function fragmentToPlainText(fragment) {
+    const parts = [];
+    function walk(node) {
+      const t = node.nodeType;
+      if (t === 3) {
+        // text: подавляем чисто-whitespace узлы между блоками
+        // (форматирующие пробелы из исходного HTML), но содержащие
+        // непустой текст оставляем как есть.
+        parts.push(node.nodeValue);
+        return;
+      }
+      if (t !== 1) return;
+      if (node.tagName === 'BR') {
+        parts.push('\n');
+        return;
+      }
+      const block = isBlockForText(node);
+      if (block) parts.push('\n');
+      const kids = node.childNodes;
+      for (let i = 0; i < kids.length; i++) walk(kids[i]);
+      if (block) parts.push('\n');
+    }
+    const kids = fragment.childNodes;
+    for (let i = 0; i < kids.length; i++) walk(kids[i]);
+    // Нормализация: 3+ \n → \n\n (абзац-разделитель), тримим
+    // ведущие/хвостовые whitespace, схлопываем горизонтальные
+    // пробелы у границ строк (после переноса строки часто остаётся
+    // ведущий whitespace из исходного форматирования HTML).
+    let out = parts.join('');
+    out = out.replace(/[ \t]*\n[ \t]*/g, '\n');
+    out = out.replace(/\n{3,}/g, '\n\n');
+    out = out.replace(/^\s+|\s+$/g, '');
+    // Конвертация LF → CRLF для совместимости со старыми редакторами
+    // (Windows Notepad <= Win10 1809 не распознаёт LF-only). Современные
+    // редакторы (Sublime, VSCode, Word, Google Docs, браузеры на любой
+    // платформе) одинаково корректно читают CRLF. Делаем последним
+    // шагом, после всех нормализаций по \n.
+    out = out.replace(/\n/g, '\r\n');
+    return out;
   }
 
   // ═══════════════════════════════════════════════════════════════
