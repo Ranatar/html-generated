@@ -401,6 +401,13 @@
     font-size: 1.15em;
     letter-spacing: 0.04em;
     display: block;
+    /* PATCH X-BROWSER: явный line-height в пикселях вместо CSS-дефолта
+       'normal'. Для шрифта 0550 Uncialis 'normal' = 1.52× в Firefox
+       и 1.30× в Chrome — расхождение происходит из-за разной
+       интерпретации typo-таблиц шрифта (sTypoAscender/Descender/LineGap
+       vs HHEA-таблица). Зафиксированное 28px = Firefox-вариант, теперь
+       Chrome даёт ту же высоту строки. */
+    line-height: 28px;
     margin: 20px 0 14px;
     text-shadow: var(--ink-bleed-red);
     word-spacing: 0.35em;
@@ -611,6 +618,11 @@
     color: rgba(100,50,10,0.5);
     font-size: 1.1em;
     letter-spacing: 0.3em;
+    /* PATCH X-BROWSER: явный line-height против дрейфа 'normal'
+       между движками. Для шрифта 0800 Kells 'normal' даёт ~32px
+       в Firefox vs 17-20px в Chrome (разница типографических
+       метрик). Закрепляем за Firefox-вариантом. */
+    line-height: 32px;
   }
   .ornament-line::before,
   .ornament-line::after {
@@ -860,9 +872,28 @@
        Теперь все uncial-пассажи (и inline, и блочные) — одного размера. */
     font-size: 0.86em;
     line-height: 1.7;
-    letter-spacing: 0.01em;
     color: #2a1808;
-    word-spacing: 0.28em;
+    /* PATCH X-BROWSER-2: letter/word-spacing в абсолютных px вместо em.
+       Шрифт 0550 Uncialis вообще не имеет GSUB/GPOS/kern таблиц
+       (анализ через fontTools), то есть никаких лигатур, кернинга или
+       контекстных подстановок — каждый глиф получает одну и ту же
+       advance width в любом движке. Однако letter-spacing: 0.01em
+       и word-spacing: 0.28em в относительных единицах подвергаются
+       sub-pixel округлению, и Chromium+FreeType округляет иначе, чем
+       Gecko+DirectWrite — ~0.04px на букву × 85 букв в строке = ~3.4px,
+       чего хватает чтобы последнее слово не уместилось и обернулось.
+       Зафиксированное в px значение одинаково для обоих движков.
+
+       Числа: 0.14px = 0.01em × 13.76 (font-size при 0.86em).
+              3.85px = 0.28em × 13.76. */
+    letter-spacing: 0.14px;
+    word-spacing: 3.85px;
+    /* font-feature-settings и font-variant-ligatures убраны: в шрифте
+       нет таблиц лигатур, эти свойства не имели на что воздействовать.
+       text-rendering: geometricPrecision сохраняем — оно влияет на
+       sub-pixel positioning глифов в принципе, и без него Chrome
+       работает в режиме оптимизации скорости. */
+    text-rendering: geometricPrecision;
   }
   span.uncial-passage,
   em.uncial-passage {
@@ -4459,6 +4490,35 @@
     });
   }
 
+  // PATCH X-BROWSER-4: однозначный (single-point) syllabifier.
+  // Возвращает только один разрыв — самый центральный из найденных
+  // syllabifyLatin. Это устраняет неоднозначность line-breaking
+  // между движками: когда в слове несколько <wbr>, Firefox и Chrome
+  // могут выбрать РАЗНЫЕ при переполнении (вид. на "peccatum" с
+  // wbr [3,4]: FF берёт после 'pec', Chrome после 'pecc'). При
+  // одном wbr на слово выбора нет — оба переносят в одной точке.
+  //
+  // Центр выбран как точка с минимальной |breakPos − wordLen/2|:
+  // даёт сбалансированное разделение и оптимальное использование
+  // ширины строки. Для длинных слов с многими разрывами это всё
+  // равно даёт хорошую визуальную типографию.
+  function syllabifyLatinSingle(word) {
+    const all = syllabifyLatin(word);
+    if (all.length === 0) return [];
+    if (all.length === 1) return all;
+    const center = word.length / 2;
+    let best = all[0];
+    let bestDist = Math.abs(best - center);
+    for (let i = 1; i < all.length; i++) {
+      const d = Math.abs(all[i] - center);
+      if (d < bestDist) {
+        best = all[i];
+        bestDist = d;
+      }
+    }
+    return [best];
+  }
+
   function seeded(seed) {
     let s = seed >>> 0;
     return function() {
@@ -4551,7 +4611,25 @@
     for (let i = 0; i < kids.length; i++) {
       const kid = kids[i];
       if (kid.nodeType === 3) {
-        if (!/\S/.test(kid.nodeValue)) continue;
+        // PATCH X-BROWSER-5: whitespace-only text-узлы между inline
+        // элементами (например, "\n          " между <abbr>DS</abbr>
+        // и следующим словом) тоже надо схлопывать в одиночный
+        // пробел. Иначе при копировании в clipboard через textContent
+        // эти whitespace попадают как есть, давая многострочные
+        // разрывы и многократные пробелы.
+        //
+        // Раньше continue здесь оставлял такие узлы нетронутыми, и
+        // визуально это было нормально (HTML-collapse в рендере), но
+        // textContent возвращал сырой whitespace. С фазой 0 source
+        // больше не схлопывает их сам. Безопасно заменить — браузер
+        // визуально обработает одиночный пробел так же, как раньше
+        // обрабатывал любую whitespace-последовательность.
+        if (!/\S/.test(kid.nodeValue)) {
+          if (kid.nodeValue !== ' ') {
+            kid.nodeValue = ' ';
+          }
+          continue;
+        }
         el.replaceChild(processTextNode(kid), kid);
       } else if (kid.nodeType === 1) {
         walkJitter(kid);
@@ -4630,6 +4708,59 @@
       const textNode = document.createTextNode(expansion);
       abbr.parentNode.replaceChild(textNode, abbr);
     });
+
+    // PATCH X-BROWSER-5: нормализация whitespace в source-клоне.
+    //
+    // Исходный HTML маргиналий содержит <br> между визуальными строками
+    // и whitespace-отступы между ними:
+    //   <div class="marginalia">
+    //     Orate pro Eldar<br>
+    //              qui ultra mare<br>
+    //              manent...
+    //   </div>
+    // Шаг 1 фазы 0 (в preprocessSourceTemplate) заменил <br> на пробел,
+    // но \n и пробелы отступа остались в text-узлах: "\n          qui
+    // ultra mare". Render-слой проходит через walkJitter, который
+    // схлопывает whitespace в processTextNode. Source-слой — это
+    // глубокий cloneNode результат, и whitespace в его text-узлах
+    // никем не схлопнут.
+    //
+    // Раньше это не проявлялось потому, что source создавался уже после
+    // walkJitter (в фазе 2), и брал клон ИЗ render-слоя — где whitespace
+    // уже был схлопнут. С перенесением в фазу 0 (PATCH X-BROWSER-3)
+    // порядок поменялся: source клонируется ДО walkJitter, на сыром
+    // template'е. Поэтому теперь нужно явно нормализовать whitespace
+    // в source — ровно так же, как processTextNode делает для render.
+    //
+    // На что это влияет: 1) Translate получает текст без переносов
+    // строк и многократных пробелов (важно для качества перевода);
+    // 2) при копировании в mg-selectable режиме source-копия
+    // не дублирует render с лишними переносами строк.
+    //
+    // Двухэтапная нормализация: сначала схлопываем whitespace внутри
+    // каждого text-узла, потом ещё раз пробегаемся по соседним
+    // text-узлам и схлопываем повторные пробелы, возникающие от
+    // склейки "...Eldar" + " " (замена <br>) + " qui...". Без этого
+    // получили бы "Eldar  qui" с двойным пробелом.
+    const sourceWalker = document.createTreeWalker(source, NodeFilter.SHOW_TEXT, null);
+    const sourceTextNodes = [];
+    let stn;
+    while ((stn = sourceWalker.nextNode())) sourceTextNodes.push(stn);
+    for (let i = 0; i < sourceTextNodes.length; i++) {
+      const tn = sourceTextNodes[i];
+      tn.nodeValue = tn.nodeValue.replace(/\s+/g, ' ');
+    }
+    // Второй проход: схлопнуть пробел-в-конце + пробел-в-начале
+    // соседних text-узлов. Делаем простой алгоритм: если text-узел
+    // начинается с пробела, а предыдущий text-узел оканчивается
+    // пробелом — убираем ведущий пробел из текущего.
+    for (let i = 1; i < sourceTextNodes.length; i++) {
+      const prev = sourceTextNodes[i - 1];
+      const curr = sourceTextNodes[i];
+      if (prev.nodeValue.endsWith(' ') && curr.nodeValue.startsWith(' ')) {
+        curr.nodeValue = curr.nodeValue.replace(/^ +/, '');
+      }
+    }
 
     // Render: оригинальные узлы переезжают в обёртку с явными
     // атрибутами-сигналами для Translate и AT.
@@ -4920,6 +5051,14 @@
     let out = parts.join('');
     out = out.replace(/[ \t]*\n[ \t]*/g, '\n');
     out = out.replace(/\n{3,}/g, '\n\n');
+    // PATCH X-BROWSER-5: схлопываем двойные пробелы. Они возникают
+    // когда между двумя соседними inline-элементами стоят несколько
+    // соседних whitespace-only text-узлов: например, `Orate pro Eldar`
+    // + ` ` (заменённый <br>) + ` ` (схлопнутый \n          из исходного
+    // HTML) → `Eldar  qui` с двойным пробелом. textContent склеивает
+    // их вплотную, и до этой точки нормализации они доживают. В
+    // plain-text двойные пробелы редко имеют семантический смысл.
+    out = out.replace(/ {2,}/g, ' ');
     out = out.replace(/^\s+|\s+$/g, '');
     // Конвертация LF → CRLF для совместимости со старыми редакторами
     // (Windows Notepad <= Win10 1809 не распознаёт LF-only). Современные
@@ -5035,7 +5174,18 @@
       const word = m[1];
       const other = m[2];
       if (word) {
-        const breaks = syllabifyLatin(word);
+        // PATCH X-BROWSER-4: используем single-point syllabifier
+        // вместо обычного. Многоточечная разбивка приводила к
+        // расхождению Firefox/Chrome при выборе точки переноса
+        // (см. комментарий к syllabifyLatinSingle). С одной точкой
+        // на слово выбор однозначен — оба движка переносят там же.
+        //
+        // Для маргиналий это тоже работает: ширина 68 px, шрифт Beda
+        // fs=9.28px ≈ 5-6 px на букву. Слово до 13 букв (~70 px)
+        // влезает целиком в строку маргиналии, длинные слова получают
+        // wbr в центре и обе половины умещаются (e.g. "Occidentem"
+        // длиной 10 букв → "Occi-dentem", по 4-5 букв ≈ 25 px каждая).
+        const breaks = syllabifyLatinSingle(word);
         if (breaks.length === 0) {
           frag.appendChild(document.createTextNode(word));
         } else {
@@ -5064,12 +5214,29 @@
 
   function walkWbrOnly(el) {
     if (SKIP_TAGS[el.tagName]) return;
-    if (el.classList && el.classList.contains('liga-protect')) return;
+    // PATCH X-BROWSER-3: skip translate-source-spans. Они содержат
+    // ПОЛНУЮ форму слова для Google Translate (например, "Domini" рядом
+    // с visible abbr "DNI"). Если walkWbrOnly разорвёт их на "Do<wbr>mi
+    // <wbr>ni", Translate не распознает слово как единое целое и оставит
+    // в переводе сырой латинский фрагмент. Источники переводов должны
+    // оставаться неразорванными.
+    if (el.classList && (
+        el.classList.contains('liga-protect') ||
+        el.classList.contains('abbr-translate-source') ||
+        el.classList.contains('mg-translate-source')
+    )) return;
     const kids = Array.from(el.childNodes);
     for (let i = 0; i < kids.length; i++) {
       const kid = kids[i];
       if (kid.nodeType === 3) {
-        if (!/\S/.test(kid.nodeValue)) continue;
+        // PATCH X-BROWSER-5: см. walkJitter — то же поведение для
+        // whitespace-only text-узлов между inline-элементами.
+        if (!/\S/.test(kid.nodeValue)) {
+          if (kid.nodeValue !== ' ') {
+            kid.nodeValue = ' ';
+          }
+          continue;
+        }
         el.replaceChild(processTextNodeWbrOnly(kid), kid);
       } else if (kid.nodeType === 1) {
         walkWbrOnly(kid);
@@ -5077,14 +5244,104 @@
     }
   }
 
+  // ═══════════════════════════════════════════════════════════════
+  // PATCH X-BROWSER-3: фаза 0 — обработка template ДО пагинации.
+  //
+  // Проблема: hyphens: auto в Firefox разрывает длинные латинские
+  // слова на слогах через встроенный словарь, а Chrome (Blink) для
+  // lang="la" словаря не имеет — и не разрывает. Из-за этого один
+  // и тот же текст в Firefox занимает на 1 строку меньше, чем в
+  // Chrome. Накопительно это даёт расхождение в 1-2 страницы по
+  // всему кодексу.
+  //
+  // Решение: применяем walkWbrOnly (syllabifier + <wbr>) к ВСЕМУ
+  // содержимому ДО пагинации — тогда оба движка переносят на одних
+  // и тех же <wbr>-точках, идентично. Заодно переносим сюда же
+  // все остальные обработки текста, которые раньше шли в фазе 1.5
+  // (после рендера) — applyAbbreviations, decorateTituli и пр.
+  // Иначе walkWbrOnly разорвал бы цельные слова "Domini" в текст-
+  // узлах, и applyAbbreviations потом не нашёл бы их по regex.
+  //
+  // Все вызываемые здесь функции layout-независимы (используют только
+  // tagName/classList/textContent), поэтому корректно работают на
+  // DocumentFragment template'а — даже когда тот не в DOM.
+  //
+  // ВАЖНО: после фазы 0 фаза 1.5 (старая) больше не нужна —
+  // applyAbbreviations и пр. удалены из run(). Фаза 2 сокращена до
+  // layout-зависимых вызовов: addInkArtifacts, setupTranslationObserver.
+  // ═══════════════════════════════════════════════════════════════
+  function preprocessSourceTemplate() {
+    const tpl = document.getElementById('codex-source');
+    const root = tpl.content;
+
+    // Шаг 1. <br> в маргиналиях → пробелы. Раньше делалось через
+    // normalizeMarginaliaBreaks() в фазе 2 на document. Здесь работаем
+    // на template DocumentFragment напрямую.
+    const margBrs = root.querySelectorAll('.marginalia br');
+    for (let i = 0; i < margBrs.length; i++) {
+      const br = margBrs[i];
+      br.parentNode.replaceChild(document.createTextNode(' '), br);
+    }
+
+    // Шаг 2. Палеографические сокращения. detectFont использует только
+    // classList родителей, не зависит от computed style — работает на
+    // template корректно.
+    applyAbbreviations(root);
+    decorateTituli(root);
+
+    // Шаг 3. Translate-source-spans для основного текста (рядом с abbr).
+    // Маргиналии addAbbrTranslateSources пропускает (closest('.marginalia')).
+    addAbbrTranslateSources(root);
+
+    // Шаг 4. Маргиналии Айдана: split на source+render, затем wbr и
+    // jitter на render-слое.
+    //
+    // splitMarginaliaForTranslate берёт текущее содержимое маргиналии
+    // (уже с abbr+titulus после шагов 2-3), клонирует в source-слой
+    // с разворачиванием abbr в полные формы, и переносит оригиналы
+    // в render-слой.
+    //
+    // walkWbrOnly после split вставляет <wbr> в render — render-слой
+    // получает break-opportunities в длинных словах. Source-слой не
+    // трогаем (skip через классы в walkWbrOnly).
+    //
+    // walkJitter в самом конце: оборачивает буквы render-слоя в ink-l
+    // span'ы. К этому моменту wbr расставлены, abbr пропускается через
+    // SKIP_TAGS, span'ы перевода — через class skip.
+    const aidanMargs = root.querySelectorAll('.marginalia:not(.mg-coemanus)');
+    for (let i = 0; i < aidanMargs.length; i++) {
+      splitMarginaliaForTranslate(aidanMargs[i]);
+    }
+    const aidanRenders = root.querySelectorAll('.marginalia:not(.mg-coemanus) .mg-jitter-render');
+    for (let i = 0; i < aidanRenders.length; i++) walkWbrOnly(aidanRenders[i]);
+    for (let i = 0; i < aidanRenders.length; i++) walkJitter(aidanRenders[i]);
+
+    // Шаг 5. Маргиналии Коемана — только wbr, без jitter (другая рука).
+    const coemanMargs = root.querySelectorAll('.marginalia.mg-coemanus');
+    for (let i = 0; i < coemanMargs.length; i++) walkWbrOnly(coemanMargs[i]);
+
+    // Шаг 6. ОСНОВНОЙ ТЕКСТ — walkWbrOnly на каждом блоке верхнего
+    // уровня кроме маргиналий. Это и есть собственно фикс Chrome ≠
+    // Firefox: длинные латинские слова в <p>, <p.dropcap>,
+    // <p.uncial-passage>, <p.theological>, <span.rubric>, <div.colophon>
+    // получают <wbr> между слогами. После этого hyphens: auto не нужен —
+    // оба браузера переносят на тех же явных break-opportunities.
+    const topNodes = Array.from(root.childNodes);
+    for (let i = 0; i < topNodes.length; i++) {
+      const n = topNodes[i];
+      if (n.nodeType !== 1) continue;
+      if (n.classList && n.classList.contains('marginalia')) continue;
+      walkWbrOnly(n);
+    }
+  }
+
   function runJitter() {
-    normalizeMarginaliaBreaks();
-    // PATCH TR: split до walkJitter — иначе jitter применится к
-    // оригинальным узлам и дальше source не получится сделать
-    // "чистым" (там тоже окажутся побуквенные span'ы).
-    document.querySelectorAll('.marginalia:not(.mg-coemanus)').forEach(splitMarginaliaForTranslate);
-    document.querySelectorAll('.marginalia:not(.mg-coemanus) .mg-jitter-render').forEach(walkJitter);
-    document.querySelectorAll('.marginalia.mg-coemanus').forEach(walkWbrOnly);
+    // PATCH X-BROWSER-3: фаза 0 теперь делает всю обработку текста
+    // (включая walkJitter) ДО пагинации. К моменту resize маргиналии
+    // уже jittered и wbr'ed, повторный walkJitter удвоил бы ink-l
+    // span'ы (walkJitter не идемпотентен). Поэтому здесь оставляем
+    // только пере-позиционирование, которое нужно при изменении
+    // ширины окна.
     positionMarginalia();
   }
 
@@ -5463,6 +5720,23 @@
     }
 
     const sourceTpl = document.getElementById('codex-source');
+
+    // ── Фаза 0 (PATCH X-BROWSER-3): обработка template ДО пагинации ──
+    // Раньше applyAbbreviations / decorateTituli / addAbbrTranslateSources /
+    // splitMarginaliaForTranslate / walkJitter / walkWbrOnly шли ПОСЛЕ
+    // pagination — на уже отрендеренной книге. Это работало, но
+    // pagination измеряла ИСХОДНЫЙ template без abbr и без wbr —
+    // и hyphens: auto в Firefox разрывал длинные слова, а в Chrome
+    // (нет словаря для lang="la") нет, что давало рассинхрон в одну
+    // строку на каждом длинном абзаце и накопительно — расхождение
+    // в 1-2 страницы между средами.
+    //
+    // Теперь обработка идёт на template до измерения. Pagination
+    // получает ровно тот текст, который окажется в DOM, со всеми
+    // <wbr> внутри. Оба движка переносят на одних и тех же явных
+    // break-opportunities — измерения совпадают, страницы совпадают.
+    preprocessSourceTemplate();
+
     const blocks = [];
     sourceTpl.content.childNodes.forEach(function(n) {
       if (n.nodeType === 1) blocks.push(n);
@@ -5485,58 +5759,15 @@
     try { assignParchmentVariants(); } catch (e) { console.error('Patch A failed:', e); }
     try { addInitialGround(); } catch (e) { console.error('Patch H failed:', e); }
 
-    // ── Фаза 1.5: палеографические аббревиатуры ──
-    // ОБЯЗАТЕЛЬНО до walkJitter и walkWbrOnly. После jitter/wbr
-    // текст уже разорван на <span class="ink-l"> или <wbr>, и
-    // регэксп по text-узлам не сматчит ни одного целого слова.
-    // Применяется к корню книги ОДИН раз — single-pass обход
-    // защищает от двойной обработки.
-    //
-    // Шаг 1: применение замен (DOM-преобразование text-узлов
-    //         в <abbr><span class="tit">XYZ</span></abbr>).
-    // Шаг 2: декорирование — впрыскивание SVG-titulus в каждый
-    //         <abbr>. Делается отдельно от шага 1, чтобы не
-    //         раздувать таблицу замен и держать геометрию titulus
-    //         в одном месте.
-    try {
-      const codexRoot = document.getElementById('codex-book');
-      window.applyAbbreviations(codexRoot);
-      window.decorateTituli(codexRoot);
-      // PATCH TR3: после того, как abbr.med построены и декорированы
-      // titulus-SVG, добавляем рядом с каждой visually-hidden
-      // source-span с полной формой для Translate / Ctrl+F /
-      // скринридеров. Маргиналии пропускаются — для них работает
-      // split (TR1+TR2). Должно идти ДО splitMarginaliaForTranslate
-      // в фазе 2 — иначе порядок не критичен, потому что для маргиналий
-      // эта функция ничего не делает.
-      addAbbrTranslateSources(codexRoot);
-    } catch (e) { console.error('Patch Abbr failed:', e); }
+    // ── Фаза 1.5 убрана: applyAbbreviations / decorateTituli /
+    //     addAbbrTranslateSources перенесены в фазу 0 (см. preprocessSourceTemplate).
 
-    // ── Фаза 2: DOM-мутации внутри маргиналий и фолио ──
-    // Никаких layout reads здесь — браузер копит инвалидации,
-    // первый последующий read форсирует ровно один reflow.
-    //   normalizeMarginaliaBreaks: <br> → пробелы во всех маргиналиях
-    //   walkJitter:    маргиналии Аидана (jitter букв через ink-l span)
-    //   walkWbrOnly:   маргиналии Коемана (только <wbr>, без обёрток —
-    //                  чтобы не сломать лигатуры)
-    //   addInkArtifacts: чернильные blob/drip на полях фолио
-    // Эти четыре операции — чистый DOM append/replace, в порядке
-    // не критичны, но сгруппированы здесь, чтобы фаза 3 шла на
-    // полностью устаканенной DOM-структуре. ABBR-узлы созданы в
-    // фазе 1.5 уже учтены через SKIP_TAGS = {... ABBR: 1}.
-    normalizeMarginaliaBreaks();
-    // PATCH TR: split маргиналий Аидана на source-слой (для Translate /
-    // Ctrl+F / AT) и jitter-render-слой (визуальная "живая рука").
-    // Должно идти ПОСЛЕ normalizeMarginaliaBreaks (чтобы клонировался
-    // уже чистый контент без <br>) и ДО walkJitter (чтобы дробление
-    // на ink-l span'ы шло только в render-слое).
-    document.querySelectorAll('.marginalia:not(.mg-coemanus)').forEach(splitMarginaliaForTranslate);
-    document.querySelectorAll('.marginalia:not(.mg-coemanus) .mg-jitter-render').forEach(walkJitter);
-    document.querySelectorAll('.marginalia.mg-coemanus').forEach(walkWbrOnly);
+    // ── Фаза 2 (сокращена): только layout-зависимые DOM-мутации ──
+    //   normalizeMarginaliaBreaks / splitMarginalia / walkJitter / walkWbrOnly
+    //   перенесены в фазу 0. Здесь остаются:
+    //     addInkArtifacts: чернильные blob/drip на полях фолио (нужен layout)
+    //     setupTranslationObserver: observer для активации перевода
     try { addInkArtifacts(); } catch (e) { console.error('Patch B3 failed:', e); }
-    // PATCH TR: запуск наблюдателя за активацией перевода. После split
-    // .mg-translate-source узлы существуют — observer'у есть к чему
-    // привязаться для fallback-детекции (мутации content).
     try { setupTranslationObserver(); } catch (e) { console.error('Patch TR observer failed:', e); }
 
     // ── Фаза 3: единственный read/write проход по геометрии ──
