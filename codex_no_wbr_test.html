@@ -4917,8 +4917,13 @@
   function addAbbrTranslateSources(root) {
     const abbrs = root.querySelectorAll('abbr.med[data-expand]');
     abbrs.forEach(function(abbr) {
-      // Маргиналии обслуживаются split-механизмом — пропускаем.
-      if (abbr.closest('.marginalia')) return;
+      // Айдан-маргиналии обслуживаются split-механизмом — пропускаем.
+      // Коеман-маргиналии (.mg-coemanus) НЕ split'ятся, для них надо
+      // добавить sibling-source точно так же, как для основного текста.
+      // Без этого Translate видит палеографическую форму "fr"/"frb"/"DNI"
+      // в Коеман-маргиналиях без раскрытия — перевод страдает.
+      const inMarg = abbr.closest('.marginalia');
+      if (inMarg && !inMarg.classList.contains('mg-coemanus')) return;
 
       // Идемпотентность: если следующий sibling уже наш source —
       // значит, для этой abbr всё уже сделано.
@@ -4942,6 +4947,21 @@
       // люди делают для иконок: <span aria-hidden>★</span><span
       // class="visually-hidden">избранное</span>).
       abbr.setAttribute('aria-hidden', 'true');
+
+      // PATCH X-BROWSER-6: помечаем abbr как непереводимую. Без этого
+      // Translate видит палеографическую форму (например "DNI") РЯДОМ
+      // с раскрытой формой ("Domini") в одном потоке и склеивает их
+      // в один токен "DNIDomini", который сегментирует/переводит
+      // непредсказуемо. С translate="no" и class="notranslate"
+      // Translate игнорирует abbr и читает только source-span с
+      // чистым словом.
+      //
+      // На CSS не влияет — display и pos управляются классом abbr.med
+      // и body.mg-translated. В режиме перевода abbr скрывается через
+      // display:none, source встаёт в поток. Notranslate тут чисто
+      // hint для парсеров перевода.
+      abbr.setAttribute('translate', 'no');
+      abbr.classList.add('notranslate');
 
       // Вставляем сразу после abbr — sibling, не child.
       // childAfter может быть null (abbr — последний ребёнок),
@@ -5656,9 +5676,14 @@
     for (let i = 0; i < aidanRenders.length; i++) walkWbrOnly(aidanRenders[i]);
     for (let i = 0; i < aidanRenders.length; i++) walkJitter(aidanRenders[i]);
 
-    // Шаг 5. Маргиналии Коемана — только wbr, без jitter (другая рука).
+    // Шаг 5. Маргиналии Коемана — wrapLongWords (без jitter).
+    // Раньше использовался walkWbrOnly, который ставил <wbr> прямо
+    // в текстовый поток — Translate сегментировал слова по wbr и
+    // вставлял лишние пробелы перед пунктуацией. PATCH X-BROWSER-6:
+    // wrapLongWordsForTranslate создаёт word-wbr обёртку с цельным
+    // источником для Translate и render-слоем с wbr для рендера.
     const coemanMargs = root.querySelectorAll('.marginalia.mg-coemanus');
-    for (let i = 0; i < coemanMargs.length; i++) walkWbrOnly(coemanMargs[i]);
+    for (let i = 0; i < coemanMargs.length; i++) walkWrapLongWords(coemanMargs[i]);
 
     // Шаг 6. ОСНОВНОЙ ТЕКСТ — walkWrapLongWords на каждом блоке
     // верхнего уровня кроме маргиналий.
