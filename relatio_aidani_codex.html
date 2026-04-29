@@ -5210,50 +5210,88 @@
   // settings: "liga", "dlig"` продолжает работать (лигатуры требуют,
   // чтобы соседние символы были в одном текстовом потоке, не
   // разделённые inline-block элементами).
+  //
+  // PATCH X-BROWSER-5b: реализация перешла с поточного "по токену в
+  // text-node" к минимальным резам. Раньше внутри функции для
+  // КАЖДОГО слова и КАЖДОГО не-слова создавался отдельный text-node:
+  // "Erat" / " " / "annus" / " " / ... / "coepit" / ", " / "et" /...
+  // Браузер визуально склеивал их, но Google Translate (и любой
+  // другой DOM-walker, который трактует каждый text-node как
+  // отдельный leaf-токен) видел их раздельно и при сериализации
+  // обратно вставлял пробел между КАЖДОЙ парой text-node'ов. В
+  // переводе это давало "coepit , et" с пробелом перед запятой —
+  // отчётливо неправильно.
+  //
+  // Новая логика: text-node режется ТОЛЬКО там, где нужен <wbr>.
+  // Между точками реза (включая всю пунктуацию, пробелы и слова без
+  // переноса) текст остаётся ОДНИМ непрерывным text-node'ом. Тем
+  // самым:
+  //   - <wbr> по-прежнему расставлены как раньше (та же логика
+  //     syllabifyLatinSingle), pagination идентична;
+  //   - количество text-node'ов уменьшено в десятки раз;
+  //   - Translate видит цельный текст между точками реза и переводит
+  //     их связно, не вставляя лишних пробелов перед пунктуацией.
+  //
+  // Алгоритм:
+  //   1. Пробегаем WORD_RE по входному тексту, собираем массив
+  //      "wbr-точек" — абсолютных индексов в исходном v, перед
+  //      которыми надо вставить <wbr>.
+  //   2. Если точек нет — возвращаем text-node с НОРМАЛИЗОВАННЫМ
+  //      содержимым (\s+→' ' и пробел перед em-dash → NBSP), один
+  //      непрерывный text-node.
+  //   3. Если точки есть — режем v на сегменты по этим индексам;
+  //      каждый сегмент НОРМАЛИЗУЕМ целиком (через тот же regex),
+  //      между сегментами вставляем <wbr>. Получаем DocumentFragment
+  //      из (segments+1) text-node'ов и (segments) <wbr>'ов.
   function processTextNodeWbrOnly(node) {
-    const frag = document.createDocumentFragment();
     const v = node.nodeValue;
+
+    // Шаг 1: собрать все wbr-точки (абсолютные индексы в v).
+    const breakPoints = [];
     WORD_RE.lastIndex = 0;
     let m;
     while ((m = WORD_RE.exec(v)) !== null) {
       const word = m[1];
-      const other = m[2];
-      if (word) {
-        // PATCH X-BROWSER-4: используем single-point syllabifier
-        // вместо обычного. Многоточечная разбивка приводила к
-        // расхождению Firefox/Chrome при выборе точки переноса
-        // (см. комментарий к syllabifyLatinSingle). С одной точкой
-        // на слово выбор однозначен — оба движка переносят там же.
-        //
-        // Для маргиналий это тоже работает: ширина 68 px, шрифт Beda
-        // fs=9.28px ≈ 5-6 px на букву. Слово до 13 букв (~70 px)
-        // влезает целиком в строку маргиналии, длинные слова получают
-        // wbr в центре и обе половины умещаются (e.g. "Occidentem"
-        // длиной 10 букв → "Occi-dentem", по 4-5 букв ≈ 25 px каждая).
-        const breaks = syllabifyLatinSingle(word);
-        if (breaks.length === 0) {
-          frag.appendChild(document.createTextNode(word));
-        } else {
-          let last = 0;
-          for (let i = 0; i < breaks.length; i++) {
-            frag.appendChild(
-              document.createTextNode(word.slice(last, breaks[i]))
-            );
-            frag.appendChild(document.createElement('wbr'));
-            last = breaks[i];
-          }
-          frag.appendChild(document.createTextNode(word.slice(last)));
-        }
-      } else if (other) {
-        // Та же нормализация пробелов и «прилипание» тире, что
-        // в processTextNode — причины те же (избежать лишних
-        // break-opportunity и одиночных «—» в начале строки).
-        const collapsed = other
-          .replace(/\s+/g, ' ')
-          .replace(/ ([—–])/g, '\u00A0$1');
-        frag.appendChild(document.createTextNode(collapsed));
+      if (!word) continue;
+      // syllabifyLatinSingle возвращает массив [k] или []. k —
+      // позиция реза ВНУТРИ слова. Абсолютная позиция в v —
+      // m.index + k.
+      const wb = syllabifyLatinSingle(word);
+      if (wb.length === 1) {
+        breakPoints.push(m.index + wb[0]);
       }
     }
+
+    // Локальная нормализация фрагмента: schloplyaem whitespace
+    // в одиночные пробелы и ставим NBSP перед em-dash. Та же
+    // логика, что в processTextNode, только применённая ко всему
+    // фрагменту целиком — не по токену.
+    function normalize(s) {
+      return s
+        .replace(/\s+/g, ' ')
+        .replace(/ ([—–])/g, '\u00A0$1');
+    }
+
+    // Шаг 2: точек нет — вернуть один нормализованный text-node.
+    if (breakPoints.length === 0) {
+      const frag = document.createDocumentFragment();
+      frag.appendChild(document.createTextNode(normalize(v)));
+      return frag;
+    }
+
+    // Шаг 3: режем v на сегменты, между ними <wbr>.
+    const frag = document.createDocumentFragment();
+    let cursor = 0;
+    for (let i = 0; i < breakPoints.length; i++) {
+      const bp = breakPoints[i];
+      // Сегмент до точки реза. Нормализуем целиком — внутри сегмента
+      // могут быть и слова, и пробелы, и пунктуация, всё едино.
+      frag.appendChild(document.createTextNode(normalize(v.slice(cursor, bp))));
+      frag.appendChild(document.createElement('wbr'));
+      cursor = bp;
+    }
+    // Хвост после последней точки реза.
+    frag.appendChild(document.createTextNode(normalize(v.slice(cursor))));
     return frag;
   }
 
