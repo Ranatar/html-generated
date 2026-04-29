@@ -1051,19 +1051,17 @@
      содержимым клона; страховка через user-select больше не нужна.
      pointer-events:none сохраняем — защита от случайного перехвата
      кликов в зоне 1×1. */
+  /* PATCH X-BROWSER-7: те же правки что для .abbr-translate-source —
+     используем font-size:0 вместо position:absolute, чтобы computed
+     display оставался inline и Translate не вставлял переносы строк
+     вокруг каждого source-span'а. */
   .mg-translate-source {
-    position: absolute;
-    width: 1px;
-    height: 1px;
-    margin: -1px;
-    padding: 0;
-    border: 0;
-    overflow: hidden;
-    clip: rect(0 0 0 0);
-    clip-path: inset(50%);
-    white-space: pre-wrap;
-    word-break: normal;
-    overflow-wrap: normal;
+    display: inline;
+    font-size: 0;
+    line-height: 0;
+    color: transparent;
+    user-select: none;
+    -webkit-user-select: none;
     pointer-events: none;
   }
 
@@ -1081,14 +1079,11 @@
     display: none;
   }
   body.mg-translated .marginalia:not(.mg-coemanus) .mg-translate-source {
-    position: static;
-    width: auto;
-    height: auto;
-    margin: 0;
-    clip: auto;
-    clip-path: none;
-    overflow: visible;
-    white-space: normal;
+    /* Возвращаем normal-визуальные правила: полная видимость.
+       display:inline (default) уже корректен. */
+    font-size: inherit;
+    line-height: inherit;
+    color: inherit;
     user-select: text;
     -webkit-user-select: text;
     pointer-events: auto;
@@ -1103,18 +1098,40 @@
      ────────────────────────────────────────────────────────────── */
   /* PATCH TR4: user-select:none снят (тот же мотив, что в
      .mg-translate-source выше). */
+  /* PATCH X-BROWSER-7: используем font-size:0 вместо position:absolute
+     для скрытия source-слоя.
+
+     Старое решение через position:absolute + clip + width:1px было
+     стандартным visually-hidden рецептом. Но при position:absolute
+     CSS spec приказывает computed display = "block" (даже для span).
+     Google Translate использует computed display чтобы решать, где
+     ставить границы предложений: видя source-spans как block-элементы,
+     он вставляет переносы строк до и после каждого. В переводе после
+     склейки получается пробел между словом и следующей пунктуацией:
+     "Aidanus, peccator" → "Aidanus , peccator".
+
+     font-size:0 решает задачу другим способом:
+     - element остаётся display:inline (computed)
+     - текст внутри занимает нулевые пиксели (visible: ничего)
+     - Translate видит element как inline-узел с текстом, склеивает
+       его с соседями без переносов
+     - Screen-reader всё ещё читает text (font-size не влияет на AT)
+
+     Дополнительно для надёжности скрытия:
+     - position:absolute с минимальным размером оставлен НА СЛУЧАЙ
+       если font-size:0 не сработает в каком-то экзотическом браузере;
+       но computed display форсим обратно на inline через явный display.
+       Эта комбинация спорная по spec, но в Firefox 115 / Chrome 108+
+       она работает корректно. */
   .abbr-translate-source {
-    position: absolute;
-    width: 1px;
-    height: 1px;
-    margin: -1px;
-    padding: 0;
-    border: 0;
-    overflow: hidden;
-    clip: rect(0 0 0 0);
-    clip-path: inset(50%);
-    white-space: nowrap;
+    display: inline;
+    font-size: 0;
+    line-height: 0;
+    color: transparent;
+    user-select: none;
+    -webkit-user-select: none;
     pointer-events: none;
+    /* visibility:hidden НЕ используем — он скрывает и от Translate */
   }
 
   /* Режим перевода: abbr схлопываются, source-span'ы встают в поток.
@@ -1125,17 +1142,67 @@
     display: none;
   }
   body.mg-translated .abbr-translate-source {
-    position: static;
-    width: auto;
-    height: auto;
-    margin: 0;
-    clip: auto;
-    clip-path: none;
-    overflow: visible;
-    white-space: inherit;
+    /* Возвращаем нормальную видимость: убираем font-size:0 и color:transparent. */
+    font-size: inherit;
+    line-height: inherit;
+    color: inherit;
     user-select: text;
     -webkit-user-select: text;
     pointer-events: auto;
+  }
+
+  /* PATCH X-BROWSER-6: дублирующая обёртка для длинных латинских слов
+     основного текста.
+
+     Проблема: walkWbrOnly расставляет <wbr> внутри длинных слов для
+     одинаковой pagination Firefox=Chrome. Но Google Translate
+     сегментирует по text-узлам и inline-элементам, и при появлении
+     <wbr> внутри слова видит "incar" и "natione" как два токена.
+     Перевод деградирует: лишние пробелы перед пунктуацией, потеря
+     смысла, неадекватные переводы заголовков.
+
+     Решение по аналогии с маргиналиями Айдана: для каждого длинного
+     слова создаём пару:
+       <span class="word-wbr">
+         <span class="word-source">incarnatione</span>      ← для Translate
+         <span class="word-render notranslate"             ← для рендера
+               translate="no" aria-hidden="true">incar<wbr>natione</span>
+       </span>
+
+     - source: visually-hidden рецепт (position:absolute + clip), как у
+       .abbr-translate-source. Translate видит цельное слово.
+     - render: в потоке, с <wbr>. Браузер делает перенос внутри
+       длинного слова, pagination идентична между движками.
+     - render помечен translate="no" + class="notranslate" +
+       aria-hidden — Translate его игнорирует, дубля в переводе не
+       будет. Скринридер тоже игнорирует render и читает source.
+
+     В режиме mg-translated source становится visible, render
+     скрывается — симметрично abbr/abbr-translate-source. */
+  /* PATCH X-BROWSER-7: см. .abbr-translate-source — те же причины,
+     то же решение через font-size:0. */
+  .word-source {
+    display: inline;
+    font-size: 0;
+    line-height: 0;
+    color: transparent;
+    user-select: none;
+    -webkit-user-select: none;
+    pointer-events: none;
+  }
+  .word-render {
+    /* По умолчанию ничего не нужно — обычный inline span. */
+  }
+  body.mg-translated .word-source {
+    font-size: inherit;
+    line-height: inherit;
+    color: inherit;
+    user-select: text;
+    -webkit-user-select: text;
+    pointer-events: auto;
+  }
+  body.mg-translated .word-render {
+    display: none;
   }
 
   /* PATCH TR4: маргиналии Коемана в режиме перевода.
@@ -4301,7 +4368,12 @@
         '.abbr-translate-source, .mg-translate-source'
       );
       const hasMarginalia = fragment.querySelector('.marginalia');
-      if (!hasAbbr && !hasLigaProtect && !hasTranslateSource && !hasMarginalia) {
+      // PATCH X-BROWSER-6: word-wbr обёртки тоже наша структура; без
+      // обработки в copy-handler default copy выдаст дублированный
+      // текст (источник + рендер) для каждого длинного слова.
+      const hasWordWrap = fragment.querySelector('.word-wbr');
+      if (!hasAbbr && !hasLigaProtect && !hasTranslateSource &&
+          !hasMarginalia && !hasWordWrap) {
         return;
       }
 
@@ -4851,7 +4923,8 @@
   function addAbbrTranslateSources(root) {
     const abbrs = root.querySelectorAll('abbr.med[data-expand]');
     abbrs.forEach(function(abbr) {
-      // Маргиналии обслуживаются split-механизмом — пропускаем.
+      // V8: старое поведение — все маргиналии пропускаем
+      // (для Айдана работает split, Коеман без обработки).
       if (abbr.closest('.marginalia')) return;
 
       // Идемпотентность: если следующий sibling уже наш source —
@@ -4876,6 +4949,22 @@
       // люди делают для иконок: <span aria-hidden>★</span><span
       // class="visually-hidden">избранное</span>).
       abbr.setAttribute('aria-hidden', 'true');
+
+      // PATCH X-BROWSER-6: помечаем abbr как непереводимую. Без этого
+      // Translate видит палеографическую форму (например "DNI") РЯДОМ
+      // с раскрытой формой ("Domini") в одном потоке и склеивает их
+      // в один токен "DNIDomini", который сегментирует/переводит
+      // непредсказуемо. С translate="no" и class="notranslate"
+      // Translate игнорирует abbr и читает только source-span с
+      // чистым словом.
+      //
+      // На CSS не влияет — display и pos управляются классом abbr.med
+      // и body.mg-translated. В режиме перевода abbr скрывается через
+      // display:none, source встаёт в поток. Notranslate тут чисто
+      // hint для парсеров перевода.
+      // V8: НЕ ставим translate=no/notranslate на abbr — старая версия
+      // их не имела. Возможно именно эти атрибуты сбивают Translate
+      // с толку и заставляют его сегментировать иначе.
 
       // Вставляем сразу после abbr — sibling, не child.
       // childAfter может быть null (abbr — последний ребёнок),
@@ -4923,6 +5012,58 @@
         // Удалить целиком вместе с детьми.
         parent.removeChild(s);
       }
+    }
+
+    // PATCH X-BROWSER-6: обработка word-wbr обёрток для длинных слов.
+    // В отличие от abbr-translate-source, здесь нам нужен ОДИН из
+    // двух слоёв: source в translated-режиме (это primary visible),
+    // render в обычном (примарный visible). Внешняя обёртка .word-wbr
+    // снимается всегда — её роль чисто структурная.
+    //
+    // Обычный режим (без mg-translated):
+    //   Удаляем .word-source целиком (visually-hidden дубль), оставляем
+    //   .word-render с его текстом (внутри есть <wbr>; для plain-text
+    //   и HTML вывода wbr безвреден — текст склеен).
+    //   Затем разворачиваем .word-render — его дети поднимаются на
+    //   уровень выше (вместо <span class="word-render">incar<wbr>natione
+    //   </span> остаётся "incar"<wbr>"natione" непосредственно в
+    //   родителе word-wbr).
+    //   И наконец разворачиваем сам word-wbr — поднимаем "incar"+wbr+
+    //   "natione" на уровень выше. В DOM фрагмента остаётся именно тот
+    //   текст, который пользователь видел.
+    //
+    // Translated режим (body.mg-translated):
+    //   Symmetrically: удаляем .word-render, разворачиваем .word-source,
+    //   разворачиваем word-wbr. В выводе остаётся цельное "incarnatione"
+    //   как читатель Translate видел.
+    //
+    // Идём в порядке: word-source/render (внутренние) → word-wbr (внешний).
+    // querySelectorAll возвращает в document-order, поэтому unwrap'ы
+    // работают корректно даже при nested wraps (нет такой ситуации сейчас,
+    // но будем готовы).
+    const innerToRemove = isTranslated ? '.word-render' : '.word-source';
+    const innerToUnwrap = isTranslated ? '.word-source' : '.word-render';
+
+    const removes = fragment.querySelectorAll(innerToRemove);
+    for (let i = 0; i < removes.length; i++) {
+      const r = removes[i];
+      if (r.parentNode) r.parentNode.removeChild(r);
+    }
+    const unwraps = fragment.querySelectorAll(innerToUnwrap);
+    for (let i = 0; i < unwraps.length; i++) {
+      const u = unwraps[i];
+      const parent = u.parentNode;
+      if (!parent) continue;
+      while (u.firstChild) parent.insertBefore(u.firstChild, u);
+      parent.removeChild(u);
+    }
+    const wraps = fragment.querySelectorAll('.word-wbr');
+    for (let i = 0; i < wraps.length; i++) {
+      const w = wraps[i];
+      const parent = w.parentNode;
+      if (!parent) continue;
+      while (w.firstChild) parent.insertBefore(w.firstChild, w);
+      parent.removeChild(w);
     }
   }
 
@@ -5303,10 +5444,19 @@
     // <wbr>ni", Translate не распознает слово как единое целое и оставит
     // в переводе сырой латинский фрагмент. Источники переводов должны
     // оставаться неразорванными.
+    //
+    // PATCH X-BROWSER-6: skip также для word-source/word-render. Это
+    // оборачивающие span'ы для длинных слов основного текста; они
+    // создаются wrapLongWordsForTranslate и не должны обрабатываться
+    // повторно. (Маргиналии не пересекаются с word-wrap — там
+    // walkWbrOnly работает на render-слое маргиналий, а word-wrap
+    // только в основном тексте.)
     if (el.classList && (
         el.classList.contains('liga-protect') ||
         el.classList.contains('abbr-translate-source') ||
-        el.classList.contains('mg-translate-source')
+        el.classList.contains('mg-translate-source') ||
+        el.classList.contains('word-source') ||
+        el.classList.contains('word-render')
     )) return;
     const kids = Array.from(el.childNodes);
     for (let i = 0; i < kids.length; i++) {
@@ -5323,6 +5473,136 @@
         el.replaceChild(processTextNodeWbrOnly(kid), kid);
       } else if (kid.nodeType === 1) {
         walkWbrOnly(kid);
+      }
+    }
+  }
+
+  // ═══════════════════════════════════════════════════════════════
+  // PATCH X-BROWSER-6: упаковка длинных слов в word-wbr обёртку.
+  //
+  // Альтернатива processTextNodeWbrOnly для основного текста кодекса.
+  // Цель — поставить <wbr> внутрь длинного латинского слова для
+  // одинаковой pagination Firefox=Chrome, при этом сохранив видимость
+  // ЦЕЛЬНОГО слова для Google Translate.
+  //
+  // processTextNodeWbrOnly режет text-node прямо в основном потоке:
+  //   "Erat annus ab incar"<wbr>"natione"
+  // Translate видит два отдельных текстовых узла "incar" и "natione"
+  // и трактует их как два слова → перевод деградирует.
+  //
+  // wrapLongWordsInTextNode для слов с syllabifyLatinSingle создаёт
+  // обёртку:
+  //   "Erat annus ab "<span class="word-wbr">
+  //                    <span class="word-source">incarnatione</span>
+  //                    <span class="word-render notranslate"
+  //                          translate="no" aria-hidden="true">incar<wbr>natione</span>
+  //                  </span>
+  // Translate приоритетно читает .word-source (notranslate на
+  // .word-render блокирует render-слой). Браузер рендерит .word-render
+  // в потоке (.word-source — out of flow через position:absolute).
+  // Pagination использует render-слой с <wbr> → одинакова между
+  // движками. Translate видит цельное слово → корректный перевод.
+  //
+  // Слова без переноса (короткие, syllabifyLatinSingle вернёт [])
+  // остаются как есть в исходном text-node — никаких изменений.
+  // Не-слова (пробелы, пунктуация) тоже не трогаем; only minor
+  // нормализация whitespace и NBSP перед em-dash.
+  // ═══════════════════════════════════════════════════════════════
+  function wrapLongWordsInTextNode(node) {
+    const v = node.nodeValue;
+    const frag = document.createDocumentFragment();
+
+    // Отдельная нормализация для не-словных фрагментов (то же что в
+    // processTextNodeWbrOnly): \s+ → ' ', пробел перед em-dash → NBSP.
+    function normalizeNonWord(s) {
+      return s
+        .replace(/\s+/g, ' ')
+        .replace(/ ([—–])/g, '\u00A0$1');
+    }
+
+    // Создание word-wbr обёртки для одного слова с одной точкой реза.
+    function makeWordWrap(word, breakPos) {
+      const wrap = document.createElement('span');
+      wrap.className = 'word-wbr';
+
+      const source = document.createElement('span');
+      source.className = 'word-source';
+      source.textContent = word;
+      wrap.appendChild(source);
+
+      const render = document.createElement('span');
+      render.className = 'word-render notranslate';
+      render.setAttribute('translate', 'no');
+      render.setAttribute('aria-hidden', 'true');
+      render.appendChild(document.createTextNode(word.slice(0, breakPos)));
+      render.appendChild(document.createElement('wbr'));
+      render.appendChild(document.createTextNode(word.slice(breakPos)));
+      wrap.appendChild(render);
+
+      return wrap;
+    }
+
+    // Накапливаем не-словные фрагменты в один text-node, чтобы Translate
+    // видел текст между словами (пробелы и пунктуацию) как непрерывный
+    // поток, а не как множество отдельных узлов.
+    let buf = '';
+    function flushBuf() {
+      if (buf.length === 0) return;
+      frag.appendChild(document.createTextNode(normalizeNonWord(buf)));
+      buf = '';
+    }
+
+    WORD_RE.lastIndex = 0;
+    let m;
+    while ((m = WORD_RE.exec(v)) !== null) {
+      const word = m[1];
+      const other = m[2];
+      if (word) {
+        const wb = syllabifyLatinSingle(word);
+        if (wb.length === 1) {
+          // Длинное слово с переносом → отдельная обёртка.
+          flushBuf();
+          frag.appendChild(makeWordWrap(word, wb[0]));
+        } else {
+          // Короткое слово или без переноса → накапливаем в buf
+          // вместе с соседними не-словами. Получится один text-node
+          // на цепочку из коротких слов и пунктуации.
+          buf += word;
+        }
+      } else if (other) {
+        buf += other;
+      }
+    }
+    flushBuf();
+
+    return frag;
+  }
+
+  function walkWrapLongWords(el) {
+    if (SKIP_TAGS[el.tagName]) return;
+    // Skip уже обработанных и других "защищённых" областей.
+    if (el.classList && (
+        el.classList.contains('liga-protect') ||
+        el.classList.contains('abbr-translate-source') ||
+        el.classList.contains('mg-translate-source') ||
+        el.classList.contains('word-source') ||
+        el.classList.contains('word-render') ||
+        el.classList.contains('word-wbr')
+    )) return;
+    const kids = Array.from(el.childNodes);
+    for (let i = 0; i < kids.length; i++) {
+      const kid = kids[i];
+      if (kid.nodeType === 3) {
+        if (!/\S/.test(kid.nodeValue)) {
+          // Whitespace-only — нормализуем как в walkWbrOnly.
+          if (kid.nodeValue !== ' ') {
+            kid.nodeValue = ' ';
+          }
+          continue;
+        }
+        el.replaceChild(wrapLongWordsInTextNode(kid), kid);
+      } else if (kid.nodeType === 1) {
+        walkWrapLongWords(kid);
       }
     }
   }
@@ -5354,6 +5634,9 @@
   // layout-зависимых вызовов: addInkArtifacts, setupTranslationObserver.
   // ═══════════════════════════════════════════════════════════════
   function preprocessSourceTemplate() {
+    // V8 DIAGNOSTIC: фаза 0 не выполняется. Возвращаемся к старому
+    // поведению pre-X-BROWSER: вся обработка на DOM после rendering.
+    return;
     const tpl = document.getElementById('codex-source');
     const root = tpl.content;
 
@@ -5399,22 +5682,42 @@
     for (let i = 0; i < aidanRenders.length; i++) walkWbrOnly(aidanRenders[i]);
     for (let i = 0; i < aidanRenders.length; i++) walkJitter(aidanRenders[i]);
 
-    // Шаг 5. Маргиналии Коемана — только wbr, без jitter (другая рука).
+    // Шаг 5. Маргиналии Коемана — wrapLongWords (без jitter).
+    // Раньше использовался walkWbrOnly, который ставил <wbr> прямо
+    // в текстовый поток — Translate сегментировал слова по wbr и
+    // вставлял лишние пробелы перед пунктуацией. PATCH X-BROWSER-6:
+    // wrapLongWordsForTranslate создаёт word-wbr обёртку с цельным
+    // источником для Translate и render-слоем с wbr для рендера.
     const coemanMargs = root.querySelectorAll('.marginalia.mg-coemanus');
-    for (let i = 0; i < coemanMargs.length; i++) walkWbrOnly(coemanMargs[i]);
+    for (let i = 0; i < coemanMargs.length; i++) walkWrapLongWords(coemanMargs[i]);
 
-    // Шаг 6. ОСНОВНОЙ ТЕКСТ — walkWbrOnly на каждом блоке верхнего
-    // уровня кроме маргиналий. Это и есть собственно фикс Chrome ≠
-    // Firefox: длинные латинские слова в <p>, <p.dropcap>,
-    // <p.uncial-passage>, <p.theological>, <span.rubric>, <div.colophon>
-    // получают <wbr> между слогами. После этого hyphens: auto не нужен —
-    // оба браузера переносят на тех же явных break-opportunities.
+    // Шаг 6. ОСНОВНОЙ ТЕКСТ — walkWrapLongWords на каждом блоке
+    // верхнего уровня кроме маргиналий.
+    //
+    // Длинные латинские слова в <p>, <p.dropcap>, <p.uncial-passage>,
+    // <p.theological>, <span.rubric>, <div.colophon> получают
+    // дублирующую обёртку:
+    //   <span class="word-wbr">
+    //     <span class="word-source">incarnatione</span>     ← Translate
+    //     <span class="word-render notranslate"            ← Render
+    //           translate="no" aria-hidden="true">incar<wbr>natione</span>
+    //   </span>
+    // Translate приоритетно читает source с цельным словом, render с
+    // <wbr> используется только для визуального переноса. Pagination
+    // одинакова между Firefox и Chrome (через wbr в render), Translate
+    // видит чистые слова (через source без wbr).
+    //
+    // Раньше (X-BROWSER-3) использовался walkWbrOnly, который ставил
+    // <wbr> прямо в основном потоке. Это ломало Translate: он сегмен-
+    // тировал слова по wbr и переводил куски как отдельные слова,
+    // вставляя пробелы перед пунктуацией ("coepit , et"). Дублирующая
+    // обёртка (X-BROWSER-6) решает обе задачи одновременно.
     const topNodes = Array.from(root.childNodes);
     for (let i = 0; i < topNodes.length; i++) {
       const n = topNodes[i];
       if (n.nodeType !== 1) continue;
       if (n.classList && n.classList.contains('marginalia')) continue;
-      walkWbrOnly(n);
+      walkWrapLongWords(n);
     }
   }
 
@@ -5842,14 +6145,28 @@
     try { assignParchmentVariants(); } catch (e) { console.error('Patch A failed:', e); }
     try { addInitialGround(); } catch (e) { console.error('Patch H failed:', e); }
 
-    // ── Фаза 1.5 убрана: applyAbbreviations / decorateTituli /
-    //     addAbbrTranslateSources перенесены в фазу 0 (см. preprocessSourceTemplate).
+    // ── Фаза 1.5 (V8 ВОССТАНОВЛЕНА): применение палеографических
+    //     аббревиатур и addAbbrTranslateSources на DOM после rendering. ──
+    try {
+      const codexRoot = document.getElementById('codex-book');
+      window.applyAbbreviations(codexRoot);
+      window.decorateTituli(codexRoot);
+      addAbbrTranslateSources(codexRoot);
+    } catch (e) { console.error('V8 Phase 1.5 failed:', e); }
 
-    // ── Фаза 2 (сокращена): только layout-зависимые DOM-мутации ──
-    //   normalizeMarginaliaBreaks / splitMarginalia / walkJitter / walkWbrOnly
-    //   перенесены в фазу 0. Здесь остаются:
-    //     addInkArtifacts: чернильные blob/drip на полях фолио (нужен layout)
-    //     setupTranslationObserver: observer для активации перевода
+    // ── Фаза 2 (V8 ВОССТАНОВЛЕНА): normalize<br> + split + jitter +
+    //     walkWbrOnly ТОЛЬКО для Коемана (не для основного текста). ──
+    try {
+      const margBrs = document.querySelectorAll('.marginalia br');
+      for (let i = 0; i < margBrs.length; i++) {
+        const br = margBrs[i];
+        br.parentNode.replaceChild(document.createTextNode(' '), br);
+      }
+      document.querySelectorAll('.marginalia:not(.mg-coemanus)').forEach(splitMarginaliaForTranslate);
+      document.querySelectorAll('.marginalia:not(.mg-coemanus) .mg-jitter-render').forEach(walkJitter);
+      document.querySelectorAll('.marginalia.mg-coemanus').forEach(walkWbrOnly);
+    } catch (e) { console.error('V8 Phase 2 failed:', e); }
+
     try { addInkArtifacts(); } catch (e) { console.error('Patch B3 failed:', e); }
     try { setupTranslationObserver(); } catch (e) { console.error('Patch TR observer failed:', e); }
 
