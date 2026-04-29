@@ -4238,21 +4238,57 @@
       // не делаем, отдаём управление браузеру.
       if (sel.isCollapsed) return;
 
-      // Клонируем содержимое ВСЕХ range'ов в общий fragment. Реальный
-      // документ остаётся неприкосновенным.
+      // Клонируем содержимое выделения. Это DocumentFragment, в
+      // котором живёт копия DOM — реальный документ остаётся
+      // неприкосновенным.
       //
-      // Firefox при Ctrl+A через документ с user-select:none зонами
-      // (.marginalia в нашем случае) делит selection на множество
-      // range'ов, обходя запретные участки. У нас в кодексе сотни
-      // маргиналий — соответственно сотни range'ов.
+      // PATCH X-BROWSER-5: вместо cloneContents() для каждого range
+      // отдельно, строим ОДИН range от первой точки selection до
+      // последней. Это критично для Firefox.
       //
-      // Chrome rangeCount=1 — цикл выполнится одну итерацию; результат
-      // тот же, что прежде с getRangeAt(0).
+      // Firefox при drag через основной текст с palaeographическими
+      // abbr создаёт MULTI-RANGE selection (rangeCount=7+):
+      // абсолютно-позиционированные .abbr-translate-source span'ы
+      // образуют отдельные "зоны" в selection model, и selection
+      // разрезается на сегменты "до source", "сам source", "после
+      // source". Каждый сегмент — отдельный range.
+      //
+      // Если делать cloneContents на каждом range и appendChild в
+      // общий fragment, исходный <p> разделится на N отдельных <p>
+      // фрагментов (по одному на каждый segment). fragmentToPlainText
+      // считает каждый <p> блочным и ставит \n\n вокруг — пользователь
+      // видит пустую строку посреди абзаца после каждого сокращения.
+      //
+      // Решение: brzine один range через ВСЁ выделение, охватывая
+      // в т.ч. промежуточные source-spans (которые processTranslate-
+      // SourcesInClone удалит дальше). Получаем единый <p> в клоне,
+      // непрерывный текст в plain-text.
+      //
+      // Старое Ctrl+A в Firefox с user-select:none маргиналиями
+      // тоже многоренжевое (для другой причины — маргиналии режут
+      // continuous selection своим user-select:none). Объединение
+      // в единый range охватит и маргиналии, но они тут же
+      // удалятся в filterMarginaliaInClone. Поведение не меняется.
+      //
+      // Chrome rangeCount=1 — единый range совпадает с исходным
+      // первым range'ом, обратная совместимость сохранена.
       const fragment = document.createDocumentFragment();
-      for (let i = 0; i < sel.rangeCount; i++) {
-        try {
-          fragment.appendChild(sel.getRangeAt(i).cloneContents());
-        } catch (_) { /* skip broken ranges, продолжаем */ }
+      try {
+        const firstR = sel.getRangeAt(0);
+        const lastR = sel.getRangeAt(sel.rangeCount - 1);
+        const merged = document.createRange();
+        merged.setStart(firstR.startContainer, firstR.startOffset);
+        merged.setEnd(lastR.endContainer, lastR.endOffset);
+        fragment.appendChild(merged.cloneContents());
+      } catch (_) {
+        // Fallback: если merged.setStart/setEnd упадёт (например,
+        // ranges в разных Document'ах что невозможно, но), вернёмся
+        // к старому поведению — клонируем каждый range отдельно.
+        for (let i = 0; i < sel.rangeCount; i++) {
+          try {
+            fragment.appendChild(sel.getRangeAt(i).cloneContents());
+          } catch (__) { /* skip broken ranges */ }
+        }
       }
 
       // Early-return: если в клоне нет ни одной из "наших" структур,
@@ -5049,6 +5085,15 @@
     // пробелы у границ строк (после переноса строки часто остаётся
     // ведущий whitespace из исходного форматирования HTML).
     let out = parts.join('');
+    // PATCH X-BROWSER-5: заменяем NBSP (U+00A0) на обычный пробел.
+    // processTextNode/processTextNodeWbrOnly ставят NBSP перед em-dash
+    // ("\u00A0—") чтобы тире не висело одно в начале строки при
+    // визуальном wrap. Это полезно для рендера, но в plain-text
+    // copy NBSP не нужен — он не несёт семантики, лишь помогает
+    // browser layout. Заменяем на обычный пробел чтобы регексы
+    // ниже (схлопывание двойных пробелов и пр.) могли эффективно
+    // его обработать.
+    out = out.replace(/\u00A0/g, ' ');
     out = out.replace(/[ \t]*\n[ \t]*/g, '\n');
     out = out.replace(/\n{3,}/g, '\n\n');
     // PATCH X-BROWSER-5: схлопываем двойные пробелы. Они возникают
