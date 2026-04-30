@@ -26,6 +26,11 @@
 	  font-style: normal; font-weight: 400; font-display: block;
 	  src: url('https://raw.githubusercontent.com/Ranatar/html-generated/refs/heads/main/0800-Remedius.woff2') format('woff2');
 	}
+  @font-face {
+    font-family: '1012 otto';
+    font-style: normal; font-weight: 400; font-display: block;
+    src: url('https://raw.githubusercontent.com/Ranatar/html-generated/refs/heads/main/1012-otto.woff2') format('woff2');
+  }
 </style>
 
 <style id="codex-styles">
@@ -814,18 +819,84 @@
   }
 
   /* ═══════════════════════════════════════════════════════════════
-     FOLIO NUMBERS — римские, в нижнем ВНЕШНЕМ углу                */
+     FOLIO NUMBERS — римские, в верхнем ВНЕШНЕМ углу.
+     Перенесены наверх (XII–XIV вв. — типичная позиция систематической
+     фолиации). Нижний правый угол recto освобождён под кустоды.        */
   .folio-number {
     position: absolute;
-    bottom: 20px;
-    font-family: '0800 Kells', serif;
-    font-size: 0.7em;
-    color: rgba(100,55,10,0.55);
+    top: 16px;
+    font-family: '1012 otto', serif;
+    font-size: 1.1em;
+    color: rgba(60,30,10,0.85);
     letter-spacing: 0.1em;
     z-index: 2;
   }
   .page-verso .folio-number { left: 24px; }
   .page-recto .folio-number { right: 24px; }
+
+   /* ═══════════════════════════════════════════════════════════════
+     FOLIATOR HAND — четвёртая рука кодекса: библиотекарь XII в.,
+     внёс фолиацию и одну атрибутивную приписку при каталогизации
+     библиотеки. Шрифт сознательно «не свой» — поздний, мелкий,
+     выцветший. На Beda не похож (полу-унциал) и на Remedius не
+     похож (карoline minuscule); используем sans-serif fallback,
+     это семантически корректно: к XII в. готическая текстура
+     ещё не доминирует, но школьное письмо уже отходит от
+     каролингского канона. Можно подменить на любой готический
+     шрифт по вкусу.                                              */
+  .foliator-note {
+    position: absolute;
+    top: 16px;          
+    right: 48px;
+    max-width: 110px;
+    font-family: '1012 otto', serif;
+    font-size: 0.7em;
+    line-height: 1.25;
+    color: rgba(60,30,10,0.85);
+    text-align: right;
+    letter-spacing: 0.02em;
+    font-style: normal;
+    z-index: 2;
+    pointer-events: none;
+    user-select: none;
+  }
+  .foliator-note::before {
+    content: '✠ ';
+    opacity: 0.85;
+  }
+   .foliator-note abbr.med .tit .titulus-svg {
+    top: -0.1em;   
+  }
+
+  /* ═══════════════════════════════════════════════════════════════
+     CATCHWORDS — нижний правый угол recto. Содержат первое слово
+     следующего recto: подсказка переплётчику и читателю.
+     Историчность: в pocket gospels IX–X вв. встречались
+     спорадически, систематически — с XII в. У нас рисуем как
+     добавление руки Коемана при rescriptio: тот же шрифт Remedius,
+     чуть мельче основного текста, на полях. Не путать с подписью
+     писца — это служебный знак.                                   */
+  .catchword {
+    position: absolute;
+    bottom: 18px;
+    right: 28px;
+    font-family: '1012 otto', serif;
+    font-feature-settings: "liga" on, "dlig" on;
+    font-size: 1.24em;
+    color: rgba(60,30,10,0.82);
+    letter-spacing: 0.02em;
+    font-style: normal;
+    pointer-events: none;
+    user-select: none;
+    z-index: 2;
+    /* Чтобы кустод не выходил за внешнее поле, если слово длинное */
+    max-width: 90px;
+    text-align: right;
+    line-height: 1;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: clip;
+  }
 
   /* ═══════════════════════════════════════════════════════════════
      INCIPIT FOLIO — специальный первый разворот
@@ -1051,17 +1122,19 @@
      содержимым клона; страховка через user-select больше не нужна.
      pointer-events:none сохраняем — защита от случайного перехвата
      кликов в зоне 1×1. */
-  /* PATCH X-BROWSER-7: те же правки что для .abbr-translate-source —
-     используем font-size:0 вместо position:absolute, чтобы computed
-     display оставался inline и Translate не вставлял переносы строк
-     вокруг каждого source-span'а. */
   .mg-translate-source {
-    display: inline;
-    font-size: 0;
-    line-height: 0;
-    color: transparent;
-    user-select: none;
-    -webkit-user-select: none;
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    margin: -1px;
+    padding: 0;
+    border: 0;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+    clip-path: inset(50%);
+    white-space: pre-wrap;
+    word-break: normal;
+    overflow-wrap: normal;
     pointer-events: none;
   }
 
@@ -1079,11 +1152,14 @@
     display: none;
   }
   body.mg-translated .marginalia:not(.mg-coemanus) .mg-translate-source {
-    /* Возвращаем normal-визуальные правила: полная видимость.
-       display:inline (default) уже корректен. */
-    font-size: inherit;
-    line-height: inherit;
-    color: inherit;
+    position: static;
+    width: auto;
+    height: auto;
+    margin: 0;
+    clip: auto;
+    clip-path: none;
+    overflow: visible;
+    white-space: normal;
     user-select: text;
     -webkit-user-select: text;
     pointer-events: auto;
@@ -1098,40 +1174,18 @@
      ────────────────────────────────────────────────────────────── */
   /* PATCH TR4: user-select:none снят (тот же мотив, что в
      .mg-translate-source выше). */
-  /* PATCH X-BROWSER-7: используем font-size:0 вместо position:absolute
-     для скрытия source-слоя.
-
-     Старое решение через position:absolute + clip + width:1px было
-     стандартным visually-hidden рецептом. Но при position:absolute
-     CSS spec приказывает computed display = "block" (даже для span).
-     Google Translate использует computed display чтобы решать, где
-     ставить границы предложений: видя source-spans как block-элементы,
-     он вставляет переносы строк до и после каждого. В переводе после
-     склейки получается пробел между словом и следующей пунктуацией:
-     "Aidanus, peccator" → "Aidanus , peccator".
-
-     font-size:0 решает задачу другим способом:
-     - element остаётся display:inline (computed)
-     - текст внутри занимает нулевые пиксели (visible: ничего)
-     - Translate видит element как inline-узел с текстом, склеивает
-       его с соседями без переносов
-     - Screen-reader всё ещё читает text (font-size не влияет на AT)
-
-     Дополнительно для надёжности скрытия:
-     - position:absolute с минимальным размером оставлен НА СЛУЧАЙ
-       если font-size:0 не сработает в каком-то экзотическом браузере;
-       но computed display форсим обратно на inline через явный display.
-       Эта комбинация спорная по spec, но в Firefox 115 / Chrome 108+
-       она работает корректно. */
   .abbr-translate-source {
-    display: inline;
-    font-size: 0;
-    line-height: 0;
-    color: transparent;
-    user-select: none;
-    -webkit-user-select: none;
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    margin: -1px;
+    padding: 0;
+    border: 0;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+    clip-path: inset(50%);
+    white-space: nowrap;
     pointer-events: none;
-    /* visibility:hidden НЕ используем — он скрывает и от Translate */
   }
 
   /* Режим перевода: abbr схлопываются, source-span'ы встают в поток.
@@ -1142,10 +1196,14 @@
     display: none;
   }
   body.mg-translated .abbr-translate-source {
-    /* Возвращаем нормальную видимость: убираем font-size:0 и color:transparent. */
-    font-size: inherit;
-    line-height: inherit;
-    color: inherit;
+    position: static;
+    width: auto;
+    height: auto;
+    margin: 0;
+    clip: auto;
+    clip-path: none;
+    overflow: visible;
+    white-space: inherit;
     user-select: text;
     -webkit-user-select: text;
     pointer-events: auto;
@@ -1179,24 +1237,31 @@
 
      В режиме mg-translated source становится visible, render
      скрывается — симметрично abbr/abbr-translate-source. */
-  /* PATCH X-BROWSER-7: см. .abbr-translate-source — те же причины,
-     то же решение через font-size:0. */
   .word-source {
-    display: inline;
-    font-size: 0;
-    line-height: 0;
-    color: transparent;
-    user-select: none;
-    -webkit-user-select: none;
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    margin: -1px;
+    padding: 0;
+    border: 0;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+    clip-path: inset(50%);
+    white-space: nowrap;
     pointer-events: none;
   }
   .word-render {
     /* По умолчанию ничего не нужно — обычный inline span. */
   }
   body.mg-translated .word-source {
-    font-size: inherit;
-    line-height: inherit;
-    color: inherit;
+    position: static;
+    width: auto;
+    height: auto;
+    margin: 0;
+    clip: auto;
+    clip-path: none;
+    overflow: visible;
+    white-space: inherit;
     user-select: text;
     -webkit-user-select: text;
     pointer-events: auto;
@@ -2681,9 +2746,7 @@
         <p>Et surrexit Finrothus et ivit ad fenestram ubi lux argentea intrabat et voltum eius argenteum faciebat, et dixit ultima verba quae de eo in hoc libro scribo:</p>
 
         <p class="no-indent uncial-passage" style="text-indent:0;margin-left:2em;margin-right:2em;">Tu habes peccatum unius hominis in historia carnis tuae. Nos habemus peccatum unius Angeli in historia memoriae nostrae. Forsitan utrique misericordia egent — sed misericordia alia et alia, sicut vulnera alia et alia. Illam discretionem <span class="elvish">Ilúvatar</span> solus novit. Nos servimus. Amamus. Creamus. Custodimus. Cantamus. An sufficiat — in ipsius manu est, non in mea.</p>
-
-        <p>Et non potui ei respondere. Et hodie adhuc non possum.</p>
-      <div class="marginalia mg-left">
+        <div class="marginalia mg-left">
           Prophetia inter<br>
           Eldar — quomodo<br>
           et a quo data?<br>
@@ -2694,6 +2757,8 @@
           Magna quaestio.
         </div>
 
+        <p>Et non potui ei respondere. Et hodie adhuc non possum.</p>
+      
 
       <!--div class="ornament-line">· · ·</div-->
 <span class="rubric">☩ De Memoria Luminis ☩</span>
@@ -3669,6 +3734,24 @@
       num.textContent = item.num;
       folio.appendChild(num);
     }
+
+    // Приписка фолиатора — только на первом recto с фолиацией (i).
+    // Это четвёртая рука кодекса: библиотекарь XII в., атрибутирующий
+    // фолиацию. Семантика: «этот же человек проставил все номера».
+    if (item.kind === 'incipit') {
+      const note = document.createElement('div');
+      note.className = 'foliator-note';
+      note.setAttribute('aria-hidden', 'true');
+      note.innerHTML =
+        'Foliatum<br>' + 
+        'fratre Bernardo<br>' +
+        'Anno <abbr class="med nomsac contr" title="Domini" ' +
+        'data-expand="Domini" translate="no">' +
+        '<span class="tit">dn̄i</span></abbr> ' +
+        'mcxlvij';
+      folio.appendChild(note);
+      try { decorateTituli(note); } catch (e) {}
+    }
     return folio;
   }
 
@@ -3812,6 +3895,66 @@
       // ─ Фаза WRITE ─
       placed.forEach(function(p) { p.el.style.top = p.top + 'px'; });
     });
+  }
+
+  // ═══════════════════════════════════════════════════════════════
+  // CATCHWORDS — добавление кустод в нижний правый угол каждого recto.
+  // Запускается ПОСЛЕ renderBook() и ПОСЛЕ positionMarginalia():
+  // не двигает flow, не измеряет геометрию, не вмешивается в layout.
+  // ═══════════════════════════════════════════════════════════════
+  function attachCatchwords() {
+    // Все recto, кроме обложек (incipit-recto тоже включаем — на нём
+    // тоже бывают кустоды, и фолио i имеет переход к ii).
+    const allRecto = Array.from(document.querySelectorAll(
+      '.folio.page-recto:not(.final-recto)'
+    ));
+
+    function firstFlowWord(folio) {
+      const content = folio.querySelector('.folio-content');
+      if (!content) return null;
+      const candidates = content.querySelectorAll(
+        'p:not(.marginalia):not(.rubric):not([data-block])'
+      );
+      for (let i = 0; i < candidates.length; i++) {
+        // Клонируем абзац и вычищаем visually-hidden источники
+        // перевода. Без этого textContent склеивает оригинал
+        // и его раскрытие: «DNI» + «Domini» → «DNIDomini».
+        const clone = candidates[i].cloneNode(true);
+        clone.querySelectorAll(
+          '.abbr-translate-source, .mg-translate-source, .word-source'
+        ).forEach(function(el) { el.remove(); });
+
+        const txt = clone.textContent.replace(/\s+/g, ' ').trim();
+        if (!txt) continue;
+
+        const words = txt.split(' ');
+        let first = words[0];
+        if (first.length < 2 && words[1] && words[1].length >= 2) {
+          first = words[1];
+        }
+        if (first.length < 2) continue;
+        return first.toLowerCase();;
+      }
+      return null;
+    }
+
+    for (let i = 0; i < allRecto.length - 1; i++) {
+      const current = allRecto[i];
+      const next = allRecto[i + 1];
+
+      const word = firstFlowWord(next);
+      if (!word) continue;
+
+      // Защита от дубликатов (повторный вызов после resize)
+      const existing = current.querySelector(':scope > .catchword');
+      if (existing) existing.remove();
+
+      const cw = document.createElement('span');
+      cw.className = 'catchword';
+      cw.setAttribute('aria-hidden', 'true');
+      cw.textContent = word;
+      current.appendChild(cw);
+    }
   }
   
   // ═══════════════════════════════════════════════════════════════
@@ -3978,6 +4121,9 @@
       [/\bfratres\b/g,
        '<abbr class="med contr" title="fratres" data-expand="fratres"><span class="tit">frr</span></abbr>',
        'fratres'],
+       [/\bfratre\b/g,
+       '<abbr class="med contr" title="fratre" data-expand="fratre"><span class="tit">fre</span></abbr>',
+       'fratre'],
       [/\bfratrem\b/g,
        '<abbr class="med contr" title="fratrem" data-expand="fratrem"><span class="tit">frm</span></abbr>',
        'fratrem'],
@@ -4051,6 +4197,8 @@
       'nomen-illustre',   // собственные имена смертных и мест
       'uncial-passage',   // прямая речь Финрода (приподнятый регистр)
       'folio-number',
+      'foliator-note',
+      'catchword',
       'ornament-line'
     ];
     // ВНИМАНИЕ: 'colophon' и 'later-hand-colophon' НЕ исключены.
@@ -4923,9 +5071,13 @@
   function addAbbrTranslateSources(root) {
     const abbrs = root.querySelectorAll('abbr.med[data-expand]');
     abbrs.forEach(function(abbr) {
-      // V8: старое поведение — все маргиналии пропускаем
-      // (для Айдана работает split, Коеман без обработки).
-      if (abbr.closest('.marginalia')) return;
+      // Айдан-маргиналии обслуживаются split-механизмом — пропускаем.
+      // Коеман-маргиналии (.mg-coemanus) НЕ split'ятся, для них надо
+      // добавить sibling-source точно так же, как для основного текста.
+      // Без этого Translate видит палеографическую форму "fr"/"frb"/"DNI"
+      // в Коеман-маргиналиях без раскрытия — перевод страдает.
+      const inMarg = abbr.closest('.marginalia');
+      if (inMarg && !inMarg.classList.contains('mg-coemanus')) return;
 
       // Идемпотентность: если следующий sibling уже наш source —
       // значит, для этой abbr всё уже сделано.
@@ -4962,9 +5114,8 @@
       // и body.mg-translated. В режиме перевода abbr скрывается через
       // display:none, source встаёт в поток. Notranslate тут чисто
       // hint для парсеров перевода.
-      // V8: НЕ ставим translate=no/notranslate на abbr — старая версия
-      // их не имела. Возможно именно эти атрибуты сбивают Translate
-      // с толку и заставляют его сегментировать иначе.
+      abbr.setAttribute('translate', 'no');
+      abbr.classList.add('notranslate');
 
       // Вставляем сразу после abbr — sibling, не child.
       // childAfter может быть null (abbr — последний ребёнок),
@@ -5634,9 +5785,6 @@
   // layout-зависимых вызовов: addInkArtifacts, setupTranslationObserver.
   // ═══════════════════════════════════════════════════════════════
   function preprocessSourceTemplate() {
-    // V8 DIAGNOSTIC: фаза 0 не выполняется. Возвращаемся к старому
-    // поведению pre-X-BROWSER: вся обработка на DOM после rendering.
-    return;
     const tpl = document.getElementById('codex-source');
     const root = tpl.content;
 
@@ -5747,7 +5895,7 @@
   const GHOST_EXCLUDE = {
     classes: [
       'parchment-bg', 'illuminated-initial', 'arbor-vitae', 'arbor-argentea',
-      'folio-number', 'blob', 'ink-drip', 'ghost-layer', 'big-initial',
+      'folio-number', 'foliator-note', 'catchword', 'blob', 'ink-drip', 'ghost-layer', 'big-initial',
       // PATCH TR: source-слой — visually-hidden 1×1, его геометрия не
       // соответствует видимому положению текста; рисовать его в ghost
       // нельзя (получились бы артефактные кляксы у края страницы).
@@ -6145,28 +6293,14 @@
     try { assignParchmentVariants(); } catch (e) { console.error('Patch A failed:', e); }
     try { addInitialGround(); } catch (e) { console.error('Patch H failed:', e); }
 
-    // ── Фаза 1.5 (V8 ВОССТАНОВЛЕНА): применение палеографических
-    //     аббревиатур и addAbbrTranslateSources на DOM после rendering. ──
-    try {
-      const codexRoot = document.getElementById('codex-book');
-      window.applyAbbreviations(codexRoot);
-      window.decorateTituli(codexRoot);
-      addAbbrTranslateSources(codexRoot);
-    } catch (e) { console.error('V8 Phase 1.5 failed:', e); }
+    // ── Фаза 1.5 убрана: applyAbbreviations / decorateTituli /
+    //     addAbbrTranslateSources перенесены в фазу 0 (см. preprocessSourceTemplate).
 
-    // ── Фаза 2 (V8 ВОССТАНОВЛЕНА): normalize<br> + split + jitter +
-    //     walkWbrOnly ТОЛЬКО для Коемана (не для основного текста). ──
-    try {
-      const margBrs = document.querySelectorAll('.marginalia br');
-      for (let i = 0; i < margBrs.length; i++) {
-        const br = margBrs[i];
-        br.parentNode.replaceChild(document.createTextNode(' '), br);
-      }
-      document.querySelectorAll('.marginalia:not(.mg-coemanus)').forEach(splitMarginaliaForTranslate);
-      document.querySelectorAll('.marginalia:not(.mg-coemanus) .mg-jitter-render').forEach(walkJitter);
-      document.querySelectorAll('.marginalia.mg-coemanus').forEach(walkWbrOnly);
-    } catch (e) { console.error('V8 Phase 2 failed:', e); }
-
+    // ── Фаза 2 (сокращена): только layout-зависимые DOM-мутации ──
+    //   normalizeMarginaliaBreaks / splitMarginalia / walkJitter / walkWbrOnly
+    //   перенесены в фазу 0. Здесь остаются:
+    //     addInkArtifacts: чернильные blob/drip на полях фолио (нужен layout)
+    //     setupTranslationObserver: observer для активации перевода
     try { addInkArtifacts(); } catch (e) { console.error('Patch B3 failed:', e); }
     try { setupTranslationObserver(); } catch (e) { console.error('Patch TR observer failed:', e); }
 
@@ -6175,6 +6309,7 @@
     // подготовку. Сама positionMarginalia реструктурирована в
     // read-all → compute → write-all, без thrashing внутри overlap-loop.
     positionMarginalia();
+    try { attachCatchwords(); } catch (e) { console.error('Catchwords failed:', e); }
 
     // ── Фаза 4: async-задачи, которым нужна стабильная геометрия ──
     // bakeVersoGhosts читает getBoundingClientRect() каждого слова
@@ -6203,6 +6338,7 @@
       resizeT = setTimeout(function() {
         if (window.matchMedia('(max-width: 940px)').matches) return;
         positionMarginalia();
+        try { attachCatchwords(); } catch (e) {}
       }, 150);
     });
   }
