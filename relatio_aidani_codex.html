@@ -34,6 +34,33 @@
 </style>
 
 <style id="codex-styles">
+  :root {
+    --ink-bleed-red:
+      0 0 1px rgba(100,25,8, 0.45),
+      0 0 2.5px rgba(100,25,8, 0.20);
+
+    /* === FOLLICULI — параметризация === */
+    --fol-scale: 1.0;       /* множитель размера всех точек */
+    --fol-density: 1.0;     /* множитель плотности точек */
+
+    /* Размеры точек (тёмная тень-кратер). Базовые значения 1.3 / 1.8 / 2.4 px,
+       умножаются на --fol-scale. */
+    --r-sm: calc(1.3px * var(--fol-scale));
+    --r-md: calc(1.8px * var(--fol-scale));
+    --r-lg: calc(2.4px * var(--fol-scale));
+
+    /* Размеры highlight-эллипсов (на 0.7px больше ямки, чтобы блик
+       слегка заходил за край). Тоже масштабируются. */
+    --rh-sm: calc(2.0px * var(--fol-scale));
+    --rh-md: calc(2.5px * var(--fol-scale));
+    --rh-lg: calc(3.1px * var(--fol-scale));
+
+    /* Размеры тайлов (обратно пропорциональны плотности). */
+    --t-sm: calc(17px / var(--fol-density));
+    --t-md: calc(23px / var(--fol-density));
+    --t-lg: calc(31px / var(--fol-density));
+  }
+  
   *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
 
   /* ═══════════════════════════════════════════════════════════════
@@ -357,11 +384,6 @@
 
   /* ═══════════════════════════════════════════════════════════════
      ТИПОГРАФИКА — без изменений из свитка. Те же шрифты, цвета.  */
-  :root {
-    --ink-bleed-red:
-      0 0 1px rgba(100,25,8, 0.45),
-      0 0 2.5px rgba(100,25,8, 0.20);
-  }
 
   .folio-content {
     /* НЕ position:relative — иначе маргиналии (position:absolute) будут
@@ -441,7 +463,7 @@
     margin-bottom: 6px;
     hyphens: auto;
     overflow-wrap: break-word;
-    word-spacing: 0.12em;
+    word-spacing: 0.02em;
   }
 
   /* Littera notabilior — увеличенная первая буква абзаца */
@@ -646,7 +668,7 @@
     text-align: center;
     line-height: 1.8;
     text-indent: 0;
-    word-spacing: 0.2em;
+    word-spacing: 0.10em;
   }
 
   /* ═══════════════════════════════════════════════════════════════
@@ -671,7 +693,7 @@
     line-height: 1.35;
     /*pointer-events: none;*/
     z-index: 3;
-    word-spacing: 0.08em;
+    word-spacing: 0;
     letter-spacing: 0.002em;
     /* Переносы в глоссах — аутентичная практика: писец в узком
        поле не стеснялся разбивать длинное слово по слогам. Но
@@ -747,6 +769,27 @@
     font-variant: small-caps; 
     letter-spacing: 0.04em;
     color: #2a1808;
+  }
+
+  /* ── Маргиналия Финана (аббат, современник Аидана) ──
+     Тот же шрифт Beda, что и у анонимных маргиналий Аидановского
+     слоя, — Финан и анонимы пишут одной школьной рукой. Но Финан
+     как аббат пишет ровнее: jitter не применяется (исключён через
+     :not(.mg-finanus) в querySelectorAll, а не подавляется через
+     CSS !important). Чуть более насыщенный цвет — авторитетная
+     рука, чернила свежее или нажим увереннее. */
+  .mg-finanus {
+    font-family: '0746 Beda', serif;
+    font-style: normal;
+    color: #2a1408;          /* чуть темнее, чем .marginalia (#3a2a14) */
+    font-size: 0.6em;        /* минимально шире обычной маргиналии */
+    line-height: 1.4;
+    letter-spacing: 0.005em; /* минимальное усиление по сравнению с базовым */
+  }
+  .mg-finanus em {
+    font-style: normal;
+    font-variant: small-caps;
+    letter-spacing: 0.03em;
   }
 
   .signum {
@@ -1103,6 +1146,68 @@
     transform-origin: 50% 85%;
   }
 
+   /* ═══════════════════════════════════════════════════════════════
+     WORD-SPACE JITTER — вариативность пробелов между словами.
+
+     Каждый <span class="ws"> завёрнут вокруг одного пробельного
+     символа. CSS-переменная --w (∈[0..1]) задаётся JS как доля от
+     амплитуды; padding-right разворачивает её в em.
+
+     Симметрия достигается через сдвинутые word-spacing на
+     родительских селекторах. См. секцию 3 инструкции:
+       p           : word-spacing 0.09em (было 0.12)
+       .colophon   : word-spacing 0.17em (было 0.20)
+       .marginalia : word-spacing 0.05em (было 0.08)
+     В каждом из них реальный пробел = base − 0.03 + (--w × 0.06),
+     то есть [base − 0.03 .. base + 0.03] относительно шрифта.
+     Среднее совпадает с прежним word-spacing — раскладка не
+     меняется.
+
+     Не вмешивается в word-break и copy-paste: внутри span — обычный
+     space character.                                              */
+  .ws {
+    /* SPACE_JITTER = 0.20em (см. JS).
+       Амплитуда задаётся через --space-amp на родителе:
+       по умолчанию 0.20em, для Коемана 60% (0.12em),
+       для рубрик/унциалов 0 (равномерные интервалы). */
+    padding-right: calc(var(--w, 0.5) * var(--space-amp, 0.20em));
+  }
+
+  /* В контекстах с равномерными пробелами ws-span существует
+     (для консистентности DOM-структуры между всеми text-узлами),
+     но не даёт визуального сдвига — амплитуда обнулена. */
+  .doc-title,
+  .doc-subtitle,
+  .rubric,
+  .uncial-passage {
+    --space-amp: 0;
+  }
+
+  /* Коеман писал каролингским минускулом — рука регулярнее,
+     амплитуда меньше. Уменьшаем до 60% от базовой амплитуды.
+     Применяется и в маргиналиях Коемана, и в его колофоне. */
+  .mg-coemanus,
+  .later-hand-colophon {
+    --space-amp: 0.12em;   /* 60% от базовой 0.20em — каролингская
+                              рука регулярнее инсулярной */
+  }
+
+  /* Финан — аббат, школьная рука, более регулярная.
+     50% от базовой амплитуды (компромисс между Аиданом 100%
+     и Коеманом 60%). */
+  .mg-finanus {
+    --space-amp: 0.10em;
+  }
+
+  /* Маргиналия Келлаха — старческая рука современника Аидана.
+     Амплитуда чуть выше базовой инсулярной для большего дрожания.
+     Если в HTML этой маргиналии не присвоен особый класс, можно
+     либо добавить класс mg-cellach к div'у, либо применить через
+     attribute selector :has(.signum) — но через класс чище. */
+  .mg-cellach {
+    --space-amp: 0.24em;
+  }
+
   /* ──────────────────────────────────────────────────────────────
      PATCH TR: двухслойная маргиналия Аидана.
      Source-слой — целые text-узлы для Translate / Ctrl+F / скринридеров /
@@ -1394,7 +1499,107 @@
      запекается; правило защитное. */
   .incipit-verso .ghost-layer,
   .final-recto .ghost-layer,
-  .cover-blank .ghost-layer { display: none; }
+  
+
+  /* ═══════════════════════════════════════════════════════════════
+     DEDICATORIA + PROBATIONES PENNAE на blank-leaf (verso, парная
+     карпет-обложке). Молитвенная формула uncial'ом в верхней трети,
+     пробы пера разных эпох рассыпаны в нижних двух третях.
+
+     Принцип: blank-leaf физически НЕ отдаёт ghost (см. PATCH G в JS:
+     запекается только carpet → blank-leaf, не наоборот), поэтому
+     наш контент не просвечивает на лицевую сторону карпет-обложки.
+     Pagination нас тоже не касается — blank-after-carpet строится
+     отдельно в makeFolio, минуя пагинатор.                         */
+  
+  /* Контейнер: занимает всю content-box-зону folio-content,
+     служит origin'ом для absolute-позиционирования внутренних
+     элементов. position:relative — изолирует их внутри страницы,
+     чтобы координаты не уползали к .folio. */
+  .blank-leaf .dedicatory-leaf {
+    position: relative;
+    width: 100%;
+    height: 100%;
+  }
+
+  /* Молитвенная формула: торжественный uncial, в верхней трети,
+     по центру. Цвет — насыщенный iron-gall, как основной текст
+     рубрик; чуть бледнее красных рубрик инципита, потому что это
+     не главный заголовок, а скромная посвятительная надпись.    */
+  .blank-leaf .dedicatory {
+    position: absolute;
+    top: 80px;
+    left: 0;
+    right: 0;
+    text-align: center;
+    font-family: '0550 Uncialis', 'Uncial Antiqua', serif;
+    font-size: 1.05em;
+    line-height: 1.55;
+    letter-spacing: 0.06em;
+    word-spacing: 0.15em;
+    color: #2a1810;
+    /* Лёгкий ink-bleed для аутентичной нерезкости пера */
+    text-shadow:
+      0 0 1px rgba(40, 24, 16, 0.4),
+      0 0 2px rgba(40, 24, 16, 0.18);
+  }
+  .blank-leaf .dedi-cross {
+    display: block;
+    font-size: 1.15em;
+    color: #6a1208;  /* крест-инвокация — киноварью */
+    margin-bottom: 10px;
+    line-height: 1;
+  }
+  .blank-leaf .dedi-line {
+    display: block;
+  }
+
+  /* Probationes pennae — пробы пера. Бледнее основных чернил
+     (то, что осталось на пере после макания + время, разъедающее
+     iron-gall). Шрифт зависит от «руки», которой принадлежит проба.
+     Каждая проба отдельно позиционируется через inline style.      */
+  .blank-leaf .prob {
+    position: absolute;
+    color: #4a3520;
+    /* Лёгкое выцветание */
+    opacity: 0.85;
+    white-space: nowrap;
+    pointer-events: none;
+    user-select: none;
+  }
+  /* Рука Коэмана (X век) — каролингский минускул */
+  .blank-leaf .prob-coemanus {
+    font-family: '0800 Remedius', 'Cardo', serif;
+    font-size: 0.82em;
+    letter-spacing: 0.04em;
+  }
+  /* Рука Бернарда-фолиатора (XII век) — отонский минускул */
+  .blank-leaf .prob-bernardus {
+    font-family: '1012 otto', 'Cardo', serif;
+    font-size: 0.78em;
+    letter-spacing: 0.05em;
+  }
+  /* Анонимная рука неизвестного послушника (островной полуустав) */
+  .blank-leaf .prob-anon {
+    font-family: '0800 Kells', 'Cardo', serif;
+    font-size: 0.80em;
+    letter-spacing: 0.03em;
+  }
+
+  /* SVG-росчерки: petits flourish'и, кривые узловые попытки.
+     Bezier-пути, тонкая обводка iron-gall, без заливки.         */
+  .blank-leaf .prob-flourish {
+    position: absolute;
+    pointer-events: none;
+    overflow: visible;
+    opacity: 0.7;
+  }
+  .blank-leaf .prob-flourish path {
+    stroke: #4a3520;
+    fill: none;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+  }
   
 /* ═══════════════════════════════════════════════════════════════
      ПАЛЕОГРАФИЧЕСКИЕ АББРЕВИАТУРЫ
@@ -1871,6 +2076,17 @@
      одним radial-gradient-tile 6×6 px — без feTurbulence, чтобы
      не нагружать GPU. Применяется ко всем шести hair-вариантам.
      Pricked dots (.parchment-bg::after) — на ::after, не пересекаемся. */
+  /* Folliculi: микро-углубления от волосяных луковиц на hair-стороне.
+     Каждое углубление = ПАРА gradient'ов: смещённый highlight (свет
+     сверху-слева) + центральная тень. Размеры всех точек и тайлов
+     управляются переменными --fol-scale и --fol-density (см. :root):
+       --fol-scale = 1.0   нормальный размер фолликулов
+       --fol-scale = 0.7   мельче (телёнок-vellum)
+       --fol-scale = 1.3   крупнее (овца, грубее)
+       --fol-density = 1.0 нормальная плотность
+       --fol-density = 0.7 реже (хорошо выскоблено)
+       --fol-density = 1.3 чаще (плохо выскоблено)
+     На flesh-стороне фолликулов нет (она от природы гладкая). */
   .folio.parch-h1 .parchment-bg::before,
   .folio.parch-h2 .parchment-bg::before,
   .folio.parch-h3 .parchment-bg::before,
@@ -1882,29 +2098,58 @@
     inset: 0;
     pointer-events: none;
     background-image:
-      /* Тайл 23×23: ряд из 3 диагональных + одиночка (calf-row) */
-      radial-gradient(circle 1px at  4px  6px, rgba(70,35,5,0.5) 0%, transparent 100%),
-      radial-gradient(circle 1px at  8px  9px, rgba(70,35,5,0.5) 0%, transparent 100%),
-      radial-gradient(circle 1px at 12px 12px, rgba(70,35,5,0.5) 0%, transparent 100%),
-      radial-gradient(circle 1px at 18px  4px, rgba(70,35,5,0.4) 0%, transparent 100%),
-      /* Тайл 17×17: 3 рассыпанных */
-      radial-gradient(circle 1px at  3px 12px, rgba(70,35,5,0.5)  0%, transparent 100%),
-      radial-gradient(circle 1px at 10px  5px, rgba(70,35,5,0.45) 0%, transparent 100%),
-      radial-gradient(circle 1px at 13px 14px, rgba(70,35,5,0.5)  0%, transparent 100%),
-      /* Тайл 31×31: длинный ряд из 4 + 2 одиночки */
-      radial-gradient(circle 1px at  5px  7px, rgba(70,35,5,0.5)  0%, transparent 100%),
-      radial-gradient(circle 1px at 10px  9px, rgba(70,35,5,0.5)  0%, transparent 100%),
-      radial-gradient(circle 1px at 15px 11px, rgba(70,35,5,0.5)  0%, transparent 100%),
-      radial-gradient(circle 1px at 20px 13px, rgba(70,35,5,0.5)  0%, transparent 100%),
-      radial-gradient(circle 1px at 24px 24px, rgba(70,35,5,0.45) 0%, transparent 100%),
-      radial-gradient(circle 1px at  3px 22px, rgba(70,35,5,0.4)  0%, transparent 100%);
+      /* === Тайл 23×23 — основные первичные фолликулы (4 пары) === */
+      radial-gradient(ellipse var(--rh-md) var(--rh-md) at 3.3px 5.3px, rgba(255,240,210,0.32) 0%, transparent 55%),
+      radial-gradient(circle  var(--r-md)  at 4px 6px, transparent 25%, rgba(40,20,2,0.55) 50%, transparent 75%),
+      radial-gradient(ellipse var(--rh-md) var(--rh-md) at 7.3px 8.3px, rgba(255,240,210,0.30) 0%, transparent 55%),
+      radial-gradient(circle  var(--r-md)  at 8px 9px, transparent 22%, rgba(45,22,3,0.50) 50%, transparent 75%),
+      radial-gradient(ellipse var(--rh-lg) var(--rh-lg) at 11.3px 11.3px, rgba(255,240,210,0.36) 0%, transparent 55%),
+      radial-gradient(circle  var(--r-lg)  at 12px 12px, transparent 28%, rgba(35,18,2,0.62) 50%, transparent 75%),
+      radial-gradient(ellipse var(--rh-sm) var(--rh-sm) at 17.3px 3.3px, rgba(255,240,210,0.24) 0%, transparent 55%),
+      radial-gradient(circle  var(--r-sm)  at 18px 4px, transparent 18%, rgba(50,25,3,0.42) 50%, transparent 75%),
+      /* === Тайл 17×17 — мелкие вторичные фолликулы (3 пары) === */
+      radial-gradient(ellipse var(--rh-sm) var(--rh-sm) at 2.3px 11.3px, rgba(255,240,210,0.22) 0%, transparent 55%),
+      radial-gradient(circle  var(--r-sm)  at 3px 12px, transparent 16%, rgba(50,25,3,0.40) 50%, transparent 75%),
+      radial-gradient(ellipse var(--rh-sm) var(--rh-sm) at 9.3px 4.3px, rgba(255,240,210,0.26) 0%, transparent 55%),
+      radial-gradient(circle  var(--r-sm)  at 10px 5px, transparent 20%, rgba(48,24,3,0.45) 50%, transparent 75%),
+      radial-gradient(ellipse var(--rh-sm) var(--rh-sm) at 12.3px 13.3px, rgba(255,240,210,0.22) 0%, transparent 55%),
+      radial-gradient(circle  var(--r-sm)  at 13px 14px, transparent 16%, rgba(50,25,3,0.40) 50%, transparent 75%),
+      /* === Тайл 31×31 — длинный ряд первичных, разные размеры (6 пар) === */
+      radial-gradient(ellipse var(--rh-md) var(--rh-md) at 4.3px 6.3px, rgba(255,240,210,0.32) 0%, transparent 55%),
+      radial-gradient(circle  var(--r-md)  at 5px 7px, transparent 25%, rgba(40,20,2,0.55) 50%, transparent 75%),
+      radial-gradient(ellipse var(--rh-lg) var(--rh-lg) at 9.3px 8.3px, rgba(255,240,210,0.40) 0%, transparent 55%),
+      radial-gradient(circle  var(--r-lg)  at 10px 9px, transparent 30%, rgba(32,16,2,0.65) 50%, transparent 75%),
+      radial-gradient(ellipse var(--rh-md) var(--rh-md) at 14.3px 10.3px, rgba(255,240,210,0.28) 0%, transparent 55%),
+      radial-gradient(circle  var(--r-md)  at 15px 11px, transparent 22%, rgba(45,22,3,0.50) 50%, transparent 75%),
+      radial-gradient(ellipse var(--rh-md) var(--rh-md) at 19.3px 12.3px, rgba(255,240,210,0.32) 0%, transparent 55%),
+      radial-gradient(circle  var(--r-md)  at 20px 13px, transparent 25%, rgba(40,20,2,0.55) 50%, transparent 75%),
+      radial-gradient(ellipse var(--rh-sm) var(--rh-sm) at 23.3px 23.3px, rgba(255,240,210,0.22) 0%, transparent 55%),
+      radial-gradient(circle  var(--r-sm)  at 24px 24px, transparent 16%, rgba(50,25,3,0.40) 50%, transparent 75%),
+      radial-gradient(ellipse var(--rh-md) var(--rh-md) at 2.3px 21.3px, rgba(255,240,210,0.28) 0%, transparent 55%),
+      radial-gradient(circle  var(--r-md)  at 3px 22px, transparent 22%, rgba(45,22,3,0.48) 50%, transparent 75%);
     background-size:
-      23px 23px, 23px 23px, 23px 23px, 23px 23px,
-      17px 17px, 17px 17px, 17px 17px,
-      31px 31px, 31px 31px, 31px 31px, 31px 31px, 31px 31px, 31px 31px;
+      var(--t-md) var(--t-md), var(--t-md) var(--t-md),
+      var(--t-md) var(--t-md), var(--t-md) var(--t-md),
+      var(--t-md) var(--t-md), var(--t-md) var(--t-md),
+      var(--t-md) var(--t-md), var(--t-md) var(--t-md),
+      var(--t-sm) var(--t-sm), var(--t-sm) var(--t-sm),
+      var(--t-sm) var(--t-sm), var(--t-sm) var(--t-sm),
+      var(--t-sm) var(--t-sm), var(--t-sm) var(--t-sm),
+      var(--t-lg) var(--t-lg), var(--t-lg) var(--t-lg),
+      var(--t-lg) var(--t-lg), var(--t-lg) var(--t-lg),
+      var(--t-lg) var(--t-lg), var(--t-lg) var(--t-lg),
+      var(--t-lg) var(--t-lg), var(--t-lg) var(--t-lg),
+      var(--t-lg) var(--t-lg), var(--t-lg) var(--t-lg),
+      var(--t-lg) var(--t-lg), var(--t-lg) var(--t-lg);
     background-repeat: repeat;
-    opacity: 1;
+    opacity: 0.4;
   }
+  .folio.parch-h1 { --fol-scale: 0.85; --fol-density: 0.9; }
+  .folio.parch-h2 { --fol-scale: 1.0;  --fol-density: 1.0; }
+  .folio.parch-h3 { --fol-scale: 1.15; --fol-density: 1.1; }
+  .folio.parch-h4 { --fol-scale: 0.9;  --fol-density: 1.05; }
+  .folio.parch-h5 { --fol-scale: 1.05; --fol-density: 0.95; }
+  .folio.parch-h6 { --fol-scale: 1.2;  --fol-density: 1.15; }
   /* На декоративных страницах (carpet/final) фолликулы не нужны:
      они сосуществуют с SVG-арт и читаются как мусор. */
   .incipit-verso .parchment-bg::before,
@@ -1922,6 +2167,22 @@
   .kk-silver { --ku-c: #3a4550; --ku-w: 8.5; --ko-c: #c0c8d0; --ko-w: 5; }
   .kk-gold   { --ku-c: #5a3e08; --ku-w: 9.5; --ko-c: #d4a820; --ko-w: 5; }
 
+  .med-silver  { --m-frame:   #3a4550;  --m-ring:     #c0c8d0; }
+  .med-gold    { --m-frame:   #5a3e08;  --m-ring:     #d4a820; }
+  .node-silver { --n-fill:    #c0c8d0;  --n-stroke:   #7a8590; }
+  .node-gold   { --n-fill:    #d4a820;  --n-stroke:   #8a6810; }
+  .frt-silver  { --frt-fill:  #c0c8d0;  --frt-stroke: #7a8590; }
+  .frt-gold    { --frt-fill:  #d4a820;  --frt-stroke: #8a6810; }
+
+  .rose-silver {
+    --rose-petal-fill: #c0c8d0; --rose-petal-stroke: #5a6670;
+    --rose-core-fill:  #5a6670; --rose-core-stroke:  #2a3540;
+  }
+  .rose-gold {
+    --rose-petal-fill: #d4a820; --rose-petal-stroke: #8a6810;
+    --rose-core-fill:  #8a6810; --rose-core-stroke:  #4a3010;
+  }
+
 </style>
 
 <style>
@@ -1936,282 +2197,154 @@
   <!-- 88 path-сегментов плетёнки, обёрнутых в группу для одного use'а
        вместо 176 индивидуальных use'ов на каждой ковровой странице. -->
   <g id="knot-strand">
-  <path id="kn0" d="M82.00 53.60C85.29 53.61 88.58 52.89 91.88 51.67"/>
-  <path id="kn1" d="M82.00 47.00C85.29 48.73 88.58 50.45 91.88 51.67"/>
-  <path id="kn2" d="M91.88 51.67C105.04 57.97 118.20 48.07 131.38 42.33"/>
-  <path id="kn3" d="M91.88 51.67C105.04 45.93 118.20 36.03 131.38 42.33"/>
-  <path id="kn4" d="M131.38 42.33C144.54 48.07 157.70 57.97 170.88 51.67"/>
-  <path id="kn5" d="M131.38 42.33C144.54 36.03 157.70 45.93 170.88 51.67"/>
-  <path id="kn6" d="M170.88 51.67C184.04 57.97 197.20 48.07 210.38 42.33"/>
-  <path id="kn7" d="M170.88 51.67C184.04 45.93 197.20 36.03 210.38 42.33"/>
-  <path id="kn8" d="M210.38 42.33C223.54 48.07 236.71 57.97 249.88 51.67"/>
-  <path id="kn9" d="M210.38 42.33C223.54 36.03 236.71 45.93 249.88 51.67"/>
-  <path id="kn10" d="M249.88 51.67C263.03 57.97 276.21 48.07 289.38 42.33"/>
-  <path id="kn11" d="M249.88 51.67C263.03 45.93 276.21 36.03 289.38 42.33"/>
-  <path id="kn12" d="M289.38 42.33C302.53 48.07 315.71 57.98 328.88 51.67"/>
-  <path id="kn13" d="M289.38 42.33C302.53 36.03 315.71 45.93 328.88 51.67"/>
-  <path id="kn14" d="M328.88 51.67C342.03 57.97 355.21 48.07 368.38 42.33"/>
-  <path id="kn15" d="M328.88 51.67C342.03 45.93 355.21 36.03 368.38 42.33"/>
-  <path id="kn16" d="M368.38 42.33C378.24 46.11 388.12 53.91 398.00 53.60"/>
-  <path id="kn17" d="M368.38 42.33C378.24 38.12 388.12 41.34 398.00 47.00"/>
-  <path id="kn18" d="M82.00 625.60C85.29 625.61 88.58 624.89 91.88 623.67"/>
-  <path id="kn19" d="M82.00 619.00C85.29 620.73 88.58 622.45 91.88 623.67"/>
-  <path id="kn20" d="M91.88 623.67C105.04 629.97 118.20 620.07 131.38 614.33"/>
-  <path id="kn21" d="M91.88 623.67C105.04 617.93 118.20 608.03 131.38 614.33"/>
-  <path id="kn22" d="M131.38 614.33C144.54 620.07 157.70 629.97 170.88 623.67"/>
-  <path id="kn23" d="M131.38 614.33C144.54 608.03 157.70 617.93 170.88 623.67"/>
-  <path id="kn24" d="M170.88 623.67C184.04 629.97 197.20 620.07 210.38 614.33"/>
-  <path id="kn25" d="M170.88 623.67C184.04 617.93 197.20 608.03 210.38 614.33"/>
-  <path id="kn26" d="M210.38 614.33C223.54 620.07 236.71 629.97 249.88 623.67"/>
-  <path id="kn27" d="M210.38 614.33C223.54 608.03 236.71 617.93 249.88 623.67"/>
-  <path id="kn28" d="M249.88 623.67C263.03 629.97 276.21 620.07 289.38 614.33"/>
-  <path id="kn29" d="M249.88 623.67C263.03 617.93 276.21 608.03 289.38 614.33"/>
-  <path id="kn30" d="M289.38 614.33C302.53 620.07 315.71 629.97 328.88 623.67"/>
-  <path id="kn31" d="M289.38 614.33C302.53 608.03 315.71 617.93 328.88 623.67"/>
-  <path id="kn32" d="M328.88 623.67C342.03 629.97 355.21 620.07 368.38 614.33"/>
-  <path id="kn33" d="M328.88 623.67C342.03 617.93 355.21 608.03 368.38 614.33"/>
-  <path id="kn34" d="M368.38 614.33C378.24 618.11 388.12 625.91 398.00 625.60"/>
-  <path id="kn35" d="M368.38 614.33C378.24 610.12 388.12 613.34 398.00 619.00"/>
-  <path id="kn36" d="M53.60 82.00C53.61 85.58 52.89 89.17 51.67 92.75"/>
-  <path id="kn37" d="M47.00 82.00C48.73 85.58 50.45 89.17 51.67 92.75"/>
-  <path id="kn38" d="M51.67 92.75C57.97 107.08 48.07 121.42 42.33 135.75"/>
-  <path id="kn39" d="M51.67 92.75C45.93 107.08 36.03 121.42 42.33 135.75"/>
-  <path id="kn40" d="M42.33 135.75C48.07 150.08 57.97 164.42 51.67 178.75"/>
-  <path id="kn41" d="M42.33 135.75C36.03 150.08 45.93 164.42 51.67 178.75"/>
-  <path id="kn42" d="M51.67 178.75C57.97 193.08 48.07 207.42 42.33 221.75"/>
-  <path id="kn43" d="M51.67 178.75C45.93 193.08 36.03 207.42 42.33 221.75"/>
-  <path id="kn44" d="M42.33 221.75C48.07 236.08 57.97 250.42 51.67 264.75"/>
-  <path id="kn45" d="M42.33 221.75C36.03 236.08 45.93 250.42 51.67 264.75"/>
-  <path id="kn46" d="M51.67 264.75C57.97 279.08 48.07 293.42 42.33 307.75"/>
-  <path id="kn47" d="M51.67 264.75C45.93 279.08 36.03 293.42 42.33 307.75"/>
-  <path id="kn48" d="M42.33 307.75C48.07 322.08 57.97 336.42 51.67 350.75"/>
-  <path id="kn49" d="M42.33 307.75C36.03 322.08 45.93 336.42 51.67 350.75"/>
-  <path id="kn50" d="M51.67 350.75C57.97 365.08 48.07 379.42 42.33 393.75"/>
-  <path id="kn51" d="M51.67 350.75C45.93 365.08 36.03 379.42 42.33 393.75"/>
-  <path id="kn52" d="M42.33 393.75C48.07 408.08 57.97 422.42 51.67 436.75"/>
-  <path id="kn53" d="M42.33 393.75C36.03 408.08 45.93 422.42 51.67 436.75"/>
-  <path id="kn54" d="M51.67 436.75C57.97 451.08 48.07 465.42 42.33 479.75"/>
-  <path id="kn55" d="M51.67 436.75C45.93 451.08 36.03 465.42 42.33 479.75"/>
-  <path id="kn56" d="M42.33 479.75C48.07 494.08 57.97 508.42 51.67 522.75"/>
-  <path id="kn57" d="M42.33 479.75C36.03 494.08 45.93 508.42 51.67 522.75"/>
-  <path id="kn58" d="M51.67 522.75C57.97 537.08 48.07 551.42 42.33 565.75"/>
-  <path id="kn59" d="M51.67 522.75C45.93 537.08 36.03 551.42 42.33 565.75"/>
-  <path id="kn60" d="M42.33 565.75C46.11 576.49 53.91 587.26 53.60 598.00"/>
-  <path id="kn61" d="M42.33 565.75C38.12 576.49 41.34 587.26 47.00 598.00"/>
-  <path id="kn62" d="M439.60 82.00C439.61 85.58 438.89 89.17 437.67 92.75"/>
-  <path id="kn63" d="M433.00 82.00C434.73 85.58 436.45 89.17 437.67 92.75"/>
-  <path id="kn64" d="M437.67 92.75C443.97 107.08 434.07 121.42 428.33 135.75"/>
-  <path id="kn65" d="M437.67 92.75C431.93 107.08 422.03 121.42 428.33 135.75"/>
-  <path id="kn66" d="M428.33 135.75C434.07 150.08 443.97 164.42 437.67 178.75"/>
-  <path id="kn67" d="M428.33 135.75C422.03 150.08 431.93 164.42 437.67 178.75"/>
-  <path id="kn68" d="M437.67 178.75C443.97 193.08 434.07 207.42 428.33 221.75"/>
-  <path id="kn69" d="M437.67 178.75C431.93 193.08 422.03 207.42 428.33 221.75"/>
-  <path id="kn70" d="M428.33 221.75C434.07 236.08 443.97 250.42 437.67 264.75"/>
-  <path id="kn71" d="M428.33 221.75C422.03 236.08 431.93 250.42 437.67 264.75"/>
-  <path id="kn72" d="M437.67 264.75C443.97 279.08 434.07 293.42 428.33 307.75"/>
-  <path id="kn73" d="M437.67 264.75C431.93 279.08 422.03 293.42 428.33 307.75"/>
-  <path id="kn74" d="M428.33 307.75C434.07 322.08 443.97 336.42 437.67 350.75"/>
-  <path id="kn75" d="M428.33 307.75C422.03 322.08 431.93 336.42 437.67 350.75"/>
-  <path id="kn76" d="M437.67 350.75C443.97 365.08 434.07 379.42 428.33 393.75"/>
-  <path id="kn77" d="M437.67 350.75C431.93 365.08 422.03 379.42 428.33 393.75"/>
-  <path id="kn78" d="M428.33 393.75C434.07 408.08 443.97 422.42 437.67 436.75"/>
-  <path id="kn79" d="M428.33 393.75C422.03 408.08 431.93 422.42 437.67 436.75"/>
-  <path id="kn80" d="M437.67 436.75C443.97 451.08 434.07 465.42 428.33 479.75"/>
-  <path id="kn81" d="M437.67 436.75C431.93 451.08 422.03 465.42 428.33 479.75"/>
-  <path id="kn82" d="M428.33 479.75C434.07 494.08 443.97 508.42 437.67 522.75"/>
-  <path id="kn83" d="M428.33 479.75C422.03 494.08 431.93 508.42 437.67 522.75"/>
-  <path id="kn84" d="M437.67 522.75C443.97 537.08 434.07 551.42 428.33 565.75"/>
-  <path id="kn85" d="M437.67 522.75C431.93 537.08 422.03 551.42 428.33 565.75"/>
-  <path id="kn86" d="M428.33 565.75C432.11 576.49 439.91 587.26 439.60 598.00"/>
-  <path id="kn87" d="M428.33 565.75C424.12 576.49 427.34 587.26 433.00 598.00"/>
+    <!-- Верхняя полоса (kn0..kn17): 18 канонических путей -->
+    <path id="kn0" d="M82.00 53.60C85.29 53.61 88.58 52.89 91.88 51.67"/>
+    <path id="kn1" d="M82.00 47.00C85.29 48.73 88.58 50.45 91.88 51.67"/>
+    <path id="kn2" d="M91.88 51.67C105.04 57.97 118.20 48.07 131.38 42.33"/>
+    <path id="kn3" d="M91.88 51.67C105.04 45.93 118.20 36.03 131.38 42.33"/>
+    <path id="kn4" d="M131.38 42.33C144.54 48.07 157.70 57.97 170.88 51.67"/>
+    <path id="kn5" d="M131.38 42.33C144.54 36.03 157.70 45.93 170.88 51.67"/>
+    <path id="kn6" d="M170.88 51.67C184.04 57.97 197.20 48.07 210.38 42.33"/>
+    <path id="kn7" d="M170.88 51.67C184.04 45.93 197.20 36.03 210.38 42.33"/>
+    <path id="kn8" d="M210.38 42.33C223.54 48.07 236.71 57.97 249.88 51.67"/>
+    <path id="kn9" d="M210.38 42.33C223.54 36.03 236.71 45.93 249.88 51.67"/>
+    <path id="kn10" d="M249.88 51.67C263.03 57.97 276.21 48.07 289.38 42.33"/>
+    <path id="kn11" d="M249.88 51.67C263.03 45.93 276.21 36.03 289.38 42.33"/>
+    <path id="kn12" d="M289.38 42.33C302.53 48.07 315.71 57.98 328.88 51.67"/>
+    <path id="kn13" d="M289.38 42.33C302.53 36.03 315.71 45.93 328.88 51.67"/>
+    <path id="kn14" d="M328.88 51.67C342.03 57.97 355.21 48.07 368.38 42.33"/>
+    <path id="kn15" d="M328.88 51.67C342.03 45.93 355.21 36.03 368.38 42.33"/>
+    <path id="kn16" d="M368.38 42.33C378.24 46.11 388.12 53.91 398.00 53.60"/>
+    <path id="kn17" d="M368.38 42.33C378.24 38.12 388.12 41.34 398.00 47.00"/>
+    <!-- Левая полоса (kn36..kn61): 26 канонических путей -->
+    <path id="kn36" d="M53.60 82.00C53.61 85.58 52.89 89.17 51.67 92.75"/>
+    <path id="kn37" d="M47.00 82.00C48.73 85.58 50.45 89.17 51.67 92.75"/>
+    <path id="kn38" d="M51.67 92.75C57.97 107.08 48.07 121.42 42.33 135.75"/>
+    <path id="kn39" d="M51.67 92.75C45.93 107.08 36.03 121.42 42.33 135.75"/>
+    <path id="kn40" d="M42.33 135.75C48.07 150.08 57.97 164.42 51.67 178.75"/>
+    <path id="kn41" d="M42.33 135.75C36.03 150.08 45.93 164.42 51.67 178.75"/>
+    <path id="kn42" d="M51.67 178.75C57.97 193.08 48.07 207.42 42.33 221.75"/>
+    <path id="kn43" d="M51.67 178.75C45.93 193.08 36.03 207.42 42.33 221.75"/>
+    <path id="kn44" d="M42.33 221.75C48.07 236.08 57.97 250.42 51.67 264.75"/>
+    <path id="kn45" d="M42.33 221.75C36.03 236.08 45.93 250.42 51.67 264.75"/>
+    <path id="kn46" d="M51.67 264.75C57.97 279.08 48.07 293.42 42.33 307.75"/>
+    <path id="kn47" d="M51.67 264.75C45.93 279.08 36.03 293.42 42.33 307.75"/>
+    <path id="kn48" d="M42.33 307.75C48.07 322.08 57.97 336.42 51.67 350.75"/>
+    <path id="kn49" d="M42.33 307.75C36.03 322.08 45.93 336.42 51.67 350.75"/>
+    <path id="kn50" d="M51.67 350.75C57.97 365.08 48.07 379.42 42.33 393.75"/>
+    <path id="kn51" d="M51.67 350.75C45.93 365.08 36.03 379.42 42.33 393.75"/>
+    <path id="kn52" d="M42.33 393.75C48.07 408.08 57.97 422.42 51.67 436.75"/>
+    <path id="kn53" d="M42.33 393.75C36.03 408.08 45.93 422.42 51.67 436.75"/>
+    <path id="kn54" d="M51.67 436.75C57.97 451.08 48.07 465.42 42.33 479.75"/>
+    <path id="kn55" d="M51.67 436.75C45.93 451.08 36.03 465.42 42.33 479.75"/>
+    <path id="kn56" d="M42.33 479.75C48.07 494.08 57.97 508.42 51.67 522.75"/>
+    <path id="kn57" d="M42.33 479.75C36.03 494.08 45.93 508.42 51.67 522.75"/>
+    <path id="kn58" d="M51.67 522.75C57.97 537.08 48.07 551.42 42.33 565.75"/>
+    <path id="kn59" d="M51.67 522.75C45.93 537.08 36.03 551.42 42.33 565.75"/>
+    <path id="kn60" d="M42.33 565.75C46.11 576.49 53.91 587.26 53.60 598.00"/>
+    <path id="kn61" d="M42.33 565.75C38.12 576.49 41.34 587.26 47.00 598.00"/>
   </g>
   <!-- Полный набор переплетённых нитей: 176 use'ов в правильном per-path
        порядке (knN тень → knN цвет → kn(N+1) тень → kn(N+1) цвет ...).
        Палитра НЕ зашита — она задаётся CSS-переменными --ku-c/--ku-w/--ko-c/--ko-w
        на классе-палитре внешнего <use>. -->
   <g id="knot-twist">
-    <use href="#kn0" class="kk-u"/>
-    <use href="#kn0" class="kk-o"/>
-    <use href="#kn1" class="kk-u"/>
-    <use href="#kn1" class="kk-o"/>
-    <use href="#kn2" class="kk-u"/>
-    <use href="#kn2" class="kk-o"/>
-    <use href="#kn3" class="kk-u"/>
-    <use href="#kn3" class="kk-o"/>
-    <use href="#kn4" class="kk-u"/>
-    <use href="#kn4" class="kk-o"/>
-    <use href="#kn5" class="kk-u"/>
-    <use href="#kn5" class="kk-o"/>
-    <use href="#kn6" class="kk-u"/>
-    <use href="#kn6" class="kk-o"/>
-    <use href="#kn7" class="kk-u"/>
-    <use href="#kn7" class="kk-o"/>
-    <use href="#kn8" class="kk-u"/>
-    <use href="#kn8" class="kk-o"/>
-    <use href="#kn9" class="kk-u"/>
-    <use href="#kn9" class="kk-o"/>
-    <use href="#kn10" class="kk-u"/>
-    <use href="#kn10" class="kk-o"/>
-    <use href="#kn11" class="kk-u"/>
-    <use href="#kn11" class="kk-o"/>
-    <use href="#kn12" class="kk-u"/>
-    <use href="#kn12" class="kk-o"/>
-    <use href="#kn13" class="kk-u"/>
-    <use href="#kn13" class="kk-o"/>
-    <use href="#kn14" class="kk-u"/>
-    <use href="#kn14" class="kk-o"/>
-    <use href="#kn15" class="kk-u"/>
-    <use href="#kn15" class="kk-o"/>
-    <use href="#kn16" class="kk-u"/>
-    <use href="#kn16" class="kk-o"/>
-    <use href="#kn17" class="kk-u"/>
-    <use href="#kn17" class="kk-o"/>
-    <use href="#kn18" class="kk-u"/>
-    <use href="#kn18" class="kk-o"/>
-    <use href="#kn19" class="kk-u"/>
-    <use href="#kn19" class="kk-o"/>
-    <use href="#kn20" class="kk-u"/>
-    <use href="#kn20" class="kk-o"/>
-    <use href="#kn21" class="kk-u"/>
-    <use href="#kn21" class="kk-o"/>
-    <use href="#kn22" class="kk-u"/>
-    <use href="#kn22" class="kk-o"/>
-    <use href="#kn23" class="kk-u"/>
-    <use href="#kn23" class="kk-o"/>
-    <use href="#kn24" class="kk-u"/>
-    <use href="#kn24" class="kk-o"/>
-    <use href="#kn25" class="kk-u"/>
-    <use href="#kn25" class="kk-o"/>
-    <use href="#kn26" class="kk-u"/>
-    <use href="#kn26" class="kk-o"/>
-    <use href="#kn27" class="kk-u"/>
-    <use href="#kn27" class="kk-o"/>
-    <use href="#kn28" class="kk-u"/>
-    <use href="#kn28" class="kk-o"/>
-    <use href="#kn29" class="kk-u"/>
-    <use href="#kn29" class="kk-o"/>
-    <use href="#kn30" class="kk-u"/>
-    <use href="#kn30" class="kk-o"/>
-    <use href="#kn31" class="kk-u"/>
-    <use href="#kn31" class="kk-o"/>
-    <use href="#kn32" class="kk-u"/>
-    <use href="#kn32" class="kk-o"/>
-    <use href="#kn33" class="kk-u"/>
-    <use href="#kn33" class="kk-o"/>
-    <use href="#kn34" class="kk-u"/>
-    <use href="#kn34" class="kk-o"/>
-    <use href="#kn35" class="kk-u"/>
-    <use href="#kn35" class="kk-o"/>
-    <use href="#kn36" class="kk-u"/>
-    <use href="#kn36" class="kk-o"/>
-    <use href="#kn37" class="kk-u"/>
-    <use href="#kn37" class="kk-o"/>
-    <use href="#kn38" class="kk-u"/>
-    <use href="#kn38" class="kk-o"/>
-    <use href="#kn39" class="kk-u"/>
-    <use href="#kn39" class="kk-o"/>
-    <use href="#kn40" class="kk-u"/>
-    <use href="#kn40" class="kk-o"/>
-    <use href="#kn41" class="kk-u"/>
-    <use href="#kn41" class="kk-o"/>
-    <use href="#kn42" class="kk-u"/>
-    <use href="#kn42" class="kk-o"/>
-    <use href="#kn43" class="kk-u"/>
-    <use href="#kn43" class="kk-o"/>
-    <use href="#kn44" class="kk-u"/>
-    <use href="#kn44" class="kk-o"/>
-    <use href="#kn45" class="kk-u"/>
-    <use href="#kn45" class="kk-o"/>
-    <use href="#kn46" class="kk-u"/>
-    <use href="#kn46" class="kk-o"/>
-    <use href="#kn47" class="kk-u"/>
-    <use href="#kn47" class="kk-o"/>
-    <use href="#kn48" class="kk-u"/>
-    <use href="#kn48" class="kk-o"/>
-    <use href="#kn49" class="kk-u"/>
-    <use href="#kn49" class="kk-o"/>
-    <use href="#kn50" class="kk-u"/>
-    <use href="#kn50" class="kk-o"/>
-    <use href="#kn51" class="kk-u"/>
-    <use href="#kn51" class="kk-o"/>
-    <use href="#kn52" class="kk-u"/>
-    <use href="#kn52" class="kk-o"/>
-    <use href="#kn53" class="kk-u"/>
-    <use href="#kn53" class="kk-o"/>
-    <use href="#kn54" class="kk-u"/>
-    <use href="#kn54" class="kk-o"/>
-    <use href="#kn55" class="kk-u"/>
-    <use href="#kn55" class="kk-o"/>
-    <use href="#kn56" class="kk-u"/>
-    <use href="#kn56" class="kk-o"/>
-    <use href="#kn57" class="kk-u"/>
-    <use href="#kn57" class="kk-o"/>
-    <use href="#kn58" class="kk-u"/>
-    <use href="#kn58" class="kk-o"/>
-    <use href="#kn59" class="kk-u"/>
-    <use href="#kn59" class="kk-o"/>
-    <use href="#kn60" class="kk-u"/>
-    <use href="#kn60" class="kk-o"/>
-    <use href="#kn61" class="kk-u"/>
-    <use href="#kn61" class="kk-o"/>
-    <use href="#kn62" class="kk-u"/>
-    <use href="#kn62" class="kk-o"/>
-    <use href="#kn63" class="kk-u"/>
-    <use href="#kn63" class="kk-o"/>
-    <use href="#kn64" class="kk-u"/>
-    <use href="#kn64" class="kk-o"/>
-    <use href="#kn65" class="kk-u"/>
-    <use href="#kn65" class="kk-o"/>
-    <use href="#kn66" class="kk-u"/>
-    <use href="#kn66" class="kk-o"/>
-    <use href="#kn67" class="kk-u"/>
-    <use href="#kn67" class="kk-o"/>
-    <use href="#kn68" class="kk-u"/>
-    <use href="#kn68" class="kk-o"/>
-    <use href="#kn69" class="kk-u"/>
-    <use href="#kn69" class="kk-o"/>
-    <use href="#kn70" class="kk-u"/>
-    <use href="#kn70" class="kk-o"/>
-    <use href="#kn71" class="kk-u"/>
-    <use href="#kn71" class="kk-o"/>
-    <use href="#kn72" class="kk-u"/>
-    <use href="#kn72" class="kk-o"/>
-    <use href="#kn73" class="kk-u"/>
-    <use href="#kn73" class="kk-o"/>
-    <use href="#kn74" class="kk-u"/>
-    <use href="#kn74" class="kk-o"/>
-    <use href="#kn75" class="kk-u"/>
-    <use href="#kn75" class="kk-o"/>
-    <use href="#kn76" class="kk-u"/>
-    <use href="#kn76" class="kk-o"/>
-    <use href="#kn77" class="kk-u"/>
-    <use href="#kn77" class="kk-o"/>
-    <use href="#kn78" class="kk-u"/>
-    <use href="#kn78" class="kk-o"/>
-    <use href="#kn79" class="kk-u"/>
-    <use href="#kn79" class="kk-o"/>
-    <use href="#kn80" class="kk-u"/>
-    <use href="#kn80" class="kk-o"/>
-    <use href="#kn81" class="kk-u"/>
-    <use href="#kn81" class="kk-o"/>
-    <use href="#kn82" class="kk-u"/>
-    <use href="#kn82" class="kk-o"/>
-    <use href="#kn83" class="kk-u"/>
-    <use href="#kn83" class="kk-o"/>
-    <use href="#kn84" class="kk-u"/>
-    <use href="#kn84" class="kk-o"/>
-    <use href="#kn85" class="kk-u"/>
-    <use href="#kn85" class="kk-o"/>
-    <use href="#kn86" class="kk-u"/>
-    <use href="#kn86" class="kk-o"/>
-    <use href="#kn87" class="kk-u"/>
-    <use href="#kn87" class="kk-o"/>
+    <!-- Верхняя полоса: 18 path × 2 жилы = 36 use -->
+    <g id="kn-twist-top">
+      <use href="#kn0"  class="kk-u"/><use href="#kn0"  class="kk-o"/>
+      <use href="#kn1"  class="kk-u"/><use href="#kn1"  class="kk-o"/>
+      <use href="#kn2"  class="kk-u"/><use href="#kn2"  class="kk-o"/>
+      <use href="#kn3"  class="kk-u"/><use href="#kn3"  class="kk-o"/>
+      <use href="#kn4"  class="kk-u"/><use href="#kn4"  class="kk-o"/>
+      <use href="#kn5"  class="kk-u"/><use href="#kn5"  class="kk-o"/>
+      <use href="#kn6"  class="kk-u"/><use href="#kn6"  class="kk-o"/>
+      <use href="#kn7"  class="kk-u"/><use href="#kn7"  class="kk-o"/>
+      <use href="#kn8"  class="kk-u"/><use href="#kn8"  class="kk-o"/>
+      <use href="#kn9"  class="kk-u"/><use href="#kn9"  class="kk-o"/>
+      <use href="#kn10" class="kk-u"/><use href="#kn10" class="kk-o"/>
+      <use href="#kn11" class="kk-u"/><use href="#kn11" class="kk-o"/>
+      <use href="#kn12" class="kk-u"/><use href="#kn12" class="kk-o"/>
+      <use href="#kn13" class="kk-u"/><use href="#kn13" class="kk-o"/>
+      <use href="#kn14" class="kk-u"/><use href="#kn14" class="kk-o"/>
+      <use href="#kn15" class="kk-u"/><use href="#kn15" class="kk-o"/>
+      <use href="#kn16" class="kk-u"/><use href="#kn16" class="kk-o"/>
+      <use href="#kn17" class="kk-u"/><use href="#kn17" class="kk-o"/>
+    </g>
+    <!-- Нижняя полоса = верхняя + translate(0, 572) -->
+    <use href="#kn-twist-top" transform="translate(0 572)"/>
+    <!-- Левая полоса: 26 path × 2 жилы = 52 use -->
+    <g id="kn-twist-left">
+      <use href="#kn36" class="kk-u"/><use href="#kn36" class="kk-o"/>
+      <use href="#kn37" class="kk-u"/><use href="#kn37" class="kk-o"/>
+      <use href="#kn38" class="kk-u"/><use href="#kn38" class="kk-o"/>
+      <use href="#kn39" class="kk-u"/><use href="#kn39" class="kk-o"/>
+      <use href="#kn40" class="kk-u"/><use href="#kn40" class="kk-o"/>
+      <use href="#kn41" class="kk-u"/><use href="#kn41" class="kk-o"/>
+      <use href="#kn42" class="kk-u"/><use href="#kn42" class="kk-o"/>
+      <use href="#kn43" class="kk-u"/><use href="#kn43" class="kk-o"/>
+      <use href="#kn44" class="kk-u"/><use href="#kn44" class="kk-o"/>
+      <use href="#kn45" class="kk-u"/><use href="#kn45" class="kk-o"/>
+      <use href="#kn46" class="kk-u"/><use href="#kn46" class="kk-o"/>
+      <use href="#kn47" class="kk-u"/><use href="#kn47" class="kk-o"/>
+      <use href="#kn48" class="kk-u"/><use href="#kn48" class="kk-o"/>
+      <use href="#kn49" class="kk-u"/><use href="#kn49" class="kk-o"/>
+      <use href="#kn50" class="kk-u"/><use href="#kn50" class="kk-o"/>
+      <use href="#kn51" class="kk-u"/><use href="#kn51" class="kk-o"/>
+      <use href="#kn52" class="kk-u"/><use href="#kn52" class="kk-o"/>
+      <use href="#kn53" class="kk-u"/><use href="#kn53" class="kk-o"/>
+      <use href="#kn54" class="kk-u"/><use href="#kn54" class="kk-o"/>
+      <use href="#kn55" class="kk-u"/><use href="#kn55" class="kk-o"/>
+      <use href="#kn56" class="kk-u"/><use href="#kn56" class="kk-o"/>
+      <use href="#kn57" class="kk-u"/><use href="#kn57" class="kk-o"/>
+      <use href="#kn58" class="kk-u"/><use href="#kn58" class="kk-o"/>
+      <use href="#kn59" class="kk-u"/><use href="#kn59" class="kk-o"/>
+      <use href="#kn60" class="kk-u"/><use href="#kn60" class="kk-o"/>
+      <use href="#kn61" class="kk-u"/><use href="#kn61" class="kk-o"/>
+    </g>
+    <!-- Правая полоса = левая + translate(386, 0) -->
+    <use href="#kn-twist-left" transform="translate(386 0)"/>
   </g>
   <path id="trl" d="M0 -7.5C5 -3.5 5 3.5 0 7.5C-5 3.5 -5 -3.5 0 -7.5Z"/>
-  <mask id="tri-mask" maskUnits="userSpaceOnUse" x="-15" y="-15" width="30" height="30"><rect x="-15" y="-15" width="30" height="30" fill="white"/><use href="#trl" stroke="black" stroke-width="1.6" fill="none"/></mask>
-  <g id="tri" stroke-linecap="round" stroke-linejoin="round" fill="none"><use href="#trl" stroke="#1a1208" stroke-width="1.6"/><use href="#trl" stroke="#3a6012" stroke-width="1"/><use href="#trl" transform="rotate(120)" stroke="#1a1208" stroke-width="1.6"/><use href="#trl" transform="rotate(120)" stroke="#3a6012" stroke-width="1"/><g mask="url(#tri-mask)"><use href="#trl" transform="rotate(240)" stroke="#1a1208" stroke-width="1.6"/><use href="#trl" transform="rotate(240)" stroke="#3a6012" stroke-width="1"/></g><circle r="1.5" fill="#7a1208" stroke="#1a1208" stroke-width=".3"/></g>
-  <g id="mda"><circle r="40" fill="#ccb98c" stroke="#3a4550" stroke-width="2.5"/><circle r="37" fill="none" stroke="#c0c8d0" stroke-width="3"/><circle r="31" fill="none" stroke="#3a4550" stroke-width=".8"/><circle r="22" fill="none" stroke="#7a1208" stroke-width="3.5"/><rect x="-1.6" y="-31.2" width="3.2" height="62.4" fill="#7a1208"/><rect x="-31.2" y="-1.6" width="62.4" height="3.2" fill="#7a1208"/><circle cy="-31.2" r="3" fill="#7a1208"/><circle cy="31.2" r="3" fill="#7a1208"/><circle cx="-31.2" r="3" fill="#7a1208"/><circle cx="31.2" r="3" fill="#7a1208"/><circle r="3" fill="#c0c8d0" stroke="#3a4550" stroke-width=".6"/><circle r="1.2" fill="#7a1208"/></g>
-  <g id="mdb"><circle r="40" fill="#ccb98c" stroke="#5a3e08" stroke-width="2.5"/><circle r="37" fill="none" stroke="#d4a820" stroke-width="3"/><circle r="31" fill="none" stroke="#5a3e08" stroke-width=".8"/><circle r="22" fill="none" stroke="#7a1208" stroke-width="3.5"/><rect x="-1.6" y="-31.2" width="3.2" height="62.4" fill="#7a1208"/><rect x="-31.2" y="-1.6" width="62.4" height="3.2" fill="#7a1208"/><circle cy="-31.2" r="3" fill="#7a1208"/><circle cy="31.2" r="3" fill="#7a1208"/><circle cx="-31.2" r="3" fill="#7a1208"/><circle cx="31.2" r="3" fill="#7a1208"/><circle r="3" fill="#d4a820" stroke="#5a3e08" stroke-width=".6"/><circle r="1.2" fill="#7a1208"/></g>
+  <mask id="tri-mask" maskUnits="userSpaceOnUse" x="-15" y="-15" width="30" height="30">
+    <rect x="-15" y="-15" width="30" height="30" fill="white"/>
+    <use href="#trl" stroke="black" stroke-width="1.6" fill="none"/>
+  </mask>
+  <g id="tri" stroke-linecap="round" stroke-linejoin="round" fill="none">
+    <use href="#trl" stroke="#1a1208" stroke-width="1.6"/>
+    <use href="#trl" stroke="#3a6012" stroke-width="1"/>
+    <use href="#trl" transform="rotate(120)" stroke="#1a1208" stroke-width="1.6"/>
+    <use href="#trl" transform="rotate(120)" stroke="#3a6012" stroke-width="1"/>
+    <g mask="url(#tri-mask)">
+      <use href="#trl" transform="rotate(240)" stroke="#1a1208" stroke-width="1.6"/>
+      <use href="#trl" transform="rotate(240)" stroke="#3a6012" stroke-width="1"/>
+    </g>
+    <circle r="1.5" fill="#7a1208" stroke="#1a1208" stroke-width=".3"/>
+  </g>
+  <!-- Каролингская плетёнка инициала: две «жилы» верхней полосы. -->
+  <path id="braid-d" d="M 9 4.5 Q 14 2.5 19 4.5 Q 24 6.5 29 4.5 Q 34 2.5 39 4.5 Q 44 6.5 49 4.5 Q 54 2.5 59 4.5 Q 64 6.5 69 4.5 Q 74 2.5 79 4.5 Q 84 6.5 89 4.5"/>
+  <path id="braid-u" d="M 9 4.5 Q 14 6.5 19 4.5 Q 24 2.5 29 4.5 Q 34 6.5 39 4.5 Q 44 2.5 49 4.5 Q 54 6.5 59 4.5 Q 64 2.5 69 4.5 Q 74 6.5 79 4.5 Q 84 2.5 89 4.5"/>
+  <g id="braid-strip" fill="none" stroke-linecap="round">
+    <use href="#braid-d" stroke="#1a1208" stroke-width="1.6"/>
+    <use href="#braid-d" stroke="#3a6012" stroke-width="1.0"/>
+    <use href="#braid-u" stroke="#1a1208" stroke-width="1.6"/>
+    <use href="#braid-u" stroke="#a82818" stroke-width="1.0"/>
+  </g>
+  <g id="medallion-base">
+    <circle r="40" fill="#ccb98c" stroke="var(--m-frame)" stroke-width="2.5"/>
+    <circle r="37" fill="none"    stroke="var(--m-ring)"  stroke-width="3"/>
+    <circle r="31" fill="none"    stroke="var(--m-frame)" stroke-width=".8"/>
+    <circle r="22" fill="none"    stroke="#7a1208"        stroke-width="3.5"/>
+    <rect x="-1.6" y="-31.2" width="3.2"  height="62.4" fill="#7a1208"/>
+    <rect x="-31.2" y="-1.6" width="62.4" height="3.2"  fill="#7a1208"/>
+    <circle cy="-31.2" r="3" fill="#7a1208"/>
+    <circle cy="31.2"  r="3" fill="#7a1208"/>
+    <circle cx="-31.2" r="3" fill="#7a1208"/>
+    <circle cx="31.2"  r="3" fill="#7a1208"/>
+    <circle r="3"   fill="var(--m-ring)" stroke="var(--m-frame)" stroke-width=".6"/>
+    <circle r="1.2" fill="#7a1208"/>
+  </g>
+  <g id="mda" class="med-silver"><use href="#medallion-base"/></g>
+  <g id="mdb" class="med-gold"  ><use href="#medallion-base"/></g>
   <g id="sol-arg">
     <path id="solh-arg" d="M-5 -4H5A4 4 0 0 1 5 4H-5A4 4 0 0 1 -5 -4Z" fill="none" stroke-linejoin="round"/>
     <g clip-path="url(#solh-clip)">
@@ -2246,17 +2379,54 @@
     <path d="M-100 -100H100V100H-100ZM2.8 -5.2H5.2V-2.8H2.8ZM-5.2 2.8H-2.8V5.2H-5.2Z" clip-rule="evenodd"/>
   </clipPath>
   <!--g id="nda"><path d="M0 -4.5L4.5 0 0 4.5-4.5 0Z" fill="#5a6670" stroke="#2a3540" stroke-width=".5"/><circle r="1.4" fill="#c0c8d0" stroke="#7a8590" stroke-width=".3"/></g-->
-  <g id="nda"><path d="M0 -4.5L4.5 0 0 4.5-4.5 0Z" fill="#3a6012" stroke="#224008" stroke-width=".5"/><circle r="1.4" fill="#c0c8d0" stroke="#7a8590" stroke-width=".3"/></g>
-  <g id="ndb"><path d="M0 -4.5L4.5 0 0 4.5-4.5 0Z" fill="#3a6012" stroke="#224008" stroke-width=".5"/><circle r="1.4" fill="#d4a820" stroke="#8a6810" stroke-width=".3"/></g>
-  <g id="frta"><circle r="2.8" fill="#c0c8d0" stroke="#7a8590" stroke-width=".5"/><circle r="1.1" fill="#7a1208"/></g>
-  <g id="frtb"><circle r="2.8" fill="#d4a820" stroke="#8a6810" stroke-width=".5"/><circle r="1.1" fill="#7a1208"/></g>
+  <g id="node-base">
+    <path d="M0 -4.5L4.5 0 0 4.5-4.5 0Z" fill="#3a6012" stroke="#224008" stroke-width=".5"/>
+    <circle r="1.4" fill="var(--n-fill)" stroke="var(--n-stroke)" stroke-width=".3"/>
+  </g>
+  <g id="nda" class="node-silver"><use href="#node-base"/></g>
+  <g id="ndb" class="node-gold"  ><use href="#node-base"/></g>
+  <g id="frt-base">
+    <circle r="2.8" fill="var(--frt-fill)" stroke="var(--frt-stroke)" stroke-width=".5"/>
+    <circle r="1.1" fill="#7a1208"/>
+  </g>
+  <g id="frt-stem-base">
+    <circle r="3"   fill="var(--frt-fill)" stroke="var(--frt-stroke)" stroke-width="0.5"/>
+    <circle r="1.2" fill="#7a1208"/>
+  </g>
+  <g id="frta"      class="frt-silver"><use href="#frt-base"/></g>
+  <g id="frtb"      class="frt-gold"  ><use href="#frt-base"/></g>
+  <g id="frta-stem" class="frt-silver"><use href="#frt-stem-base"/></g>
+  <g id="frtb-stem" class="frt-gold"  ><use href="#frt-stem-base"/></g>
   <path id="rspetal" d="M0 -4C2 -8 2 -10 0 -12C-2 -10 -2 -8 0 -4Z"/>
-  <g id="luna" fill="#c0c8d0" stroke="#5a6670" stroke-width=".5" stroke-linejoin="round"><use href="#rspetal"/><use href="#rspetal" transform="rotate(45)"/><use href="#rspetal" transform="rotate(90)"/><use href="#rspetal" transform="rotate(135)"/><use href="#rspetal" transform="rotate(180)"/><use href="#rspetal" transform="rotate(225)"/><use href="#rspetal" transform="rotate(270)"/><use href="#rspetal" transform="rotate(315)"/><circle r="3.5" fill="#5a6670" stroke="#2a3540" stroke-width=".4"/><circle r="1.2" fill="#7a1208" stroke="none"/></g>
-  <g id="solr" fill="#d4a820" stroke="#8a6810" stroke-width=".5" stroke-linejoin="round"><use href="#rspetal"/><use href="#rspetal" transform="rotate(45)"/><use href="#rspetal" transform="rotate(90)"/><use href="#rspetal" transform="rotate(135)"/><use href="#rspetal" transform="rotate(180)"/><use href="#rspetal" transform="rotate(225)"/><use href="#rspetal" transform="rotate(270)"/><use href="#rspetal" transform="rotate(315)"/><circle r="3.5" fill="#8a6810" stroke="#4a3010" stroke-width=".4"/><circle r="1.2" fill="#7a1208" stroke="none"/></g>
+  <g id="rspetal-8">
+    <use href="#rspetal"/>
+    <use href="#rspetal" transform="rotate(45)"/>
+    <use href="#rspetal" transform="rotate(90)"/>
+    <use href="#rspetal" transform="rotate(135)"/>
+    <use href="#rspetal" transform="rotate(180)"/>
+    <use href="#rspetal" transform="rotate(225)"/>
+    <use href="#rspetal" transform="rotate(270)"/>
+    <use href="#rspetal" transform="rotate(315)"/>
+  </g>
+
+  <g id="rosette-base" stroke-width=".5" stroke-linejoin="round"
+   fill="var(--rose-petal-fill)" stroke="var(--rose-petal-stroke)">
+    <use href="#rspetal-8"/>
+    <circle r="3.5" fill="var(--rose-core-fill)" stroke="var(--rose-core-stroke)" stroke-width=".4"/>
+    <circle r="1.2" fill="#7a1208" stroke="none"/>
+  </g>
+  <g id="luna" class="rose-silver"><use href="#rosette-base"/></g>
+  <g id="solr" class="rose-gold"  ><use href="#rosette-base"/></g>
   <!-- Плоды на ВЕРТИКАЛЬНОЙ оси дерева (середина ствола) — крупнее, чем
        frta/frtb на боковых ветвях (r=3 vs r=2.8). -->
-  <g id="frta-stem"><circle r="3" fill="#c0c8d0" stroke="#7a8590" stroke-width="0.5"/><circle r="1.2" fill="#7a1208"/></g>
-  <g id="frtb-stem"><circle r="3" fill="#d4a820" stroke="#8a6810" stroke-width="0.5"/><circle r="1.2" fill="#7a1208"/></g>
+  <g id="frta-stem">
+    <circle r="3" fill="#c0c8d0" stroke="#7a8590" stroke-width="0.5"/>
+    <circle r="1.2" fill="#7a1208"/>
+  </g>
+  <g id="frtb-stem">
+    <circle r="3" fill="#d4a820" stroke="#8a6810" stroke-width="0.5"/>
+    <circle r="1.2" fill="#7a1208"/>
+  </g>
   <!-- Лепесток шестилепестковой розетки в основании дерева. -->
   <path id="rosette-petal-6" d="M 0 0 Q -2.2 -2.2, 0 -4 Q 2.2 -2.2, 0 0 Z"/>
   <!-- Двойная рамка ковра: внешняя (рендерится ПОД плетёнкой) и
@@ -2301,13 +2471,23 @@
     <!-- Ink roughening -->
     <filter id="ink-rough">
       <feTurbulence type="turbulence" baseFrequency="0.04" numOctaves="2" seed="12" result="noise"/>
-      <feDisplacementMap in="SourceGraphic" in2="noise" scale="1.5" xChannelSelector="R" yChannelSelector="G"/>
+      <feDisplacementMap in="SourceGraphic" in2="noise" scale="0.1" xChannelSelector="R" yChannelSelector="G"/>
     </filter>
 
     <!-- Wax seal filter -->
     <filter id="seal-fx">
       <feTurbulence type="turbulence" baseFrequency="0.08" numOctaves="3" seed="7" result="noise"/>
       <feDisplacementMap in="SourceGraphic" in2="noise" scale="4" xChannelSelector="R" yChannelSelector="G"/>
+    </filter>
+
+    <!-- Ink stroke filter — для тонких росчерков пера. Лёгкая дрожь
+         линии без размытия. Отличие от blob-fx: НЕТ feGaussianBlur,
+         displacement scale в 7.5 раз меньше (0.8 vs 6). На stroke
+         толщиной < 1px размытие шире самой линии и превращает её в
+         облачко; здесь линия остаётся резкой, но слегка волнится. */-->
+    <filter id="stroke-fx">
+      <feTurbulence type="fractalNoise" baseFrequency="0.5" numOctaves="2" seed="3" result="noise"/>
+      <feDisplacementMap in="SourceGraphic" in2="noise" scale="0.8" xChannelSelector="R" yChannelSelector="G"/>
     </filter>
 
     <!-- Ink blob filter -->
@@ -2365,27 +2545,13 @@
                  практики. Красное и зелёное на охряно-золотом образуют
                  устойчивую трёхтоновую композицию (тёплый ground + тёплая
                  киноварь + холодная медянка), без перегрузки value. -->
-            <g fill="none" stroke-linecap="round">
-              <!-- Top strip, y ≈ 4.5 -->
-              <path d="M 9 4.5 Q 14 2.5 19 4.5 Q 24 6.5 29 4.5 Q 34 2.5 39 4.5 Q 44 6.5 49 4.5 Q 54 2.5 59 4.5 Q 64 6.5 69 4.5 Q 74 2.5 79 4.5 Q 84 6.5 89 4.5" stroke="#1a1208" stroke-width="1.6"/>
-              <path d="M 9 4.5 Q 14 2.5 19 4.5 Q 24 6.5 29 4.5 Q 34 2.5 39 4.5 Q 44 6.5 49 4.5 Q 54 2.5 59 4.5 Q 64 6.5 69 4.5 Q 74 2.5 79 4.5 Q 84 6.5 89 4.5" stroke="#3a6012" stroke-width="1.0"/>
-              <path d="M 9 4.5 Q 14 6.5 19 4.5 Q 24 2.5 29 4.5 Q 34 6.5 39 4.5 Q 44 2.5 49 4.5 Q 54 6.5 59 4.5 Q 64 2.5 69 4.5 Q 74 6.5 79 4.5 Q 84 2.5 89 4.5" stroke="#1a1208" stroke-width="1.6"/>
-              <path d="M 9 4.5 Q 14 6.5 19 4.5 Q 24 2.5 29 4.5 Q 34 6.5 39 4.5 Q 44 2.5 49 4.5 Q 54 6.5 59 4.5 Q 64 2.5 69 4.5 Q 74 6.5 79 4.5 Q 84 2.5 89 4.5" stroke="#a82818" stroke-width="1.0"/>
-              <!-- Bottom strip, y ≈ 95.5 -->
-              <path d="M 9 95.5 Q 14 93.5 19 95.5 Q 24 97.5 29 95.5 Q 34 93.5 39 95.5 Q 44 97.5 49 95.5 Q 54 93.5 59 95.5 Q 64 97.5 69 95.5 Q 74 93.5 79 95.5 Q 84 97.5 89 95.5" stroke="#1a1208" stroke-width="1.6"/>
-              <path d="M 9 95.5 Q 14 93.5 19 95.5 Q 24 97.5 29 95.5 Q 34 93.5 39 95.5 Q 44 97.5 49 95.5 Q 54 93.5 59 95.5 Q 64 97.5 69 95.5 Q 74 93.5 79 95.5 Q 84 97.5 89 95.5" stroke="#3a6012" stroke-width="1.0"/>
-              <path d="M 9 95.5 Q 14 97.5 19 95.5 Q 24 93.5 29 95.5 Q 34 97.5 39 95.5 Q 44 93.5 49 95.5 Q 54 97.5 59 95.5 Q 64 93.5 69 95.5 Q 74 97.5 79 95.5 Q 84 93.5 89 95.5" stroke="#1a1208" stroke-width="1.6"/>
-              <path d="M 9 95.5 Q 14 97.5 19 95.5 Q 24 93.5 29 95.5 Q 34 97.5 39 95.5 Q 44 93.5 49 95.5 Q 54 97.5 59 95.5 Q 64 93.5 69 95.5 Q 74 97.5 79 95.5 Q 84 93.5 89 95.5" stroke="#a82818" stroke-width="1.0"/>
-              <!-- Left strip, x ≈ 4.5 -->
-              <path d="M 4.5 9 Q 2.5 14 4.5 19 Q 6.5 24 4.5 29 Q 2.5 34 4.5 39 Q 6.5 44 4.5 49 Q 2.5 54 4.5 59 Q 6.5 64 4.5 69 Q 2.5 74 4.5 79 Q 6.5 84 4.5 89" stroke="#1a1208" stroke-width="1.6"/>
-              <path d="M 4.5 9 Q 2.5 14 4.5 19 Q 6.5 24 4.5 29 Q 2.5 34 4.5 39 Q 6.5 44 4.5 49 Q 2.5 54 4.5 59 Q 6.5 64 4.5 69 Q 2.5 74 4.5 79 Q 6.5 84 4.5 89" stroke="#3a6012" stroke-width="1.0"/>
-              <path d="M 4.5 9 Q 6.5 14 4.5 19 Q 2.5 24 4.5 29 Q 6.5 34 4.5 39 Q 2.5 44 4.5 49 Q 6.5 54 4.5 59 Q 2.5 64 4.5 69 Q 6.5 74 4.5 79 Q 2.5 84 4.5 89" stroke="#1a1208" stroke-width="1.6"/>
-              <path d="M 4.5 9 Q 6.5 14 4.5 19 Q 2.5 24 4.5 29 Q 6.5 34 4.5 39 Q 2.5 44 4.5 49 Q 6.5 54 4.5 59 Q 2.5 64 4.5 69 Q 6.5 74 4.5 79 Q 2.5 84 4.5 89" stroke="#a82818" stroke-width="1.0"/>
-              <!-- Right strip, x ≈ 95.5 -->
-              <path d="M 95.5 9 Q 93.5 14 95.5 19 Q 97.5 24 95.5 29 Q 93.5 34 95.5 39 Q 97.5 44 95.5 49 Q 93.5 54 95.5 59 Q 97.5 64 95.5 69 Q 93.5 74 95.5 79 Q 97.5 84 95.5 89" stroke="#1a1208" stroke-width="1.6"/>
-              <path d="M 95.5 9 Q 93.5 14 95.5 19 Q 97.5 24 95.5 29 Q 93.5 34 95.5 39 Q 97.5 44 95.5 49 Q 93.5 54 95.5 59 Q 97.5 64 95.5 69 Q 93.5 74 95.5 79 Q 97.5 84 95.5 89" stroke="#3a6012" stroke-width="1.0"/>
-              <path d="M 95.5 9 Q 97.5 14 95.5 19 Q 93.5 24 95.5 29 Q 97.5 34 95.5 39 Q 93.5 44 95.5 49 Q 97.5 54 95.5 59 Q 93.5 64 95.5 69 Q 97.5 74 95.5 79 Q 93.5 84 95.5 89" stroke="#1a1208" stroke-width="1.6"/>
-              <path d="M 95.5 9 Q 97.5 14 95.5 19 Q 93.5 24 95.5 29 Q 97.5 34 95.5 39 Q 93.5 44 95.5 49 Q 97.5 54 95.5 59 Q 93.5 64 95.5 69 Q 97.5 74 95.5 79 Q 93.5 84 95.5 89" stroke="#a82818" stroke-width="1.0"/>
+            <g>
+              <use href="#braid-strip"/> <!-- top -->
+              <use href="#braid-strip" transform="translate(0 91)"/>   <!-- bottom -->
+              <g transform="matrix(0 1 1 0 0 0)">                      <!-- transpose: левая полоса -->
+                <use href="#braid-strip"/>                             <!-- left -->
+                <use href="#braid-strip" transform="translate(0 91)"/> <!-- right (= left + 91 в transposed системе = +91 по x в исходной) -->
+              </g>
             </g>
 
             <!-- Светлая кремовая подложка под букву — на охряно-золотом ground'е
@@ -2651,6 +2817,17 @@
 <p>Tunc Finrothus, vidensque me intentum, vocem quasi cantantis sumpsit — aliquid enim mutat in voce <span class="elvish">Eldar</span> cum de rebus antiquioribus loquuntur — et narrare coepit de luminibus primis mundi, antequam sol et luna facta essent. Quae narratio me adeo movit ut postea nocte illa somnum non potuerim capere, et hodie quoque, cum ea recordor, sentio quasi fenestram aliquam in corde meo apertam esse quam claudere non possum.</p>
 
         <p><em class="uncial-passage">Olim,</em> dixit, <em class="uncial-passage">cum mundus iuvenis esset et sol nondum in caelo esset positus, <span class="elvish">Valar</span> — quos vos Potestates vocare possetis — in terra nostra duas Arbores plantaverunt ad lumen praebendum Amanorum. Non erant arbores sicut istae quas vides in horto isto: illae enim erant quasi ipsa lux in formam arboris contracta, quasi Sapientia <span class="elvish">Ilúvatar</span> se manifestans per radicem et frondem et florem.</em></p>
+        <div class="marginalia mg-right mg-coemanus">
+          Arbores has duas<br>
+          ipsedepinxi, sicut<br>
+          Pater Cellach mihi<br>
+          descripserat se eas<br>
+          in codice<br>
+          antiquo Aidani manu<br>
+          factas vidisse,<br>
+          antequam tempus deleret.<br>
+          — <span class="signum">frater Coemanus</span>
+        </div>
 
         <p>Et descripsit eas voce tam clara ut ego paene eas oculis meis viderem: <span class="nomen-illustre">Arborem Primam</span>, quam <span class="elvish">Telperion</span> vocabant, magnam et vetustissimam, folia habentem viridia et flores argenteos, ex quorum floribus lumen manabat purum et frigidulum quasi luna plena sed sine umbra et sine intermissione. <em class="uncial-passage">Nomen eius,</em> inquit, <em class="uncial-passage">in sermonem tuum forsitan reddere possim quasi Argentea Frondositas vel Splendor Argenti. Radices eius — aiunt — terram Amani totam sub se tenebant, et cum venti leves ramos eius moverent, lux ipsa quasi cantabat, scintillans inter folia. Hoc primum lumen erat mundi.</em></p>
 
@@ -2809,7 +2986,7 @@
 
         <p>Cum verba illa adhuc haererent et lux paulatim decresceret, oculos in terram demisi — et iuxta pedem meum lapidem parvulum vidi quem antea non animadverteram, album quasi nix recens, magnitudine vix avellanae, in quo lux quaedam tenuis sed certa manebat. Inclinavi me et eum sustuli, paene non cogitans quid facerem. Finrothus tacitus me spectabat, neque ipse ad terram se inclinavit neque lapidem ullum quaesivit.</p>
 
-        <p>Cum iam in palma mea lapis esset, dixit voce humili: <em class="uncial-passage">Tales lapides hic in colle aliquando inveniuntur, raro, et nemo ex nostris eos colligit. Forsitan memoria sunt maiorum quam nos sumus, quos hodie nominare non audeo. Quod ad te venit non casu venit: tolle eum, et fer tecum trans mare. Sed cave hoc unum: ne occultaveris illud tibi soli, neque in vase argenteo posueris quasi pretium proprium. Qui lumen suum celat in tenebris ipse errat — quod etiam maximis nostrum aliquando evenit.</em></p>
+        <p>Cum iam in palma mea lapis esset, dixit voce humili: <em class="uncial-passage">Tales lapides hic in colle aliquando inveniuntur, raro, et nemo ex nostris eos colligit. Forsitan memoria sunt maiorum quam ipsi sunt, quos hodie nominare non audeo. Quod ad te venit non casu venit: tolle eum, et fer tecum trans mare. Sed cave hoc unum: ne occultaveris illud tibi soli, neque in vase argenteo posueris quasi pretium proprium. Qui lumen suum celat in tenebris ipse errat — quod etiam maximis nostrum aliquando evenit.</em></p>
 
         <p>Et posuit manum in humero meo — leve pondus sicut aves — et descendimus per eandem viam, silentio pleni, et sciebam mutatum esse in corde meo quod videram. Quid precise mutatum esset, tunc nondum noveram. Sed de illo die ad hunc non cessat haec visio in somnis meis redire. <em class="uncial-passage">Quod perit et quod non perit.</em></p>
       <div class="marginalia mg-left mg-coemanus">
@@ -2855,6 +3032,16 @@
         </div>
 
         <p>Navigavi. Et post tres dies — vel tres annos, quia fratres mihi postea dixerunt triennium me abfuisse, quod ego non credidi donec calendarium vidi — in aquas notas perveni, et phocas Hibernicas agnovi, et aves Hibernicas, et tandem clivum Hiberniae in Oriente aspexi. Et in portum qui prope monasterium nostrum est applicui, et Cellach frater qui me planantem vidit annos tres nunc ridebat et flebat simul in porta.</p>
+        <div class="marginalia mg-right mg-cellach">
+          Postquam reversus<br>
+          est, per dies pauci<br>
+          eum vidi. Aliter<br>
+          loquebatur. Aliter<br>
+          tacebat. Aliter<br>
+          spectabat. Ubi nunc<br>
+          es, frater Aidane?<br>
+          — <span class="signum">frater Cellach</span>
+        </div>
 
         <p>Abii per tres annos. Mihi velut tres dies videbantur. Tempus in terra <span class="elvish">Aman</span> aliter fluit. Hoc inter cetera iudicio Dei relinquo.</p>
 
@@ -2866,7 +3053,7 @@
       
         <p>Haec vera sunt, quantum homo fallibilis et peccatis multis pressus verum narrare potest. Deo et sanctis eius, et Ecclesiae matri nostrae, iudicandum relinquo quid <span class="elvish">Eldar</span> illi sint in schemate divinae providentiae et quid de eis sperandum vel timendum sit. Non sum Augustinus. Non sum Hieronymus. Piscator sum et monachus pauperculus qui in curucum suum ascendit et rediit mutatus.</p>
 
-        <div class="marginalia mg-right">
+        <div class="marginalia mg-right mg-finanus">
           Haec cum legerem<br>
           primo putavi aut<br>
           fictionem aut<br>
@@ -3726,6 +3913,118 @@
     if (item.nodes) {
       item.nodes.forEach(function(n) { content.appendChild(n); });
     }
+
+    // PATCH H: dedicatoria + probationes pennae на verso, парной
+    // к карпет-обложке. Эта страница исторически в инсулярных
+    // pocket-gospels оставлялась чистой; если на ней что-то и было,
+    // то скромная молитва за братий + случайные пробы пера разных
+    // эпох. Молитва uncial'ом, пробы — шрифтами по эпохам.
+    if (item.kind === 'blank-after-carpet') {
+      const leaf = document.createElement('div');
+      leaf.className = 'dedicatory-leaf';
+
+      // Молитвенная формула — верхняя треть, по центру.
+      const dedi = document.createElement('div');
+      dedi.className = 'dedicatory';
+      dedi.innerHTML =
+        '<span class="dedi-cross">✠</span>' +
+        '<span class="dedi-line">ORATE PRO FRATRIBVS</span>' +
+        '<span class="dedi-line">QVI HOC OPVS</span>' +
+        '<span class="dedi-line">CVSTODIERVNT</span>';
+      leaf.appendChild(dedi);
+
+      // Probationes pennae — пять штук, нерегулярно расставленных.
+      // Координаты подобраны так, чтобы:
+      //   а) не залезать на молитву (top > 300px);
+      //   б) не выходить за padding folio (left > 0, right < ~470px);
+      //   в) выглядеть рассыпанно — разные top, разные углы.
+      // Каждая проба написана «рукой» соответствующей эпохи.
+      const probs = [
+        // Алфавитный ряд — рука Коэмана. Левая половина, чуть
+        // наклонная влево.
+        { cls: 'prob-coemanus', top: 360, left: 50,
+          rot: -2.5, text: 'a b c d e f g · · · l m n o p' },
+        // Молитвенная formula — рука Коэмана, чуть правее и ниже,
+        // с обратным наклоном.
+        { cls: 'prob-coemanus', top: 445, left: 230,
+          rot: 2.8, text: 'Christe adiuva' },
+        // Анонимная рука — повторяющиеся буквы, упражнение.
+        // Самая «небрежная» из проб, сильный наклон.
+        { cls: 'prob-anon',     top: 545, left: 95,
+          rot: -4.5, text: 'qqq ppp dd ll' },
+        // Рука Бернарда-фолиатора (XII в.) — короткая отметка,
+        // имя/инициалы. Маленькая, у нижнего края.
+        { cls: 'prob-bernardus', top: 650, left: 75,
+          rot: -1.8, text: 'Bernardus' },
+        // Ещё одна Бернардова — дата, бессистемно
+        { cls: 'prob-bernardus', top: 690, left: 290,
+          rot: 4.2, text: 'mcxlv' }
+      ];
+      probs.forEach(function(p) {
+        const el = document.createElement('span');
+        el.className = 'prob ' + p.cls;
+        el.style.top = p.top + 'px';
+        el.style.left = p.left + 'px';
+        el.style.transform = 'rotate(' + p.rot + 'deg)';
+        el.textContent = p.text;
+        leaf.appendChild(el);
+      });
+
+      // SVG-росчерки: завитушки и кривая узловая попытка.
+      // Bezier-кривые с лёгким stroke-fx (фильтр для тонких линий,
+      // добавлен в defs на шаге 0). НЕ использовать blob-fx — он
+      // для пузатых клякс, на тонких stroke даёт грязный облачный
+      // эффект из-за gaussianBlur 1.5px > stroke-width 0.7-0.9px.
+      const flourishes = [
+        // Завиток с двойной волной — справа в центре
+        { top: 410, left: 350, w: 90, h: 35,
+          d: 'M 4 18 Q 18 4, 32 18 T 60 18 Q 70 22, 82 14',
+          sw: 0.9 },
+        // Узловая попытка — недоведённая петля, нижняя правая часть
+        { top: 590, left: 340, w: 70, h: 70,
+          d: 'M 35 8 C 58 14, 60 50, 35 58 C 12 52, 14 18, 30 14 L 38 22',
+          sw: 0.75 },
+        // Простой росчерк — длинный мазок наискось
+        { top: 510, left: 50, w: 140, h: 22,
+          d: 'M 4 18 C 30 4, 70 22, 100 8 Q 120 4, 134 14',
+          sw: 0.7 }
+      ];
+      flourishes.forEach(function(f) {
+        const svgNS = 'http://www.w3.org/2000/svg';
+        const svg = document.createElementNS(svgNS, 'svg');
+        svg.setAttribute('class', 'prob-flourish');
+        svg.setAttribute('viewBox', '0 0 ' + f.w + ' ' + f.h);
+        svg.setAttribute('width', f.w);
+        svg.setAttribute('height', f.h);
+        svg.style.top = f.top + 'px';
+        svg.style.left = f.left + 'px';
+        const path = document.createElementNS(svgNS, 'path');
+        path.setAttribute('d', f.d);
+        path.setAttribute('stroke-width', f.sw);
+        //path.setAttribute('filter', 'url(#stroke-fx)');
+        svg.appendChild(path);
+        leaf.appendChild(svg);
+      });
+
+      // Капля чернил — случайный «несчастный случай» с пером
+      const blot = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+      blot.setAttribute('class', 'prob-flourish');
+      blot.setAttribute('viewBox', '0 0 30 30');
+      blot.setAttribute('width', 30);
+      blot.setAttribute('height', 30);
+      blot.style.top = '480px';
+      blot.style.left = '420px';
+      blot.style.opacity = '0.55';
+      blot.innerHTML =
+        '<ellipse cx="15" cy="15" rx="6" ry="5" fill="#3a2818" ' +
+        'filter="url(#blob-fx)"/>' +
+        '<ellipse cx="15" cy="15" rx="9" ry="7.5" fill="#3a2818" ' +
+        'opacity="0.25" filter="url(#blob-fx)"/>';
+      leaf.appendChild(blot);
+
+      content.appendChild(leaf);
+    }
+
     folio.appendChild(content);
 
     if (item.num) {
@@ -4199,7 +4498,8 @@
       'folio-number',
       'foliator-note',
       'catchword',
-      'ornament-line'
+      'ornament-line',
+      'ws'
     ];
     // ВНИМАНИЕ: 'colophon' и 'later-hand-colophon' НЕ исключены.
     // В реальных средневековых колофонах nomina sacra и сокращения
@@ -4784,6 +5084,16 @@
   }
   const rand = seeded(0xAB3F17);
   const sym = function() { return rand() * 2 - 1; };
+
+  // ═══════════════════════════════════════════════════════════════
+  // SPACE JITTER — изолированный генератор для пробельной вариации.
+  // Отдельный от основного rand/sym, чтобы изменения SPACE_JITTER
+  // или включение/выключение пробельной вариации не сдвигали
+  // последовательность буквенного jitter (углы наклона, смещения
+  // ink-l). Seed выбран произвольно — лишь бы отличался от
+  // 0xAB3F17 (буквы) и 0xC0EAA1 (титлы).
+  const SPACE_JITTER = 0.20;             // полная амплитуда в em
+  const spaceRand = seeded(0xC4F2A9);    // независимый seed
   const CFG = { rot: 0.35, tx: 0.2, ty: 0.3 };
   function fmt(v) {
     const s = v.toFixed(2);
@@ -4799,6 +5109,28 @@
       '--x:' + fmt(sym() * CFG.tx) + 'px;' +
       '--y:' + fmt(sym() * CFG.ty) + 'px';
     sp.textContent = ch;
+    return sp;
+  }
+
+  // Пробельный span. Используется и в processTextNode (jitter
+  // маргиналий Аидана), и в processTextNodeWbrOnly (основной
+  // текст и маргиналии Коемана). Возвращает <span class="ws"
+  // style="--w:0.42"> </span>, где --w ∈ [0..1] — нормализованная
+  // случайная величина, независимая от буквенного jitter.
+  //
+  // aria-hidden="true" не ставим: внутри есть text-node с
+  // пробелом, который скринридер должен учитывать как разделитель
+  // слов. Скринридеры штатно интерпретируют пробел внутри inline-
+  // span как word-break.
+  function wrapSpace() {
+    const sp = document.createElement('span');
+    sp.className = 'ws';
+    // --w записываем как float [0..1]; CSS делает остальное.
+    // Используем ровно одно значение из spaceRand, чтобы не
+    // расходовать seed-цепочку быстрее необходимого.
+    const w = (spaceRand() + spaceRand()) * 0.5;
+    sp.style.cssText = '--w:' + w.toFixed(3);
+    sp.appendChild(document.createTextNode(' '));
     return sp;
   }
 
@@ -4849,7 +5181,7 @@
         for (let i = 0; i < collapsed.length; i++) {
           const ch = collapsed[i];
           if (ch === ' ') {
-            frag.appendChild(document.createTextNode(' '));
+            frag.appendChild(wrapSpace());
           } else {
             frag.appendChild(wrapLetter(ch));
           }
@@ -4862,7 +5194,10 @@
   const SKIP_TAGS = {SCRIPT: 1, STYLE: 1, SVG: 1, ABBR: 1};
   function walkJitter(el) {
     if (SKIP_TAGS[el.tagName]) return;
-    if (el.classList && el.classList.contains('liga-protect')) return;
+    if (el.classList && (
+        el.classList.contains('liga-protect') ||
+        el.classList.contains('ws')
+    )) return;
     const kids = Array.from(el.childNodes);
     for (let i = 0; i < kids.length; i++) {
       const kid = kids[i];
@@ -5564,10 +5899,32 @@
         .replace(/ ([—–])/g, '\u00A0$1');
     }
 
+    // Append a normalized chunk into target, replacing each plain ' '
+    // with a wrapSpace() span. NBSP (\u00A0) перед em-dash и любые
+    // другие неразрывные пробелы остаются обычным text-node — их
+    // вариация не нужна, это семантически фиксированные пробелы.
+    function appendChunkWithJitter(target, str) {
+      let i = 0;
+      while (i < str.length) {
+        const sp = str.indexOf(' ', i);
+        if (sp === -1) {
+          if (i < str.length) {
+            target.appendChild(document.createTextNode(str.slice(i)));
+          }
+          return;
+        }
+        if (sp > i) {
+          target.appendChild(document.createTextNode(str.slice(i, sp)));
+        }
+        target.appendChild(wrapSpace());
+        i = sp + 1;
+      }
+    }
+
     // Шаг 2: точек нет — вернуть один нормализованный text-node.
     if (breakPoints.length === 0) {
       const frag = document.createDocumentFragment();
-      frag.appendChild(document.createTextNode(normalize(v)));
+      appendChunkWithJitter(frag, normalize(v));
       return frag;
     }
 
@@ -5578,12 +5935,12 @@
       const bp = breakPoints[i];
       // Сегмент до точки реза. Нормализуем целиком — внутри сегмента
       // могут быть и слова, и пробелы, и пунктуация, всё едино.
-      frag.appendChild(document.createTextNode(normalize(v.slice(cursor, bp))));
+      appendChunkWithJitter(frag, normalize(v.slice(cursor, bp)));
       frag.appendChild(document.createElement('wbr'));
       cursor = bp;
     }
     // Хвост после последней точки реза.
-    frag.appendChild(document.createTextNode(normalize(v.slice(cursor))));
+    appendChunkWithJitter(frag, normalize(v.slice(cursor)));
     return frag;
   }
 
@@ -5607,7 +5964,8 @@
         el.classList.contains('abbr-translate-source') ||
         el.classList.contains('mg-translate-source') ||
         el.classList.contains('word-source') ||
-        el.classList.contains('word-render')
+        el.classList.contains('word-render') ||
+        el.classList.contains('ws')
     )) return;
     const kids = Array.from(el.childNodes);
     for (let i = 0; i < kids.length; i++) {
@@ -5693,14 +6051,46 @@
       return wrap;
     }
 
-    // Накапливаем не-словные фрагменты в один text-node, чтобы Translate
-    // видел текст между словами (пробелы и пунктуацию) как непрерывный
-    // поток, а не как множество отдельных узлов.
+    // Накапливаем не-словные фрагменты в буфер. При flush разбиваем
+    // буфер на сегменты вокруг пробелов: каждый пробел становится
+    // <span class="ws"> с CSS-переменной --w (см. wrapSpace),
+    // остальные части идут как text-node-ы. Translate видит
+    // последовательность text-node'ов и span'ов с пробельным
+    // символом внутри — это эквивалентно непрерывному тексту,
+    // токенизация работает корректно. NBSP (\u00A0) — например
+    // перед em-dash после normalizeNonWord — остаётся в text-node
+    // и НЕ оборачивается, это семантически фиксированный пробел.
     let buf = '';
     function flushBuf() {
       if (buf.length === 0) return;
-      frag.appendChild(document.createTextNode(normalizeNonWord(buf)));
+      const normalized = normalizeNonWord(buf);
       buf = '';
+
+      // Быстрый путь: пробелов нет, кладём как text-node.
+      if (normalized.indexOf(' ') === -1) {
+        frag.appendChild(document.createTextNode(normalized));
+        return;
+      }
+
+      // Разбиваем на сегменты вокруг обычных пробелов.
+      // NBSP (\u00A0) пробелом для split не считается — остаётся
+      // в составе text-node-сегмента.
+      let cursor = 0;
+      while (cursor < normalized.length) {
+        const sp = normalized.indexOf(' ', cursor);
+        if (sp === -1) {
+          // Хвост без пробелов
+          frag.appendChild(document.createTextNode(normalized.slice(cursor)));
+          break;
+        }
+        // Сегмент до пробела
+        if (sp > cursor) {
+          frag.appendChild(document.createTextNode(normalized.slice(cursor, sp)));
+        }
+        // Сам пробел — оборачиваем
+        frag.appendChild(wrapSpace());
+        cursor = sp + 1;
+      }
     }
 
     WORD_RE.lastIndex = 0;
@@ -5738,16 +6128,48 @@
         el.classList.contains('mg-translate-source') ||
         el.classList.contains('word-source') ||
         el.classList.contains('word-render') ||
-        el.classList.contains('word-wbr')
+        el.classList.contains('word-wbr')    ||
+        el.classList.contains('ws')
     )) return;
     const kids = Array.from(el.childNodes);
     for (let i = 0; i < kids.length; i++) {
       const kid = kids[i];
       if (kid.nodeType === 3) {
         if (!/\S/.test(kid.nodeValue)) {
-          // Whitespace-only — нормализуем как в walkWbrOnly.
-          if (kid.nodeValue !== ' ') {
-            kid.nodeValue = ' ';
+          // Whitespace-only text-node. Решаем по соседям, что это:
+          //   - inline-context (пробел между inline-элементами в потоке
+          //     текста, например между двумя <span class="word-wbr"> или
+          //     между <abbr> и следующим словом) → оборачиваем в ws-span;
+          //   - block-context (formatting whitespace в template-разметке,
+          //     например \n+indent между двумя <div>) → оставляем как
+          //     text-node, иначе inline-span создаст паразитный line-box
+          //     между блочными элементами и сдвинет вертикальный layout.
+          // Критерий: смотрим левого и правого соседа. Если хотя бы один
+          // из них inline-element или непустой text-node — это inline-
+          // context.
+          const INLINE_TAGS = {
+            SPAN: 1, EM: 1, STRONG: 1, ABBR: 1, WBR: 1,
+            A: 1, I: 1, B: 1, BR: 1, SUP: 1, SUB: 1,
+            CITE: 1, CODE: 1, MARK: 1, SMALL: 1, U: 1, S: 1,
+            TIME: 1, VAR: 1, KBD: 1, SAMP: 1, Q: 1
+          };
+          const isInlineSibling = function(node) {
+            if (!node) return false;
+            if (node.nodeType === 3) return /\S/.test(node.nodeValue);
+            if (node.nodeType === 1) return INLINE_TAGS[node.tagName] === 1;
+            return false;
+          };
+          const inlineCtx = isInlineSibling(kid.previousSibling)
+                         || isInlineSibling(kid.nextSibling);
+          if (inlineCtx) {
+            const ws = wrapSpace();
+            el.replaceChild(ws, kid);
+          } else {
+            // Блочный контекст или whitespace на краю без значащих
+            // соседей — нормализуем как раньше, не оборачиваем.
+            if (kid.nodeValue !== ' ') {
+              kid.nodeValue = ' ';
+            }
           }
           continue;
         }
@@ -5822,11 +6244,11 @@
     // walkJitter в самом конце: оборачивает буквы render-слоя в ink-l
     // span'ы. К этому моменту wbr расставлены, abbr пропускается через
     // SKIP_TAGS, span'ы перевода — через class skip.
-    const aidanMargs = root.querySelectorAll('.marginalia:not(.mg-coemanus)');
+    const aidanMargs = root.querySelectorAll('.marginalia:not(.mg-coemanus):not(.mg-finanus)');
     for (let i = 0; i < aidanMargs.length; i++) {
       splitMarginaliaForTranslate(aidanMargs[i]);
     }
-    const aidanRenders = root.querySelectorAll('.marginalia:not(.mg-coemanus) .mg-jitter-render');
+    const aidanRenders = root.querySelectorAll('.marginalia:not(.mg-coemanus):not(.mg-finanus) .mg-jitter-render');
     for (let i = 0; i < aidanRenders.length; i++) walkWbrOnly(aidanRenders[i]);
     for (let i = 0; i < aidanRenders.length; i++) walkJitter(aidanRenders[i]);
 
@@ -5838,6 +6260,12 @@
     // источником для Translate и render-слоем с wbr для рендера.
     const coemanMargs = root.querySelectorAll('.marginalia.mg-coemanus');
     for (let i = 0; i < coemanMargs.length; i++) walkWrapLongWords(coemanMargs[i]);
+
+    // Маргиналия Финана: тот же путь, что у Коемана — wrapLongWords
+    // без jitter. Финан исключён из Аидановского jitter-селектора
+    // в шаге 5671. Здесь подключаем его к non-jitter-обработке.
+    const finanMargs = root.querySelectorAll('.marginalia.mg-finanus');
+    for (let i = 0; i < finanMargs.length; i++) walkWrapLongWords(finanMargs[i]);
 
     // Шаг 6. ОСНОВНОЙ ТЕКСТ — walkWrapLongWords на каждом блоке
     // верхнего уровня кроме маргиналий.
@@ -5895,7 +6323,7 @@
   const GHOST_EXCLUDE = {
     classes: [
       'parchment-bg', 'illuminated-initial', 'arbor-vitae', 'arbor-argentea',
-      'folio-number', 'foliator-note', 'catchword', 'blob', 'ink-drip', 'ghost-layer', 'big-initial',
+      'folio-number', 'foliator-note', 'catchword', 'ws', 'blob', 'ink-drip', 'ghost-layer', 'big-initial',
       // PATCH TR: source-слой — visually-hidden 1×1, его геометрия не
       // соответствует видимому положению текста; рисовать его в ghost
       // нельзя (получились бы артефактные кляксы у края страницы).
