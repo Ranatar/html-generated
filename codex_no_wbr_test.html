@@ -1282,8 +1282,17 @@
      Парный JS-флаг — JITTER_ENABLED в wrapSpace(): если выставить
      в false, перестанут создаваться сами <span class="ws"> в DOM.
      CSS-выключатель один не убирает спаны, только их визуальный
-     эффект — для отладки в DevTools этого обычно достаточно. */
-  body.jitter-off {
+     эффект — для отладки в DevTools этого обычно достаточно.
+
+     PATCH: body.mg-translated реиспользует тот же каскад. В режиме
+     перевода буквенный jitter уже глушится (см. ниже:
+     .mg-jitter-render { display:none }, abbr.med { display:none },
+     .word-render { display:none }), но пробельный jitter жил
+     отдельной жизнью — <span class="ws"> с padding-right оставались
+     активны и в основном тексте, и в обёртках word-wbr. Теперь
+     амплитуда обнуляется симметрично с буквенной частью. */
+  body.jitter-off,
+  body.mg-translated {
     --space-amp-base: 0em;
   }
   body.jitter-off .doc-title,
@@ -1293,7 +1302,15 @@
   body.jitter-off .mg-coemanus,
   body.jitter-off .later-hand-colophon,
   body.jitter-off .mg-finanus,
-  body.jitter-off .mg-cellach {
+  body.jitter-off .mg-cellach,
+  body.mg-translated .doc-title,
+  body.mg-translated .doc-subtitle,
+  body.mg-translated .rubric,
+  body.mg-translated .uncial-passage,
+  body.mg-translated .mg-coemanus,
+  body.mg-translated .later-hand-colophon,
+  body.mg-translated .mg-finanus,
+  body.mg-translated .mg-cellach {
     --space-amp: 0em;     /* "0em", не "0": см. выше */
   }
 
@@ -2935,7 +2952,7 @@
 </head>
 <!-- Чтобы выключить пробельный джиттер на уровне CSS — заменить
      открывающий <body> ниже на эту строку: -->
-<body class="jitter-off">
+<!--body class="jitter-off"-->
 <body><!-- ═════════════════════════════════════════════════════════════════
        FLIP-РЕЖИМ -->
   <a id="flip-mode-skip" class="sr-only-skip" href="#" role="button">
@@ -5714,12 +5731,22 @@
     }
 
     // Регистрируем глобально на document. Гард пересечения с codex-book
-    // через range.intersectsNode на КАЖДОМ range — Firefox при Ctrl+A
-    // через документ с user-select:none зонами (маргиналии) даёт
-    // multi-range selection: rangeCount может быть в сотнях, и
-    // getRangeAt(0) указывает в начало документа вне codex. Перебираем
-    // все range'ы — если хоть один пересекается с codex, handler
-    // срабатывает.
+    // ИЛИ flip-stage через range.intersectsNode на КАЖДОМ range —
+    // Firefox при Ctrl+A через документ с user-select:none зонами
+    // (маргиналии) даёт multi-range selection: rangeCount может быть
+    // в сотнях, и getRangeAt(0) указывает в начало документа вне
+    // codex. Перебираем все range'ы — если хоть один пересекается
+    // с codex или flip-stage, handler срабатывает.
+    //
+    // PATCH: дополнительно проверяем #flip-stage. В flip-режиме
+    // wrapIntoFlipBook кладёт КЛОНЫ всех .folio в #flip-stage (сосед
+    // #codex-book, не его потомок), а сам #codex-book визуально скрыт
+    // (display:none на .spread/.folio-cover). При выделении в кодексе
+    // range лежит целиком внутри #flip-stage и intersectsNode по
+    // #codex-book возвращает false → handler не срабатывал → дефолтный
+    // браузерный copy сериализовал и .word-source, и .word-render для
+    // длинных слов, давая в буфере дубль ("RelatioRelatio"). С
+    // расширенным гардом handleCopyEvent работает в обоих режимах.
     //
     // В Chrome rangeCount всегда 1, цикл выполнится одну итерацию;
     // обратная совместимость сохраняется.
@@ -5727,11 +5754,14 @@
       const sel = window.getSelection();
       if (!sel || sel.rangeCount === 0) return;
       const codexRoot = document.getElementById('codex-book');
-      if (!codexRoot) return;
+      const flipRoot  = document.getElementById('flip-stage');
+      if (!codexRoot && !flipRoot) return;
       let touches = false;
       for (let i = 0; i < sel.rangeCount; i++) {
         try {
-          if (sel.getRangeAt(i).intersectsNode(codexRoot)) {
+          const r = sel.getRangeAt(i);
+          if ((codexRoot && r.intersectsNode(codexRoot)) ||
+              (flipRoot  && r.intersectsNode(flipRoot))) {
             touches = true;
             break;
           }
@@ -5993,7 +6023,7 @@
   // границе диапазона джиттера (.marginalia: 0.131em, .mg-cellach:
   // 0.111em — теснее, чем pre-jitter был). Для аккуратного «как
   // до системы» — выставлять оба переключателя одновременно.
-  const JITTER_ENABLED = false;
+  const JITTER_ENABLED = true;
 
   function wrapSpace() {
     if (!JITTER_ENABLED) return document.createTextNode(' ');
