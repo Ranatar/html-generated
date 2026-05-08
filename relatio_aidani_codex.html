@@ -379,6 +379,13 @@
     z-index: 0;
   }
 
+  /* PATCH RULING-COVER: на декоративных «обложках» (carpet и final)
+     drypoint-линовка не нужна — она ложится поверх SVG-арта и читается
+     как мусор. По образцу уже отключённых на этих же страницах prick'ов,
+     фолликул и bounding lines. */
+  .incipit-verso::before,
+  .final-recto::before { display: none; }
+
   /* Периметральное потемнение + edge chips у folio */
   .folio::after {
     content: '';
@@ -1080,14 +1087,46 @@
     top: -0.1em;   
   }
 
+  /* ── ФОЛИАЦИЯ И FOLIATOR-NOTE НА АЛХИМИЧЕСКИХ ЛИСТАХ ──
+     На листах, физически переписанных Алхимиком, фолиацию (которую
+     добавил Бернард в 1147 г. при первой сшивке) Алхимик воспроизвёл
+     своей рукой и своими чернилами, имитируя руку Бернарда.
+     Палеографически: тот же шрифт-fallback, но другая партия чернил
+     (свежее, чуть холоднее) и слегка иная уверенность пера.
+     Класс .alch-quire навешивается JS-функцией injectAlchemistLayer
+     на все 4 листа двух центральных бифолий Quire II. */
+  .folio.alch-quire .folio-number {
+    color: rgba(38,26,16,0.88);     /* свежее, холодноватее — как алхимические чернила */
+  }
+  .folio.alch-quire .foliator-note {
+    color: rgba(38,26,16,0.80);
+  }
+
   /* ═══════════════════════════════════════════════════════════════
-     CATCHWORDS — нижний правый угол recto. Содержат первое слово
-     следующего recto: подсказка переплётчику и читателю.
-     Историчность: в pocket gospels IX–X вв. встречались
-     спорадически, систематически — с XII в. У нас рисуем как
-     добавление руки Коемана при rescriptio: тот же шрифт Remedius,
-     чуть мельче основного текста, на полях. Не путать с подписью
-     писца — это служебный знак.                                   */
+     CATCHWORDS — два палеографических слоя.
+     ─ BERNARD (1147): один настоящий quire-end catchword переплётчика.
+       Расположен на verso последнего листа каждого кватерниона
+       (кроме последнего в книге), у gutter-стороны (= на page-verso
+       это правый край). Чернила столетние — выцветшие, тусклые.
+       Шрифт мельче, переплётчицкая запись, без декоративных амбиций.
+       Содержит первое слово recto первого листа следующего quire'а;
+       в готовой книге это слово стоит справа на том же развороте,
+       что и сам catchword — это и есть его правильная функция.
+     ─ ALCHEMIST (~1280–1320): фальшивые catchwords на каждой verso
+       (кроме той единственной, где уже стоит Бернард, и кроме
+       blank-leaf переднего обложечного листа). Алхимик XIII–XIV в.,
+       увидев один Бернардовский custos, решил, что переплётчик
+       «не доглядел» — поленился сделать на остальных verso такие
+       же знаки, и «доделал работу»: расставил catchwords рукой
+       и чернилами своего времени, тщательно скопировав логику
+       (catchword содержит первое слово соседней справа recto).
+       Чернила XIII в. — свежее, чуть холоднее. Стиль письма имитирует
+       Бернарда, но видимо отличается тоном.
+
+     Оба слоя на page-verso, на одной и той же позиции (bottom-right
+     у gutter). Различие — рукой и чернилами. Один Бернардовский
+     catchword среди 15-ти Алхимиковских — палеографическая аномалия
+     для внимательного читателя.                                   */
   .catchword {
     position: absolute;
     bottom: 18px;
@@ -1108,6 +1147,24 @@
     white-space: nowrap;
     overflow: hidden;
     text-overflow: clip;
+  }
+
+  /* BERNARD: настоящий quire-end catchword. Чернила 1147 г. — за
+     130-170 лет до Алхимика они выцвели. Размер скромнее (служебная
+     пометка переплётчика, не украшение). */
+  .catchword.bernard {
+    font-size: 1.04em;
+    color: rgba(78,52,28,0.58);     /* выцвело, тусклее */
+    letter-spacing: 0.05em;          /* чуть свободнее, аккуратный почерк переплётчика */
+    font-weight: 400;
+  }
+
+  /* ALCHEMIST: имитация на каждой verso (кроме Бернардовской и
+     blank-leaf). Чернила свежее, тон чуть холоднее. Размер базовый —
+     Алхимик копировал «с размахом», как декоративный элемент книжного
+     оформления. */
+  .catchword.alch {
+    color: rgba(38,26,16,0.88);     /* свежее, холодноватый коричневый */
   }
 
   /* ═══════════════════════════════════════════════════════════════
@@ -2424,19 +2481,58 @@
 
      Концепция: анонимный латинский герметик второй половины XIII в.
      получил кодекс ≈917 г. (Коеман) уже переплетённый Бернардом 1147 г.
-     Свою интерполяцию (раздел "De Hora Lucis Defunctae" с триадой
-     Varda/Yavanna/Nienna и Sol/Luna символикой) он провёл, переписав
-     соответствующий КВАТЕРНИОН целиком на своём пергамене своими
-     чернилами, с имитацией инсулярного маюскула Коемана. Сшил с
-     соседними тетрадями. Дополнительно сделал точечную rasura в речи
-     Финрода о камне (quam nos sumus → quam ipsi sunt) и оставил
-     миниатюрную Sol/Luna подпись в нижнем поле одного фолио.
+     В руки Бернарда (1147) кодекс попал собранным из двух кватернионов
+     по 8 листов в основном блоке, плюс двух обложечных листов; такая
+     структура — норма для инсулярных pocket-gospels (ср. Cathach,
+     Stowe Missal, Book of Mulling, Book of Dimma).
 
-     Все алхимические правки графически видны как:
-       (а) фактура и тон пергамена на 4 фолио кватерниона;
-       (б) тонкий шов на стыке кватерниона со старыми листами;
-       (в) призрак стёртых букв в одном месте на правой странице холма;
-       (г) едва заметная Sol/Luna виньетка на одном фолио.
+     Алхимик расширил главу "De Hora Lucis Defunctae" с триадой
+     Varda/Yavanna/Nienna и Sol/Luna символикой. Содержательно ему
+     нужны были листы, на которые попадал расширенный текст этой
+     главы. Однако чтобы подделка была чистой, он работал не
+     отдельными листами (что требовало бы singletons на guard-полосках,
+     палеографически заметных), а ЦЕЛЫМИ БИФОЛИЯМИ: каждый бифолий —
+     это один лист пергамена, согнутый пополам и связывающий две
+     физически парные половинки в кватернионе (поз. i ↔ поз. n+1−i).
+     Поэтому он переписал не только содержательно нужные листы, но
+     и их парные половинки — даже если на них шёл оригинальный текст
+     Коемана без изменений. Эти "балластные" листы имеют пергамен
+     и руку Алхимика, но содержание оригинальное.
+
+     В соседней главе "De Memoria Luminis" Алхимик НЕ переписывал
+     листы — они остались оригинальными. Однако он сделал на них
+     палеографические правки поверх старого пергамена:
+       — точечную rasura (стирание) "quam nos sumus → quam ipsi sunt"
+         в речи Финрода;
+       — подчёркивание подправленной фразы тонкой красной чертой
+         (signe-de-renvoi).
+     Эти правки физически выполнены поверх пергамена Коемана
+     и видны как тонкое палеографическое вмешательство, не как
+     переписанный лист.
+
+     Дополнительно Sol/Luna виньетка — миниатюрная подпись
+     интерполятора в нижнем поле одного из переписанных бифолий.
+
+     Переплётчик XIII в. вынул нити сшивки нужного кватерниона,
+     заменил внутренние бифолии на алхимические и прошил всё заново
+     общей нитью через тот же фальц. НИКАКИХ guard-полосок при таком
+     способе интерполяции не образуется: новые бифолии встают
+     строго на место старых. Свидетельства видны только в:
+       (а) фактуре и тоне пергамена (другая партия XIII в.);
+       (б) лёгкой разнице в руке (имитация маюскула Коемана);
+       (в) другой партии чернил (чуть холоднее);
+       (г) точечной rasura "quam nos sumus → quam ipsi sunt"
+           поверх оригинального пергамена De Memoria Luminis;
+       (д) красноватом подчёркивании тонкой чертой поверх того же;
+       (е) едва заметной Sol/Luna виньетке в нижнем поле одного
+           из переписанных бифолий De Hora Lucis Defunctae.
+     Двойные sewing stations в фальце технически тоже отличие, но
+     они скрыты переплётом и в развороте не видны.
+
+     Сколько листов реально затронуто, определяется динамически
+     в injectAlchemistLayer: из числа фолио, на которые легла глава
+     De Hora, плюс bifolium-completion по структуре тетрадей.
+     См. partitionIntoQuires + bifoliumPartner.
      Уровень видимости — палеографический: внимательный читатель
      замечает за 30 секунд, рядовой — не замечает.            */
 
@@ -2482,7 +2578,18 @@
   }
   .folio.parch-alch-f { --fol-scale: 0.88; --fol-density: 0.8; }
 
-  /* ── Шов на стыке кватернионов. ──
+  /* ── Шов / guard у фальца (singleton-вставки на язычках). ──
+     ─────────────────────────────────────────────────────────
+     ВНИМАНИЕ: в текущей модели Алхимика (замена внутренних
+     бифолиев в существующей сшивке кватерниона) эти стили
+     НЕ АКТИВИРУЮТСЯ — JS не вешает классы .alch-quire-edge /
+     .alch-quire-outer-edge на алхимические фолио, потому что
+     при таком способе интерполяции guard-полоски физически не
+     возникают. Стили оставлены для возможной модели singleton-
+     вставок (одиночных листов на пергаментных язычках) — если
+     понадобится, навешивайте классы вручную.
+     ─────────────────────────────────────────────────────────
+
      Видим только на ВНЕШНЕМ крае (gutter-сторона), где новый пергамен
      прилегает к старому. Тонкая полупрозрачная линия с лёгкой текстурой
      ниток-стежков. На алхимических фолио шов на той стороне, которая
@@ -2628,7 +2735,7 @@
   }
 
   /* ── INTERLINEAR ALCHEMICA: надстрочная вставка для пассажа о
-     камне в гавани, если он попадает вне алхимического кватерниона.
+     камне в гавани, если он попадает вне алхимических бифолий.
      Технически — мелкая надстрочная "линза" над основной строкой,
      имитирующая, что переписчик дописал расширение между строк.
      Используется только если data-alch-stone в DOM расположена на
@@ -2664,10 +2771,10 @@
     position: absolute;
     bottom: 12px;
     pointer-events: none;
-    opacity: 0.42;
+    opacity: 0.85;
     z-index: 2;
     color: #5a1a08;
-    font-size: 9px;
+    font-size: 12px;
     letter-spacing: 0.2em;
     line-height: 1;
   }
@@ -2689,7 +2796,7 @@
   /* PATCH ALCH-2: усиления к видимости */
   .folio .alch-mark {
     font-size: 11px;
-    opacity: 0.55;        /* было 0.42 */
+    opacity: 0.85;        /* было 0.42 */
     color: #6a1408;       /* чуть более насыщенно-красноватый */
   }
   .folio .alch-mark svg {
@@ -2722,42 +2829,83 @@
   .folio.alch-quire-outer-edge.page-verso::after { left: 14px; }
 
   /* INTERLINEAR-ACTIVE: реальный визуальный эффект для
-     data-alch-stone, попадающего ВНЕ кватерниона.
-     Тонкая надстрочная подчёркивающая полоска и signe-de-renvoi
+     data-alch-stone, попадающего ВНЕ алхимических бифолий.
+     Тонкая красноватая черта под текстом и signe-de-renvoi
      рядом — как будто алхимик подчеркнул фразу и пометил её
      своим знаком. Без раскрашивания текста — только тонкая
-     метка снизу и signum слева вверху. */
+     метка снизу и signum слева вверху и справа внизу. */
   .alch-interlinear-host {
     position: relative;
-    /* Сплошная тонкая красноватая черта — типичный signe-de-renvoi
-       в позднесредневековых маргинальных пометах. */
-    border-bottom: 1px solid rgba(106,20,8,0.45);
-    padding-bottom: 1px;
+    /* Сплошная тонкая красноватая черта под текстом — типичный
+       signe-de-renvoi. Реализована через linear-gradient в background,
+       а НЕ text-decoration или border-bottom:
+         - text-decoration наследуется потомками (внутри фразы
+           обычно есть <abbr>, <span> для отдельных слов и т.п.);
+           каждый потомок рисует свою линию по своему контенту,
+           а пробелы между ними остаются без линии — выглядит как
+           подчёркивание каждого отдельного слова, не сплошное.
+         - border-bottom не работает для inline multi-line:
+           линия появляется только под последней строкой по
+           нижнему краю bounding box'а, далеко от текста.
+         - linear-gradient в background применяется ко всему
+           inline box'у (включая пробелы и потомки) и на multi-line
+           естественно повторяется на каждой строке. */
+    background-image: linear-gradient(
+      to bottom,
+      transparent calc(100% - 0.22em),
+      rgba(106,20,8,0.45) calc(100% - 0.22em),
+      rgba(106,20,8,0.45) calc(100% - 0.22em + 1px),
+      transparent calc(100% - 0.22em + 1px)
+    );
+    background-repeat: no-repeat;
   }
-  /* Sol (☉) слева и Luna (☽) справа — Unicode-символы через ::before/
-     ::after, absolute-positioned ВНЕ потока (выше/ниже строки).
-     Между строк, как маргинальная разметка читателя.
-     Атрибут data-alch-no-sigil на host'е скрывает оба знака — для
-     случаев "только подчёркивание без знаков" (см. quam ipsi sunt). */
-  .alch-interlinear-host::before {
-    content: "☉";
+  /* Stella matutina / vespertina signum для подчёркнутой фразы —
+     НЕ inline, а маргинальный.
+     Раньше использовали ::before/::after внутри .alch-interlinear-host
+     (сначала absolute, потом inline). Оба варианта были проблемны:
+       - absolute на inline multi-line элементе позиционирует знак
+         относительно первой строки (Luna уезжала после первого слова);
+       - inline-знаки сдвигали текст, что недопустимо для страниц,
+         которые Алхимик НЕ переписывал — они должны рендериться
+         идентично исходному тексту Коемана.
+     Решение: signum добавляется отдельным элементом .alch-marginal-signum,
+     absolute-positioned в внешнем поле фолио на уровне первой строки
+     подчёркнутой фразы (см. JS placeMarginalSignum в injectAlchemistLayer).
+     SVG: Stella matutina (Φωσφόρος / Lucifer) сверху и Stella vespertina
+     (Ἕσπερος / Hesperus) снизу — две наблюдаемые фазы Венеры в латинской
+     астрономии XIII в. Концептуально signum «двустороннего перехода
+     светов»: matutina — переход от Luna к Sol, vespertina — обратный.
+     Семантически отличен от подписи Алхимика на blank-leaf (.prob-late),
+     где у него Sol/Luna — общая «алхимическая подпись». Здесь — точечный
+     signum к конкретному пассажу о камне-светильнике, который занимает
+     promezhutochnoe положение между Sol и Luna.
+     Атрибут data-alch-no-sigil на host'е (для quam ipsi sunt и подобных)
+     означает «только подчёркивание, без знаков»; такие host'ы JS просто
+     не помечает signum'ом. */
+  .folio .alch-marginal-signum {
     position: absolute;
-    left: -0.7em;
-    top: -0.6em;
-    color: rgba(106,20,8,0.7);
-    font-size: 0.65em;
-    line-height: 1;
     pointer-events: none;
+    opacity: 0.80;
+    color: #570c03;
+    z-index: 3;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 8px;
+    /* Центрируем по вертикали относительно top-координаты, заданной
+       JS-функцией placeMarginalSignum (= середина первой строки фразы).
+       Это делает позицию устойчивой к изменению размера signum'а. */
+    transform: translateY(0%);
   }
-  .alch-interlinear-host::after {
-    content: "☽";
-    position: absolute;
-    right: -0.7em;
-    bottom: -0.5em;
-    color: rgba(106,20,8,0.7);
-    font-size: 0.65em;
-    line-height: 1;
-    pointer-events: none;
+  /* Внешнее поле фолио — сторона, противоположная корешку.
+     Recto: gutter слева → внешнее поле справа.
+     Verso: gutter справа → внешнее поле слева. */
+  .folio.page-recto .alch-marginal-signum { right: 14px; }
+  .folio.page-verso .alch-marginal-signum { left: 14px; }
+  .folio .alch-marginal-signum svg {
+    display: block;
+    width: 40px;
+    height: auto;
   }
   /* Подчёркивание без знаков — для quam ipsi sunt и подобных мест,
      где алхимик хотел только привлечь внимание, не ставя свой signum. */
@@ -4286,6 +4434,24 @@
         
         <p>Et movebantur inter se quietissime, non sicut homines qui vias publicas voce et passu impatienti implere solent, sed quasi qui in templo ambulant. Cum unus alterum salutaret, manum levabat — palma ad se conversa, digitis leniter motis — et capite leviter inclinato; et alius idem reddebat, et utriusque facies serenam quandam laetitiam tacite portabat, quasi inter eos occasio congressionis ipsa donum esset. Quid manus illa significaret, ego non capiebam; sed pulchra erat aspectu et plena gravitatis. Et quotiens sedens quis adventantem videbat, surgebat in eius honorem, etiamsi sedens maior natu vel honore esset.</p>
 
+        <div class="marginalia mg-left mg-coemanus">
+          Pater Cellach<br>
+          mihi dixit<br>
+          fratrem Aidanum<br>
+          reducem hoc<br>
+          signum manus<br>
+          aliquando facere<br>
+          solitum — palma<br>
+          ad se conversa,<br>
+          capite submisso.<br>
+          Et stabant<br>
+          fratres muti,<br>
+          nec audebant<br>
+          interrogare unde<br>
+          didicisset.<br>
+          — <span class="signum">frater Coemanus</span>
+        </div>
+
         <p>Et mirum mirorum et gratia Dei: intellexi eum. Non sicut peregrinus qui post multos menses linguam barbaram paulatim discit, sed quasi somnium: sensus perveniebat in mentem meam sine labore, sine strepitu verborum, quasi vox eius directe in cor meum loqueretur, verbis tanquam lumine transfixo.</p>
 
         <p class="no-indent" style="text-indent:0;margin-left:2em;margin-right:2em;color:#2a1a08;line-height:2.0;">
@@ -4561,7 +4727,7 @@
 
         <p class="no-indent uncial-passage" style="text-indent:0;margin-left:2em;margin-right:2em;">De hoc Uno qui descendit in mortem ut mortem vinceret, et qui natus est ex muliere mortali et portavit in carne omnem tristitiam carnis, habuimus inter nos prophetias antiquas, voces quasi in visione auditas, de quibus non omnes concordabant nec clara erant. Iam intelligo melius. Sed haec via : ut tu dicis : via est filiorum Mortis, via est quod Donum Ignotum recipit. Nos non sumus filii Mortis. Via nostra alia est, et an habemus viam, vel an egimus via, vel an nos quoque indigemus manus quae nos ducat: hoc quaerimus et non invenimus, et in hac quaestione sumus saecula et saecula.</p>
 
-        <p>Et surrexit Finrothus et ivit ad fenestram ubi lux argentea intrabat et voltum eius argenteum faciebat, et dixit ultima verba quae de eo in hoc libro scribo:</p>
+        <p>Et surrexit Finrothus et ivit ad fenestram ubi lux <span data-alch-rasura data-alch-prev="argentea">canescens</span> intrabat et voltum eius argenteum faciebat, et dixit ultima verba quae <span data-alch-underline>de hoc colloquio scribere audeo</span>:</p>
 
         <p class="no-indent uncial-passage" style="text-indent:0;margin-left:2em;margin-right:2em;">Tu habes peccatum unius hominis in historia carnis tuae. Nos habemus peccatum unius Angeli in historia memoriae nostrae. Forsitan utrique misericordia egent: sed misericordia alia et alia, sicut vulnera alia et alia. Illam discretionem <span class="elvish">Ilúvatar</span> solus novit.</p>
         <div class="marginalia mg-left">
@@ -5942,11 +6108,45 @@ function positionMarginalia() {
 // не двигает flow, не измеряет геометрию, не вмешивается в layout.
 // ═══════════════════════════════════════════════════════════════
 function attachCatchwords() {
-  // Все recto, кроме обложек (incipit-recto тоже включаем — на нём
-  // тоже бывают кустоды, и фолио i имеет переход к ii).
-  const allRecto = Array.from(document.querySelectorAll(
-    '.folio.page-recto:not(.final-recto)'
-  ));
+  // Палеографически catchwords в этой книге существуют в двух слоях:
+  //
+  //  ─ BERNARD (1147 г., при первой сшивке книги): один настоящий
+  //    quire-end custos на verso последнего листа каждого кватерниона
+  //    (кроме последнего в книге), у gutter-стороны. Содержит первое
+  //    слово recto первого листа следующего кватерниона — служит
+  //    переплётчику для проверки правильности сшивки тетрадей.
+  //    В готовой книге это слово оказывается на правой странице того
+  //    же разворота: catchword «дублирует» первое слово соседней
+  //    справа recto. Это и есть его правильная функция.
+  //
+  //  ─ ALCHEMIST (~XIII–XIV в., при подделке): фальшивые catchwords
+  //    на каждой verso (кроме той единственной, где уже стоит Бернард).
+  //    Алхимик увидел один Бернардовский custos и подумал, что
+  //    переплётчик «не доглядел» — поленился расставить такие же
+  //    знаки на остальных verso. Из своего академического превосходства
+  //    решил «доделать работу» и расставил catchwords по всем verso,
+  //    имитируя руку Бернарда. Логику он скопировал точно: catchword
+  //    на verso содержит первое слово соседней справа recto. Не понял
+  //    он только функционального смысла знака — что это разовая
+  //    переплётчицкая отметка quire-end, а не сквозное оформление.
+  //
+  // На стыке Quire I → Quire II (= разворот, где встречаются verso 9
+  // и recto 10) Алхимик НЕ ставит свой custos — потому что Бернард
+  // уже там есть. Это даёт палеографическую аномалию: на одной из
+  // 16 verso catchword выглядит «другой» рукой и чернилами. Внимательный
+  // палеограф замечает и идёт по следу: «Все catchwords свежие, кроме
+  // одного. Этот один — на стыке кватернионов, в правильном месте.
+  // Значит, остальные кто-то добавил позже».
+  //
+  // Стилистическое различие — через CSS-модификаторы .bernard и .alch
+  // (другие чернила, размер). Позиционирование одно: bottom-right
+  // у gutter (на verso правый край = корешковая сторона).
+
+  // Очистка предыдущих catchword'ов (защита от повторных вызовов
+  // после resize / re-paginate).
+  document.querySelectorAll('.spread .folio > .catchword').forEach(function(el) {
+    el.remove();
+  });
 
   function firstFlowWord(folio) {
     const content = folio.querySelector('.folio-content');
@@ -5972,28 +6172,85 @@ function attachCatchwords() {
         first = words[1];
       }
       if (first.length < 2) continue;
-      return first.toLowerCase();;
+      return first.toLowerCase();
     }
     return null;
   }
 
-  for (let i = 0; i < allRecto.length - 1; i++) {
-    const current = allRecto[i];
-    const next = allRecto[i + 1];
+  // Найти recto-партнёра для данной verso — это .folio.page-recto
+  // в том же .spread'е. ВАЖНО: в DOM между verso и recto находится
+  // элемент .gutter (имитация корешка разворота), поэтому
+  // versoFolio.nextElementSibling указывает на .gutter, а не на recto.
+  // Используем поиск через родительский .spread.
+  function rectoPartnerInSameSpread(versoFolio) {
+    const spread = versoFolio.closest('.spread');
+    if (!spread) return null;
+    return spread.querySelector(':scope > .folio.page-recto');
+  }
 
-    const word = firstFlowWord(next);
-    if (!word) continue;
+  const allFolios = Array.from(document.querySelectorAll('.spread .folio'));
 
-    // Защита от дубликатов (повторный вызов после resize)
-    const existing = current.querySelector(':scope > .catchword');
-    if (existing) existing.remove();
+  // ── Слой 1: BERNARD — quire-end catchword(s) ──
+  // Один на verso последнего листа каждого кватерниона, кроме
+  // последнего в книге. Использует глобальные палеографические утилиты.
+  const structure = getCodexQuireStructureFromDOM();
+  const bernardVersoSet = new Set();
+  let bernardCount = 0;
+  if (structure && allFolios.length > 0) {
+    let cursor = structure.innerStartLeaf;
+    for (let q = 0; q < structure.quires.length - 1; q++) {
+      const quireSize = structure.quires[q];
+      const lastLeaf = cursor + quireSize - 1;
+      const firstLeafOfNext = cursor + quireSize;
+      const versoIdx = leafToSpreadIndices(lastLeaf, structure.totalLeaves).verso;
+      const rectoIdx = leafToSpreadIndices(firstLeafOfNext, structure.totalLeaves).recto;
+      cursor += quireSize;
+      if (versoIdx === null || rectoIdx === null) continue;
+      const word = firstFlowWord(allFolios[rectoIdx]);
+      if (!word) continue;
+
+      const versoFolio = allFolios[versoIdx];
+      bernardVersoSet.add(versoFolio);
+
+      const cw = document.createElement('span');
+      cw.className = 'catchword bernard';
+      cw.setAttribute('aria-hidden', 'true');
+      cw.textContent = word;
+      versoFolio.appendChild(cw);
+      bernardCount++;
+    }
+  }
+  console.log('[CATCHWORDS] Bernard layer: ' + bernardCount +
+              ' quire-end catchword(s) on verso of last leaf of each non-final quire');
+
+  // ── Слой 2: ALCHEMIST — на каждой verso, КРОМЕ Бернардовских ──
+  // Имитация руки Бернарда. Алхимик: «переплётчик не доглядел —
+  // доделаю работу». Одну Бернардовскую verso он не дублирует
+  // (видит, что там уже есть). Blank-leaf (verso переднего обложечного
+  // листа с dedicatoria) — пропускаем, на пустой странице catchword
+  // бессмыслен. Verso последнего внутреннего листа (перед страницей
+  // с колофоном) Алхимик тоже catchword'ом отмечает — для него это
+  // просто очередной разворот.
+  let alchCount = 0;
+  allFolios.forEach(function(folio) {
+    if (!folio.classList.contains('page-verso')) return;
+    if (folio.classList.contains('blank-leaf')) return;       // dedicatoria
+    if (bernardVersoSet.has(folio)) return;                    // уже Бернардовский
+
+    const rectoFolio = rectoPartnerInSameSpread(folio);
+    if (!rectoFolio) return;
+    const word = firstFlowWord(rectoFolio);
+    if (!word) return;
 
     const cw = document.createElement('span');
-    cw.className = 'catchword';
+    cw.className = 'catchword alch';
     cw.setAttribute('aria-hidden', 'true');
     cw.textContent = word;
-    current.appendChild(cw);
-  }
+    folio.appendChild(cw);
+    alchCount++;
+  });
+  console.log('[CATCHWORDS] Alchemist layer: ' + alchCount +
+              ' imitation catchwords on verso pages (one verso skipped — Bernard already there)');
 }
 
 // ═══════════════════════════════════════════════════════════════
@@ -8335,18 +8592,177 @@ function bakeOneGhost(versoFolio, targetFolio) {
 
 
 // ═════════════════════════════════════════════════════════════════
-// PATCH ALCH: вставка слоя алхимика XIII в.
+// PALEOGRAPHIC STRUCTURE UTILITIES
+// Утилиты для работы с физической структурой кодекса:
+// тетради (quires), бифолии, конверсия индексов folio ↔ листы.
+// Используются в injectAlchemistLayer и могут быть переиспользованы
+// в любом коде, которому нужно знать physical layout книги.
+// ─────────────────────────────────────────────────────────────────
+// Структура книги (нумерация листов 1-based):
+//   Лист 1 (передний обложечный):
+//      recto = standalone carpet (.folio-cover-front .folio)
+//      verso = blank-after-carpet (с dedicatoria + probationes)
+//   Листы 2..N-1 (внутренний блок): обычные folio в .spread'ах
+//   Лист N (задний обложечный):
+//      recto = страница с колофоном (последний .spread .folio)
+//      verso = standalone final (.folio-cover-back .folio)
+//
+// Две системы координат для индексирования отдельных folio:
+//   "spread index" — позиция в коллекции `.spread .folio`,
+//      длина 2N−2; standalone carpet и final НЕ входят. Эту систему
+//      использует injectAlchemistLayer (и наши Sol/Luna, rasura, шов
+//      и т.д. навешиваются на эти .folio).
+//   "physical index" — позиция в полном плоском физическом порядке,
+//      длина 2N; включает обе обложки. Эту систему собирает
+//      collectFoliosInPhysicalOrder для flip-режима.
+//
+// Конверсии между системами:
+//   spreadIdx i ↔ physicalIdx (i + 1)   (для i ∈ [0, 2N−3])
+//   physicalIdx 0  = standalone carpet (нет в spread'ах)
+//   physicalIdx 2N−1 = standalone final (нет в spread'ах)
+// ═════════════════════════════════════════════════════════════════
+
+// Структура тетрадей: каноническая инсулярная норма IX–XII в.
+// Основной формат — кватернион (8 листов = 4 бифолия). Если общее
+// число не делится на 8, последняя тетрадь укорачивается до
+// ternio (6) / binio (4) / unio (2 листа = 1 бифолий). Нечётное
+// число листов в тетради недопустимо физически (singleton без пары).
+function partitionIntoQuires(numLeaves) {
+  const QUATERNIO = 8;
+  if (numLeaves <= 0) return [];
+  if (numLeaves % 2 !== 0) {
+    console.warn('[CODEX] odd inner-leaf count: ' + numLeaves +
+                 ' — quire structure may contain a singleton');
+  }
+  const fullQuires = Math.floor(numLeaves / QUATERNIO);
+  const remainder = numLeaves % QUATERNIO;
+  const quires = [];
+  for (let i = 0; i < fullQuires; i++) quires.push(QUATERNIO);
+  if (remainder > 0) quires.push(remainder);
+  return quires;
+}
+
+// Полная структура кодекса по числу физических листов.
+// Возвращает { totalLeaves, innerStartLeaf, innerLeafCount, quires }.
+//   totalLeaves     — N, общее число листов (включая обложечные)
+//   innerStartLeaf  — 1-based номер первого листа внутреннего блока (всегда 2)
+//   innerLeafCount  — число листов внутреннего блока (всегда totalLeaves − 2)
+//   quires          — массив размеров тетрадей внутреннего блока
+function getCodexQuireStructure(totalLeaves) {
+  return {
+    totalLeaves: totalLeaves,
+    innerStartLeaf: 2,
+    innerLeafCount: totalLeaves - 2,
+    quires: partitionIntoQuires(totalLeaves - 2),
+  };
+}
+
+// Удобный конструктор: вычислить структуру из текущего DOM.
+// Опирается на длину `.spread .folio` (= 2N − 2). Возвращает null,
+// если spread'ы ещё не отрендерены.
+function getCodexQuireStructureFromDOM() {
+  const spreadFolios = document.querySelectorAll('.spread .folio');
+  if (spreadFolios.length === 0) return null;
+  const totalLeaves = (spreadFolios.length + 2) / 2;
+  return getCodexQuireStructure(totalLeaves);
+}
+
+// Парная половинка бифолия для листа leafIdx в данной структуре.
+// Формула: в тетради размера n позиции i и (n+1−i) — две половины
+// одного бифолия (один лист пергамена, согнутый пополам).
+// Возвращает null, если лист — обложечный, singleton (нечётный
+// quire) или вне внутреннего блока.
+function bifoliumPartner(leafIdx, structure) {
+  let cursor = structure.innerStartLeaf;
+  for (let q = 0; q < structure.quires.length; q++) {
+    const quireSize = structure.quires[q];
+    if (leafIdx >= cursor && leafIdx < cursor + quireSize) {
+      const posInQuire = leafIdx - cursor + 1;       // 1-based
+      const partnerPos = quireSize + 1 - posInQuire;
+      if (partnerPos === posInQuire) return null;     // singleton
+      return cursor + partnerPos - 1;
+    }
+    cursor += quireSize;
+  }
+  return null;
+}
+
+// В каком кватернионе лежит лист и какая его позиция в нём.
+// Возвращает { quireIdx, posInQuire } (1-based) или null.
+function leafToQuirePosition(leafIdx, structure) {
+  let cursor = structure.innerStartLeaf;
+  for (let q = 0; q < structure.quires.length; q++) {
+    const quireSize = structure.quires[q];
+    if (leafIdx >= cursor && leafIdx < cursor + quireSize) {
+      return { quireIdx: q, posInQuire: leafIdx - cursor + 1 };
+    }
+    cursor += quireSize;
+  }
+  return null;
+}
+
+// Конверсия индекса folio в `.spread .folio` → 1-based номер листа.
+//   spreadIndex 0      → 1   (blank-after-carpet, verso переднего обложечного)
+//   spreadIndex 1      → 2   (incipit, recto листа 2)
+//   spreadIndex 2k+1, 2k+2 → лист k+2 (recto, verso) для k ≥ 0
+//   spreadIndex last (=2N−3) → recto листа N (страница с колофоном)
+function spreadIndexToLeaf(i) {
+  if (i === 0) return 1;
+  return Math.floor((i + 1) / 2) + 1;
+}
+
+// Обратная конверсия: 1-based номер листа → пара индексов в `.spread .folio`.
+// Для крайних листов (1 и N) одна из сторон — null, потому что физически
+// она находится в standalone обложке (carpet или final), а не в spread'ах.
+function leafToSpreadIndices(leafIdx, totalLeaves) {
+  if (leafIdx === 1) return { recto: null, verso: 0 };
+  if (leafIdx === totalLeaves) return { recto: 2 * leafIdx - 3, verso: null };
+  return { recto: 2 * leafIdx - 3, verso: 2 * leafIdx - 2 };
+}
+
+// Конверсия "physical index" (по collectFoliosInPhysicalOrder) → лист.
+//   physicalIdx 2k, 2k+1 → лист k+1 (recto, verso) — единая формула.
+function physicalIndexToLeaf(j) {
+  return Math.floor(j / 2) + 1;
+}
+
+
+// ═════════════════════════════════════════════════════════════════
+// PATCH ALCH: вставка слоя Алхимика XIII в.
 // Запускается ПОСЛЕ pagination/positionMarginalia/attachCatchwords
 // и ДО bakeVersoGhosts. Это важно: ghost-bake снимает текст с уже
-// размеченного DOM, поэтому просвечивание внутри алхимического
-// кватерниона корректно идёт между его собственными recto/verso.
+// размеченного DOM, поэтому просвечивание внутри алхимических
+// бифолий корректно идёт между их собственными recto/verso.
+//
+// АЛГОРИТМ:
+//  1. Найти, на какие .folio попали маркеры [data-alch-start] и
+//     [data-alch-end].
+//        - data-alch-start стоит на ПЕРВОЙ рубрике алхимической
+//          главы ("De Hora Lucis Defunctae").
+//        - data-alch-end стоит на ПЕРВОЙ рубрике ПОСЛЕ алхимической
+//          главы ("De Memoria Luminis"). По концепции эта глава НЕ
+//          переписана Алхимиком — она оригинальная, на старом
+//          пергамене Коемана. Маркер указывает границу, до которой
+//          (но не включая саму следующую главу) тянется содержание
+//          переписанной главы.
+//  2. Расширить диапазон до пары физических фолио (recto+verso
+//     одного листа) — элементарная палеография: лист переписывается
+//     целиком или не переписывается вовсе.
+//  3. Bifolium-completion: для каждого затронутого листа найти
+//     парную половинку бифолия в той же тетради и добавить её
+//     в набор. Получаем замкнутую группу полных бифолий — то,
+//     что Алхимик физически снял из переплёта и заменил.
+//  4. Структура тетрадей определяется динамически из числа
+//     внутренних листов кодекса (см. partitionIntoQuires
+//     внутри функции), так что при расширении/сокращении текста
+//     схема перестраивается сама.
+//  5. Палеографические правки на ОРИГИНАЛЬНЫХ листах De Memoria
+//     (rasura "quam nos sumus → quam ipsi sunt", подчёркивание)
+//     применяются отдельно — они физически выполнены поверх
+//     старого пергамена и не зависят от bifolium-completion.
 // ═════════════════════════════════════════════════════════════════
 function injectAlchemistLayer() {
-  // ── 1. Найти диапазон алхимического кватерниона ──
-  // Маркеры [data-alch-start] и [data-alch-end] стоят на рубриках;
-  // после пагинации они оказываются внутри какого-то .folio. Все
-  // фолио, попадающие на территорию между ними (включительно), —
-  // алхимический кватернион.
+  // ── 1. Найти диапазон, затронутый рубриками Алхимика ──
   const startEl = document.querySelector('[data-alch-start]');
   const endEl   = document.querySelector('[data-alch-end]');
   if (!startEl || !endEl) {
@@ -8360,8 +8776,7 @@ function injectAlchemistLayer() {
     return;
   }
 
-  // Все фолио в порядке DOM (включая standalone-обложки). Берём
-  // только из .spread, чтобы не задеть карпет/финал.
+  // Все .folio из .spread в DOM-порядке (без standalone carpet/final).
   const allFolios = Array.from(document.querySelectorAll('.spread .folio'));
   const iStart = allFolios.indexOf(startFolio);
   const iEnd   = allFolios.indexOf(endFolio);
@@ -8370,52 +8785,86 @@ function injectAlchemistLayer() {
     return;
   }
 
-  // Округляем до полного кватерниона: алхимик переписал
-  // тетрадь целиком, не отдельные страницы. Минимум — захватить
-  // пары физических листов (recto+verso одного листа). По правилу
-  // пагинации (PATCH E): allFolios[odd] — recto, allFolios[even+1] —
-  // verso того же листа, см. wrapIntoFlipBook. Чтобы не лезть в
-  // тонкости bifolium-структуры здесь, используем простую эвристику:
-  // расширить диапазон на одно фолио вправо до чётного индекса
-  // (включая последний verso) и одно влево до нечётного (включая
-  // recto). Это даст блок, не разрезающий физических листов.
+  // ── 2. Расширение до пары физических фолио ──
+  // По правилу пагинации (renderBook):
+  //   allFolios[0]      = blank-after-carpet (verso листа 1)
+  //   allFolios[1]      = incipit (recto листа 2)
+  //   allFolios[2k+1]   = recto листа k+2  (k ≥ 0)
+  //   allFolios[2k+2]   = verso листа k+2
+  //   allFolios[last]   = recto последнего листа (с колофоном)
+  // Чтобы пара (recto, verso) одного физического листа всегда
+  // попадала в диапазон целиком:
   let lo = iStart, hi = iEnd;
-  if (lo % 2 === 0) lo -= 1;        // если лезли verso — подхватить recto
-  if (lo < 0) lo = 0;
-  if (hi % 2 === 1) hi += 1;        // если лезли recto — подхватить verso
-  if (hi >= allFolios.length) hi = allFolios.length - 1;
+  if (lo > 0 && lo % 2 === 0) lo -= 1;        // verso → подхватить recto
+  if (hi < allFolios.length - 1 && hi % 2 === 1) hi += 1;  // recto → verso
 
-  const alchFolios = allFolios.slice(lo, hi + 1);
-  console.log('[ALCH] alchemist quire: folios ' + lo + '..' + hi + ' (' + alchFolios.length + ' folios)');
+  // ── 3. Структура тетрадей и конверсия индексов ──
+  // Берём готовую инфраструктуру (см. PALEOGRAPHIC STRUCTURE
+  // UTILITIES выше). Из числа .spread .folio вычисляется totalLeaves
+  // и раскладка тетрадей; spreadIndexToLeaf переводит индекс folio
+  // в номер физического листа.
+  const structure = getCodexQuireStructure((allFolios.length + 2) / 2);
+  console.log('[ALCH] codex structure: ' + structure.totalLeaves + ' leaves total; ' +
+              'inner block = ' + structure.innerLeafCount + ' leaves in quires ' +
+              JSON.stringify(structure.quires));
 
-  // ── 2. Снять старые parch-h/parch-f и навесить parch-alch-* ──
-  // Чередование hair/flesh внутри кватерниона СОХРАНЯЕТСЯ:
-  // hair-side бывает на чётной позиции в исходном правиле Грегори.
-  // Здесь применяем то же правило: индекс % 2 == 0 (verso of prev
-  // sheet OR recto of new sheet) — hair, иначе flesh. Не идеально
-  // палеографически, но визуально выразительно.
-  // PATCH ALCH-6: правило Грегори.
-  // Оба фолио одного разворота должны быть на одной стороне (h-h
-  // или f-f), потому что разворот = одна сторона расправленного
-  // бифолия. Чередование между разворотами.
-  //
-  // Стартуем с согласованием с соседним СТАРЫМ фолио, если он есть
-  // на том же развороте — алхимический фолио должен быть той же
-  // стороны, иначе разворот стыка получится f-h (нарушение).
-  // Дальше идём по разворотам кватерниона, чередуя h-f-h-f.
+  // ── 4. Bifolium-completion ──
+  // Множество затронутых ВНУТРЕННИХ листов в диапазоне [lo..hi].
+  const touchedLeaves = new Set();
+  for (let i = lo; i <= hi; i++) {
+    const leaf = spreadIndexToLeaf(i);
+    // Игнорируем обложечные листы — на них рубрики не стоят, и
+    // алхимические эффекты на них не наносим.
+    if (leaf >= structure.innerStartLeaf &&
+        leaf < structure.innerStartLeaf + structure.innerLeafCount) {
+      touchedLeaves.add(leaf);
+    }
+  }
+  // Для каждого затронутого листа добавляем парную половину бифолия.
+  // Если две половины одного бифолия обе затронуты — partner окажется
+  // уже в наборе, дубль игнорируется (Set).
+  const expandedLeaves = new Set(touchedLeaves);
+  touchedLeaves.forEach(function(leaf) {
+    const partner = bifoliumPartner(leaf, structure);
+    if (partner !== null) expandedLeaves.add(partner);
+  });
+  console.log('[ALCH] content-touched leaves: [' +
+              Array.from(touchedLeaves).sort(function(a,b){return a-b;}).join(', ') + ']');
+  console.log('[ALCH] after bifolium-completion: [' +
+              Array.from(expandedLeaves).sort(function(a,b){return a-b;}).join(', ') + ']');
+
+  // Преобразуем множество листов обратно в массив folio.
+  const alchFolios = [];
+  allFolios.forEach(function(f, i) {
+    if (expandedLeaves.has(spreadIndexToLeaf(i))) {
+      alchFolios.push(f);
+    }
+  });
+  console.log('[ALCH] alchemic folios: ' + alchFolios.length +
+              ' (= ' + Math.floor(alchFolios.length / 2) + ' bifolia' +
+              (alchFolios.length % 2 ? ' + 1 singleton' : '') + ')');
+
+  if (alchFolios.length === 0) {
+    console.warn('[ALCH] no folios to process');
+    return;
+  }
+
+  // ── 5. Снять старые parch-h/parch-f и навесить parch-alch-* ──
+  // Правило Грегори: оба фолио одного разворота должны быть на
+  // одной стороне пергамена (h-h или f-f), потому что разворот =
+  // одна сторона расправленного бифолия. Чередование между
+  // разворотами; стартовая сторона — согласованная с соседним
+  // СТАРЫМ фолио, если он есть на том же развороте.
   function getSpread(folio) {
     return folio.closest('.spread');
   }
   function getOldSide(folio) {
-    // 'h' / 'f' / null если нет старого parch-класса
     for (const c of folio.classList) {
       if (/^parch-h\d+$/.test(c)) return 'h';
       if (/^parch-f\d+$/.test(c)) return 'f';
     }
     return null;
   }
-  // Снимаем все старые parch-классы и навешиваем alch-quire (без
-  // выбора стороны пока — это в следующем проходе).
   alchFolios.forEach(function(f) {
     Array.from(f.classList).forEach(function(c) {
       if (/^parch-[hf]\d+$/.test(c)) f.classList.remove(c);
@@ -8426,9 +8875,8 @@ function injectAlchemistLayer() {
   const alchSpreadsSet = new Set();
   alchFolios.forEach(function(f) { alchSpreadsSet.add(getSpread(f)); });
   const alchSpreads = Array.from(alchSpreadsSet);
-  // Определить начальную сторону для первого алхимического разворота.
-  // Если в этом развороте есть старый фолио (стык), используем его
-  // сторону. Иначе берём дефолт 'h'.
+  // Начальная сторона — по соседнему старому фолио в том же развороте,
+  // иначе по предыдущему развороту с инверсией.
   let firstSide = null;
   const firstSpread = alchSpreads[0];
   for (const f of firstSpread.querySelectorAll('.folio')) {
@@ -8438,9 +8886,6 @@ function injectAlchemistLayer() {
     }
   }
   if (!firstSide) {
-    // Если на стыке слева нет старого фолио (alchemic кватернион
-    // начинается с целого разворота), смотрим на ПРЕДЫДУЩИЙ разворот
-    // и инвертируем (по правилу чередования).
     const prevSpread = firstSpread.previousElementSibling;
     if (prevSpread && prevSpread.classList.contains('spread')) {
       const f0 = prevSpread.querySelector('.folio');
@@ -8451,7 +8896,6 @@ function injectAlchemistLayer() {
     }
     if (!firstSide) firstSide = 'h';
   }
-  // Применяем чередование по разворотам.
   alchSpreads.forEach(function(sp, i) {
     const side = ((i % 2 === 0) ? firstSide : (firstSide === 'h' ? 'f' : 'h'));
     sp.querySelectorAll('.folio.alch-quire').forEach(function(f) {
@@ -8459,54 +8903,29 @@ function injectAlchemistLayer() {
     });
   });
 
-  // ── 3. Швы на стыках алхимических фолио со старыми ──
-  // Шов виден только там, где алхимический фолио ПРИМЫКАЕТ к
-  // не-алхимическому. Внутри кватерниона швов нет.
-  function addEdge(folio, side) {
-    const e = document.createElement('div');
-    e.className = 'alch-quire-edge edge-' + side;
-    folio.appendChild(e);
-  }
-  // Левая граница кватерниона: первое алхимическое фолио — его
-  // gutter-сторона (если page-recto, шов слева у gutter; если
-  // page-verso, шов справа). НО: gutter-сторона — это та, что
-  // прилегает к соседу того же разворота. Левый сосед в DOM-
-  // последовательности — это тот, что был ДО неё. Поэтому шов
-  // ставим на «обращённую к старому пергамену» сторону.
-  const firstAlch = alchFolios[0];
-  const lastAlch  = alchFolios[alchFolios.length - 1];
-  // Эвристика: первое фолио — соседствует с предыдущим (старым)
-  // через gutter, если это page-recto (левая страница разворота)…
-  // На самом деле в нашей структуре gutter всегда между verso (левая
-  // page) и recto (правая page) одного разворота. Поэтому:
-  //  - если firstAlch.page-recto → его левый край (gutter) граничит
-  //    со старым page-verso того же разворота → шов на edge-gutter-recto
-  //  - если firstAlch.page-verso → старый сосед был на предыдущем
-  //    развороте, и стык произошёл при перевороте листа: шов на
-  //    внешнем правом крае предыдущего фолио (старого).
-  // Чтобы не плодить логику, ставим шов внутри алхимического
-  // фолио, на той стороне, где он «соприкасается с миром старого
-  // пергамена».
-  if (firstAlch.classList.contains('page-recto')) {
-    addEdge(firstAlch, 'gutter-recto');
-  } else {
-    addEdge(firstAlch, 'gutter-verso');
-  }
-  if (lastAlch.classList.contains('page-verso')) {
-    addEdge(lastAlch, 'gutter-verso');
-  } else {
-    addEdge(lastAlch, 'gutter-recto');
-  }
-  // Внешние края: для двух «крайних» фолио кватерниона добавляем
-  // sewing-stations-маркеры на внешних полях. Это имитация
-  // проколов для нити переплёта — они видны на любом физически
-  // отдельно стоящем кватернионе.
-  firstAlch.classList.add('alch-quire-outer-edge');
-  lastAlch.classList.add('alch-quire-outer-edge');
+  // ── 6. ШВОВ НЕТ ──
+  // При замене внутренних бифолиев в существующей сшивке кватерниона
+  // переплётчик XIII в. вынул общую нить, заменил нужные бифолии на
+  // алхимические и прошил всё заново общей нитью через тот же фальц.
+  // Никаких guard-полосок и наружных швов при таком способе не
+  // образуется — это самое чистое подделочное вмешательство, какое
+  // только возможно палеографически. Двойные sewing stations в
+  // фальце технически отличаются (старые проколы 1147 г. + новые
+  // XIII в.), но они скрыты переплётом и в развороте не видны.
+  //
+  // (Если когда-нибудь понадобится singleton-вставка на guard'е —
+  // CSS-классы .alch-quire-edge и .alch-quire-outer-edge оставлены
+  // в стилях; вешайте их на конкретные фолио вручную.)
 
-  // ── 4. INLINE RASURA: эмендация "quam ipsi sunt" ──
-  // Маркер data-alch-rasura стоит на инлайн-обёртке в речи Финрода.
-  // data-alch-prev = "nos sumus" — то, что было стёрто.
+  // ── 7. INLINE RASURA: эмендация "quam ipsi sunt" ──
+  // Маркер data-alch-rasura стоит на инлайн-обёртке в речи Финрода
+  // в главе De Memoria Luminis. По концепции эта глава НЕ переписана
+  // Алхимиком — её листы остались оригинальными. Rasura — это
+  // палеографическая правка ПОВЕРХ старого пергамена: точечное
+  // стирание чернил Коемана и нанесение новых поверх. CSS .alch-rasura
+  // даёт визуальный след стирания (потёртость, ghost старых букв) +
+  // новый текст; это применимо как на алхимическом, так и на
+  // оригинальном листе.
   const rasuraEls = document.querySelectorAll('[data-alch-rasura]');
   rasuraEls.forEach(function(el) {
     el.classList.add('alch-rasura');
@@ -8515,32 +8934,113 @@ function injectAlchemistLayer() {
   });
   console.log('[ALCH] rasura applied to ' + rasuraEls.length + ' element(s)');
 
-  // ── 5. КАМЕНЬ В ГАВАНИ (data-alch-stone) ──
-  // Смотрим, попадает ли элемент с data-alch-stone на алхимический
-  // кватернион. Если да — ничего не делаем (он естественно идёт на
-  // алхимическом пергамене). Если нет — оборачиваем содержимое в
-  // .alch-interlinear как надстрочное расширение.
-  // Здесь в нашей конкретной редакции пассаж стоит в De Reditu et
-  // Viatico, а кватернион ограничен De Hora..De Memoria — пассаж
-  // ВЫПАДЕТ за пределы. Делаем interlinear.
+  // ── 8. КАМЕНЬ В ГАВАНИ (data-alch-stone) ──
+  // Содержательная вставка. Если попадает на алхимический лист
+  // (часть переписанной главы или балласт) — естественная вставка
+  // в основной поток. Если на не-алхимический (оригинальный лист
+  // Коемана) — надстрочное interlinear-расширение поверх старого
+  // пергамена + Sol/Luna signum в маргинале (НЕ inline, чтобы не
+  // сдвигать текст). В текущем расположении пассаж стоит в De Reditu
+  // et Viatico, которая всегда оригинальная — будет interlinear.
+
+  // Sol/Luna signum в маргинале на уровне первой строки фразы.
+  // Здесь используются НЕ Sol/Luna (это «общая алхимическая подпись»
+  // Алхимика на blank-leaf — там он отметился как hermeticus вообще).
+  // А специфическая пара: STELLA MATUTINA (Φωσφόρος / Lucifer, утренняя
+  // звезда — Венера на востоке перед восходом солнца) и STELLA VESPERTINA
+  // (Ἕσπερος / Hesperus, вечерняя звезда на западе после заката).
+  // В классической и средневековой астрономии это две наблюдаемые фазы
+  // одной планеты, и используются в латинской литературе XIII в.
+  // (Albertus Magnus, Bartholomaeus Anglicus) и буквально, и как метафора
+  // двойного перехода между светами: matutina — переход от Luna к Sol,
+  // vespertina — обратный. Концептуально signum точнее подходит к фразе
+  // о камне-светильнике, который «non calida ut auruum, non frigida ut
+  // Luna, sed quasi utrumque» — то есть о промежуточном состоянии,
+  // о двустороннем переходе между двумя светами.
+  // Графически: восьмиконечная звезда (4 пересекающиеся линии через
+  // центр + одна удлинённая ось — направление перехода). Matutina
+  // сверху с длинным восходящим лучом и солидной точкой в центре,
+  // vespertina снизу с длинным нисходящим лучом, без точки и чуть
+  // бледнее (закатная фаза тусклее). Позиционируется absolute
+  // относительно .folio (не .alch-interlinear-host), поэтому НЕ
+  // зависит от inline-flow и НЕ сдвигает текст.
+  function placeMarginalSignum(hostEl) {
+    const folio = hostEl.closest('.folio');
+    if (!folio) return;
+
+    // Range API даёт client rects всех визуальных строк фрагмента.
+    // Берём первую — на её уровне разместим signum в маргинале.
+    const range = document.createRange();
+    range.selectNodeContents(hostEl);
+    const rects = range.getClientRects();
+    if (!rects.length) return;
+    const firstRect = rects[0];
+    const folioRect = folio.getBoundingClientRect();
+
+    // Удалить старый signum (защита от повторных вызовов после resize).
+    const old = folio.querySelector(':scope > .alch-marginal-signum[data-for-stone]');
+    if (old) old.remove();
+
+    const sig = document.createElement('div');
+    sig.className = 'alch-marginal-signum';
+    sig.setAttribute('data-for-stone', '1');
+    sig.setAttribute('aria-hidden', 'true');
+    sig.innerHTML =
+      // Stella matutina (сверху): восьмиконечная звезда с длинным
+      // верхним лучом, точкой в центре. Фосфор/Lucifer — восходящий свет.
+      '<svg viewBox="0 0 20 22" xmlns="http://www.w3.org/2000/svg">' +
+        '<g fill="none" stroke="currentColor" stroke-linecap="round">' +
+          // Удлинённая вертикаль с длинным восходящим лучом
+          '<line x1="10" y1="2" x2="10" y2="16" stroke-width="0.9"/>' +
+          // Горизонталь
+          '<line x1="6" y1="11" x2="14" y2="11" stroke-width="0.9"/>' +
+          // Диагонали (тоньше)
+          '<line x1="7.5" y1="8.5" x2="12.5" y2="13.5" stroke-width="0.7"/>' +
+          '<line x1="7.5" y1="13.5" x2="12.5" y2="8.5" stroke-width="0.7"/>' +
+        '</g>' +
+        // Солидная точка в центре — звезда «горящая», восходящая
+        '<circle cx="10" cy="11" r="1.1" fill="currentColor" stroke="none"/>' +
+      '</svg>' +
+      // Stella vespertina (снизу): та же восьмиконечная звезда,
+      // но с длинным НИСходящим лучом, без точки в центре, чуть тоньше —
+      // закатная фаза тусклее. Hesperus / Vesper — нисходящий свет.
+      '<svg viewBox="0 0 20 22" xmlns="http://www.w3.org/2000/svg" ' +
+            //'style="opacity:0.85">' +
+        '<g fill="none" stroke="currentColor" stroke-linecap="round">' +
+          // Удлинённая вертикаль с длинным нисходящим лучом
+          '<line x1="10" y1="6" x2="10" y2="20" stroke-width="0.85"/>' +
+          // Горизонталь
+          '<line x1="6" y1="11" x2="14" y2="11" stroke-width="0.85"/>' +
+          // Диагонали
+          '<line x1="7.5" y1="8.5" x2="12.5" y2="13.5" stroke-width="0.65"/>' +
+          '<line x1="7.5" y1="13.5" x2="12.5" y2="8.5" stroke-width="0.65"/>' +
+          // Тонкое колечко в центре (без заливки)
+          '<circle cx="10" cy="11" r="1.0" stroke-width="0.65"/>' +
+        '</g>' +
+      '</svg>';
+
+    // Y-координата: середина первой строки фразы. Само центрирование
+    // (вычитание половины высоты signum'а) делается через CSS
+    // transform: translateY(-50%), поэтому здесь просто задаём
+    // координату середины строки.
+    const y = (firstRect.top - folioRect.top) + (firstRect.height / 2);
+    sig.style.top = y + 'px';
+
+    folio.appendChild(sig);
+  }
+
   const stoneEls = document.querySelectorAll('[data-alch-stone]');
   stoneEls.forEach(function(el) {
     const f = el.closest('.folio');
     if (f && f.classList.contains('alch-quire')) {
-      // На алхимическом фолио — натуральная вставка, ничего не делаем
-      return;
+      return;     // на алхимическом листе — натуральная вставка
     }
-    // Иначе — interlinear-overlay
     el.classList.add('alch-interlinear-host');
     el.setAttribute('data-alch-applied', '1');
-    // Sol/Luna теперь через CSS ::before/::after (Unicode ☉/☽),
-    // absolute-positioned между строк — не нужны JS-инжекции.
+    placeMarginalSignum(el);
   });
 
-  // PATCH ALCH-6: подчёркивание без знаков для [data-alch-underline].
-  // Применяется к quam ipsi sunt — алхимик хотел просто привлечь
-  // внимание к месту своей правки (которая идёт уже без следа
-  // rasura), но без своего signum (Sol/Luna).
+  // PATCH ALCH-6: подчёркивание для [data-alch-underline] (без signum)
   const underlineEls = document.querySelectorAll('[data-alch-underline]');
   underlineEls.forEach(function(el) {
     el.classList.add('alch-interlinear-host');
@@ -8548,9 +9048,10 @@ function injectAlchemistLayer() {
   });
   console.log('[ALCH] underline applied to ' + underlineEls.length + ' element(s)');
 
-  // ── 6. SOL/LUNA подпись на одном фолио кватерниона ──
-  // Детерминированный выбор: индекс длиной 1 от хеша по содержимому.
-  // На практике берём середину кватерниона.
+  // ── 9. SOL/LUNA подпись на одном фолио ──
+  // Виньетка интерполятора в нижнем поле. Размещается в середину
+  // диапазона; для bifolium-замены это типично попадает на
+  // центральный (самый внутренний) бифолий тетради.
   const markFolio = alchFolios[Math.floor(alchFolios.length / 2)];
   if (markFolio) {
     const mark = document.createElement('div');
@@ -8572,8 +9073,7 @@ function injectAlchemistLayer() {
       '</svg>';
     markFolio.appendChild(mark);
   }
-  console.log('[ALCH] signum applied to folio at index ' +
-              (lo + Math.floor(alchFolios.length / 2)));
+  console.log('[ALCH] signum applied');
 }
 
 async function bakeVersoGhosts() {
