@@ -354,8 +354,9 @@
      в общей толщине линии, и канавки выглядят однородно. Alpha
      соответственно уменьшен с 0.05/0.06 до 0.035/0.045, чтобы
      общая интегральная "тёмность" канавки осталась прежней. */
-  .folio::before {
-    content: '';
+  /* PATCH LAYERED-DECOR: drypoint-линовка вынесена в .ruling-layer.
+     Геометрия (inset) и z-index сохранены 1-в-1. */
+  .ruling-layer {
     position: absolute;
     inset: var(--ruling-inset-top, 38px) 42px 0 42px;
     background-image:
@@ -383,12 +384,16 @@
      drypoint-линовка не нужна — она ложится поверх SVG-арта и читается
      как мусор. По образцу уже отключённых на этих же страницах prick'ов,
      фолликул и bounding lines. */
-  .incipit-verso::before,
-  .final-recto::before { display: none; }
+  .incipit-verso .ruling-layer,
+  .final-recto .ruling-layer { display: none; }
 
-  /* Периметральное потемнение + edge chips у folio */
-  .folio::after {
-    content: '';
+  /* PATCH LAYERED-DECOR: периметральное потемнение, edge chips и
+     thumb-wear вынесены в .aging-edges-layer. Базовый класс
+     отвечает за двусторонний thumb-wear (для cover'ов и других
+     folio без page-verso/page-recto); .page-verso/.page-recto
+     переопределяют background, оставляя thumb-wear только во
+     внешнем углу. */
+  .aging-edges-layer {
     position: absolute;
     inset: 0;
     pointer-events: none;
@@ -415,9 +420,21 @@
         transparent 96%, rgba(45,22,6,0.14) 98.5%, rgba(45,22,6,0.38) 100%);
   }
 
+  /* PATCH LAYERED-DECOR: страховка для codex-to-pdf --no-aging.
+     В codex-to-pdf.mjs override выглядит как
+       body.no-aging .folio::after,
+       body.no-aging .folio.page-verso::after,
+       body.no-aging .folio.page-recto::after { display: none !important; }
+     После выноса edge-chips в .aging-edges-layer старый селектор
+     перестал работать. Дублируем правило здесь, чтобы --no-aging
+     по-прежнему скрывал постарение, независимо от того, обновился
+     ли codex-to-pdf или нет. После обновления конвертера это
+     правило можно удалить. */
+  body.no-aging .aging-edges-layer { display: none !important; }
+
   /* Для verso — thumb-wear только в ЛЕВОМ нижнем углу (внешний),
      для recto — в ПРАВОМ (тоже внешний). Переопределяю. */
-  .folio.page-verso::after {
+  .folio.page-verso .aging-edges-layer {
     background:
       radial-gradient(ellipse 14px 6px at 0% 22%, rgba(25,10,2,0.55) 0%, transparent 100%),
       radial-gradient(ellipse 11px 5px at 0% 58%, rgba(30,13,3,0.50) 0%, transparent 100%),
@@ -434,7 +451,7 @@
         rgba(45,22,6,0.38) 0%, rgba(45,22,6,0.14) 1.5%, transparent 4%,
         transparent 96%, rgba(45,22,6,0.14) 98.5%, rgba(45,22,6,0.38) 100%);
   }
-  .folio.page-recto::after {
+  .folio.page-recto .aging-edges-layer {
     background:
       radial-gradient(ellipse 12px 5px at 100% 14%, rgba(25,10,2,0.55) 0%, transparent 100%),
       radial-gradient(ellipse 14px 6px at 100% 72%, rgba(28,12,3,0.55) 0%, transparent 100%),
@@ -1718,30 +1735,39 @@
      линии часто чертили вместе с горизонтальной разлиновкой (тоже drypoint).
      Реализованы через ::before и ::after у .folio-content. Они поднимутся
      к ближайшему position:relative предку — это сама .folio. */
-  .folio-content::before,
-  .folio-content::after {
-    content: '';
+  /* PATCH LAYERED-DECOR: вертикальные bounding-lines вынесены в
+     .bounding-lines-layer. Старая реализация — два псевдоэлемента
+     ::before и ::after на .folio-content; новая — один div, на
+     котором собственные ::before и ::after рисуют две линии.
+     Координаты left/right совпадают с прежними, потому что
+     .folio-content имеет position:static и псевдоэлементы и так
+     позиционировались относительно .folio. */
+  .bounding-lines-layer {
     position: absolute;
-    top: 56px;
-    bottom: 56px;
-    width: 2px;
+    inset: 56px 0;
     pointer-events: none;
     z-index: 1;
+  }
+  .bounding-lines-layer::before,
+  .bounding-lines-layer::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    width: 2px;
     background-image: linear-gradient(
       90deg,
       rgba(0,0,0,0.05) 0px, rgba(0,0,0,0.05) 1px,
       rgba(255,250,235,0.06) 1px, rgba(255,250,235,0.06) 2px
     );
   }
-  .page-verso .folio-content::before { left: 80px; }
-  .page-verso .folio-content::after  { right: 30px; }
-  .page-recto .folio-content::before { left: 30px; }
-  .page-recto .folio-content::after  { right: 80px; }
+  .page-verso .bounding-lines-layer::before { left: 80px; }
+  .page-verso .bounding-lines-layer::after  { right: 30px; }
+  .page-recto .bounding-lines-layer::before { left: 30px; }
+  .page-recto .bounding-lines-layer::after  { right: 80px; }
   /* На декоративных страницах bounding lines не нужны */
-  .incipit-verso .folio-content::before,
-  .incipit-verso .folio-content::after,
-  .final-recto .folio-content::before,
-  .final-recto .folio-content::after { display: none; }
+  .incipit-verso .bounding-lines-layer,
+  .final-recto .bounding-lines-layer { display: none; }
 
   /* PATCH F: standalone обложки — carpet (передняя) и final (задняя).
      Не входят в .spread, рендерятся как одиночные folio. Размеры те же
@@ -1783,13 +1809,18 @@
 
      На verso точки у левого края folio (внешнее поле),
      на recto — у правого. */
-  .parchment-bg::after {
-    content: '';
+  /* PATCH LAYERED-DECOR: прик-точки вынесены в .prick-dots-layer.
+     Геометрия (top/bottom/width), фазовое смещение и
+     background-size — сохранены. z-index: -2 (как и фолликулы);
+     при равных z-index DOM-порядок ставит prick-dots-layer поверх
+     folliculi-layer (как было в стэке псевдоэлементов parchment-bg). */
+  .prick-dots-layer {
     position: absolute;
     top: var(--ruling-inset-top, 38px);
     bottom: 0;
     width: 2px;
     pointer-events: none;
+    z-index: -2;
     background-image: radial-gradient(
       circle 0.7px at 50% 50%,
       rgba(80,40,10,0.55) 0%,
@@ -1799,15 +1830,15 @@
     background-size: 2px var(--ruling-step, 20.64px);
     /* Фазовое смещение: центр radial-gradient at 50% 50% даёт точку
        на y = step/2 от верха тайла; нам нужно на y = step - 1.5
-       (там стоит канавка drypoint, см. .folio::before). Сдвигаем
+       (там стоит канавка drypoint, см. .ruling-layer). Сдвигаем
        паттерн на (step/2 - 1.5px) вниз. */
     background-position: 0 calc(var(--ruling-step, 20.64px) / 2 - 2px);
   }
-  .page-verso .parchment-bg::after { left: 16px; }
-  .page-recto .parchment-bg::after { right: 16px; }
+  .page-verso .prick-dots-layer { left: 16px; }
+  .page-recto .prick-dots-layer { right: 16px; }
   /* На декоративных страницах prick'ов нет */
-  .incipit-verso .parchment-bg::after,
-  .final-recto .parchment-bg::after { display: none; }
+  .incipit-verso .prick-dots-layer,
+  .final-recto .prick-dots-layer { display: none; }
 
   /* PATCH D1: ghost-слой просвечивающего текста с verso на recto.
      Запекается один раз при загрузке через canvas (Range API + fillText).
@@ -2360,23 +2391,38 @@
        --fol-density = 0.7 реже (хорошо выскоблено)
        --fol-density = 1.3 чаще (плохо выскоблено)
      На flesh-стороне фолликулов нет (она от природы гладкая). */
-  .folio.parch-h1 .parchment-bg::before,
-  .folio.parch-h2 .parchment-bg::before,
-  .folio.parch-h3 .parchment-bg::before,
-  .folio.parch-h4 .parchment-bg::before,
-  .folio.parch-h5 .parchment-bg::before,
-  .folio.parch-h6 .parchment-bg::before,
+  /* PATCH LAYERED-DECOR: фолликулы вынесены в собственный div
+     .folliculi-layer. Базовое состояние — display:none; включается
+     специфичными правилами для hair-сторон и алхимического
+     пергамента (см. ниже). */
+  .folliculi-layer {
+    display: none;
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    /* z-index: -2 — тот же, что и у .parchment-bg. При равных z-index
+       порядок определяется DOM, а folliculi стоит в makeFolio после
+       parch → рисуется поверх его background. Под ghost-layer (-1)
+       и контентом (auto) — стек визуально совпадает с прежним
+       поведением .parchment-bg::before. */
+    z-index: -2;
+    opacity: 0.4;
+  }
+
+  .folio.parch-h1 .folliculi-layer,
+  .folio.parch-h2 .folliculi-layer,
+  .folio.parch-h3 .folliculi-layer,
+  .folio.parch-h4 .folliculi-layer,
+  .folio.parch-h5 .folliculi-layer,
+  .folio.parch-h6 .folliculi-layer,
   /* PATCH ALCH-12: алхимический пергамент XIII в. использует тот же
      механизм, что и старые hair-стороны (три тайла 17/23/31 со
      взаимно простыми шагами). Степень видимости и плотность
      уменьшаются переменными --fol-scale / --fol-density и общим
      opacity-override ниже. Никакой собственной решётки 30/40 — она
      давала видимый муар на странице. */
-  .folio.parch-alch-h .parchment-bg::before {
-    content: '';
-    position: absolute;
-    inset: 0;
-    pointer-events: none;
+  .folio.parch-alch-h .folliculi-layer {
+    display: block;
     background-image:
       /* === Тайл 23×23 — основные первичные фолликулы (4 пары) === */
       radial-gradient(ellipse var(--rh-md) var(--rh-md) at 3.3px 5.3px, rgba(255,240,210,0.32) 0%, transparent 55%),
@@ -2422,7 +2468,6 @@
       var(--t-lg) var(--t-lg), var(--t-lg) var(--t-lg),
       var(--t-lg) var(--t-lg), var(--t-lg) var(--t-lg);
     background-repeat: repeat;
-    opacity: 0.4;
   }
   .folio.parch-h1 { --fol-scale: 0.85; --fol-density: 0.9; }
   .folio.parch-h2 { --fol-scale: 1.0;  --fol-density: 1.0; }
@@ -2439,13 +2484,13 @@
      остающиеся взаимно простыми числами без явной общей решётки) и
      общая прозрачность ниже (opacity 0.25 vs 0.40). XIII век —
      отточенная техника пергамента, дефекты есть, но мельче и реже. */
-  .folio.parch-alch-h .parchment-bg::before {
+  .folio.parch-alch-h .folliculi-layer {
     opacity: 0.25;
   }
   /* На декоративных страницах (carpet/final) фолликулы не нужны:
      они сосуществуют с SVG-арт и читаются как мусор. */
-  .incipit-verso .parchment-bg::before,
-  .final-recto .parchment-bg::before { display: none; }
+  .incipit-verso .folliculi-layer,
+  .final-recto .folliculi-layer { display: none; }
 
   /* ── СТИЛИ НИТЕЙ ПЛЕТЁНКИ ДЛЯ КОВРОВЫХ СТРАНИЦ ──
      В defs лежит ОДНА группа #knot-twist; палитра задаётся
@@ -2453,11 +2498,8 @@
      Внешний <use href="#knot-twist"> получает класс-палитру
      (.kk-silver или .kk-gold), переменные пропагируются через
      shadow tree до внутренних use-сегментов. */
-  .kk-u, .kk-o { fill: none; stroke-linecap: round; }
-  .kk-u { stroke: var(--ku-c); stroke-width: var(--ku-w); }
-  .kk-o { stroke: var(--ko-c); stroke-width: var(--ko-w); }
-  .kk-silver { --ku-c: #3a4550; --ku-w: 8.5; --ko-c: #c0c8d0; --ko-w: 5; }
-  .kk-gold   { --ku-c: #5a3e08; --ku-w: 9.5; --ko-c: #d4a820; --ko-w: 5; }
+  .kk-silver { --strand-a: #c0c8d0; --strand-b: #3a6012; --ink: #1a1208; }
+  .kk-gold   { --strand-a: #d4a820; --strand-b: #a82818; --ink: #1a1208; }
 
   .med-silver  { --m-frame:   #3a4550;  --m-ring:     #c0c8d0; }
   .med-gold    { --m-frame:   #5a3e08;  --m-ring:     #d4a820; }
@@ -2474,6 +2516,15 @@
     --rose-petal-fill: #d4a820; --rose-petal-stroke: #8a6810;
     --rose-core-fill:  #8a6810; --rose-core-stroke:  #4a3010;
   }
+
+  /* Голуби-peregrini (Spiritus Sanctus) на средних ветвях древа.
+     Стилизованные silhouettes; левый — head-leftward, правый — зеркально
+     через transform="scale(-1 1)". Палитра наследует общую серебро/золото
+     схему, чтобы не вводить нового пигмента вне инсулярной экономики:
+     серебро = #c0c8d0 (как nodes/fruits/rosette на arbor argentea),
+     золото = #d4a820 (как nodes/fruits/rosette на arbor aurea). */
+  .dove-silver { --d-fill: #c0c8d0; --d-stroke: #5a6670; }
+  .dove-gold   { --d-fill: #d4a820; --d-stroke: #8a6810; }
 
 
   /* ═══════════════════════════════════════════════════════════════
@@ -3790,116 +3841,145 @@
 
   <svg width="0" height="0" style="position:absolute;overflow:hidden" aria-hidden="true">
 <defs>
-  <!-- 88 path-сегментов плетёнки, обёрнутых в группу для одного use'а
-       вместо 176 индивидуальных use'ов на каждой ковровой странице. -->
-  <g id="knot-strand">
-    <!-- Верхняя полоса (kn0..kn17): 18 канонических путей -->
-    <path id="kn0" d="M82.00 53.60C85.29 53.61 88.58 52.89 91.88 51.67"/>
-    <path id="kn1" d="M82.00 47.00C85.29 48.73 88.58 50.45 91.88 51.67"/>
-    <path id="kn2" d="M91.88 51.67C105.04 57.97 118.20 48.07 131.38 42.33"/>
-    <path id="kn3" d="M91.88 51.67C105.04 45.93 118.20 36.03 131.38 42.33"/>
-    <path id="kn4" d="M131.38 42.33C144.54 48.07 157.70 57.97 170.88 51.67"/>
-    <path id="kn5" d="M131.38 42.33C144.54 36.03 157.70 45.93 170.88 51.67"/>
-    <path id="kn6" d="M170.88 51.67C184.04 57.97 197.20 48.07 210.38 42.33"/>
-    <path id="kn7" d="M170.88 51.67C184.04 45.93 197.20 36.03 210.38 42.33"/>
-    <path id="kn8" d="M210.38 42.33C223.54 48.07 236.71 57.97 249.88 51.67"/>
-    <path id="kn9" d="M210.38 42.33C223.54 36.03 236.71 45.93 249.88 51.67"/>
-    <path id="kn10" d="M249.88 51.67C263.03 57.97 276.21 48.07 289.38 42.33"/>
-    <path id="kn11" d="M249.88 51.67C263.03 45.93 276.21 36.03 289.38 42.33"/>
-    <path id="kn12" d="M289.38 42.33C302.53 48.07 315.71 57.98 328.88 51.67"/>
-    <path id="kn13" d="M289.38 42.33C302.53 36.03 315.71 45.93 328.88 51.67"/>
-    <path id="kn14" d="M328.88 51.67C342.03 57.97 355.21 48.07 368.38 42.33"/>
-    <path id="kn15" d="M328.88 51.67C342.03 45.93 355.21 36.03 368.38 42.33"/>
-    <path id="kn16" d="M368.38 42.33C378.24 46.11 388.12 53.91 398.00 53.60"/>
-    <path id="kn17" d="M368.38 42.33C378.24 38.12 388.12 41.34 398.00 47.00"/>
-    <!-- Левая полоса (kn36..kn61): 26 канонических путей -->
-    <path id="kn36" d="M53.60 82.00C53.61 85.58 52.89 89.17 51.67 92.75"/>
-    <path id="kn37" d="M47.00 82.00C48.73 85.58 50.45 89.17 51.67 92.75"/>
-    <path id="kn38" d="M51.67 92.75C57.97 107.08 48.07 121.42 42.33 135.75"/>
-    <path id="kn39" d="M51.67 92.75C45.93 107.08 36.03 121.42 42.33 135.75"/>
-    <path id="kn40" d="M42.33 135.75C48.07 150.08 57.97 164.42 51.67 178.75"/>
-    <path id="kn41" d="M42.33 135.75C36.03 150.08 45.93 164.42 51.67 178.75"/>
-    <path id="kn42" d="M51.67 178.75C57.97 193.08 48.07 207.42 42.33 221.75"/>
-    <path id="kn43" d="M51.67 178.75C45.93 193.08 36.03 207.42 42.33 221.75"/>
-    <path id="kn44" d="M42.33 221.75C48.07 236.08 57.97 250.42 51.67 264.75"/>
-    <path id="kn45" d="M42.33 221.75C36.03 236.08 45.93 250.42 51.67 264.75"/>
-    <path id="kn46" d="M51.67 264.75C57.97 279.08 48.07 293.42 42.33 307.75"/>
-    <path id="kn47" d="M51.67 264.75C45.93 279.08 36.03 293.42 42.33 307.75"/>
-    <path id="kn48" d="M42.33 307.75C48.07 322.08 57.97 336.42 51.67 350.75"/>
-    <path id="kn49" d="M42.33 307.75C36.03 322.08 45.93 336.42 51.67 350.75"/>
-    <path id="kn50" d="M51.67 350.75C57.97 365.08 48.07 379.42 42.33 393.75"/>
-    <path id="kn51" d="M51.67 350.75C45.93 365.08 36.03 379.42 42.33 393.75"/>
-    <path id="kn52" d="M42.33 393.75C48.07 408.08 57.97 422.42 51.67 436.75"/>
-    <path id="kn53" d="M42.33 393.75C36.03 408.08 45.93 422.42 51.67 436.75"/>
-    <path id="kn54" d="M51.67 436.75C57.97 451.08 48.07 465.42 42.33 479.75"/>
-    <path id="kn55" d="M51.67 436.75C45.93 451.08 36.03 465.42 42.33 479.75"/>
-    <path id="kn56" d="M42.33 479.75C48.07 494.08 57.97 508.42 51.67 522.75"/>
-    <path id="kn57" d="M42.33 479.75C36.03 494.08 45.93 508.42 51.67 522.75"/>
-    <path id="kn58" d="M51.67 522.75C57.97 537.08 48.07 551.42 42.33 565.75"/>
-    <path id="kn59" d="M51.67 522.75C45.93 537.08 36.03 551.42 42.33 565.75"/>
-    <path id="kn60" d="M42.33 565.75C46.11 576.49 53.91 587.26 53.60 598.00"/>
-    <path id="kn61" d="M42.33 565.75C38.12 576.49 41.34 587.26 47.00 598.00"/>
+  <!-- Горизонтальная жила плетёнки. Длина 304, период 19, 16 узлов.
+       Структура (та же схема, что и в #braid-strip ниже):
+
+         • один <path id="wave-h"> — базовая волна A (вверх первой).
+           Встречная волна B — это та же волна, отражённая через
+           scale(1 -1) translate(0 -22) (baseline y=11, поэтому -2*11);
+           не требует отдельного определения.
+
+         • <g id="strand-h-holes"> — общий трафарет с 8 «прорезями»
+           для маски (там, где волна ныряет под другую). Маска A
+           ссылается на трафарет напрямую через <use>, маска B —
+           через <use transform="translate(19 0)"/>, что сдвигает все
+           дырки на полпериода. Это даёт восьмую лишнюю дырку на
+           x=304 (самый конец волны); её перекрывает белый <rect>
+           внутри маски-B (заплатка).
+
+         • Кружки-узелки: один <g id="strand-h-dotpair"> с парой
+           a-b и шагом 19; внутри strand-h расставляется 7 пар через
+           <use> + один одиночный кружок (cx=285 в локальных коорд.).
+  -->
+  <path id="wave-h"
+        d="M 0 11 Q 9.5 -2.2 19 11 Q 28.5 24.2 38 11 Q 47.5 -2.2 57 11 Q 66.5 24.2 76 11 Q 85.5 -2.2 95 11 Q 104.5 24.2 114 11 Q 123.5 -2.2 133 11 Q 142.5 24.2 152 11 Q 161.5 -2.2 171 11 Q 180.5 24.2 190 11 Q 199.5 -2.2 209 11 Q 218.5 24.2 228 11 Q 237.5 -2.2 247 11 Q 256.5 24.2 266 11 Q 275.5 -2.2 285 11 Q 294.5 24.2 304 11"
+        fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+  <g id="strand-h-holes">
+    <rect x="-7.59" y="-5.06" width="15.18" height="10.12" transform="translate(19 11) rotate(-54.26)" fill="black"/>
+    <rect x="-7.59" y="-5.06" width="15.18" height="10.12" transform="translate(57 11) rotate(-54.26)" fill="black"/>
+    <rect x="-7.59" y="-5.06" width="15.18" height="10.12" transform="translate(95 11) rotate(-54.26)" fill="black"/>
+    <rect x="-7.59" y="-5.06" width="15.18" height="10.12" transform="translate(133 11) rotate(-54.26)" fill="black"/>
+    <rect x="-7.59" y="-5.06" width="15.18" height="10.12" transform="translate(171 11) rotate(-54.26)" fill="black"/>
+    <rect x="-7.59" y="-5.06" width="15.18" height="10.12" transform="translate(209 11) rotate(-54.26)" fill="black"/>
+    <rect x="-7.59" y="-5.06" width="15.18" height="10.12" transform="translate(247 11) rotate(-54.26)" fill="black"/>
+    <rect x="-7.59" y="-5.06" width="15.18" height="10.12" transform="translate(285 11) rotate(-54.26)" fill="black"/>
   </g>
-  <!-- Полный набор переплетённых нитей: 176 use'ов в правильном per-path
-       порядке (knN тень → knN цвет → kn(N+1) тень → kn(N+1) цвет ...).
-       Палитра НЕ зашита — она задаётся CSS-переменными --ku-c/--ku-w/--ko-c/--ko-w
-       на классе-палитре внешнего <use>. -->
-  <g id="knot-twist">
-    <!-- Верхняя полоса: 18 path × 2 жилы = 36 use -->
-    <g id="kn-twist-top">
-      <use href="#kn0"  class="kk-u"/><use href="#kn0"  class="kk-o"/>
-      <use href="#kn1"  class="kk-u"/><use href="#kn1"  class="kk-o"/>
-      <use href="#kn2"  class="kk-u"/><use href="#kn2"  class="kk-o"/>
-      <use href="#kn3"  class="kk-u"/><use href="#kn3"  class="kk-o"/>
-      <use href="#kn4"  class="kk-u"/><use href="#kn4"  class="kk-o"/>
-      <use href="#kn5"  class="kk-u"/><use href="#kn5"  class="kk-o"/>
-      <use href="#kn6"  class="kk-u"/><use href="#kn6"  class="kk-o"/>
-      <use href="#kn7"  class="kk-u"/><use href="#kn7"  class="kk-o"/>
-      <use href="#kn8"  class="kk-u"/><use href="#kn8"  class="kk-o"/>
-      <use href="#kn9"  class="kk-u"/><use href="#kn9"  class="kk-o"/>
-      <use href="#kn10" class="kk-u"/><use href="#kn10" class="kk-o"/>
-      <use href="#kn11" class="kk-u"/><use href="#kn11" class="kk-o"/>
-      <use href="#kn12" class="kk-u"/><use href="#kn12" class="kk-o"/>
-      <use href="#kn13" class="kk-u"/><use href="#kn13" class="kk-o"/>
-      <use href="#kn14" class="kk-u"/><use href="#kn14" class="kk-o"/>
-      <use href="#kn15" class="kk-u"/><use href="#kn15" class="kk-o"/>
-      <use href="#kn16" class="kk-u"/><use href="#kn16" class="kk-o"/>
-      <use href="#kn17" class="kk-u"/><use href="#kn17" class="kk-o"/>
-    </g>
-    <!-- Нижняя полоса = верхняя + translate(0, 572) -->
-    <use href="#kn-twist-top" transform="translate(0 572)"/>
-    <!-- Левая полоса: 26 path × 2 жилы = 52 use -->
-    <g id="kn-twist-left">
-      <use href="#kn36" class="kk-u"/><use href="#kn36" class="kk-o"/>
-      <use href="#kn37" class="kk-u"/><use href="#kn37" class="kk-o"/>
-      <use href="#kn38" class="kk-u"/><use href="#kn38" class="kk-o"/>
-      <use href="#kn39" class="kk-u"/><use href="#kn39" class="kk-o"/>
-      <use href="#kn40" class="kk-u"/><use href="#kn40" class="kk-o"/>
-      <use href="#kn41" class="kk-u"/><use href="#kn41" class="kk-o"/>
-      <use href="#kn42" class="kk-u"/><use href="#kn42" class="kk-o"/>
-      <use href="#kn43" class="kk-u"/><use href="#kn43" class="kk-o"/>
-      <use href="#kn44" class="kk-u"/><use href="#kn44" class="kk-o"/>
-      <use href="#kn45" class="kk-u"/><use href="#kn45" class="kk-o"/>
-      <use href="#kn46" class="kk-u"/><use href="#kn46" class="kk-o"/>
-      <use href="#kn47" class="kk-u"/><use href="#kn47" class="kk-o"/>
-      <use href="#kn48" class="kk-u"/><use href="#kn48" class="kk-o"/>
-      <use href="#kn49" class="kk-u"/><use href="#kn49" class="kk-o"/>
-      <use href="#kn50" class="kk-u"/><use href="#kn50" class="kk-o"/>
-      <use href="#kn51" class="kk-u"/><use href="#kn51" class="kk-o"/>
-      <use href="#kn52" class="kk-u"/><use href="#kn52" class="kk-o"/>
-      <use href="#kn53" class="kk-u"/><use href="#kn53" class="kk-o"/>
-      <use href="#kn54" class="kk-u"/><use href="#kn54" class="kk-o"/>
-      <use href="#kn55" class="kk-u"/><use href="#kn55" class="kk-o"/>
-      <use href="#kn56" class="kk-u"/><use href="#kn56" class="kk-o"/>
-      <use href="#kn57" class="kk-u"/><use href="#kn57" class="kk-o"/>
-      <use href="#kn58" class="kk-u"/><use href="#kn58" class="kk-o"/>
-      <use href="#kn59" class="kk-u"/><use href="#kn59" class="kk-o"/>
-      <use href="#kn60" class="kk-u"/><use href="#kn60" class="kk-o"/>
-      <use href="#kn61" class="kk-u"/><use href="#kn61" class="kk-o"/>
-    </g>
-    <!-- Правая полоса = левая + translate(386, 0) -->
-    <use href="#kn-twist-left" transform="translate(386 0)"/>
+  <mask id="strand-h-cut-a" maskUnits="userSpaceOnUse" x="-12" y="-12" width="328" height="46">
+    <rect x="-12" y="-12" width="328" height="46" fill="white"/>
+    <use href="#strand-h-holes"/>
+  </mask>
+  <mask id="strand-h-cut-b" maskUnits="userSpaceOnUse" x="-12" y="-12" width="328" height="46">
+    <rect x="-12" y="-12" width="328" height="46" fill="white"/>
+    <use href="#strand-h-holes" transform="translate(19 0)"/>
+    <!-- заплатка: подавляет лишнюю восьмую дырку на x=304 -->
+    <rect x="290" y="-12" width="40" height="46" fill="white"/>
+  </mask>
+  <g id="strand-h-dotpair">
+    <circle cx="0"  cy="0" r="1.65" fill="var(--strand-a)" stroke="var(--ink)" stroke-width="0.3" opacity="0.95"/>
+    <circle cx="19" cy="0" r="1.65" fill="var(--strand-b)" stroke="var(--ink)" stroke-width="0.3" opacity="0.95"/>
   </g>
+  <g id="strand-h">
+    <g mask="url(#strand-h-cut-a)">
+      <use href="#wave-h" stroke="var(--ink)"      stroke-width="10.12"/>
+      <use href="#wave-h" stroke="var(--strand-a)" stroke-width="6.60"/>
+    </g>
+    <g mask="url(#strand-h-cut-b)">
+      <use href="#wave-h" transform="scale(1 -1) translate(0 -22)"
+           stroke="var(--ink)"      stroke-width="10.12"/>
+      <use href="#wave-h" transform="scale(1 -1) translate(0 -22)"
+           stroke="var(--strand-b)" stroke-width="6.60"/>
+    </g>
+    <g transform="translate(19 11)">
+      <use href="#strand-h-dotpair"/>
+      <use href="#strand-h-dotpair" x="38"/>
+      <use href="#strand-h-dotpair" x="76"/>
+      <use href="#strand-h-dotpair" x="114"/>
+      <use href="#strand-h-dotpair" x="152"/>
+      <use href="#strand-h-dotpair" x="190"/>
+      <use href="#strand-h-dotpair" x="228"/>
+      <circle cx="266" cy="0" r="1.65" fill="var(--strand-a)" stroke="var(--ink)" stroke-width="0.3" opacity="0.95"/>
+    </g>
+  </g>
+  <!-- Вертикальная жила. Длина 504, период 18, 28 узлов. Та же схема,
+       что у strand-h: один path + общий трафарет дырок + сдвинутая
+       копия для маски-B + заплатка на конце + парные кружки. -->
+  <path id="wave-v"
+        d="M 0 11 Q 9 -2.2 18 11 Q 27 24.2 36 11 Q 45 -2.2 54 11 Q 63 24.2 72 11 Q 81 -2.2 90 11 Q 99 24.2 108 11 Q 117 -2.2 126 11 Q 135 24.2 144 11 Q 153 -2.2 162 11 Q 171 24.2 180 11 Q 189 -2.2 198 11 Q 207 24.2 216 11 Q 225 -2.2 234 11 Q 243 24.2 252 11 Q 261 -2.2 270 11 Q 279 24.2 288 11 Q 297 -2.2 306 11 Q 315 24.2 324 11 Q 333 -2.2 342 11 Q 351 24.2 360 11 Q 369 -2.2 378 11 Q 387 24.2 396 11 Q 405 -2.2 414 11 Q 423 24.2 432 11 Q 441 -2.2 450 11 Q 459 24.2 468 11 Q 477 -2.2 486 11 Q 495 24.2 504 11"
+        fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+  <g id="strand-v-holes">
+    <rect x="-7.59" y="-5.06" width="15.18" height="10.12" transform="translate(18 11) rotate(-55.71)" fill="black"/>
+    <rect x="-7.59" y="-5.06" width="15.18" height="10.12" transform="translate(54 11) rotate(-55.71)" fill="black"/>
+    <rect x="-7.59" y="-5.06" width="15.18" height="10.12" transform="translate(90 11) rotate(-55.71)" fill="black"/>
+    <rect x="-7.59" y="-5.06" width="15.18" height="10.12" transform="translate(126 11) rotate(-55.71)" fill="black"/>
+    <rect x="-7.59" y="-5.06" width="15.18" height="10.12" transform="translate(162 11) rotate(-55.71)" fill="black"/>
+    <rect x="-7.59" y="-5.06" width="15.18" height="10.12" transform="translate(198 11) rotate(-55.71)" fill="black"/>
+    <rect x="-7.59" y="-5.06" width="15.18" height="10.12" transform="translate(234 11) rotate(-55.71)" fill="black"/>
+    <rect x="-7.59" y="-5.06" width="15.18" height="10.12" transform="translate(270 11) rotate(-55.71)" fill="black"/>
+    <rect x="-7.59" y="-5.06" width="15.18" height="10.12" transform="translate(306 11) rotate(-55.71)" fill="black"/>
+    <rect x="-7.59" y="-5.06" width="15.18" height="10.12" transform="translate(342 11) rotate(-55.71)" fill="black"/>
+    <rect x="-7.59" y="-5.06" width="15.18" height="10.12" transform="translate(378 11) rotate(-55.71)" fill="black"/>
+    <rect x="-7.59" y="-5.06" width="15.18" height="10.12" transform="translate(414 11) rotate(-55.71)" fill="black"/>
+    <rect x="-7.59" y="-5.06" width="15.18" height="10.12" transform="translate(450 11) rotate(-55.71)" fill="black"/>
+    <rect x="-7.59" y="-5.06" width="15.18" height="10.12" transform="translate(486 11) rotate(-55.71)" fill="black"/>
+  </g>
+  <mask id="strand-v-cut-a" maskUnits="userSpaceOnUse" x="-12" y="-12" width="528" height="46">
+    <rect x="-12" y="-12" width="528" height="46" fill="white"/>
+    <use href="#strand-v-holes"/>
+  </mask>
+  <mask id="strand-v-cut-b" maskUnits="userSpaceOnUse" x="-12" y="-12" width="528" height="46">
+    <rect x="-12" y="-12" width="528" height="46" fill="white"/>
+    <use href="#strand-v-holes" transform="translate(18 0)"/>
+    <!-- заплатка: подавляет лишнюю четырнадцатую дырку на x=504 -->
+    <rect x="490" y="-12" width="40" height="46" fill="white"/>
+  </mask>
+  <g id="strand-v-dotpair">
+    <circle cx="0"  cy="0" r="1.65" fill="var(--strand-a)" stroke="var(--ink)" stroke-width="0.3" opacity="0.95"/>
+    <circle cx="18" cy="0" r="1.65" fill="var(--strand-b)" stroke="var(--ink)" stroke-width="0.3" opacity="0.95"/>
+  </g>
+  <g id="strand-v-template">
+    <g mask="url(#strand-v-cut-a)">
+      <use href="#wave-v" stroke="var(--ink)"      stroke-width="10.12"/>
+      <use href="#wave-v" stroke="var(--strand-a)" stroke-width="6.60"/>
+    </g>
+    <g mask="url(#strand-v-cut-b)">
+      <use href="#wave-v" transform="scale(1 -1) translate(0 -22)"
+           stroke="var(--ink)"      stroke-width="10.12"/>
+      <use href="#wave-v" transform="scale(1 -1) translate(0 -22)"
+           stroke="var(--strand-b)" stroke-width="6.60"/>
+    </g>
+    <g transform="translate(18 11)">
+      <use href="#strand-v-dotpair"/>
+      <use href="#strand-v-dotpair" x="36"/>
+      <use href="#strand-v-dotpair" x="72"/>
+      <use href="#strand-v-dotpair" x="108"/>
+      <use href="#strand-v-dotpair" x="144"/>
+      <use href="#strand-v-dotpair" x="180"/>
+      <use href="#strand-v-dotpair" x="216"/>
+      <use href="#strand-v-dotpair" x="252"/>
+      <use href="#strand-v-dotpair" x="288"/>
+      <use href="#strand-v-dotpair" x="324"/>
+      <use href="#strand-v-dotpair" x="360"/>
+      <use href="#strand-v-dotpair" x="396"/>
+      <use href="#strand-v-dotpair" x="432"/>
+      <circle cx="468" cy="0" r="1.65" fill="var(--strand-a)" stroke="var(--ink)" stroke-width="0.3" opacity="0.95"/>
+    </g>
+  </g>
+    <g id="knot-twist">
+      <use href="#strand-h" transform="translate(88 38)"/>
+      <use href="#strand-h" transform="translate(88 606)"/>
+      <use href="#strand-v-template" transform="translate(60 88) rotate(90)"/>
+      <use href="#strand-v-template" transform="translate(442 88) rotate(90)"/>
+    </g>
   <mask id="tris" maskUnits="userSpaceOnUse" x="-30" y="-30" width="60" height="60">
     <rect x="-30" y="-30" width="60" height="60" fill="white"/>
     <rect x="-1.28" y="-0.8" width="2.56" height="1.6" transform="translate(0 3.407) rotate(22.891)" fill="black"/>
@@ -3959,7 +4039,9 @@
        нитями в глазе равно 4.4 ед., точка диаметра 1.4 садится с
        полутора единицами воздуха с обеих сторон. -->
   <path id="braid-d" d="M 9 7.5 Q 14 3 19 7.5 Q 24 12 29 7.5 Q 34 3 39 7.5 Q 44 12 49 7.5 Q 54 3 59 7.5 Q 64 12 69 7.5 Q 74 3 79 7.5 Q 84 12 89 7.5"/>
-  <path id="braid-u" d="M 9 7.5 Q 14 12 19 7.5 Q 24 3 29 7.5 Q 34 12 39 7.5 Q 44 3 49 7.5 Q 54 12 59 7.5 Q 64 3 69 7.5 Q 74 12 79 7.5 Q 84 3 89 7.5"/>
+  <!-- встречная волна #braid-u в прежней версии — это та же кривая,
+       отражённая относительно baseline y=7.5; теперь рисуется одним
+       <use href="#braid-d" transform="scale(1 -1) translate(0 -15)"/> -->
   <mask id="braid-mask" maskUnits="userSpaceOnUse" x="0" y="0" width="100" height="15">
     <rect x="0" y="0" width="100" height="15" fill="white"/>
     <rect x="-1" y="-0.8" width="2" height="1.6" transform="translate(29 7.5) rotate(-41.99)" fill="black"/>
@@ -3970,8 +4052,8 @@
     <use href="#braid-d" stroke="#1a1208" stroke-width="1.6"/>
     <use href="#braid-d" stroke="#3a6012" stroke-width="1.0"/>
     <g mask="url(#braid-mask)">
-      <use href="#braid-u" stroke="#1a1208" stroke-width="1.6"/>
-      <use href="#braid-u" stroke="#a82818" stroke-width="1.0"/>
+      <use href="#braid-d" transform="scale(1 -1) translate(0 -15)" stroke="#1a1208" stroke-width="1.6"/>
+      <use href="#braid-d" transform="scale(1 -1) translate(0 -15)" stroke="#a82818" stroke-width="1.0"/>
     </g>
     <g>
       <circle cx="14" cy="7.5" r="1.0" fill="#7a1208"/>
@@ -4004,14 +4086,14 @@
     <path id="solh-arg" d="M-5 -4H5A4 4 0 0 1 5 4H-5A4 4 0 0 1 -5 -4Z" fill="none" stroke-linejoin="round"/>
     <g clip-path="url(#solh-clip)">
       <use href="#solh-arg" stroke="#1a1208" stroke-width="2.4"/>
-      <use href="#solh-arg" stroke="#a82818" stroke-width="1.6"/>
+      <use href="#solh-arg" stroke="#3a6012" stroke-width="1.6"/>
     </g>
     <g clip-path="url(#solv-clip)">
       <path id="solv-arg" d="M-4 -5A4 4 0 0 1 4 -5V5A4 4 0 0 1 -4 5Z" fill="none" stroke-linejoin="round"/>
       <use href="#solv-arg" stroke="#1a1208" stroke-width="2.4"/>
       <use href="#solv-arg" stroke="#c0c8d0" stroke-width="1.6"/>
     </g>
-    <circle r="1.4" fill="#3a6012" stroke="#1a1208" stroke-width=".3"/>
+    <circle r="1.4" fill="#a82818" stroke="#1a1208" stroke-width=".3"/>
   </g>
   
   <g id="sol-aur">
@@ -4084,6 +4166,37 @@
   </g>
   <!-- Лепесток шестилепестковой розетки в основании дерева. -->
   <path id="rosette-petal-6" d="M 0 0 Q -2.2 -2.2, 0 -4 Q 2.2 -2.2, 0 0 Z"/>
+
+  <!-- Голубь-peregrinus (Spiritus Sanctus). Стилизованный silhouette,
+       профиль обращён влево (голова на -x); для правой стороны древа
+       зеркалится через transform="scale(-1 1)". Анатомия: тело-овоид,
+       шарообразная голова с маленьким клювом-треугольником, киноварная
+       точка глаза (#7a1208 — тот же inkстак, что у всех eye-spots),
+       сложенное крыло половинной чечевицей, обрубочный хвост-веер,
+       пара коротких ножек-штрихов. Палитра — через CSS-vars --d-fill /
+       --d-stroke, заданные в .dove-silver / .dove-gold (см. CSS-блок
+       "Голуби-peregrini" — две строки рядом с .rose-*). Иконографически:
+       Иона / голубь Ноя / голубь Крещения / голубь Pentecost — стандартное
+       инсулярно-каролингское прочтение Spiritus Sanctus, нисходящего
+       на arbor vitae. На передней (lumen vulneratum) — серебряные;
+       на задней (lumen verum) — золотые. -->
+  <g id="dove-base">
+    <ellipse cx="0" cy="0" rx="3.6" ry="2.2"
+             fill="var(--d-fill)" stroke="var(--d-stroke)" stroke-width="0.4"/>
+    <circle cx="-3.2" cy="-1.1" r="1.7"
+            fill="var(--d-fill)" stroke="var(--d-stroke)" stroke-width="0.4"/>
+    <path d="M-4.9 -1.1 l -1.7 0.3 l 1 0.7 z" fill="var(--d-stroke)"/>
+    <circle cx="-3.4" cy="-1.3" r="0.35" fill="#7a1208"/>
+    <path d="M-0.5 -1.5 q 2.5 -2.4 4.2 -0.4 q -1.5 1.4 -4.2 0.6 z"
+          fill="var(--d-fill)" stroke="var(--d-stroke)" stroke-width="0.4"/>
+    <path d="M3.2 0 l 2.8 -0.9 l -0.4 2 z"
+          fill="var(--d-fill)" stroke="var(--d-stroke)" stroke-width="0.4"/>
+    <path d="M-1 2 v 1.4 M0.6 2 v 1.4"
+          stroke="var(--d-stroke)" stroke-width="0.3" fill="none"/>
+  </g>
+  <g id="dove-silver" class="dove-silver"><use href="#dove-base"/></g>
+  <g id="dove-gold"   class="dove-gold"  ><use href="#dove-base"/></g>
+
   <!-- Двойная рамка ковра: внешняя (рендерится ПОД плетёнкой) и
        внутренняя (рендерится НАД плетёнкой и под центральным сюжетом).
        Координаты идентичны для carpet и final, что и позволяет вынести. -->
@@ -4476,7 +4589,7 @@
 
         <p>Cum nomen illud sacrum dixisset, et aquae illae adhuc moverentur in oculis eius, surrexit in pedes et signum capitis dedit ut sequerer eum. <em class="uncial-passage">Veni,</em> dixit, <em class="uncial-passage">tempus est ut nobiscum panem frangas. Multa adhuc verba de his rebus inter nos erunt, sed prima hospitis lex est cibus.</em> Et duxit me ex aula maiore in conclave aliud minus et pacatius, in quo fenestrae latae ad hortum aperiebantur, et lux qua nesciebam unde manaret intrabat tranquilla.</p>
 
-        <p>Mensa erat lapidea sed levis, et per longitudinem eius sedebant Eldar plures, viri et mulieres, et duo fortasse pueri infra mensam quos primo non vidi propter staturam minorem. Salutaverunt me singuli inclinatione capitis, et locum mihi iuxta seniorem praeparaverunt. Sedi, et inspexi mensam: panis erat candidus, formae rotundae sed altioris quam noster, sapore quem dicere non valeo nisi quod simul mellis et frumenti et nescio cuius alterius fragrantiae partem habebat. Et erant in vasis pateris poma plurima, quaedam mihi nota : pira et mala et uvae : et alia quae nunquam videram, formae et coloris quos in lingua nostra nominare non possumus. Et aqua erat in cyathis ex argento puro, et vinum quoddam tenue et lucidum quasi rosa diluta.</p>
+        <p>Mensa erat lapidea sed levis, et per longitudinem eius sedebant Eldar plures, viri et mulieres, et duo fortasse pueri infra mensam quos primo non vidi propter staturam minorem. Salutaverunt me singuli inclinatione capitis, et locum mihi iuxta seniorem meum praeparaverunt: erat enim ille inter suos quasi rex vel sacerdos, non per violentiam aut timorem, sed quia omnes eum amabant et cum eo loqui cupiebant. Sedi, et inspexi mensam: panis erat candidus, formae rotundae sed altioris quam noster, sapore quem dicere non valeo nisi quod simul mellis et frumenti et nescio cuius alterius fragrantiae partem habebat. Et erant in vasis pateris poma plurima, quaedam mihi nota : pira et mala et uvae : et alia quae nunquam videram, formae et coloris quos in lingua nostra nominare non possumus. Et aqua erat in cyathis ex argento puro, et vinum quoddam tenue et lucidum quasi rosa diluta.</p>
 
         <p>Et hoc primum mihi mirum apparuit super cetera mira illius mensae: <em class="uncial-passage">manducabant.</em> Et bibebant. Et ridebant inter se, et alii ad alios verba leniter mittebant, et puer ille minor manu sua poma carpebat et matri suae : ut postea didici eam matrem eius esse : porrigebat. Recordatus sum quod in libro Tobiae angelus Raphael Tobiae filio dixerat se quidem manducare videri, sed cibo invisibili uti; et putaveram igitur eos qui sunt sicut angeli non manducare. Hi vero manducabant, et bibebant, et risus eorum erat quasi tinnitus campanae mundae sed humanae. Et obstupui in animo: angelne essent, an homines, an quid omnino aliud, decernere non audebam. Catechismus noster de talibus tacebat, et ego in eo tacui.</p>
 
@@ -4575,7 +4688,9 @@
 
 <span class="rubric">☩ De Colloquio cum Finrotho ☩</span>
 
-        <p>Nomen illius, quantum ex ipsorum lingua in Latinum reducere potui, erat <span class="nomen-illustre">Findaratus</span> vel <span class="nomen-illustre">Finrothus</span>: <em class="uncial-passage">Finis aureus</em> significare videbatur, aut <em class="uncial-passage">Coronatus sapientia et auro</em>. Inter suos erat quasi rex vel sacerdos, non per violentiam aut timorem, sed quia omnes eum amabant et cum eo loqui cupiebant. Ipse dixit se de gente esse quae se <span class="elvish">Noldor</span> nominat: id est ut interpretabatur, <em class="uncial-passage">Qui multa sciunt</em> vel <em class="uncial-passage">Sapientiae filii</em>.</p>
+        <p>Postero die, ut promiserat, duxit me in aulam magnam: totam ex crystallo et marmore constructam, in cuius culmine lux quaedam mollis per fenestras vastas intrabat, cuius originem tunc ignorabam. Sedimus, ego et Finrothus, et longa colloquia habuimus per horas quas numerare non valui, quia horae ibi aliter fluunt.</p>
+
+        <p>Tunc primum mihi nomen suum aperuit voce submissa, quasi rem pretiosam in alterius manibus deponens, quod usque ad illum diem celaverat: erat, quantum ex ipsorum lingua in Latinum reducere potui <span class="nomen-illustre">Findaratus</span> vel <span class="nomen-illustre">Finrothus</span>: <em class="uncial-passage">Finis aureus</em> significare videbatur, aut <em class="uncial-passage">Coronatus sapientia et auro</em>. Ipse dixit se de gente esse quae se <span class="elvish">Noldor</span> nominat: id est ut interpretabatur, <em class="uncial-passage">Qui multa sciunt</em> vel <em class="uncial-passage">Sapientiae filii</em>.</p>
 
         <div class="marginalia mg-left">
           Finrothus, nomen<br>
@@ -4587,8 +4702,6 @@
           et sapientiae.<br>
           Vir magnificus.
         </div>
-
-        <p>Postero die, ut promiserat, duxit me in aulam magnam: totam ex crystallo et marmore constructam, in cuius culmine lux quaedam mollis per fenestras vastas intrabat, cuius originem tunc ignorabam. Sedimus, ego et Finrothus, et longa colloquia habuimus per horas quas numerare non valui, quia horae ibi aliter fluunt.</p>
 
 <p>Narravit mihi Finrothus de origine mundi. Narravit de <span class="terminus t-rubricatus">Cantu Magno</span> : quem ego Creationem intellexi : quando <span class="elvish">Ilúvatar</span> ipse in principio cantavit et Potestatibus suis: <span class="elvish">Ainur</span> eos vocabat, quos ego Angelos Maiores esse intellexi, mandavit ut secum canerent melodias ineffabiles. Et cantaverunt, et ex cantu eorum et voluntate <span class="elvish">Ilúvatar</span> mundus formatus est: non sicut figulus vas fingit, sed sicut cantor harmoniam creat: ex ipso sono, ex ipsa pulchritudine.</p>
 
@@ -4991,17 +5104,96 @@
   <use href="#mda" x="50" y="630"/>
   <use href="#mda" x="430" y="630"/>
   <use href="#carpet-frame-inner"/>
+
+  <!-- AUREOLA — полное 16-лучевое sunburst-солнце вокруг luna. ДВА ряда
+       тонких игольчатых лучей (stroke-width 0.5):
+       (1) 8 лучей "межлепестковых": выходят из края центрального core
+           (r=5.25 после scale 1.5) на углах 22.5°+n·45°, проходят сквозь
+           "пустые" сектора между лепестками до r=32;
+       (2) 8 лучей "над-лепестковых": продолжают концы лепестков наружу
+           на углах 0°+n·45°, от r=18 (кончик лепестка после scale 1.5)
+           до r=32. Внешний край у обоих рядов одинаков — лучи смыкаются
+           в правильную 16-конечную звезду. Канон Codex Aureus St-Emmeram,
+           Drogo Sacramentary, Sol/Luna в Canon Tables. -->
+  <g transform="translate(240 95)" fill="none" stroke="#5a6670" stroke-linecap="round" stroke-width="0.5">
+    <g>
+      <line x1="0" y1="-5.25" x2="0" y2="-32" transform="rotate(22.5)"/>
+      <line x1="0" y1="-5.25" x2="0" y2="-32" transform="rotate(67.5)"/>
+      <line x1="0" y1="-5.25" x2="0" y2="-32" transform="rotate(112.5)"/>
+      <line x1="0" y1="-5.25" x2="0" y2="-32" transform="rotate(157.5)"/>
+      <line x1="0" y1="-5.25" x2="0" y2="-32" transform="rotate(202.5)"/>
+      <line x1="0" y1="-5.25" x2="0" y2="-32" transform="rotate(247.5)"/>
+      <line x1="0" y1="-5.25" x2="0" y2="-32" transform="rotate(292.5)"/>
+      <line x1="0" y1="-5.25" x2="0" y2="-32" transform="rotate(337.5)"/>
+    </g>
+    <g>
+      <line x1="0" y1="-18" x2="0" y2="-32"/>
+      <line x1="0" y1="-18" x2="0" y2="-32" transform="rotate(45)"/>
+      <line x1="0" y1="-18" x2="0" y2="-32" transform="rotate(90)"/>
+      <line x1="0" y1="-18" x2="0" y2="-32" transform="rotate(135)"/>
+      <line x1="0" y1="-18" x2="0" y2="-32" transform="rotate(180)"/>
+      <line x1="0" y1="-18" x2="0" y2="-32" transform="rotate(225)"/>
+      <line x1="0" y1="-18" x2="0" y2="-32" transform="rotate(270)"/>
+      <line x1="0" y1="-18" x2="0" y2="-32" transform="rotate(315)"/>
+    </g>
+  </g>
   <use href="#luna" transform="translate(240 95) scale(1.5)"/>
-  <text x="240" y="598" text-anchor="middle" font-family="Cardo, FreeSerif, Cambria, &quot;Apple Symbols&quot;, Symbola, &quot;Noto Serif&quot;, serif" font-size="48" fill="#7a1208">☧</text>
-  <use href="#sol-arg" transform="translate(105 290) scale(2.4)"/>
-  <use href="#sol-arg" transform="translate(375 290) scale(2.4)"/>
-  <use href="#sol-arg" transform="translate(105 430) scale(2.4)"/>
-  <use href="#sol-arg" transform="translate(375 430) scale(2.4)"/>
+
   <g text-anchor="middle" font-family="0550 Uncialis, Uncial Antiqua, serif" font-size="14" fill="#7a1208" letter-spacing="2.5">
     <text x="240" y="140">IN NOMINE PATRIS</text>
     <text x="240" y="164">ET FILII</text>
     <text x="240" y="188">ET SPIRITVS SANCTI</text>
   </g>
+
+  <!-- AEDICULA — иконный киот вокруг arbor argentea. Двойная киноварная
+       (#7a1208) рамка той же толщины, что carpet-frame-outer/inner —
+       визуально воспринимается как третий концентрический ярус композиции.
+       Каноничный приём IX-X вв.: arbor vitae или Sol/Luna часто помещались
+       под триумфальную арку или в прямоугольный киот (ср. canon arches
+       Codex Aureus Lorsch; крестовые carpet pages Lichfield Gospels).
+       Размер 210×348 ед. подобран так, что rect не пересекается с боковыми
+       sol-arg (x=93..117 и x=363..387), оставляя 18 ед. зазора по бокам,
+       а нижняя кромка (y=560) даёт нижнему символу ☧ (font-size 48,
+       ascender top ~y=562) ясное место — киот замыкает arbor, а Хи-Ро
+       стоит свободно под ним. Halo arbor argentea (полупрозрачный,
+       opacity 0.22→0) частично выходит за нижнюю рамку: художественно
+       оправдано — lumen vulneratum просвечивает за пределы канона. -->
+  <g stroke="#7a1208" fill="none">
+    <rect x="135" y="212" width="210" height="348" stroke-width="0.7"/>
+    <rect x="139" y="216" width="202" height="340" stroke-width="0.4"/>
+  </g>
+  <!-- Угловые corner-bosses на aedicula — серебряные ювелирные заклёпки,
+       прямая отсылка к металлическому окладу cumdach (например, Stowe Missal
+       Cumdach, IX–XI вв., или Cathach Cumdach, ок. 1090): рельефные studs
+       из посеребренной бронзы на углах rectangular reservoir. Здесь четыре
+       circle r=2.2 в углах aedicula, того же тона #c0c8d0/#5a6670, что
+       nodes/fruits на arbor argentea. -->
+  <g fill="#c0c8d0" stroke="#5a6670" stroke-width="0.4">
+    <circle cx="135" cy="212" r="2.2"/>
+    <circle cx="345" cy="212" r="2.2"/>
+    <circle cx="135" cy="560" r="2.2"/>
+    <circle cx="345" cy="560" r="2.2"/>
+  </g>
+  <!-- Filigree midpoints — киноварные точки в серединах сторон aedicula,
+       по-инсулярному ритмически уплотняют рамку (ср. punktierte Mitten
+       в окладе Lindau Gospels): четыре #7a1208-точки делят каждую сторону
+       пополам. На вертикальных серединах (y=386) подальше от центрального
+       древа — точки служат структурным маркером, не пересекаются с halo
+       arbor (r=46.5 от центра y=531: бесконфликтно). -->
+  <g fill="#7a1208">
+    <circle cx="240" cy="212" r="1.4"/>
+    <circle cx="240" cy="560" r="1.4"/>
+    <circle cx="135" cy="386" r="1.4"/>
+    <circle cx="345" cy="386" r="1.4"/>
+  </g>
+
+  <!-- ☧ Хи-Ро под aedicula. baseline y=602: при font-size 48 cap-top
+       ≈ y=568, зазор 8 ед. от нижней рамки aedicula y=560. -->
+  <text x="240" y="602" text-anchor="middle" font-family="Cardo, FreeSerif, Cambria, &quot;Apple Symbols&quot;, Symbola, &quot;Noto Serif&quot;, serif" font-size="48" fill="#7a1208">☧</text>
+  <use href="#sol-arg" transform="translate(105 290) scale(2.4)"/>
+  <use href="#sol-arg" transform="translate(375 290) scale(2.4)"/>
+  <use href="#sol-arg" transform="translate(105 430) scale(2.4)"/>
+  <use href="#sol-arg" transform="translate(375 430) scale(2.4)"/>
   <g transform="translate(116.0 216.75) scale(1.55)">
     <defs>
       <radialGradient id="argentea-halo">
@@ -5070,6 +5262,23 @@
       <circle cx="80" cy="142" r="1.8"/>
       <circle cx="86" cy="144" r="1.8"/>
     </g>
+
+    <!-- ✦ ГОЛУБИ Spiritus Sanctus у верхнего креста arbor argentea ✦
+         Каноничная иконография предстояния: пара голубей по бокам Креста,
+         обращены клювами К центру — как в Pentecost-сценах Codex Egberti,
+         Codex Aureus Echternach, или sарcophagus columns paleochristiani.
+         Перенесено с изгибов средних ветвей (где они "висели в воздухе")
+         к самой смысловой точке композиции — Голгофе на вершине Древа.
+         В локальной системе дерева (translate 116, 216.75 scale 1.55):
+         анкеры (50, 14) и (110, 14) — на высоте поперечной перекладины
+         (path "M68 14 h24" → bar y=14, x=68..92). Голуби стоят слева и
+         справа от рук Креста, с зазором ~18 ед. до центра. Левый — со
+         scale(-1 1), клюв вправо (к Кресту); правый — без flip, клюв
+         влево (к Кресту). Перевёрнуто относительно прежнего размещения,
+         где они смотрели наружу от Древа. -->
+    <use href="#dove-silver" transform="translate(50 14) scale(-1 1)"/>
+    <use href="#dove-silver" transform="translate(110 14)"/>
+
     <circle cx="80" cy="188" r="1.6" fill="#c0c8d0" stroke="#5a6670" stroke-width="0.5"/>
     <circle cx="80" cy="203" r="30" fill="url(#argentea-halo)"/>
     <!-- Восьмилучевая звезда -->
@@ -5096,17 +5305,79 @@
   <use href="#mdb" x="50" y="630"/>
   <use href="#mdb" x="430" y="630"/>
   <use href="#carpet-frame-inner"/>
+
+  <!-- AUREOLA — полное 16-лучевое sunburst-солнце вокруг solr. Симметрично
+       передней: 8 межлепестковых лучей (от core r=5.25, углы 22.5°+n·45°)
+       + 8 над-лепестковых лучей (от концов лепестков r=18, углы 0°+n·45°),
+       все до r=32. Золотая палитра #8a6810. -->
+  <g transform="translate(240 95)" fill="none" stroke="#8a6810" stroke-linecap="round" stroke-width="0.5">
+    <g>
+      <line x1="0" y1="-5.25" x2="0" y2="-32" transform="rotate(22.5)"/>
+      <line x1="0" y1="-5.25" x2="0" y2="-32" transform="rotate(67.5)"/>
+      <line x1="0" y1="-5.25" x2="0" y2="-32" transform="rotate(112.5)"/>
+      <line x1="0" y1="-5.25" x2="0" y2="-32" transform="rotate(157.5)"/>
+      <line x1="0" y1="-5.25" x2="0" y2="-32" transform="rotate(202.5)"/>
+      <line x1="0" y1="-5.25" x2="0" y2="-32" transform="rotate(247.5)"/>
+      <line x1="0" y1="-5.25" x2="0" y2="-32" transform="rotate(292.5)"/>
+      <line x1="0" y1="-5.25" x2="0" y2="-32" transform="rotate(337.5)"/>
+    </g>
+    <g>
+      <line x1="0" y1="-18" x2="0" y2="-32"/>
+      <line x1="0" y1="-18" x2="0" y2="-32" transform="rotate(45)"/>
+      <line x1="0" y1="-18" x2="0" y2="-32" transform="rotate(90)"/>
+      <line x1="0" y1="-18" x2="0" y2="-32" transform="rotate(135)"/>
+      <line x1="0" y1="-18" x2="0" y2="-32" transform="rotate(180)"/>
+      <line x1="0" y1="-18" x2="0" y2="-32" transform="rotate(225)"/>
+      <line x1="0" y1="-18" x2="0" y2="-32" transform="rotate(270)"/>
+      <line x1="0" y1="-18" x2="0" y2="-32" transform="rotate(315)"/>
+    </g>
+  </g>
   <use href="#solr" transform="translate(240 95) scale(1.5)"/>
-  <use href="#sol-aur" transform="translate(105 290) scale(2.4)"/>
-  <use href="#sol-aur" transform="translate(375 290) scale(2.4)"/>
-  <use href="#sol-aur" transform="translate(105 430) scale(2.4)"/>
-  <use href="#sol-aur" transform="translate(375 430) scale(2.4)"/>
+
   <g text-anchor="middle" font-family="0550 Uncialis, Uncial Antiqua, serif" font-size="14" fill="#7a1208" letter-spacing="2.5">
     <text x="240" y="140">SIT NOMEN</text>
     <text x="240" y="164">DOMINI</text>
     <text x="240" y="188">BENEDICTVM</text>
   </g>
-  <g transform="translate(116.0 199.5) scale(1.55)">
+
+  <!-- AEDICULA — иконный киот вокруг arbor aurea. Симметрично передней:
+       та же геометрия (210×348 ед.), та же киноварная #7a1208 двойная
+       рамка — структурная пара. Внутри — золотое древо с чашей,
+       завершающее теологическую программу обложек. Нижняя кромка
+       y=560 даёт нижнему ансамблю Α☩Ω (font-size 48) ясное место под
+       киотом — точно как на передней под ☧. -->
+  <g stroke="#7a1208" fill="none">
+    <rect x="135" y="212" width="210" height="348" stroke-width="0.7"/>
+    <rect x="139" y="216" width="202" height="340" stroke-width="0.4"/>
+  </g>
+  <!-- Угловые corner-bosses на aedicula — золотые ювелирные заклёпки
+       (cumdach gold-studs), парные к серебряным на передней обложке.
+       Тон #d4a820/#8a6810 — тот же, что у nodes/fruits arbor aurea. -->
+  <g fill="#d4a820" stroke="#8a6810" stroke-width="0.4">
+    <circle cx="135" cy="212" r="2.2"/>
+    <circle cx="345" cy="212" r="2.2"/>
+    <circle cx="135" cy="560" r="2.2"/>
+    <circle cx="345" cy="560" r="2.2"/>
+  </g>
+  <!-- Filigree midpoints — киноварные #7a1208-точки в серединах сторон.
+       Идентичны передней обложке: симметричный декор. y=386 — точная
+       середина вертикальной стороны 212..560. -->
+  <g fill="#7a1208">
+    <circle cx="240" cy="212" r="1.4"/>
+    <circle cx="240" cy="560" r="1.4"/>
+    <circle cx="135" cy="386" r="1.4"/>
+    <circle cx="345" cy="386" r="1.4"/>
+  </g>
+
+  <use href="#sol-aur" transform="translate(105 290) scale(2.4)"/>
+  <use href="#sol-aur" transform="translate(375 290) scale(2.4)"/>
+  <use href="#sol-aur" transform="translate(105 430) scale(2.4)"/>
+  <use href="#sol-aur" transform="translate(375 430) scale(2.4)"/>
+  <!-- Arbor aurea: translate y=216.75 (симметрия с arbor argentea передней
+       обложки). При scale 1.55 верхний крест попадает на global y=226..253,
+       внутри aedicula (top y=212). Раньше было y=199.5 — крест выходил
+       над aedicula, что заметил Nyankonyan. -->
+  <g transform="translate(116.0 216.75) scale(1.55)">
     <!-- Крест на вершине -->
     <g stroke="#7a1208" fill="none" stroke-width="1.6" stroke-linecap="round">
       <path d="M80 6 v22"/>
@@ -5163,6 +5434,17 @@
       <circle cx="80" cy="146" r="1.8"/>
       <circle cx="86" cy="144" r="1.8"/>
     </g>
+
+    <!-- ✦ ГОЛУБИ Spiritus Sanctus у верхнего креста arbor aurea ✦
+         Парная композиция к серебряным голубям передней обложки:
+         золотые голуби-предстоятели по бокам верхнего Креста, обращены
+         клювами к центру. Те же локальные анкеры (50, 14) и (110, 14)
+         — Древо arbor aurea использует ту же геометрию верхнего креста,
+         что и arbor argentea. Иконография: Дух нисходит на Древо
+         плодоносящее, чаша Эухаристии внизу. -->
+    <use href="#dove-gold" transform="translate(50 14) scale(-1 1)"/>
+    <use href="#dove-gold" transform="translate(110 14)"/>
+
     <!-- Чаша -->
     <path d="M62 188 Q58 188 58 192 Q58 204 80 210 Q102 204 102 190 Q102 188 98 188 Z" fill="#d4a820" fill-opacity="0.35" stroke="#8a6810" stroke-width="1.2" stroke-linejoin="round"/>
     <path d="M64 193 h32" stroke="#8a6810" fill="none" stroke-width="0.9"/>
@@ -5178,6 +5460,8 @@
     </g>
     <circle cx="80" cy="213.5" r="1.2" fill="#d4a820" stroke="#8a6810" stroke-width="0.3"/>
   </g>
+  <!-- Α☩Ω под aedicula. baseline y=600: при font-size 48 cap-top
+       ≈ y=566, зазор 6 ед. от нижней рамки aedicula y=560. -->
   <g>
     <text x="195" y="600" text-anchor="middle" font-family="0550 Uncialis, Uncial Antiqua, serif" font-size="48" fill="#7a1208">Α</text>
     <text x="240" y="600" text-anchor="middle" font-family="0550 Uncialis, Uncial Antiqua, serif" font-size="36" fill="#7a1208">☩</text>
@@ -5788,6 +6072,45 @@ function makeFolio(side, item) {
   parch.setAttribute('aria-hidden', 'true');
   folio.appendChild(parch);
 
+  // PATCH LAYERED-DECOR: декоративные слои folio вынесены из CSS
+  // псевдоэлементов (::before/::after на .folio, .parchment-bg,
+  // .folio-content) в собственные div'ы. Это позволяет codex-to-pdf
+  // адресно скрывать или растеризовать каждый слой; визуальный
+  // результат при правильно подобранных z-index идентичен прежнему.
+  //
+  // DOM-порядок этих узлов значим:
+  //   parchment-bg → folliculi → prick-dots — все три z=-2, и
+  //   при равных z DOM-порядок задаёт painting order, воспроизводя
+  //   прежнее «::after поверх ::before внутри stacking context
+  //   parchment-bg».
+  //
+  //   ruling-layer (z=0) и aging-edges-layer (z=2) разводятся
+  //   z-index'ом, их DOM-позиция между прочими слоями не критична,
+  //   но удобнее держать ruling до folio-content (там его место по
+  //   смыслу), а aging-edges — последним (визуально верхний слой).
+  //
+  //   bounding-lines-layer (z=1) ставим после folio-content — он
+  //   рисуется поверх текста, как и прежний .folio-content::before/::after.
+  //
+  // ghost-layer вставляется динамически через injectGhost (см. стр.
+  // 9097); тот сам находит folio-content и insertBefore'ит ghost
+  // перед ним. Никаких правок в injectGhost не требуется.
+
+  const folliculi = document.createElement('div');
+  folliculi.className = 'folliculi-layer';
+  folliculi.setAttribute('aria-hidden', 'true');
+  folio.appendChild(folliculi);
+
+  const prickDots = document.createElement('div');
+  prickDots.className = 'prick-dots-layer';
+  prickDots.setAttribute('aria-hidden', 'true');
+  folio.appendChild(prickDots);
+
+  const ruling = document.createElement('div');
+  ruling.className = 'ruling-layer';
+  ruling.setAttribute('aria-hidden', 'true');
+  folio.appendChild(ruling);
+
   const content = document.createElement('div');
   content.className = 'folio-content';
   if (item.nodes) {
@@ -5957,6 +6280,21 @@ function makeFolio(side, item) {
     folio.appendChild(note);
     try { decorateTituli(note); } catch (e) {}
   }
+
+  // PATCH LAYERED-DECOR (продолжение): bounding-lines и aging-edges
+  // ставятся последними, чтобы их z-index:1/2 + DOM-позиция давали
+  // painting поверх текста и всех прочих слоёв. См. вступительный
+  // комментарий к этой функции для общей картины стека.
+  const boundingLines = document.createElement('div');
+  boundingLines.className = 'bounding-lines-layer';
+  boundingLines.setAttribute('aria-hidden', 'true');
+  folio.appendChild(boundingLines);
+
+  const agingEdges = document.createElement('div');
+  agingEdges.className = 'aging-edges-layer';
+  agingEdges.setAttribute('aria-hidden', 'true');
+  folio.appendChild(agingEdges);
+
   return folio;
 }
 
@@ -8438,7 +8776,9 @@ function runJitter() {
 // Элементы, которые НЕ просвечивают сквозь пергамент
 const GHOST_EXCLUDE = {
   classes: [
-    'parchment-bg', 'illuminated-initial', 'arbor-vitae', 'arbor-argentea',
+    'parchment-bg', 'folliculi-layer', 'prick-dots-layer', 'ruling-layer',
+    'bounding-lines-layer', 'aging-edges-layer',
+    'illuminated-initial', 'arbor-vitae', 'arbor-argentea',
     'folio-number', 'foliator-note', 'catchword', 'ws', 'blob', 'ink-drip', 'ghost-layer', 'big-initial',
     // PATCH TR: source-слой — visually-hidden 1×1, его геометрия не
     // соответствует видимому положению текста; рисовать его в ghost
