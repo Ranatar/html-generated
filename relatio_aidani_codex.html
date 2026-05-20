@@ -4575,6 +4575,136 @@
       <feDisplacementMap in="SourceGraphic" in2="noise" scale="6" xChannelSelector="R" yChannelSelector="G" result="warped"/>
       <feGaussianBlur in="warped" stdDeviation="1.5"/>
     </filter>
+
+    <!-- ═══════════════════════════════════════════════════════════════
+         ILLUMINATION-AGED — три инстанса одного и того же фильтра старения
+         для иллюминированных SVG. Параметры подобраны в playground
+         (illumination_playground.html); разнесены по seed'ам, чтобы шум
+         на трёх иллюстрациях не выглядел копией одной шкуры.
+
+         Архитектура (общая для всех трёх):
+         (1) feDisplacementMap на SourceGraphic — лёгкое дрожание контуров,
+             убивает «векторно-машинную» чистоту линий. type="turbulence"
+             выбран как Firefox-safe (в 115 ESR fractalNoise здесь даёт
+             бинарный flicker).
+         (2) feTurbulence (coarse) → feColorMatrix → feComposite OP="in"
+             с displaced — крупные тёплые foxing-пятна, ОБРЕЗАННЫЕ по
+             альфе краски (на прозрачном фоне иллюстрации шума нет).
+         (3) feTurbulence (fine) → feColorMatrix → feComposite OP="in"
+             с displaced — мелкое тонкое зерно, тоже только на краске.
+         (4) feMerge: displaced + coarseOnInk + fineOnInk.
+
+         color-interpolation-filters="auto" — Firefox-safe (в режиме
+         linearRGB Firefox 115 ESR искажает тинты coarse/fine).
+
+         Применяются через filter="url(#...)" на корневом <svg>
+         (carpet front, carpet back, big-initial). -->
+
+    <!-- FRONT carpet — seed'ы (52 / 42 / 11), из dump'а playground'а -->
+    <filter id="illumination-aged-front" x="-3%" y="-3%" width="106%" height="106%"
+            color-interpolation-filters="auto">
+      <feTurbulence type="turbulence" baseFrequency="0.230"
+                    numOctaves="3" seed="52" result="dispNoise"/>
+      <feDisplacementMap in="SourceGraphic" in2="dispNoise"
+                         xChannelSelector="R" yChannelSelector="G"
+                         scale="0.85" result="displaced"/>
+
+      <feTurbulence type="fractalNoise" baseFrequency="0.030"
+                    numOctaves="3" seed="42" stitchTiles="stitch" result="coarseNoise"/>
+      <feColorMatrix in="coarseNoise" type="matrix"
+        values="0 0 0 0      0.080
+                0 0 0 0      0.040
+                0 0 0 0      0.000
+                0 0 0 0.400 -0.070" result="coarseTinted"/>
+      <feComposite in="coarseTinted" in2="displaced" operator="in" result="coarseOnInk"/>
+
+      <feTurbulence type="fractalNoise" baseFrequency="2.000"
+                    numOctaves="2" seed="11" stitchTiles="stitch" result="fineNoise"/>
+      <feColorMatrix in="fineNoise" type="matrix"
+        values="0 0 0 0     0.060
+                0 0 0 0     0.030
+                0 0 0 0     0.000
+                0 0 0 0.460 0.000" result="fineTinted"/>
+      <feComposite in="fineTinted" in2="displaced" operator="in" result="fineOnInk"/>
+
+      <feMerge>
+        <feMergeNode in="displaced"/>
+        <feMergeNode in="coarseOnInk"/>
+        <feMergeNode in="fineOnInk"/>
+      </feMerge>
+    </filter>
+
+    <!-- BACK carpet — seed'ы (71 / 89 / 23), все три разнесены от front -->
+    <filter id="illumination-aged-back" x="-3%" y="-3%" width="106%" height="106%"
+            color-interpolation-filters="auto">
+      <feTurbulence type="turbulence" baseFrequency="0.230"
+                    numOctaves="3" seed="71" result="dispNoise"/>
+      <feDisplacementMap in="SourceGraphic" in2="dispNoise"
+                         xChannelSelector="R" yChannelSelector="G"
+                         scale="0.85" result="displaced"/>
+
+      <feTurbulence type="fractalNoise" baseFrequency="0.030"
+                    numOctaves="3" seed="89" stitchTiles="stitch" result="coarseNoise"/>
+      <feColorMatrix in="coarseNoise" type="matrix"
+        values="0 0 0 0      0.080
+                0 0 0 0      0.040
+                0 0 0 0      0.000
+                0 0 0 0.400 -0.070" result="coarseTinted"/>
+      <feComposite in="coarseTinted" in2="displaced" operator="in" result="coarseOnInk"/>
+
+      <feTurbulence type="fractalNoise" baseFrequency="2.000"
+                    numOctaves="2" seed="23" stitchTiles="stitch" result="fineNoise"/>
+      <feColorMatrix in="fineNoise" type="matrix"
+        values="0 0 0 0     0.060
+                0 0 0 0     0.030
+                0 0 0 0     0.000
+                0 0 0 0.460 0.000" result="fineTinted"/>
+      <feComposite in="fineTinted" in2="displaced" operator="in" result="fineOnInk"/>
+
+      <feMerge>
+        <feMergeNode in="displaced"/>
+        <feMergeNode in="coarseOnInk"/>
+        <feMergeNode in="fineOnInk"/>
+      </feMerge>
+    </filter>
+
+    <!-- INITIAL — seed'ы (113 / 67 / 37). Параметры идентичны обложкам
+         (один общий фильтр); если потом захочется ослабить эффект для
+         маленького 100×100 viewBox'а — это будет отдельный second-pass
+         патч с дифференцированными scale/alpha. -->
+    <filter id="illumination-aged-initial" x="-3%" y="-3%" width="106%" height="106%"
+            color-interpolation-filters="auto">
+      <feTurbulence type="turbulence" baseFrequency="0.230"
+                    numOctaves="3" seed="113" result="dispNoise"/>
+      <feDisplacementMap in="SourceGraphic" in2="dispNoise"
+                         xChannelSelector="R" yChannelSelector="G"
+                         scale="0.85" result="displaced"/>
+
+      <feTurbulence type="fractalNoise" baseFrequency="0.030"
+                    numOctaves="3" seed="67" stitchTiles="stitch" result="coarseNoise"/>
+      <feColorMatrix in="coarseNoise" type="matrix"
+        values="0 0 0 0      0.080
+                0 0 0 0      0.040
+                0 0 0 0      0.000
+                0 0 0 0.350 -0.070" result="coarseTinted"/>
+      <feComposite in="coarseTinted" in2="displaced" operator="in" result="coarseOnInk"/>
+
+      <feTurbulence type="fractalNoise" baseFrequency="2.000"
+                    numOctaves="2" seed="37" stitchTiles="stitch" result="fineNoise"/>
+      <feColorMatrix in="fineNoise" type="matrix"
+        values="0 0 0 0     0.060
+                0 0 0 0     0.030
+                0 0 0 0     0.000
+                0 0 0 0.460 0.000" result="fineTinted"/>
+      <feComposite in="fineTinted" in2="displaced" operator="in" result="fineOnInk"/>
+
+      <feMerge>
+        <feMergeNode in="displaced"/>
+        <feMergeNode in="coarseOnInk"/>
+        <feMergeNode in="fineOnInk"/>
+      </feMerge>
+    </filter>
+
   </defs>
 </svg>
 
@@ -4600,7 +4730,7 @@
       </div>
 <div class="ornament-line">☩ ☩ ☩</div></div>
 
-        <p class="dropcap"><span class="big-initial illuminated-initial" role="img" aria-label="E"><svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+        <p class="dropcap"><span class="big-initial illuminated-initial" role="img" aria-label="E"><svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg" aria-hidden="true" filter="url(#illumination-aged-initial)">
             <!-- Rustic Carolingian palette — соответствует руке Коэмана (917 г.,
                  шрифт 0800 Remedius = каролингский минускул) и физическим
                  возможностям полуразорённого скриппория после норманнских рейдов.
@@ -5392,8 +5522,8 @@
 <div class="section-break-soft s1"></div>
 
 <div class="colophon later-hand-colophon">
-			☩ Hunc libellum in arca lignea sub altari
-			<br>invenit frater Coemanus anno <span class="smcaps">CMXVII</span>,<br>
+      ☩ Hunc libellum in arca lignea sub altari
+      <br>invenit frater Coemanus anno <span class="smcaps">CMXVII</span>,<br>
             post tempus longum in quo monasterium hoc multa passum est.<br>
             Codex antiquus manu fratris Aidani scriptus, multa detrimenta<br>
             per casus temporum passus, vix legi poterat;<br>
@@ -5413,7 +5543,7 @@
 </div>
       </template>
 <template id="codex-carpet">
-<svg class="carpet-svg" viewBox="0 0 480 680" xmlns="http://www.w3.org/2000/svg" preserveAspectRatio="xMidYMid meet" aria-hidden="true">
+<svg class="carpet-svg" viewBox="0 0 480 680" xmlns="http://www.w3.org/2000/svg" preserveAspectRatio="xMidYMid meet" aria-hidden="true" filter="url(#illumination-aged-front)">
   <use href="#carpet-frame-outer"/>
   <use href="#knot-twist" class="kk-silver"/>
   <use href="#mda" x="50" y="50"/>
@@ -5626,7 +5756,7 @@
 </svg>
 </template>
 <template id="codex-final">
-<svg class="carpet-svg" viewBox="0 0 480 680" xmlns="http://www.w3.org/2000/svg" preserveAspectRatio="xMidYMid meet" aria-hidden="true">
+<svg class="carpet-svg" viewBox="0 0 480 680" xmlns="http://www.w3.org/2000/svg" preserveAspectRatio="xMidYMid meet" aria-hidden="true" filter="url(#illumination-aged-back)">
   <use href="#carpet-frame-outer"/>
   <use href="#knot-twist" class="kk-gold"/>
   <use href="#mdb" x="50" y="50"/>
