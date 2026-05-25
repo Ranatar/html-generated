@@ -1,0 +1,1477 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SYS_REPORT // ENVIRONMENT.SCAN // 0xCLAUDE</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;500;700;800&family=Major+Mono+Display&family=Share+Tech+Mono&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg:           #000000;
+    --bg-soft:      #050a07;
+    --bg-block:     #050d0a;
+    --bg-block-2:   #07120e;
+    --phosphor:     #00ff41;
+    --phosphor-dim: #00b340;
+    --phosphor-fade:#006622;
+    --cyan:         #00e5ff;
+    --cyan-dim:     #00a5b8;
+    --magenta:      #ff0080;
+    --amber:        #ffae00;
+    --danger:       #ff3030;
+    --rule:         rgba(0, 255, 65, 0.25);
+    --rule-soft:    rgba(0, 255, 65, 0.08);
+    --glow:         0 0 6px rgba(0, 255, 65, 0.7), 0 0 14px rgba(0, 255, 65, 0.3);
+    --glow-cyan:    0 0 6px rgba(0, 229, 255, 0.7), 0 0 14px rgba(0, 229, 255, 0.3);
+    --glow-mag:     0 0 6px rgba(255, 0, 128, 0.7), 0 0 14px rgba(255, 0, 128, 0.25);
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  html { background: var(--bg); scroll-behavior: smooth; }
+
+  body {
+    background: var(--bg);
+    color: var(--phosphor);
+    font-family: 'JetBrains Mono', 'Share Tech Mono', monospace;
+    font-size: 14px;
+    line-height: 1.5;
+    min-height: 100vh;
+    overflow-x: hidden;
+    padding: 0;
+    position: relative;
+  }
+
+  /* ── Матричный дождь ────────────────────────────── */
+  #matrix-rain {
+    position: fixed;
+    top: 0; left: 0;
+    width: 100%; height: 100%;
+    z-index: 0;
+    opacity: 0.55;
+    pointer-events: none;
+  }
+
+  /* ── CRT сканлайны ──────────────────────────────── */
+  body::before {
+    content: "";
+    position: fixed;
+    inset: 0;
+    background: repeating-linear-gradient(
+      0deg,
+      rgba(0, 0, 0, 0) 0px,
+      rgba(0, 0, 0, 0) 2px,
+      rgba(0, 255, 65, 0.025) 3px,
+      rgba(0, 0, 0, 0) 4px
+    );
+    pointer-events: none;
+    z-index: 9998;
+  }
+  /* ── Виньетка ───────────────────────────────────── */
+  body::after {
+    content: "";
+    position: fixed;
+    inset: 0;
+    background: radial-gradient(
+      ellipse at center,
+      transparent 40%,
+      rgba(0, 0, 0, 0.4) 100%);
+    pointer-events: none;
+    z-index: 9997;
+  }
+
+  .doc {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 1.5rem 1.2rem 4rem;
+    position: relative;
+    z-index: 1;
+  }
+
+  /* ── Boot sequence ──────────────────────────────── */
+  .boot {
+    font-size: 0.78rem;
+    color: var(--phosphor-dim);
+    margin-bottom: 1.5rem;
+    border-bottom: 1px dashed var(--rule);
+    padding-bottom: 0.8rem;
+  }
+  .boot .line { margin: 0; opacity: 0; animation: bootFade 0.3s forwards; }
+  .boot .line:nth-child(1) { animation-delay: 0.0s; }
+  .boot .line:nth-child(2) { animation-delay: 0.15s; }
+  .boot .line:nth-child(3) { animation-delay: 0.30s; }
+  .boot .line:nth-child(4) { animation-delay: 0.45s; }
+  .boot .line:nth-child(5) { animation-delay: 0.60s; }
+  .boot .line:nth-child(6) { animation-delay: 0.75s; }
+  .boot .line:nth-child(7) { animation-delay: 0.90s; }
+  .boot .ok    { color: var(--phosphor); text-shadow: var(--glow); }
+  .boot .warn  { color: var(--amber); }
+  .boot .prompt { color: var(--cyan); }
+  @keyframes bootFade {
+    from { opacity: 0; transform: translateX(-4px); }
+    to   { opacity: 1; transform: translateX(0); }
+  }
+
+  /* ── Главный заголовок ──────────────────────────── */
+  header.title-block {
+    margin: 2.5rem 0 3rem;
+    text-align: center;
+    position: relative;
+  }
+  .ascii-art {
+    color: var(--phosphor);
+    text-shadow: var(--glow);
+    font-size: 0.7rem;
+    line-height: 1.1;
+    white-space: pre;
+    margin-bottom: 1.5rem;
+    user-select: none;
+    overflow-x: auto;
+    display: inline-block;
+    text-align: left;
+  }
+  h1 {
+    font-family: 'Major Mono Display', 'JetBrains Mono', monospace;
+    font-size: clamp(2rem, 5.5vw, 3.6rem);
+    color: var(--phosphor);
+    text-shadow: var(--glow);
+    letter-spacing: 0.04em;
+    line-height: 1;
+    margin: 0;
+    animation: glitch 8s infinite;
+  }
+  h1::after {
+    content: "_";
+    color: var(--phosphor);
+    animation: blink 1.2s infinite;
+  }
+  @keyframes blink {
+    50% { opacity: 0; }
+  }
+  @keyframes glitch {
+    0%, 96%, 100% { text-shadow: var(--glow); transform: translateX(0); }
+    97% { text-shadow: 2px 0 var(--magenta), -2px 0 var(--cyan); transform: translateX(-1px); }
+    98% { text-shadow: -2px 0 var(--magenta), 2px 0 var(--cyan); transform: translateX(1px); }
+    99% { text-shadow: var(--glow); transform: translateX(0); }
+  }
+  .subtitle {
+    color: var(--cyan);
+    text-shadow: var(--glow-cyan);
+    font-size: 0.95rem;
+    letter-spacing: 0.3em;
+    margin-top: 1rem;
+    text-transform: uppercase;
+  }
+  .doc-id {
+    display: flex;
+    justify-content: center;
+    gap: 2rem;
+    font-size: 0.75rem;
+    color: var(--phosphor-dim);
+    margin-top: 1.2rem;
+    flex-wrap: wrap;
+  }
+  .doc-id span::before { content: "» "; color: var(--phosphor-fade); }
+
+  /* ── HUD-блок статистики ────────────────────────── */
+  .hud {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+    gap: 1px;
+    margin: 3rem 0;
+    background: var(--phosphor-fade);
+    border: 1px solid var(--phosphor);
+    box-shadow: 0 0 30px rgba(0, 255, 65, 0.15);
+  }
+  .hud-cell {
+    background: var(--bg-block);
+    padding: 1.2rem 0.8rem;
+    text-align: center;
+    position: relative;
+  }
+  .hud-cell::before {
+    content: attr(data-label);
+    position: absolute;
+    top: 0.4rem; left: 0.6rem;
+    font-size: 0.62rem;
+    color: var(--phosphor-fade);
+    letter-spacing: 0.2em;
+  }
+  .hud-num {
+    font-size: 2rem;
+    font-weight: 800;
+    color: var(--phosphor);
+    text-shadow: var(--glow);
+    line-height: 1;
+    display: block;
+    margin: 0.6rem 0 0.3rem;
+    font-family: 'JetBrains Mono', monospace;
+  }
+  .hud-unit {
+    font-size: 0.68rem;
+    color: var(--cyan);
+    letter-spacing: 0.25em;
+    text-transform: uppercase;
+  }
+
+  /* ── Терминальный блок ──────────────────────────── */
+  .terminal {
+    background: var(--bg-block);
+    border: 1px solid var(--rule);
+    margin: 2rem 0;
+    position: relative;
+    overflow: hidden;
+  }
+  .terminal::before {
+    content: "";
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 24px;
+    background: linear-gradient(90deg,
+      var(--phosphor-fade) 0%,
+      transparent 70%);
+    opacity: 0.4;
+  }
+  .term-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 0.4rem 0.9rem;
+    border-bottom: 1px solid var(--rule);
+    font-size: 0.7rem;
+    color: var(--phosphor-dim);
+    background: var(--bg-soft);
+    position: relative;
+    z-index: 1;
+  }
+  .term-header .dots {
+    display: flex;
+    gap: 0.4rem;
+  }
+  .term-header .dot {
+    width: 8px; height: 8px;
+    border-radius: 50%;
+    background: var(--phosphor-fade);
+    box-shadow: 0 0 4px currentColor;
+  }
+  .term-header .dot.r { background: var(--magenta); }
+  .term-header .dot.y { background: var(--amber); }
+  .term-header .dot.g { background: var(--phosphor); }
+  .term-header .path { color: var(--cyan); }
+  .term-body { padding: 1.2rem 1.5rem; }
+
+  /* ── Заголовки секций ───────────────────────────── */
+  section {
+    margin: 4rem 0;
+    scroll-margin-top: 1rem;
+  }
+  h2 {
+    font-family: 'JetBrains Mono', monospace;
+    font-weight: 700;
+    font-size: 1.4rem;
+    color: var(--phosphor);
+    text-shadow: var(--glow);
+    margin: 0 0 1.5rem;
+    padding-bottom: 0.6rem;
+    border-bottom: 1px solid var(--phosphor);
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    letter-spacing: 0.05em;
+  }
+  h2 .sec-num {
+    color: var(--magenta);
+    text-shadow: var(--glow-mag);
+    font-size: 0.85rem;
+    font-weight: 500;
+    letter-spacing: 0.2em;
+  }
+  h2 .sec-tag {
+    color: var(--cyan);
+    text-shadow: var(--glow-cyan);
+    font-size: 0.7rem;
+    letter-spacing: 0.2em;
+  }
+  h3 {
+    color: var(--cyan);
+    text-shadow: var(--glow-cyan);
+    font-size: 0.95rem;
+    margin: 1.8rem 0 0.8rem;
+    letter-spacing: 0.08em;
+    font-weight: 500;
+  }
+  h3::before {
+    content: "▌";
+    margin-right: 0.5rem;
+    color: var(--magenta);
+  }
+
+  p {
+    margin: 0 0 0.9rem;
+    color: var(--phosphor-dim);
+    font-size: 0.88rem;
+  }
+  p strong, b {
+    color: var(--phosphor);
+    text-shadow: var(--glow);
+    font-weight: 500;
+  }
+
+  /* ── Таблицы ────────────────────────────────────── */
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 0.8rem 0 1.5rem;
+    font-size: 0.82rem;
+    border: 1px solid var(--rule);
+  }
+  th {
+    text-align: left;
+    padding: 0.5rem 0.8rem;
+    background: var(--bg-block-2);
+    color: var(--magenta);
+    text-shadow: var(--glow-mag);
+    font-weight: 500;
+    font-size: 0.7rem;
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+    border-bottom: 1px solid var(--phosphor);
+    border-right: 1px solid var(--rule-soft);
+  }
+  th:last-child { border-right: none; text-align: right; }
+  td {
+    padding: 0.45rem 0.8rem;
+    border-bottom: 1px solid var(--rule-soft);
+    vertical-align: top;
+    color: var(--phosphor-dim);
+  }
+  tr:hover td {
+    background: rgba(0, 255, 65, 0.04);
+    color: var(--phosphor);
+  }
+  td:last-child {
+    text-align: right;
+    color: var(--cyan);
+    font-weight: 500;
+  }
+  td .pname {
+    color: var(--phosphor);
+    text-shadow: 0 0 2px rgba(0, 255, 65, 0.4);
+  }
+  td .ver {
+    color: var(--amber);
+    font-size: 0.78rem;
+  }
+  td .path {
+    color: var(--phosphor-fade);
+    font-size: 0.72rem;
+    word-break: break-all;
+  }
+  td .sz {
+    color: var(--cyan);
+    text-shadow: 0 0 4px rgba(0, 229, 255, 0.4);
+  }
+
+  /* ── Бар прогресса ──────────────────────────────── */
+  .bar {
+    display: inline-block;
+    width: 80px;
+    height: 8px;
+    background: var(--bg-block-2);
+    border: 1px solid var(--phosphor-fade);
+    vertical-align: middle;
+    margin-right: 6px;
+    position: relative;
+    overflow: hidden;
+  }
+  .bar .fill {
+    height: 100%;
+    background: linear-gradient(90deg, var(--phosphor) 0%, var(--cyan) 100%);
+    box-shadow: 0 0 6px var(--phosphor);
+  }
+
+  /* ── Список пакетов в виде grid ─────────────────── */
+  .pkggrid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+    gap: 1px;
+    background: var(--rule-soft);
+    border: 1px solid var(--rule);
+    margin: 1rem 0 1.5rem;
+  }
+  .pkggrid .item {
+    background: var(--bg-block);
+    padding: 0.4rem 0.7rem;
+    font-size: 0.78rem;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+  .pkggrid .item:hover { background: rgba(0, 255, 65, 0.05); }
+  .pkggrid .item .n { color: var(--phosphor); }
+  .pkggrid .item .v { color: var(--amber); font-size: 0.72rem; }
+  .pkggrid .item .s {
+    color: var(--cyan);
+    font-size: 0.7rem;
+    margin-left: auto;
+    padding-left: 0.5rem;
+  }
+
+  /* ── Системные характеристики ──────────────────── */
+  .specs-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+    gap: 1rem;
+    margin: 1.5rem 0;
+  }
+  .spec-card {
+    background: var(--bg-block);
+    border: 1px solid var(--rule);
+    border-left: 3px solid var(--phosphor);
+    padding: 1rem 1.2rem;
+    position: relative;
+  }
+  .spec-card.cy { border-left-color: var(--cyan); }
+  .spec-card.ma { border-left-color: var(--magenta); }
+  .spec-card.am { border-left-color: var(--amber); }
+  .spec-card .label {
+    color: var(--phosphor-dim);
+    font-size: 0.68rem;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    margin-bottom: 0.4rem;
+  }
+  .spec-card .val {
+    color: var(--phosphor);
+    text-shadow: var(--glow);
+    font-size: 1.05rem;
+    font-weight: 500;
+    word-break: break-word;
+  }
+  .spec-card.cy .val { color: var(--cyan); text-shadow: var(--glow-cyan); }
+  .spec-card.ma .val { color: var(--magenta); text-shadow: var(--glow-mag); }
+  .spec-card.am .val { color: var(--amber); text-shadow: 0 0 6px rgba(255,174,0,0.6); }
+  .spec-card .sub {
+    color: var(--phosphor-fade);
+    font-size: 0.72rem;
+    margin-top: 0.3rem;
+  }
+
+  /* ── CPU flags chips ───────────────────────────── */
+  .chips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.3rem;
+    margin: 0.7rem 0;
+  }
+  .chip {
+    padding: 1px 7px;
+    border: 1px solid var(--phosphor-fade);
+    color: var(--phosphor);
+    font-size: 0.7rem;
+    letter-spacing: 0.04em;
+    background: var(--bg-block);
+  }
+  .chip.hi {
+    border-color: var(--cyan);
+    color: var(--cyan);
+    text-shadow: 0 0 4px var(--cyan);
+  }
+  .chip.crit {
+    border-color: var(--magenta);
+    color: var(--magenta);
+  }
+
+  /* ── Visualization: storage map ─────────────────── */
+  .storage-map {
+    margin: 1.5rem 0;
+  }
+  .storage-bar {
+    display: flex;
+    height: 28px;
+    border: 1px solid var(--phosphor);
+    overflow: hidden;
+    margin-bottom: 0.8rem;
+    box-shadow: 0 0 14px rgba(0, 255, 65, 0.15);
+  }
+  .storage-seg {
+    position: relative;
+    overflow: hidden;
+    transition: filter 0.2s;
+  }
+  .storage-seg:hover { filter: brightness(1.5); }
+  .storage-seg:not(:last-child) { border-right: 1px solid var(--bg); }
+  .storage-legend {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    gap: 0.5rem;
+    font-size: 0.78rem;
+  }
+  .storage-legend .leg {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    color: var(--phosphor-dim);
+  }
+  .storage-legend .swatch {
+    width: 12px; height: 12px;
+    flex-shrink: 0;
+  }
+  .storage-legend .num {
+    margin-left: auto;
+    color: var(--cyan);
+    font-weight: 500;
+  }
+
+  /* ── Списки availability ───────────────────────── */
+  .avail-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1.5rem;
+    margin: 1rem 0;
+  }
+  @media (max-width: 720px) { .avail-grid { grid-template-columns: 1fr; } }
+  .avail-block {
+    background: var(--bg-block);
+    border: 1px solid var(--rule);
+    padding: 1rem 1.2rem;
+  }
+  .avail-block.ok { border-left: 3px solid var(--phosphor); }
+  .avail-block.no { border-left: 3px solid var(--magenta); }
+  .avail-block h4 {
+    color: var(--phosphor);
+    text-shadow: var(--glow);
+    font-size: 0.82rem;
+    letter-spacing: 0.15em;
+    margin-bottom: 0.7rem;
+    text-transform: uppercase;
+  }
+  .avail-block.no h4 {
+    color: var(--magenta);
+    text-shadow: var(--glow-mag);
+  }
+  .avail-block ul {
+    list-style: none;
+    font-size: 0.82rem;
+    line-height: 1.7;
+  }
+  .avail-block.ok li::before {
+    content: "▶ ";
+    color: var(--phosphor);
+  }
+  .avail-block.no li::before {
+    content: "✕ ";
+    color: var(--magenta);
+  }
+  .avail-block li {
+    color: var(--phosphor-dim);
+  }
+  .avail-block.no li {
+    color: rgba(255, 0, 128, 0.6);
+  }
+
+  code, kbd {
+    font-family: inherit;
+    color: var(--amber);
+    background: var(--bg-soft);
+    padding: 0 4px;
+    border: 1px solid var(--phosphor-fade);
+    font-size: 0.85em;
+  }
+
+  /* ── Подвал ─────────────────────────────────────── */
+  footer {
+    margin-top: 4rem;
+    padding-top: 2rem;
+    border-top: 1px dashed var(--rule);
+    text-align: center;
+    color: var(--phosphor-fade);
+    font-size: 0.78rem;
+    letter-spacing: 0.1em;
+  }
+  footer .ornament {
+    color: var(--phosphor);
+    text-shadow: var(--glow);
+    font-size: 1.1rem;
+    margin-bottom: 0.8rem;
+    letter-spacing: 0.4em;
+  }
+
+  /* ── Mobile ─────────────────────────────────────── */
+  @media (max-width: 720px) {
+    body { font-size: 13px; }
+    .doc { padding: 1rem 0.6rem 3rem; }
+    h2 { flex-direction: column; align-items: flex-start; gap: 0.3rem; }
+    .ascii-art { font-size: 0.55rem; }
+  }
+</style>
+</head>
+<body>
+<canvas id="matrix-rain"></canvas>
+
+<div class="doc">
+
+<!-- ════════════════════════════════════════════════════ -->
+<div class="boot">
+  <div class="line"><span class="prompt">[0.000000]</span> <span class="ok">[ OK ]</span> Initiating environment scan...</div>
+  <div class="line"><span class="prompt">[0.142331]</span> <span class="ok">[ OK ]</span> Probing /usr, /opt, /home/claude</div>
+  <div class="line"><span class="prompt">[0.298017]</span> <span class="ok">[ OK ]</span> dpkg query · 866 packages indexed</div>
+  <div class="line"><span class="prompt">[0.451829]</span> <span class="ok">[ OK ]</span> pip list · 132 wheels resolved</div>
+  <div class="line"><span class="prompt">[0.612440]</span> <span class="ok">[ OK ]</span> npm registry · 21 globals located</div>
+  <div class="line"><span class="prompt">[0.788113]</span> <span class="warn">[WARN]</span> network egress · allowlist enforced</div>
+  <div class="line"><span class="prompt">[0.991204]</span> <span class="ok">[ OK ]</span> report compilation complete</div>
+</div>
+
+<!-- ════════════════════════════════════════════════════ -->
+<header class="title-block">
+  <pre class="ascii-art">
+ ▄▄▄▄▄ ▄  ▄ ▄▄▄  ▄ ▄▄▄▄▄ ▄▄▄▄▄ ▄  ▄ ▄▄▄▄▄
+ █     ██ █  █   █ █     █   █ █  █  █  █
+ ▀▀▀▄  █▀▄█  █   █ ▀▀▀▄  ▀▀▀▄▀ █  █  █  █
+ ▄▄▄▀  █ ██  █   █ ▄▄▄▀  █    ▀▄▄▀▀  ▀  ▀
+        ▄ ▄▄▄ ▄ ▄▄▄ ▄ ▄▄▄ ▄ ▄▄▄ ▄ ▄▄▄
+</pre>
+  <h1>ENVIRONMENT//SCAN</h1>
+  <div class="subtitle">// исчерпывающий реестр окружения исполнения //</div>
+  <div class="doc-id">
+    <span>HOST: vm.claude</span>
+    <span>UID: 0xCLAUDE</span>
+    <span>STAMP: 2026.05.25</span>
+    <span>VER: 0x01.00</span>
+  </div>
+</header>
+
+<!-- ════════════════════════════════════════════════════ -->
+<div class="hud">
+  <div class="hud-cell" data-label="DEB">
+    <span class="hud-num">866</span>
+    <span class="hud-unit">packages</span>
+  </div>
+  <div class="hud-cell" data-label="PIP">
+    <span class="hud-num">132</span>
+    <span class="hud-unit">modules</span>
+  </div>
+  <div class="hud-cell" data-label="NPM">
+    <span class="hud-num">21</span>
+    <span class="hud-unit">globals</span>
+  </div>
+  <div class="hud-cell" data-label="FONTS">
+    <span class="hud-num">82</span>
+    <span class="hud-unit">faces</span>
+  </div>
+  <div class="hud-cell" data-label="STORAGE">
+    <span class="hud-num">8.6</span>
+    <span class="hud-unit">gigabytes</span>
+  </div>
+  <div class="hud-cell" data-label="MEMORY">
+    <span class="hud-num">3.9</span>
+    <span class="hud-unit">gibibytes</span>
+  </div>
+</div>
+
+<!-- ════════════════════════════════════════════════════ -->
+<section id="sys">
+<h2>
+  <span><span class="sec-num">[0x01]</span> SYSTEM // HARDWARE</span>
+  <span class="sec-tag">// uname -a · lscpu · meminfo</span>
+</h2>
+
+<div class="terminal">
+  <div class="term-header">
+    <div class="dots"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span></div>
+    <span class="path">/proc/version</span>
+    <span>tty0</span>
+  </div>
+  <div class="term-body" style="font-size: 0.82rem; color: var(--phosphor-dim);">
+<span style="color: var(--cyan)">root@vm</span><span style="color: var(--phosphor)">:</span><span style="color: var(--magenta)">~</span><span style="color: var(--phosphor)">#</span> uname -a<br>
+<span style="color: var(--phosphor)">Linux vm 6.18.5 #2 SMP PREEMPT_DYNAMIC Wed Jan 14 17:56:08 UTC 2026 x86_64 GNU/Linux</span>
+  </div>
+</div>
+
+<h3>HARDWARE</h3>
+<div class="specs-grid">
+  <div class="spec-card">
+    <div class="label">CPU MODEL</div>
+    <div class="val">Intel Xeon @ 2.80 GHz</div>
+    <div class="sub">family 6, model 85 (Skylake-X / Cascade Lake gen.), stepping 7</div>
+  </div>
+  <div class="spec-card cy">
+    <div class="label">CORES / THREADS</div>
+    <div class="val">1 / 1</div>
+    <div class="sub">1 socket × 1 core × 1 thread · BogoMIPS 5600.36</div>
+  </div>
+  <div class="spec-card ma">
+    <div class="label">CACHE HIERARCHY</div>
+    <div class="val">L1 32K · L2 1M · L3 33M</div>
+    <div class="sub">L1d 32 KiB · L1i 32 KiB · L2 1 MiB · L3 33 MiB</div>
+  </div>
+  <div class="spec-card am">
+    <div class="label">ADDRESS SPACE</div>
+    <div class="val">46 / 48 bit</div>
+    <div class="sub">46-bit physical · 48-bit virtual</div>
+  </div>
+  <div class="spec-card">
+    <div class="label">RAM TOTAL</div>
+    <div class="val">3.91 GiB</div>
+    <div class="sub">MemTotal 4 099 204 kB · ~3.57 GiB available at idle</div>
+  </div>
+  <div class="spec-card cy">
+    <div class="label">SWAP</div>
+    <div class="val">0 B</div>
+    <div class="sub">Swap disabled — OOM has no fallback</div>
+  </div>
+  <div class="spec-card ma">
+    <div class="label">ROOT DISK</div>
+    <div class="val">252 GB</div>
+    <div class="sub">/dev/vda · 8.6 G used (3.4 %) · 10 G free overhead</div>
+  </div>
+  <div class="spec-card am">
+    <div class="label">HYPERVISOR</div>
+    <div class="val">KVM · full virt.</div>
+    <div class="sub">tmpfs /dev/shm = 2.0 GiB · tmpfs /sys/fs/cgroup = 2.0 GiB</div>
+  </div>
+</div>
+
+<h3>CPU CAPABILITIES</h3>
+<p>Микроархитектурные расширения, доступные коду пользователя — включая полный AVX-512 со всеми основными подмножествами:</p>
+<div class="chips">
+  <span class="chip hi">AVX-512F</span>
+  <span class="chip hi">AVX-512DQ</span>
+  <span class="chip hi">AVX-512CD</span>
+  <span class="chip hi">AVX-512BW</span>
+  <span class="chip hi">AVX-512VL</span>
+  <span class="chip hi">AVX-512_VNNI</span>
+  <span class="chip">AVX2</span>
+  <span class="chip">AVX</span>
+  <span class="chip">FMA</span>
+  <span class="chip">SSE4.2</span>
+  <span class="chip">SSE4.1</span>
+  <span class="chip">AES-NI</span>
+  <span class="chip">PCLMULQDQ</span>
+  <span class="chip">RDRAND</span>
+  <span class="chip">RDSEED</span>
+  <span class="chip">BMI1</span>
+  <span class="chip">BMI2</span>
+  <span class="chip">F16C</span>
+  <span class="chip">MOVBE</span>
+  <span class="chip">XSAVE</span>
+  <span class="chip">XSAVEOPT</span>
+  <span class="chip">XSAVES</span>
+  <span class="chip">HLE</span>
+  <span class="chip">RTM</span>
+  <span class="chip">SMEP</span>
+  <span class="chip">SMAP</span>
+  <span class="chip">CLFLUSHOPT</span>
+  <span class="chip">CLWB</span>
+  <span class="chip">IBRS_ENHANCED</span>
+  <span class="chip">UMIP</span>
+</div>
+
+<h3>SOFTWARE BASE</h3>
+<div class="specs-grid">
+  <div class="spec-card">
+    <div class="label">DISTRIBUTION</div>
+    <div class="val">Ubuntu 24.04.4 LTS</div>
+    <div class="sub">"Noble Numbat" · codename noble · ID_LIKE=debian</div>
+  </div>
+  <div class="spec-card cy">
+    <div class="label">KERNEL</div>
+    <div class="val">Linux 6.18.5</div>
+    <div class="sub">SMP PREEMPT_DYNAMIC · built 2026-01-14 UTC</div>
+  </div>
+  <div class="spec-card ma">
+    <div class="label">ARCHITECTURE</div>
+    <div class="val">x86_64</div>
+    <div class="sub">little-endian · 32/64-bit op modes</div>
+  </div>
+  <div class="spec-card am">
+    <div class="label">LOCALE</div>
+    <div class="val">C.UTF-8</div>
+    <div class="sub">no language packs · no localized translations</div>
+  </div>
+  <div class="spec-card">
+    <div class="label">SHELL</div>
+    <div class="val">bash 5.2.21</div>
+    <div class="sub">no zsh · no fish · no tmux/screen multiplexer</div>
+  </div>
+  <div class="spec-card cy">
+    <div class="label">NETWORK</div>
+    <div class="val">allowlist egress</div>
+    <div class="sub">PyPI · npm · GitHub · Anthropic · crates.io · Ubuntu mirrors</div>
+  </div>
+</div>
+</section>
+
+<!-- ════════════════════════════════════════════════════ -->
+<section id="storage">
+<h2>
+  <span><span class="sec-num">[0x02]</span> STORAGE // FOOTPRINT</span>
+  <span class="sec-tag">// du -sh / df -h</span>
+</h2>
+
+<p>Окружение занимает <b>8.6 GB</b> на корневом разделе размером <b>252 GB</b>. Основной вес — три браузера Chromium, Playwright-каталоги, Python-stack с тяжёлыми библиотеками (NumPy/SciPy/OpenCV/Playwright), TeX Live, LibreOffice и шрифтовая база с Noto CJK.</p>
+
+<div class="storage-map">
+  <div class="storage-bar">
+    <div class="storage-seg" style="width: 17%; background: linear-gradient(135deg, #00ff41, #00b340);" title="/usr/local/lib/python3.12 — 1.5 G"></div>
+    <div class="storage-seg" style="width: 16%; background: linear-gradient(135deg, #00e5ff, #00a5b8);" title="/home/claude/.cache — 2.1 G"></div>
+    <div class="storage-seg" style="width: 11%; background: linear-gradient(135deg, #ff0080, #b3005a);" title="/opt/pw-browsers — 924 M"></div>
+    <div class="storage-seg" style="width: 8.5%; background: linear-gradient(135deg, #ffae00, #b37a00);" title=".npm-global — 749 M"></div>
+    <div class="storage-seg" style="width: 4.6%; background: linear-gradient(135deg, #00ff41, #007722);" title="fonts — 404 M"></div>
+    <div class="storage-seg" style="width: 4.3%; background: linear-gradient(135deg, #00e5ff, #007288);" title="texlive — 377 M"></div>
+    <div class="storage-seg" style="width: 3.6%; background: linear-gradient(135deg, #ff0080, #80003f);" title="libreoffice — 314 M"></div>
+    <div class="storage-seg" style="width: 2.2%; background: linear-gradient(135deg, #ffae00, #805700);" title="jvm — 193 M"></div>
+    <div class="storage-seg" style="width: 0.6%; background: linear-gradient(135deg, #6c00ff, #2c0066);" title="python3.12 system — 54 M"></div>
+    <div class="storage-seg" style="width: 32.2%; background: repeating-linear-gradient(45deg, #002211, #002211 4px, #001a0d 4px, #001a0d 8px);" title="прочее системное"></div>
+  </div>
+  <div class="storage-legend">
+    <div class="leg"><span class="swatch" style="background:#00ff41"></span> pip · dist-packages <span class="num">1.5 G</span></div>
+    <div class="leg"><span class="swatch" style="background:#00e5ff"></span> ~/.cache (puppeteer + uv) <span class="num">2.1 G</span></div>
+    <div class="leg"><span class="swatch" style="background:#ff0080"></span> /opt/pw-browsers <span class="num">924 M</span></div>
+    <div class="leg"><span class="swatch" style="background:#ffae00"></span> ~/.npm-global <span class="num">749 M</span></div>
+    <div class="leg"><span class="swatch" style="background:#00ff41"></span> /usr/share/fonts <span class="num">404 M</span></div>
+    <div class="leg"><span class="swatch" style="background:#00e5ff"></span> /usr/share/texlive <span class="num">377 M</span></div>
+    <div class="leg"><span class="swatch" style="background:#ff0080"></span> /usr/lib/libreoffice <span class="num">314 M</span></div>
+    <div class="leg"><span class="swatch" style="background:#ffae00"></span> /usr/lib/jvm <span class="num">193 M</span></div>
+  </div>
+</div>
+
+<h3>FILESYSTEM TOP-LEVEL</h3>
+<table>
+<thead><tr><th>Путь</th><th>Назначение</th><th>Размер</th></tr></thead>
+<tbody>
+<tr><td><span class="path">/usr</span></td><td>Системные библиотеки и пакеты Ubuntu</td><td><span class="sz">4.7 GB</span></td></tr>
+<tr><td><span class="path">/home/claude</span></td><td>Кэши puppeteer, uv, npm-global, рабочая директория</td><td><span class="sz">2.9 GB</span></td></tr>
+<tr><td><span class="path">/home/claude/.cache</span></td><td>puppeteer (581 M) + uv (1.5 G)</td><td><span class="sz">2.1 GB</span></td></tr>
+<tr><td><span class="path">/usr/lib</span></td><td>shared objects, .so, биндинги</td><td><span class="sz">1.5 GB</span></td></tr>
+<tr><td><span class="path">/usr/local/lib/python3.12</span></td><td>pip-установленные python-пакеты</td><td><span class="sz">1.5 GB</span></td></tr>
+<tr><td><span class="path">/usr/local</span></td><td>пользовательские установки</td><td><span class="sz">1.6 GB</span></td></tr>
+<tr><td><span class="path">/usr/share</span></td><td>шрифты, texlive, документация</td><td><span class="sz">1010 MB</span></td></tr>
+<tr><td><span class="path">/opt</span></td><td>сторонние пакеты (Playwright browsers, rclone)</td><td><span class="sz">953 MB</span></td></tr>
+<tr><td><span class="path">/opt/pw-browsers</span></td><td>Chromium 1194 + headless shell + ffmpeg</td><td><span class="sz">924 MB</span></td></tr>
+<tr><td><span class="path">/home/claude/.npm-global</span></td><td>глобальные Node-пакеты</td><td><span class="sz">749 MB</span></td></tr>
+<tr><td><span class="path">/home/claude/.cache/puppeteer</span></td><td>Chrome 131 for Testing</td><td><span class="sz">581 MB</span></td></tr>
+<tr><td><span class="path">/usr/share/fonts</span></td><td>OTF / TTF файлы</td><td><span class="sz">404 MB</span></td></tr>
+<tr><td><span class="path">/usr/share/texlive</span></td><td>TeX Live 2023</td><td><span class="sz">377 MB</span></td></tr>
+<tr><td><span class="path">/usr/lib/libreoffice</span></td><td>LibreOffice 24.2</td><td><span class="sz">314 MB</span></td></tr>
+<tr><td><span class="path">/usr/lib/jvm</span></td><td>OpenJDK 21 JRE</td><td><span class="sz">193 MB</span></td></tr>
+<tr><td><span class="path">/usr/lib/python3.12</span></td><td>системный Python</td><td><span class="sz">54 MB</span></td></tr>
+<tr><td><span class="path">/opt/rclone</span></td><td>rclone бинари</td><td><span class="sz">29 MB</span></td></tr>
+<tr><td><span class="path">/usr/lib/gcc</span></td><td>GCC 13.3 toolchain</td><td><span class="sz">25 MB</span></td></tr>
+<tr><td><span class="path">/usr/lib/node_modules</span></td><td>системные Node-модули</td><td><span class="sz">17 MB</span></td></tr>
+</tbody>
+</table>
+</section>
+
+<!-- ════════════════════════════════════════════════════ -->
+<section id="browsers">
+<h2>
+  <span><span class="sec-num">[0x03]</span> BROWSER // AGENTS</span>
+  <span class="sec-tag">// chromium · playwright · puppeteer</span>
+</h2>
+<p>Три Chromium-сборки + клиенты Playwright (Python + Node) + транзитивный Puppeteer. <b>1.5 GB</b> совокупно. <code>/opt/google/chrome</code> — символьная ссылка на Playwright Chromium, отдельной сборкой <em>не является</em>.</p>
+
+<table>
+<thead><tr><th>Сборка</th><th>Версия · путь</th><th>Размер</th></tr></thead>
+<tbody>
+<tr>
+  <td><span class="pname">Chrome for Testing</span><br><span class="ver">131.0.6778.204</span></td>
+  <td><span class="path">/home/claude/.cache/puppeteer/chrome/linux-131.0.6778.204/chrome-linux64/</span><br>исполняемый <code>chrome</code> = 242 MB</td>
+  <td><span class="sz">339 MB</span></td>
+</tr>
+<tr>
+  <td><span class="pname">Chromium (Playwright)</span><br><span class="ver">141.0.7390.37 · build 1194</span></td>
+  <td><span class="path">/opt/pw-browsers/chromium-1194/chrome-linux/</span><br>исполняемый <code>chrome</code> = 442 MB</td>
+  <td><span class="sz">597 MB</span></td>
+</tr>
+<tr>
+  <td><span class="pname">Chromium headless shell</span><br><span class="ver">build 1194</span></td>
+  <td><span class="path">/opt/pw-browsers/chromium_headless_shell-1194/</span><br>исполняемый <code>headless_shell</code> = 292 MB</td>
+  <td><span class="sz">323 MB</span></td>
+</tr>
+<tr>
+  <td><span class="pname">FFmpeg (Playwright)</span><br><span class="ver">build 1011</span></td>
+  <td><span class="path">/opt/pw-browsers/ffmpeg-1011/</span> — для записи видео сессий</td>
+  <td><span class="sz">4.9 MB</span></td>
+</tr>
+</tbody>
+</table>
+
+<h3>AUTOMATION CLIENTS</h3>
+<table>
+<thead><tr><th>Клиент</th><th>Версия</th><th>Размер</th></tr></thead>
+<tbody>
+<tr><td><span class="pname">Playwright (Python)</span></td><td><span class="ver">1.56.0</span> · pip</td><td><span class="sz">134 MB</span></td></tr>
+<tr><td><span class="pname">Playwright (Node)</span></td><td><span class="ver">1.56.0</span> · npm-global</td><td><span class="sz">13 MB</span></td></tr>
+<tr><td><span class="pname">Puppeteer (transitive)</span></td><td>через <code>@mermaid-js/mermaid-cli</code></td><td>в составе mermaid (333 M)</td></tr>
+<tr><td><span class="pname">Xvfb (virtual X)</span></td><td>системный · <code>xvfb-run</code></td><td>~2 MB</td></tr>
+</tbody>
+</table>
+</section>
+
+<!-- ════════════════════════════════════════════════════ -->
+<section id="langs">
+<h2>
+  <span><span class="sec-num">[0x04]</span> LANGUAGES // RUNTIMES</span>
+  <span class="sec-tag">// python · node · gcc · jdk</span>
+</h2>
+
+<table>
+<thead><tr><th>Runtime</th><th>Версия · описание</th><th>Размер</th></tr></thead>
+<tbody>
+<tr><td><span class="pname">Python 3</span></td><td><span class="ver">3.12.3</span> · с <code>-dev</code>, <code>-venv</code> · pip 24.0, pipx 1.4.3</td><td><span class="sz">8.0 MB</span> (бинарь) + 54 MB stdlib</td></tr>
+<tr><td><span class="pname">Node.js</span></td><td><span class="ver">22.22.2</span> · npm 10.9.7, npx 10.9.7</td><td><span class="sz">119 MB</span> (бинарь)</td></tr>
+<tr><td><span class="pname">TypeScript (tsc)</span></td><td><span class="ver">6.0.3</span> · глобально · + tsx 4.21, ts-node 10.9.2</td><td><span class="sz">24 MB</span></td></tr>
+<tr><td><span class="pname">GCC</span></td><td><span class="ver">13.3.0</span> Ubuntu 13.3.0-6 · полный build-essential</td><td><span class="sz">25 MB</span> + 1 MB бинарь</td></tr>
+<tr><td><span class="pname">G++</span></td><td><span class="ver">13.3.0</span> · в комплекте с GCC</td><td>в составе toolchain</td></tr>
+<tr><td><span class="pname">OpenJDK</span></td><td><span class="ver">21.0.10 JRE</span> · headless · без javac</td><td><span class="sz">193 MB</span></td></tr>
+<tr><td><span class="pname">Perl</span></td><td>системный · модули 5.38</td><td><span class="sz">4.0 MB</span> бинарь</td></tr>
+<tr><td><span class="pname">Bash</span></td><td><span class="ver">5.2.21</span> · стандартная оболочка</td><td>системный</td></tr>
+<tr><td><span class="pname">BC</span></td><td><span class="ver">1.07.1</span> · арифметика произвольной точности</td><td>~100 KB</td></tr>
+<tr><td><span class="pname">lp_solve</span></td><td><span class="ver">5.5.2.5</span> · LP-солвер</td><td>системный</td></tr>
+<tr><td><span class="pname">Make</span></td><td><span class="ver">GNU Make 4.3</span></td><td>системный</td></tr>
+<tr><td><span class="pname">Git</span></td><td><span class="ver">2.43.0</span></td><td><span class="sz">4.0 MB</span></td></tr>
+</tbody>
+</table>
+</section>
+
+<!-- ════════════════════════════════════════════════════ -->
+<section id="office">
+<h2>
+  <span><span class="sec-num">[0x05]</span> OFFICE // DOCUMENT</span>
+  <span class="sec-tag">// libreoffice · pandoc · markdown</span>
+</h2>
+
+<table>
+<thead><tr><th>Инструмент</th><th>Версия · назначение</th><th>Размер</th></tr></thead>
+<tbody>
+<tr><td><span class="pname">LibreOffice</span></td><td><span class="ver">24.2.7.2</span> · writer/calc/draw/impress/base · headless</td><td><span class="sz">314 MB</span></td></tr>
+<tr><td><span class="pname">unoserver</span></td><td><span class="ver">3.6</span> · UNO socket-сервер, клиенты <code>unoconvert</code> и др.</td><td>в составе python pkg</td></tr>
+<tr><td><span class="pname">python3-uno</span></td><td>системный · биндинги UNO</td><td>в составе LO</td></tr>
+<tr><td><span class="pname">pyoo</span></td><td><span class="ver">1.4</span> · высокоуровневый Python-API LO</td><td>~200 KB</td></tr>
+<tr><td><span class="pname">Pandoc</span></td><td><span class="ver">3.1.3</span> · универсальный конвертер форматов</td><td><span class="sz">190 MB</span> (бинарь)</td></tr>
+<tr><td><span class="pname">python-docx</span></td><td><span class="ver">1.2.0</span> · чтение/запись .docx</td><td>~5 MB</td></tr>
+<tr><td><span class="pname">python-pptx</span></td><td><span class="ver">1.0.2</span> · программная сборка .pptx</td><td>~10 MB</td></tr>
+<tr><td><span class="pname">openpyxl</span></td><td><span class="ver">3.1.5</span> · .xlsx + формулы + диаграммы</td><td><span class="sz">2.9 MB</span></td></tr>
+<tr><td><span class="pname">xlsxwriter</span></td><td><span class="ver">3.2.9</span> · альтернатива openpyxl</td><td>~1 MB</td></tr>
+<tr><td><span class="pname">odfpy</span></td><td><span class="ver">1.4.1</span> · ODF (ODT/ODS/ODP)</td><td>~500 KB</td></tr>
+<tr><td><span class="pname">docx (Node)</span></td><td><span class="ver">9.6.1</span> · .docx из JS</td><td><span class="sz">9.3 MB</span></td></tr>
+<tr><td><span class="pname">pptxgenjs</span></td><td><span class="ver">4.0.1</span> · .pptx из Node</td><td><span class="sz">7.8 MB</span></td></tr>
+<tr><td><span class="pname">wkhtmltopdf</span></td><td><span class="ver">0.12.6</span> · HTML → PDF через QtWebKit</td><td>~340 KB бинарь</td></tr>
+<tr><td><span class="pname">mkdocs + material</span></td><td><span class="ver">1.6.1 / 9.7.6</span> · documentation-сайт</td><td>~30 MB</td></tr>
+<tr><td><span class="pname">markitdown</span></td><td><span class="ver">0.1.5</span> · «что угодно → Markdown»</td><td>~500 KB</td></tr>
+<tr><td><span class="pname">markdownify</span></td><td><span class="ver">1.2.2</span> · HTML → Markdown</td><td>~50 KB</td></tr>
+<tr><td><span class="pname">marko / markdown-it-py</span></td><td><span class="ver">2.1.2 / 4.0</span> · MD парсеры Python</td><td>~1 MB</td></tr>
+<tr><td><span class="pname">marked (Node)</span></td><td><span class="ver">18.0.2</span> · быстрый MD парсер JS</td><td>476 KB</td></tr>
+<tr><td><span class="pname">markdownlint-cli / cli2</span></td><td><span class="ver">0.48 / 0.22</span> · линтинг MD</td><td>14 + 15 MB</td></tr>
+<tr><td><span class="pname">remark-cli</span></td><td><span class="ver">12.0.1</span> · MD AST-трансформации</td><td>20 MB</td></tr>
+<tr><td><span class="pname">mermaid-cli (mmdc)</span></td><td><span class="ver">11.12.0</span> · mermaid → SVG/PNG/PDF</td><td><span class="sz">333 MB</span></td></tr>
+</tbody>
+</table>
+</section>
+
+<!-- ════════════════════════════════════════════════════ -->
+<section id="pdf">
+<h2>
+  <span><span class="sec-num">[0x06]</span> PDF // STACK</span>
+  <span class="sec-tag">// читать · писать · извлекать</span>
+</h2>
+
+<table>
+<thead><tr><th>Инструмент</th><th>Версия · назначение</th><th>Размер</th></tr></thead>
+<tbody>
+<tr><td><span class="pname">pypdf</span></td><td><span class="ver">5.9.0</span> · чтение/запись/шифрование/слияние</td><td><span class="sz">3.1 MB</span></td></tr>
+<tr><td><span class="pname">pypdfium2</span></td><td><span class="ver">5.6.0</span> · биндинги к PDFium</td><td>~30 MB</td></tr>
+<tr><td><span class="pname">pdfminer.six</span></td><td><span class="ver">20251230</span> · низкоуровневый текст и layout</td><td>~10 MB</td></tr>
+<tr><td><span class="pname">pdfplumber</span></td><td><span class="ver">0.11.9</span> · извлечение текста и таблиц</td><td><span class="sz">452 KB</span></td></tr>
+<tr><td><span class="pname">pikepdf</span></td><td><span class="ver">10.5.1</span> · QPDF-обёртка</td><td><span class="sz">3.8 MB</span></td></tr>
+<tr><td><span class="pname">reportlab</span></td><td><span class="ver">4.4.10</span> · программная сборка PDF</td><td><span class="sz">8.7 MB</span></td></tr>
+<tr><td><span class="pname">camelot-py</span></td><td><span class="ver">1.0.9</span> · извлечение таблиц</td><td>~2 MB</td></tr>
+<tr><td><span class="pname">tabula-py</span></td><td><span class="ver">2.10.0</span> · Java-tabula обёртка</td><td>~10 MB (нужна JVM)</td></tr>
+<tr><td><span class="pname">pdf2image</span></td><td><span class="ver">1.17.0</span> · PDF → PNG/JPEG через poppler</td><td>~200 KB</td></tr>
+<tr><td><span class="pname">pdfkit</span></td><td><span class="ver">1.0.0</span> · HTML → PDF через wkhtmltopdf</td><td>~30 KB</td></tr>
+<tr><td><span class="pname">img2pdf</span></td><td><span class="ver">0.6.3</span> · images → PDF без потерь</td><td>~100 KB</td></tr>
+<tr><td><span class="pname">qpdf</span></td><td>системный · трансформации, шифрование, линеаризация</td><td>~5 MB</td></tr>
+<tr><td><span class="pname">pdftk-java</span></td><td>системный · слияние, формы, метаданные</td><td>~15 MB (нужна JVM)</td></tr>
+<tr><td><span class="pname">poppler-utils</span></td><td>системный · <code>pdftotext</code>, <code>pdftoppm</code>, <code>pdfinfo</code></td><td>~5 MB</td></tr>
+<tr><td><span class="pname">pdf-lib (Node)</span></td><td><span class="ver">1.17.1</span> · программная сборка/правка PDF на JS</td><td><span class="sz">26 MB</span></td></tr>
+<tr><td><span class="pname">pdfjs-dist (Node)</span></td><td><span class="ver">5.6.205</span> · Mozilla PDF.js</td><td><span class="sz">73 MB</span></td></tr>
+<tr><td><span class="pname">markdown-pdf (Node)</span></td><td><span class="ver">11.0.0</span> · MD → PDF</td><td><span class="sz">81 MB</span></td></tr>
+</tbody>
+</table>
+</section>
+
+<!-- ════════════════════════════════════════════════════ -->
+<section id="media">
+<h2>
+  <span><span class="sec-num">[0x07]</span> MEDIA // VISION // OCR</span>
+  <span class="sec-tag">// image · video · ml</span>
+</h2>
+
+<table>
+<thead><tr><th>Инструмент</th><th>Версия · назначение</th><th>Размер</th></tr></thead>
+<tbody>
+<tr><td><span class="pname">Pillow (PIL)</span></td><td><span class="ver">12.1.1</span> · базовая работа с растром</td><td><span class="sz">7.0 MB</span></td></tr>
+<tr><td><span class="pname">opencv-python</span></td><td><span class="ver">4.13.0.92</span> · CV, фильтры, преобразования</td><td><span class="sz">91 MB</span></td></tr>
+<tr><td><span class="pname">opencv-contrib-python</span></td><td><span class="ver">4.13.0.92</span> · + contrib-модули</td><td>дублирует ~90 MB</td></tr>
+<tr><td><span class="pname">opencv-python-headless</span></td><td><span class="ver">4.13.0.92</span> · без GUI</td><td>дублирует ~90 MB</td></tr>
+<tr><td><span class="pname">scikit-image</span></td><td><span class="ver">0.26.0</span> · научная обработка</td><td><span class="sz">32 MB</span></td></tr>
+<tr><td><span class="pname">ImageIO</span></td><td><span class="ver">2.37.3</span> · унифицированный I/O</td><td>~3 MB</td></tr>
+<tr><td><span class="pname">imageio-ffmpeg</span></td><td><span class="ver">0.6.0</span> · FFmpeg-обёртка</td><td>~30 MB</td></tr>
+<tr><td><span class="pname">tifffile</span></td><td><span class="ver">2026.3.3</span> · многослойный TIFF</td><td>~2 MB</td></tr>
+<tr><td><span class="pname">fonttools</span></td><td><span class="ver">4.62.1</span> · работа со шрифтами</td><td>~15 MB</td></tr>
+<tr><td><span class="pname">Wand</span></td><td><span class="ver">0.7.0</span> · ImageMagick-обёртка для Python</td><td>~500 KB</td></tr>
+<tr><td><span class="pname">ImageMagick</span></td><td><span class="ver">6.9.12-98 Q16</span> · CLI</td><td><span class="sz">4.2 MB</span></td></tr>
+<tr><td><span class="pname">mediapipe</span></td><td><span class="ver">0.10.33</span> · детекция лиц/поз/рук</td><td><span class="sz">35 MB</span></td></tr>
+<tr><td><span class="pname">onnxruntime</span></td><td><span class="ver">1.24.4</span> · инференс ONNX-моделей</td><td><span class="sz">53 MB</span></td></tr>
+<tr><td><span class="pname">sharp (Node)</span></td><td><span class="ver">0.34.5</span> · libvips-обёртка</td><td><span class="sz">18 MB</span></td></tr>
+<tr><td><span class="pname">FFmpeg</span></td><td><span class="ver">6.1.1-3ubuntu5</span> · универсальный медиа-конвертер</td><td>335 KB бинарь</td></tr>
+<tr><td><span class="pname">FFprobe</span></td><td><span class="ver">6.1.1</span> · анализ медиа-потоков</td><td>~330 KB</td></tr>
+<tr><td><span class="pname">Tesseract OCR</span></td><td><span class="ver">5.x</span> · только <code>eng</code> + <code>osd</code></td><td><span class="sz">15 MB</span> (data)</td></tr>
+<tr><td><span class="pname">pytesseract</span></td><td><span class="ver">0.3.13</span> · Python-обёртка</td><td>~50 KB</td></tr>
+<tr><td><span class="pname">magika</span></td><td><span class="ver">0.6.3</span> · нейросетевое определение типа файла</td><td>~5 MB</td></tr>
+<tr><td><span class="pname">sounddevice</span></td><td><span class="ver">0.5.5</span> · PortAudio биндинги</td><td>~100 KB</td></tr>
+</tbody>
+</table>
+</section>
+
+<!-- ════════════════════════════════════════════════════ -->
+<section id="tex">
+<h2>
+  <span><span class="sec-num">[0x08]</span> TEX // TYPESETTING</span>
+  <span class="sec-tag">// pdflatex · xelatex · lualatex</span>
+</h2>
+<p>TeX Live 2023 · одиннадцать пакетов · <b>377 MB</b> совокупно. Доступны три движка: pdfLaTeX (1.8 MB), XeLaTeX (709 KB), LuaLaTeX (7.0 MB).</p>
+
+<table>
+<thead><tr><th>Пакет</th><th>Содержимое</th><th>Категория</th></tr></thead>
+<tbody>
+<tr><td><span class="pname">texlive-base</span></td><td>kpathsea, mktex, базовая инфраструктура</td><td>core</td></tr>
+<tr><td><span class="pname">texlive-binaries</span></td><td>исполняемые: pdflatex, xelatex, lualatex, tex, dvips, dvipdfm</td><td>core</td></tr>
+<tr><td><span class="pname">texlive-fonts-recommended</span></td><td>CM, AMS, Latin Modern</td><td>fonts</td></tr>
+<tr><td><span class="pname">texlive-latex-base</span></td><td>LaTeX2e и базовые пакеты</td><td>latex</td></tr>
+<tr><td><span class="pname">texlive-latex-recommended</span></td><td>babel, hyperref, geometry, fontenc и др.</td><td>latex</td></tr>
+<tr><td><span class="pname">texlive-latex-extra</span></td><td>tcolorbox, tikz-cd, multirow, longtable и сотни других</td><td>latex</td></tr>
+<tr><td><span class="pname">texlive-pictures</span></td><td>TikZ, PGF, PGFPlots</td><td>graphics</td></tr>
+<tr><td><span class="pname">texlive-science</span></td><td>amsmath-расширения, siunitx, physics, mhchem</td><td>science</td></tr>
+<tr><td><span class="pname">texlive-xetex</span></td><td>XeTeX, системные шрифты, Unicode</td><td>engine</td></tr>
+<tr><td><span class="pname">texlive-lang-greek</span></td><td>греческая локализация</td><td>lang</td></tr>
+<tr><td><span class="pname">tex-common, tipa, latexmk, preview-latex-style</span></td><td>фонетика IPA, autobuild, preview</td><td>tools</td></tr>
+</tbody>
+</table>
+</section>
+
+<!-- ════════════════════════════════════════════════════ -->
+<section id="fonts">
+<h2>
+  <span><span class="sec-num">[0x09]</span> FONT // LIBRARY</span>
+  <span class="sec-tag">// 82 faces · 404 MB</span>
+</h2>
+<p>82 файла OTF/TTF, разделённых между <code>/usr/share/fonts/{opentype,truetype}</code> + <code>/usr/share/fonts/X11</code>. Основной вес — <b>Noto CJK</b> (299 MB) для китайского, японского и корейского.</p>
+
+<table>
+<thead><tr><th>Семейство</th><th>Начертаний · покрытие</th><th>Размер</th></tr></thead>
+<tbody>
+<tr><td><span class="pname">Noto CJK + CJK Extra</span></td><td>китайский (Simpl/Trad), японский, корейский</td><td><span class="sz">299 MB</span></td></tr>
+<tr><td><span class="pname">DejaVu</span></td><td>21 · Serif/Sans/Mono + Condensed · широкий Unicode</td><td>~15 MB</td></tr>
+<tr><td><span class="pname">Liberation 1 + 2</span></td><td>12 · метрически совместимы с Times/Arial/Courier</td><td>~5 MB</td></tr>
+<tr><td><span class="pname">FreeFont (GNU)</span></td><td>12 · Sans/Serif/Mono</td><td>~10 MB</td></tr>
+<tr><td><span class="pname">Carlito</span></td><td>4 · метрический клон Calibri</td><td>~2 MB</td></tr>
+<tr><td><span class="pname">Caladea</span></td><td>4 · метрический клон Cambria</td><td>~2 MB</td></tr>
+<tr><td><span class="pname">Lora</span></td><td>2 (variable) · современный serif</td><td>~3 MB</td></tr>
+<tr><td><span class="pname">Poppins</span></td><td>10 · геометрический sans (Devanagari + Latin)</td><td>~3 MB</td></tr>
+<tr><td><span class="pname">GFS Baskerville</span></td><td>греко-латинский классический serif</td><td>~300 KB</td></tr>
+<tr><td><span class="pname">GFS Porson</span></td><td>греческий курсив XIX в.</td><td>~200 KB</td></tr>
+<tr><td><span class="pname">IPA Gothic</span></td><td>2 · японский sans</td><td>~15 MB</td></tr>
+<tr><td><span class="pname">Noto Color Emoji</span></td><td>цветные эмодзи</td><td>~10 MB</td></tr>
+<tr><td><span class="pname">WQY Zenhei</span></td><td>китайский (упрощённый + традиционный)</td><td>~10 MB</td></tr>
+<tr><td><span class="pname">Unifont</span></td><td>8 · полное Unicode-покрытие битмапами</td><td>~25 MB</td></tr>
+<tr><td><span class="pname">Loma (TLWG)</span></td><td>4 · тайский</td><td>~1 MB</td></tr>
+<tr><td><span class="pname">OpenSymbol (LO)</span></td><td>математические/символические глифы</td><td>~1 MB</td></tr>
+<tr><td><span class="pname">TeX Gyre</span></td><td>свободные клоны Times/Bookman/Palatino/Termes</td><td>в составе TeX</td></tr>
+<tr><td><span class="pname">Latin Modern</span></td><td>расширенный Computer Modern</td><td>в составе TeX</td></tr>
+<tr><td><span class="pname">xfonts-cyrillic</span></td><td>битмапные X11-шрифты (наследие)</td><td><span class="sz">2.0 MB</span></td></tr>
+</tbody>
+</table>
+</section>
+
+<!-- ════════════════════════════════════════════════════ -->
+<section id="python">
+<h2>
+  <span><span class="sec-num">[0x0A]</span> PYTHON // PACKAGES</span>
+  <span class="sec-tag">// pip list · 132 wheels · 1.5 GB</span>
+</h2>
+<p>Тяжеловесы: <b>playwright 134 MB</b>, <b>scipy 111 MB</b>, <b>cv2 91 MB</b>, <b>sympy 74 MB</b>, <b>pandas 73 MB</b>, <b>onnxruntime 53 MB</b>, <b>sklearn 47 MB</b>, <b>numpy 42 MB</b>, <b>mediapipe 35 MB</b>, <b>skimage 32 MB</b>, <b>matplotlib 31 MB</b>. Каждая из трёх версий OpenCV (<code>python</code>, <code>contrib</code>, <code>headless</code>) занимает примерно по 90 MB — это известный недостаток.</p>
+
+<h3>FULL REGISTRY</h3>
+<div class="pkggrid">
+<div class="item"><span class="n">absl-py</span><span class="v">2.4.0</span></div>
+<div class="item"><span class="n">argcomplete</span><span class="v">3.1.4</span></div>
+<div class="item"><span class="n">babel</span><span class="v">2.18.0</span></div>
+<div class="item"><span class="n">backrefs</span><span class="v">6.2</span></div>
+<div class="item"><span class="n">beautifulsoup4</span><span class="v">4.14.3</span></div>
+<div class="item"><span class="n">blinker</span><span class="v">1.9.0</span></div>
+<div class="item"><span class="n">camelot-py</span><span class="v">1.0.9</span></div>
+<div class="item"><span class="n">certifi</span><span class="v">2026.2.25</span></div>
+<div class="item"><span class="n">cffi</span><span class="v">2.0.0</span></div>
+<div class="item"><span class="n">chardet</span><span class="v">7.4.0</span></div>
+<div class="item"><span class="n">charset-normalizer</span><span class="v">3.4.6</span></div>
+<div class="item"><span class="n">click</span><span class="v">8.3.1</span></div>
+<div class="item"><span class="n">colorama</span><span class="v">0.4.6</span></div>
+<div class="item"><span class="n">contourpy</span><span class="v">1.3.3</span></div>
+<div class="item"><span class="n">cryptography</span><span class="v">46.0.6</span></div>
+<div class="item"><span class="n">cycler</span><span class="v">0.12.1</span></div>
+<div class="item"><span class="n">dbus-python</span><span class="v">1.3.2</span></div>
+<div class="item"><span class="n">defusedxml</span><span class="v">0.7.1</span></div>
+<div class="item"><span class="n">Deprecated</span><span class="v">1.3.1</span></div>
+<div class="item"><span class="n">distro</span><span class="v">1.9.0</span></div>
+<div class="item"><span class="n">docopt</span><span class="v">0.6.2</span></div>
+<div class="item"><span class="n">et_xmlfile</span><span class="v">2.0.0</span></div>
+<div class="item"><span class="n">Flask</span><span class="v">3.1.3</span></div>
+<div class="item"><span class="n">flatbuffers</span><span class="v">25.12</span></div>
+<div class="item"><span class="n">fonttools</span><span class="v">4.62.1</span><span class="s">15 MB</span></div>
+<div class="item"><span class="n">ghp-import</span><span class="v">2.1.0</span></div>
+<div class="item"><span class="n">graphviz</span><span class="v">0.21</span></div>
+<div class="item"><span class="n">greenlet</span><span class="v">3.3.2</span></div>
+<div class="item"><span class="n">grip</span><span class="v">4.6.2</span></div>
+<div class="item"><span class="n">httplib2</span><span class="v">0.20.4</span></div>
+<div class="item"><span class="n">idna</span><span class="v">3.11</span></div>
+<div class="item"><span class="n">ImageIO</span><span class="v">2.37.3</span></div>
+<div class="item"><span class="n">imageio-ffmpeg</span><span class="v">0.6.0</span></div>
+<div class="item"><span class="n">img2pdf</span><span class="v">0.6.3</span></div>
+<div class="item"><span class="n">itsdangerous</span><span class="v">2.2.0</span></div>
+<div class="item"><span class="n">Jinja2</span><span class="v">3.1.6</span></div>
+<div class="item"><span class="n">joblib</span><span class="v">1.5.3</span></div>
+<div class="item"><span class="n">kiwisolver</span><span class="v">1.5.0</span></div>
+<div class="item"><span class="n">launchpadlib</span><span class="v">1.11.0</span></div>
+<div class="item"><span class="n">lazr.restfulclient</span><span class="v">0.14.6</span></div>
+<div class="item"><span class="n">lazr.uri</span><span class="v">1.0.6</span></div>
+<div class="item"><span class="n">lazy-loader</span><span class="v">0.5</span></div>
+<div class="item"><span class="n">lxml</span><span class="v">6.0.2</span><span class="s">13 MB</span></div>
+<div class="item"><span class="n">magika</span><span class="v">0.6.3</span></div>
+<div class="item"><span class="n">Markdown</span><span class="v">3.10.2</span></div>
+<div class="item"><span class="n">markdown-it-py</span><span class="v">4.0.0</span></div>
+<div class="item"><span class="n">markdownify</span><span class="v">1.2.2</span></div>
+<div class="item"><span class="n">markitdown</span><span class="v">0.1.5</span></div>
+<div class="item"><span class="n">marko</span><span class="v">2.1.2</span></div>
+<div class="item"><span class="n">MarkupSafe</span><span class="v">3.0.3</span></div>
+<div class="item"><span class="n">matplotlib</span><span class="v">3.10.8</span><span class="s">31 MB</span></div>
+<div class="item"><span class="n">mdurl</span><span class="v">0.1.2</span></div>
+<div class="item"><span class="n">mediapipe</span><span class="v">0.10.33</span><span class="s">35 MB</span></div>
+<div class="item"><span class="n">mergedeep</span><span class="v">1.3.4</span></div>
+<div class="item"><span class="n">mistune</span><span class="v">3.2.0</span></div>
+<div class="item"><span class="n">mkdocs</span><span class="v">1.6.1</span></div>
+<div class="item"><span class="n">mkdocs-get-deps</span><span class="v">0.2.2</span></div>
+<div class="item"><span class="n">mkdocs-material</span><span class="v">9.7.6</span></div>
+<div class="item"><span class="n">mkdocs-material-ext.</span><span class="v">1.3.1</span></div>
+<div class="item"><span class="n">mpmath</span><span class="v">1.3.0</span></div>
+<div class="item"><span class="n">networkx</span><span class="v">3.6.1</span><span class="s">18 MB</span></div>
+<div class="item"><span class="n">numpy</span><span class="v">2.4.4</span><span class="s">42 MB</span></div>
+<div class="item"><span class="n">oauthlib</span><span class="v">3.2.2</span></div>
+<div class="item"><span class="n">odfpy</span><span class="v">1.4.1</span></div>
+<div class="item"><span class="n">onnxruntime</span><span class="v">1.24.4</span><span class="s">53 MB</span></div>
+<div class="item"><span class="n">opencv-contrib-python</span><span class="v">4.13.0</span><span class="s">~90 MB</span></div>
+<div class="item"><span class="n">opencv-python</span><span class="v">4.13.0</span><span class="s">91 MB</span></div>
+<div class="item"><span class="n">opencv-python-headless</span><span class="v">4.13.0</span><span class="s">~90 MB</span></div>
+<div class="item"><span class="n">openpyxl</span><span class="v">3.1.5</span><span class="s">2.9 MB</span></div>
+<div class="item"><span class="n">packaging</span><span class="v">26.0</span></div>
+<div class="item"><span class="n">paginate</span><span class="v">0.5.7</span></div>
+<div class="item"><span class="n">pandas</span><span class="v">3.0.2</span><span class="s">73 MB</span></div>
+<div class="item"><span class="n">path-and-address</span><span class="v">2.0.1</span></div>
+<div class="item"><span class="n">pathspec</span><span class="v">1.0.4</span></div>
+<div class="item"><span class="n">pdf2image</span><span class="v">1.17.0</span></div>
+<div class="item"><span class="n">pdfkit</span><span class="v">1.0.0</span></div>
+<div class="item"><span class="n">pdfminer.six</span><span class="v">20251230</span></div>
+<div class="item"><span class="n">pdfplumber</span><span class="v">0.11.9</span><span class="s">452 KB</span></div>
+<div class="item"><span class="n">pikepdf</span><span class="v">10.5.1</span><span class="s">3.8 MB</span></div>
+<div class="item"><span class="n">pillow</span><span class="v">12.1.1</span><span class="s">7.0 MB</span></div>
+<div class="item"><span class="n">pip</span><span class="v">24.0</span></div>
+<div class="item"><span class="n">pipx</span><span class="v">1.4.3</span></div>
+<div class="item"><span class="n">platformdirs</span><span class="v">4.9.4</span></div>
+<div class="item"><span class="n">playwright</span><span class="v">1.56.0</span><span class="s">134 MB</span></div>
+<div class="item"><span class="n">protobuf</span><span class="v">7.34.1</span></div>
+<div class="item"><span class="n">psutil</span><span class="v">7.2.2</span></div>
+<div class="item"><span class="n">pycparser</span><span class="v">3.0</span></div>
+<div class="item"><span class="n">pyee</span><span class="v">13.0.1</span></div>
+<div class="item"><span class="n">Pygments</span><span class="v">2.20.0</span></div>
+<div class="item"><span class="n">PyGObject</span><span class="v">3.48.2</span></div>
+<div class="item"><span class="n">PyJWT</span><span class="v">2.7.0</span></div>
+<div class="item"><span class="n">pymdown-extensions</span><span class="v">10.21.2</span></div>
+<div class="item"><span class="n">pyoo</span><span class="v">1.4</span></div>
+<div class="item"><span class="n">pyparsing</span><span class="v">3.3.2</span></div>
+<div class="item"><span class="n">pypdf</span><span class="v">5.9.0</span><span class="s">3.1 MB</span></div>
+<div class="item"><span class="n">pypdfium2</span><span class="v">5.6.0</span></div>
+<div class="item"><span class="n">pytesseract</span><span class="v">0.3.13</span></div>
+<div class="item"><span class="n">python-apt</span><span class="v">2.7.7</span></div>
+<div class="item"><span class="n">python-dateutil</span><span class="v">2.9.0</span></div>
+<div class="item"><span class="n">python-docx</span><span class="v">1.2.0</span></div>
+<div class="item"><span class="n">python-dotenv</span><span class="v">1.2.2</span></div>
+<div class="item"><span class="n">python-pptx</span><span class="v">1.0.2</span></div>
+<div class="item"><span class="n">PyYAML</span><span class="v">6.0.3</span></div>
+<div class="item"><span class="n">pyyaml_env_tag</span><span class="v">1.1</span></div>
+<div class="item"><span class="n">reportlab</span><span class="v">4.4.10</span><span class="s">8.7 MB</span></div>
+<div class="item"><span class="n">requests</span><span class="v">2.33.1</span></div>
+<div class="item"><span class="n">scikit-image</span><span class="v">0.26.0</span><span class="s">32 MB</span></div>
+<div class="item"><span class="n">scikit-learn</span><span class="v">1.8.0</span><span class="s">47 MB</span></div>
+<div class="item"><span class="n">scipy</span><span class="v">1.17.1</span><span class="s">111 MB</span></div>
+<div class="item"><span class="n">seaborn</span><span class="v">0.13.2</span><span class="s">2.4 MB</span></div>
+<div class="item"><span class="n">setuptools</span><span class="v">68.1.2</span></div>
+<div class="item"><span class="n">six</span><span class="v">1.17.0</span></div>
+<div class="item"><span class="n">sounddevice</span><span class="v">0.5.5</span></div>
+<div class="item"><span class="n">soupsieve</span><span class="v">2.8.3</span></div>
+<div class="item"><span class="n">sympy</span><span class="v">1.14.0</span><span class="s">74 MB</span></div>
+<div class="item"><span class="n">tabula-py</span><span class="v">2.10.0</span></div>
+<div class="item"><span class="n">tabulate</span><span class="v">0.10.0</span></div>
+<div class="item"><span class="n">threadpoolctl</span><span class="v">3.6.0</span></div>
+<div class="item"><span class="n">tifffile</span><span class="v">2026.3.3</span></div>
+<div class="item"><span class="n">typing_extensions</span><span class="v">4.15.0</span></div>
+<div class="item"><span class="n">unoserver</span><span class="v">3.6</span></div>
+<div class="item"><span class="n">urllib3</span><span class="v">2.6.3</span></div>
+<div class="item"><span class="n">userpath</span><span class="v">1.9.1</span></div>
+<div class="item"><span class="n">wadllib</span><span class="v">1.3.6</span></div>
+<div class="item"><span class="n">Wand</span><span class="v">0.7.0</span></div>
+<div class="item"><span class="n">watchdog</span><span class="v">6.0.0</span></div>
+<div class="item"><span class="n">Werkzeug</span><span class="v">3.1.7</span></div>
+<div class="item"><span class="n">wheel</span><span class="v">0.42.0</span></div>
+<div class="item"><span class="n">wrapt</span><span class="v">2.1.2</span></div>
+<div class="item"><span class="n">xlsxwriter</span><span class="v">3.2.9</span></div>
+</div>
+</section>
+
+<!-- ════════════════════════════════════════════════════ -->
+<section id="node">
+<h2>
+  <span><span class="sec-num">[0x0B]</span> NODE // PACKAGES</span>
+  <span class="sec-tag">// npm -g · 21 packages · 749 MB</span>
+</h2>
+<p>Тяжеловесы: <b>mermaid-cli 333 MB</b> (тащит Puppeteer + Chromium), <b>react-icons 84 MB</b>, <b>markdown-pdf 81 MB</b>, <b>pdfjs-dist 73 MB</b>, <b>pdf-lib 26 MB</b>, <b>typescript 24 MB</b>.</p>
+
+<table>
+<thead><tr><th>Пакет</th><th>Версия · назначение</th><th>Размер</th></tr></thead>
+<tbody>
+<tr><td><span class="pname">@mermaid-js/mermaid-cli</span></td><td><span class="ver">11.12.0</span> · <code>mmdc</code> → SVG/PNG/PDF</td><td><span class="sz">333 MB</span></td></tr>
+<tr><td><span class="pname">react-icons</span></td><td><span class="ver">5.6.0</span> · большая библиотека иконок</td><td><span class="sz">84 MB</span></td></tr>
+<tr><td><span class="pname">markdown-pdf</span></td><td><span class="ver">11.0.0</span> · MD → PDF</td><td><span class="sz">81 MB</span></td></tr>
+<tr><td><span class="pname">pdfjs-dist</span></td><td><span class="ver">5.6.205</span> · Mozilla PDF.js</td><td><span class="sz">73 MB</span></td></tr>
+<tr><td><span class="pname">pdf-lib</span></td><td><span class="ver">1.17.1</span> · программная сборка PDF на JS</td><td><span class="sz">26 MB</span></td></tr>
+<tr><td><span class="pname">typescript</span></td><td><span class="ver">6.0.3</span> · компилятор TS</td><td><span class="sz">24 MB</span></td></tr>
+<tr><td><span class="pname">remark-cli</span></td><td><span class="ver">12.0.1</span> · MD AST-трансформации</td><td><span class="sz">20 MB</span></td></tr>
+<tr><td><span class="pname">sharp</span></td><td><span class="ver">0.34.5</span> · libvips-обёртка для JS</td><td><span class="sz">18 MB</span></td></tr>
+<tr><td><span class="pname">markdownlint-cli2</span></td><td><span class="ver">0.22.0</span> · расширенный линтер MD</td><td><span class="sz">15 MB</span></td></tr>
+<tr><td><span class="pname">markdownlint-cli</span></td><td><span class="ver">0.48.0</span> · классический линтер MD</td><td><span class="sz">14 MB</span></td></tr>
+<tr><td><span class="pname">playwright</span></td><td><span class="ver">1.56.0</span> · браузерная автоматизация</td><td><span class="sz">13 MB</span></td></tr>
+<tr><td><span class="pname">tsx</span></td><td><span class="ver">4.21.0</span> · современная альтернатива ts-node</td><td><span class="sz">12 MB</span></td></tr>
+<tr><td><span class="pname">docx</span></td><td><span class="ver">9.6.1</span> · программная сборка .docx</td><td><span class="sz">9.3 MB</span></td></tr>
+<tr><td><span class="pname">pptxgenjs</span></td><td><span class="ver">4.0.1</span> · программная сборка .pptx</td><td><span class="sz">7.8 MB</span></td></tr>
+<tr><td><span class="pname">react-dom</span></td><td><span class="ver">19.2.5</span> · React DOM-рендер</td><td><span class="sz">7.3 MB</span></td></tr>
+<tr><td><span class="pname">remark-preset-lint-recommended</span></td><td><span class="ver">7.0.1</span></td><td><span class="sz">5.7 MB</span></td></tr>
+<tr><td><span class="pname">ts-node</span></td><td><span class="ver">10.9.2</span> · запуск TypeScript без компиляции</td><td><span class="sz">5.7 MB</span></td></tr>
+<tr><td><span class="pname">markdown-toc</span></td><td><span class="ver">1.2.0</span> · генерация оглавлений</td><td><span class="sz">5.2 MB</span></td></tr>
+<tr><td><span class="pname">marked</span></td><td><span class="ver">18.0.2</span> · быстрый MD парсер</td><td><span class="sz">476 KB</span></td></tr>
+<tr><td><span class="pname">react</span></td><td><span class="ver">19.2.5</span> · React core (необычно для глобальной)</td><td><span class="sz">260 KB</span></td></tr>
+<tr><td><span class="pname">graphviz</span></td><td><span class="ver">0.0.9</span> · JS-обёртка для DOT-графов</td><td><span class="sz">244 KB</span></td></tr>
+</tbody>
+</table>
+</section>
+
+<!-- ════════════════════════════════════════════════════ -->
+<section id="data">
+<h2>
+  <span><span class="sec-num">[0x0C]</span> SCIENCE // STACK</span>
+  <span class="sec-tag">// numpy · scipy · sklearn</span>
+</h2>
+
+<table>
+<thead><tr><th>Библиотека</th><th>Версия · покрытие</th><th>Размер</th></tr></thead>
+<tbody>
+<tr><td><span class="pname">NumPy</span></td><td><span class="ver">2.4.4</span> · массивы, линалг, FFT</td><td><span class="sz">42 MB</span></td></tr>
+<tr><td><span class="pname">SciPy</span></td><td><span class="ver">1.17.1</span> · оптимизация, интерполяция, дифуры, статистика</td><td><span class="sz">111 MB</span></td></tr>
+<tr><td><span class="pname">Pandas</span></td><td><span class="ver">3.0.2</span> · табличные данные, I/O</td><td><span class="sz">73 MB</span></td></tr>
+<tr><td><span class="pname">scikit-learn</span></td><td><span class="ver">1.8.0</span> · классическое ML</td><td><span class="sz">47 MB</span></td></tr>
+<tr><td><span class="pname">scikit-image</span></td><td><span class="ver">0.26.0</span> · научная обработка изображений</td><td><span class="sz">32 MB</span></td></tr>
+<tr><td><span class="pname">SymPy</span></td><td><span class="ver">1.14.0</span> · символьные вычисления</td><td><span class="sz">74 MB</span></td></tr>
+<tr><td><span class="pname">NetworkX</span></td><td><span class="ver">3.6.1</span> · анализ графов и сетей</td><td><span class="sz">18 MB</span></td></tr>
+<tr><td><span class="pname">matplotlib</span></td><td><span class="ver">3.10.8</span> · базовая визуализация</td><td><span class="sz">31 MB</span></td></tr>
+<tr><td><span class="pname">seaborn</span></td><td><span class="ver">0.13.2</span> · статвиз на matplotlib</td><td><span class="sz">2.4 MB</span></td></tr>
+<tr><td><span class="pname">onnxruntime</span></td><td><span class="ver">1.24.4</span> · инференс ONNX-моделей</td><td><span class="sz">53 MB</span></td></tr>
+<tr><td><span class="pname">graphviz</span></td><td>системный · CLI <code>dot</code>, <code>neato</code>, <code>fdp</code>, <code>sfdp</code></td><td>~5 MB</td></tr>
+<tr><td><span class="pname">tabulate</span></td><td><span class="ver">0.10.0</span> · форматирование таблиц</td><td>~100 KB</td></tr>
+<tr><td><span class="pname">BeautifulSoup4</span></td><td><span class="ver">4.14.3</span> · HTML/XML-парсинг</td><td>~1 MB</td></tr>
+<tr><td><span class="pname">lxml</span></td><td><span class="ver">6.0.2</span> · XML/XPath/XSLT</td><td><span class="sz">13 MB</span></td></tr>
+<tr><td><span class="pname">requests</span></td><td><span class="ver">2.33.1</span> · HTTP-клиент</td><td>~500 KB</td></tr>
+<tr><td><span class="pname">cryptography</span></td><td><span class="ver">46.0.6</span> · криптография</td><td>~10 MB</td></tr>
+<tr><td><span class="pname">Flask</span></td><td><span class="ver">3.1.3</span> · микро веб-фреймворк</td><td>~1 MB</td></tr>
+</tbody>
+</table>
+</section>
+
+<!-- ════════════════════════════════════════════════════ -->
+<section id="utils">
+<h2>
+  <span><span class="sec-num">[0x0D]</span> SYSTEM // UTILITIES</span>
+  <span class="sec-tag">// available · denied</span>
+</h2>
+
+<div class="avail-grid">
+  <div class="avail-block ok">
+    <h4>// AVAILABLE</h4>
+    <ul>
+      <li>git 2.43.0</li>
+      <li>curl 8.5.0 / wget 1.21.4</li>
+      <li>gnupg / gpg 2.4.4</li>
+      <li>tar, gzip, bzip2, xz, zip, unzip</li>
+      <li>nc / netcat-openbsd</li>
+      <li>rclone (в <code>/opt/rclone</code>)</li>
+      <li>xvfb-run (виртуальный X-сервер)</li>
+      <li>bc 1.07.1 (arbitrary precision)</li>
+      <li>lp_solve 5.5.2.5 (LP-солвер)</li>
+      <li>fontconfig (fc-list, fc-cache)</li>
+      <li>build-essential (gcc, g++, make)</li>
+      <li>pkg-config</li>
+      <li>perl + modules 5.38</li>
+      <li>magika (нейроклассификатор файлов)</li>
+    </ul>
+  </div>
+  <div class="avail-block no">
+    <h4>// MISSING</h4>
+    <ul>
+      <li>jq, yq, xmlstarlet</li>
+      <li>ripgrep, fd, bat, fzf</li>
+      <li>htop, btop, tree, ncdu</li>
+      <li>tmux, screen</li>
+      <li>vim, nano, emacs (только <code>more</code>)</li>
+      <li>ssh, scp, rsync</li>
+      <li>7z, zstd, lz4, aria2</li>
+      <li>docker, podman, kubectl</li>
+      <li>nmap, dig, host, traceroute</li>
+      <li>sqlite3 CLI, psql, mysql, mongo</li>
+      <li>redis-cli, mongo</li>
+      <li>biber (только legacy bibtex)</li>
+      <li>tesseract-ocr-rus (только eng + osd)</li>
+      <li>javac (только JRE)</li>
+    </ul>
+  </div>
+</div>
+</section>
+
+<!-- ════════════════════════════════════════════════════ -->
+<section id="skills">
+<h2>
+  <span><span class="sec-num">[0x0E]</span> ANTHROPIC // SKILLS</span>
+  <span class="sec-tag">// /mnt/skills · read-only</span>
+</h2>
+
+<h3>PUBLIC SKILLS · /mnt/skills/public/</h3>
+<table>
+<thead><tr><th>Skill</th><th>Назначение</th><th>—</th></tr></thead>
+<tbody>
+<tr><td><span class="pname">docx</span></td><td>создание / редактирование Word-документов</td><td>—</td></tr>
+<tr><td><span class="pname">pdf</span></td><td>создание, заполнение форм, шифрование, слияние</td><td>—</td></tr>
+<tr><td><span class="pname">pdf-reading</span></td><td>стратегии чтения PDF (текст / OCR / формы)</td><td>—</td></tr>
+<tr><td><span class="pname">pptx</span></td><td>программная сборка слайдов</td><td>—</td></tr>
+<tr><td><span class="pname">xlsx</span></td><td>Excel: формулы, форматирование, чарты</td><td>—</td></tr>
+<tr><td><span class="pname">frontend-design</span></td><td>гайд для нешаблонных web-интерфейсов</td><td>—</td></tr>
+<tr><td><span class="pname">file-reading</span></td><td>маршрутизатор по форматам загруженных файлов</td><td>—</td></tr>
+<tr><td><span class="pname">product-self-knowledge</span></td><td>факты о продуктах Anthropic</td><td>—</td></tr>
+</tbody>
+</table>
+
+<h3>EXAMPLE SKILLS · /mnt/skills/examples/</h3>
+<div class="pkggrid">
+<div class="item"><span class="n">algorithmic-art</span></div>
+<div class="item"><span class="n">brand-guidelines</span></div>
+<div class="item"><span class="n">canvas-design</span></div>
+<div class="item"><span class="n">doc-coauthoring</span></div>
+<div class="item"><span class="n">event-planning</span></div>
+<div class="item"><span class="n">file-form</span></div>
+<div class="item"><span class="n">financial-calculator</span></div>
+<div class="item"><span class="n">mcp-builder</span></div>
+<div class="item"><span class="n">skill-creator</span></div>
+<div class="item"><span class="n">slack-gif-creator</span></div>
+<div class="item"><span class="n">theme-factory</span></div>
+<div class="item"><span class="n">web-artifacts-builder</span></div>
+<div class="item"><span class="n">benepass-reimbursement</span></div>
+<div class="item"><span class="n">call-to-book</span></div>
+<div class="item"><span class="n">cancel-unsubscribe</span></div>
+<div class="item"><span class="n">file-expenses</span></div>
+<div class="item"><span class="n">grocery-shopping</span></div>
+<div class="item"><span class="n">hire-help</span></div>
+<div class="item"><span class="n">internal-comms</span></div>
+<div class="item"><span class="n">meal-delivery</span></div>
+<div class="item"><span class="n">prescription-refill</span></div>
+<div class="item"><span class="n">return-refund</span></div>
+</div>
+</section>
+
+<!-- ════════════════════════════════════════════════════ -->
+<footer>
+<div class="ornament">// ▓▓▒▒░░ END_OF_TRANSMISSION ░░▒▒▓▓ //</div>
+<p>scan complete · <span style="color: var(--cyan)">866 deb · 132 pip · 21 npm · 82 fonts · 8.6 GB</span></p>
+<p style="color: var(--phosphor-fade); margin-top: 0.5rem;">// claude.environment_report // 2026.05.25 //</p>
+</footer>
+
+</div><!-- /.doc -->
+
+<script>
+// ── Матричный дождь ────────────────────────────────
+(function() {
+  const canvas = document.getElementById('matrix-rain');
+  const ctx = canvas.getContext('2d');
+  let W, H, cols, drops, frameSkip, tickCounter;
+  const chars = 'アイウエオカキクケコサシスセソタチツテトナニヌネノハヒフヘホマミムメモヤユヨラリルレロワヲン0123456789ABCDEFΦΨΩΣΠΛΞΘΔ▓▒░█'.split('');
+  const fontSize = 16;
+
+  function resize() {
+    W = canvas.width = window.innerWidth;
+    H = canvas.height = window.innerHeight;
+    cols = Math.floor(W / fontSize);
+    drops = new Array(cols).fill(0).map(() => Math.floor(Math.random() * -30));
+    // 1 — каждый кадр, 2 — раз в два кадра, 3 — раз в три кадра
+    frameSkip = new Array(cols).fill(0).map(() => {
+      const r = Math.random();
+      return r < 0.55 ? 1 : (r < 0.85 ? 2 : 3);
+    });
+    tickCounter = new Array(cols).fill(0);
+  }
+  resize();
+  window.addEventListener('resize', resize);
+
+  function draw() {
+    // Полупрозрачная заливка фона создаёт шлейф из угасающих символов
+    ctx.fillStyle = 'rgba(0, 0, 0, 0.055)';
+    ctx.fillRect(0, 0, W, H);
+    ctx.font = 'bold ' + fontSize + 'px "JetBrains Mono", monospace';
+
+    for (let i = 0; i < cols; i++) {
+      // Капля движется только когда её счётчик дошёл до порога пропуска
+      tickCounter[i]++;
+      if (tickCounter[i] < frameSkip[i]) continue;
+      tickCounter[i] = 0;
+
+      const x = i * fontSize;
+      const y = drops[i] * fontSize;
+      const ch = chars[Math.floor(Math.random() * chars.length)];
+
+      // Голова капли — яркая. Изредка — циановая, как сбой в матрице
+      if (Math.random() > 0.992) {
+        ctx.fillStyle = '#00e5ff';
+      } else {
+        ctx.fillStyle = '#e8ffec';
+      }
+      ctx.fillText(ch, x, y);
+
+      // Сброс капли — рандомизация старта для эффекта неравномерности
+      if (y > H && Math.random() > 0.965) {
+        drops[i] = Math.floor(Math.random() * -20);
+      } else {
+        drops[i]++;
+      }
+    }
+  }
+  setInterval(draw, 50);
+})();
+</script>
+</body>
+</html>
