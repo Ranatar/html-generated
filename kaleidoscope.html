@@ -2651,17 +2651,25 @@ void main(){
       busIn.connect(dry); dry.connect(master);
       busIn.connect(conv); conv.connect(wet); wet.connect(master);
       this.master = master;
-      // дрон: 3 осциллятора -> фильтр -> усиление(0) -> шина
-      const dg = ctx.createGain(); dg.gain.value = 0;
-      const df = ctx.createBiquadFilter(); df.type = 'lowpass'; df.frequency.value = 700; df.Q.value = 0.6;
-      dg.connect(df); df.connect(busIn);
-      const oscs = [];
+      // дрон-подушка: тот же мягкий материал, что у колокольчиков (синус+треугольник),
+      // лёгкий хор (расстройка), «дыхание» фильтра и мягкие набегания на смене аккорда
+      const dg = ctx.createGain(); dg.gain.value = 0;            // уровень (от активности вращения)
+      const swell = ctx.createGain(); swell.gain.value = 1;      // квантованная пульсация аккорда
+      const df = ctx.createBiquadFilter(); df.type = 'lowpass'; df.frequency.value = 620; df.Q.value = 0.7;
+      dg.connect(swell); swell.connect(df); df.connect(busIn);
+      const lfo = ctx.createOscillator(); lfo.type = 'sine'; lfo.frequency.value = 0.07;
+      const lfoG = ctx.createGain(); lfoG.gain.value = 240;      // «дыхание» среза фильтра
+      lfo.connect(lfoG); lfoG.connect(df.frequency); lfo.start();
+      const voices = [];
       for(let i = 0; i < 3; i++){
-        const o = ctx.createOscillator(); o.type = (i === 2) ? 'triangle' : 'sawtooth';
-        const og = ctx.createGain(); og.gain.value = (i === 0) ? 0.5 : 0.28;
-        o.connect(og); og.connect(dg); o.start(); oscs.push(o);
+        const a = ctx.createOscillator(); a.type = 'sine';
+        const b = ctx.createOscillator(); b.type = 'triangle'; b.detune.value = (i % 2 ? 7 : -7);
+        const bg = ctx.createGain(); bg.gain.value = 0.45;
+        const vg = ctx.createGain(); vg.gain.value = (i === 0 ? 0.5 : i === 1 ? 0.34 : 0.26);
+        a.connect(vg); b.connect(bg); bg.connect(vg); vg.connect(dg);
+        a.start(); b.start(); voices.push({ a, b });
       }
-      this.drone = { gain: dg, filt: df, osc: oscs };
+      this.drone = { gain: dg, swell, filt: df, voices };
       this._nextChord = 0; this._lastTrig = 0; this._voices = 0;
     },
     enable(){
@@ -2710,16 +2718,21 @@ void main(){
       if(!this.drone) return;
       const ctx = this.ctx, now = ctx.currentTime;
       const act = clamp(Math.abs(Config.spin) / 1.0, 0, 1);
-      const target = this.on ? (0.045 + 0.06 * act) : 0;
-      this.drone.gain.gain.setTargetAtTime(target, now, 0.6);
+      this.drone.gain.gain.setTargetAtTime(this.on ? (0.05 + 0.06 * act) : 0, now, 0.8);
       if(now > this._nextChord){
-        this._nextChord = now + 4 + Math.random() * 3;
-        const sc = this._scale(), base = sc.root - 12;            // подушка на октаву ниже
-        const degs = [0, 7, sc.notes[2] || 4];                    // корень, квинта, терция-ish
-        this.drone.osc.forEach((o, i) => {
-          const midi = base + degs[i] + (i === 2 ? 12 : 0);
-          o.frequency.setTargetAtTime(440 * Math.pow(2, (midi - 69) / 12), now, 1.6);
+        this._nextChord = now + 5 + Math.random() * 4;
+        const sc = this._scale(), base = sc.root - 12;
+        const top = sc.notes[(Math.random() * sc.notes.length) | 0];
+        const degs = [0, 7, top + 12];                       // корень, квинта, дрейфующая верхняя ступень
+        this.drone.voices.forEach((v, i) => {
+          const f = 440 * Math.pow(2, (base + degs[i] - 69) / 12);
+          v.a.frequency.setTargetAtTime(f, now, 2.0);
+          v.b.frequency.setTargetAtTime(f, now, 2.0);
         });
+        const sw = this.drone.swell.gain;                    // мягкое набегание вместо ровного гудения
+        sw.cancelScheduledValues(now);
+        sw.setTargetAtTime(0.4, now, 0.6);
+        sw.setTargetAtTime(1.0, now + 1.6, 1.4);
       }
     },
     tick(){
