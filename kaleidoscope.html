@@ -1,0 +1,2833 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>Калейдоскоп</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,500;1,400&family=Jost:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#0b0c10;
+    --ink:#e8e3d6;
+    --muted:#8a8474;
+    --brass:#c8a45c;
+    --brass-dim:#7d6a3c;
+    --line:rgba(200,164,92,.22);
+    --panel:rgba(18,18,22,.78);
+  }
+  *{box-sizing:border-box;margin:0;padding:0;}
+  html,body{height:100%;}
+  body{
+    background:
+      radial-gradient(120% 90% at 50% 8%, #15161c 0%, #0b0c10 55%, #060609 100%);
+    color:var(--ink);
+    font-family:'Jost',sans-serif;
+    overflow:hidden;
+    -webkit-font-smoothing:antialiased;
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+    justify-content:center;
+    min-height:100%;
+  }
+  body::after{
+    content:"";position:fixed;inset:0;pointer-events:none;z-index:5;
+    opacity:.05;mix-blend-mode:overlay;
+    background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+  }
+  header{position:fixed;top:22px;left:0;right:0;text-align:center;z-index:4;pointer-events:none;}
+  header h1{
+    font-family:'Cormorant Garamond',serif;
+    font-weight:500;font-size:clamp(22px,3.4vw,34px);
+    letter-spacing:.32em;text-transform:uppercase;color:var(--ink);
+    text-shadow:0 1px 18px rgba(200,164,92,.18);
+  }
+  header p{font-size:11px;letter-spacing:.34em;text-transform:uppercase;color:var(--muted);margin-top:6px;}
+
+  .stage{position:relative;}
+  .bezel{
+    position:relative;border-radius:50%;padding:16px;display:grid;touch-action:none;cursor:grab;
+    background:conic-gradient(from 220deg,#2a2419,#6b5a32,#d9bd76,#8a7338,#caa860,#3a3120,#caa860,#6b5a32,#2a2419);
+    box-shadow:0 0 0 1px rgba(0,0,0,.6),0 28px 70px -20px rgba(0,0,0,.85),inset 0 0 24px rgba(0,0,0,.55);
+  }
+  .bezel:active{cursor:grabbing;}
+  .bezel::before{
+    content:"";position:absolute;inset:8px;border-radius:50%;
+    background:linear-gradient(145deg,#1a1712,#0a0a0d);box-shadow:inset 0 0 30px rgba(0,0,0,.9);
+  }
+  canvas#scope, canvas#scopeGL{
+    grid-area:1 / 1;position:relative;display:block;border-radius:50%;
+    box-shadow:inset 0 0 60px rgba(0,0,0,.7);touch-action:none;
+  }
+  canvas#scopeGL{display:none;}
+
+  .peek{
+    position:fixed;right:22px;top:22px;z-index:7;
+    width:130px;height:130px;border-radius:50%;border:1px solid var(--line);
+    box-shadow:0 10px 30px -10px rgba(0,0,0,.8), inset 0 0 18px rgba(0,0,0,.7);
+    overflow:hidden;background:#000;transition:opacity .35s ease, transform .35s ease;
+  }
+  .peek.hidden{opacity:0;transform:translateY(-8px) scale(.95);pointer-events:none;}
+  .peek canvas{display:block;width:100%;height:100%;}
+  .peek span{
+    position:absolute;left:0;right:0;bottom:8px;text-align:center;
+    font-size:9px;letter-spacing:.28em;text-transform:uppercase;color:var(--muted);text-shadow:0 1px 4px #000;
+  }
+
+  .panel{
+    position:fixed;left:50%;bottom:22px;transform:translateX(-50%);z-index:6;
+    display:flex;align-items:center;gap:18px;flex-wrap:wrap;justify-content:center;
+    padding:14px 20px;border-radius:16px;background:var(--panel);border:1px solid var(--line);
+    backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);
+    box-shadow:0 16px 50px -18px rgba(0,0,0,.9);max-width:min(94vw,920px);
+  }
+  .ctrl{display:flex;flex-direction:column;gap:6px;min-width:120px;}
+  .ctrl label{font-size:10px;letter-spacing:.2em;text-transform:uppercase;color:var(--muted);display:flex;justify-content:space-between;gap:10px;}
+  .ctrl label b{color:var(--brass);font-weight:500;font-variant-numeric:tabular-nums;}
+  input[type=range]{-webkit-appearance:none;appearance:none;height:3px;border-radius:2px;background:linear-gradient(90deg,var(--brass-dim),var(--brass));outline:none;width:100%;}
+  input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:15px;height:15px;border-radius:50%;background:radial-gradient(circle at 35% 30%,#f4e2b0,#b3923f);border:1px solid #5b4a22;cursor:pointer;box-shadow:0 2px 6px rgba(0,0,0,.6);}
+  input[type=range]::-moz-range-thumb{width:15px;height:15px;border-radius:50%;border:1px solid #5b4a22;background:radial-gradient(circle at 35% 30%,#f4e2b0,#b3923f);cursor:pointer;}
+  .btns{display:flex;gap:10px;}
+  button{
+    font-family:'Jost',sans-serif;font-size:11px;letter-spacing:.16em;text-transform:uppercase;
+    color:var(--ink);background:rgba(200,164,92,.08);border:1px solid var(--line);border-radius:10px;
+    padding:10px 14px;cursor:pointer;transition:.18s ease;white-space:nowrap;
+  }
+  button:hover{background:rgba(200,164,92,.18);border-color:var(--brass-dim);}
+  button:active{transform:translateY(1px);}
+  button.on{background:rgba(200,164,92,.22);border-color:var(--brass);color:#fff;}
+  button:disabled{opacity:.4;cursor:not-allowed;}
+  select#sceneSel{
+    font-family:'Jost',sans-serif;font-size:11px;letter-spacing:.14em;text-transform:uppercase;
+    color:var(--ink);background:rgba(200,164,92,.08);border:1px solid var(--brass-dim);border-radius:10px;
+    padding:10px 12px;cursor:pointer;transition:.18s ease;white-space:nowrap;outline:none;
+    -webkit-appearance:none;appearance:none;max-width:200px;
+  }
+  select#sceneSel:hover{background:rgba(200,164,92,.18);border-color:var(--brass);}
+  select#sceneSel option{background:#15140f;color:var(--ink);}
+  .vsep{width:1px;align-self:stretch;background:var(--line);margin:0 2px;}
+  .hint{position:fixed;left:50%;top:84px;transform:translateX(-50%);font-size:10px;letter-spacing:.2em;text-transform:uppercase;color:var(--muted);z-index:4;opacity:.7;text-align:center;pointer-events:none;}
+
+  .dbg{
+    position:fixed;top:18px;left:18px;z-index:7;font-size:11px;letter-spacing:.03em;color:var(--ink);
+    background:rgba(10,10,14,.82);border:1px solid var(--line);border-radius:12px;padding:12px 14px;min-width:182px;
+    backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);display:none;
+  }
+  .dbg.show{display:block;}
+  .dbg h4{font-size:10px;letter-spacing:.24em;text-transform:uppercase;color:var(--brass);margin-bottom:8px;}
+  .dbg .row{display:flex;justify-content:space-between;gap:14px;margin:3px 0;color:var(--muted);}
+  .dbg .row b{color:var(--ink);font-weight:500;font-variant-numeric:tabular-nums;}
+  .dbg .toggles{margin-top:10px;border-top:1px solid var(--line);padding-top:10px;display:flex;flex-direction:column;gap:7px;}
+  .dbg label.chk{display:flex;align-items:center;gap:8px;font-size:11px;color:var(--ink);cursor:pointer;}
+  .dbg input[type=checkbox]{accent-color:var(--brass);width:13px;height:13px;}
+</style>
+</head>
+<body>
+  <header>
+    <h1>Калейдоскоп</h1>
+    <p>зеркала · тяжесть · стекло</p>
+  </header>
+  <div class="hint">Тяните по кругу, чтобы вращать вручную</div>
+
+  <div class="stage"><div class="bezel" id="bezel">
+    <canvas id="scope"></canvas>
+    <canvas id="scopeGL"></canvas>
+  </div></div>
+
+  <div class="peek" id="peek">
+    <canvas id="peekCanvas"></canvas>
+    <span>камера</span>
+  </div>
+
+  <div class="dbg" id="dbg">
+    <h4>Отладка</h4>
+    <div class="row"><span>FPS</span><b id="d_fps">—</b></div>
+    <div class="row"><span>Рендерер</span><b id="d_rnd">2D</b></div>
+    <div class="row"><span>Тел</span><b id="d_bodies">—</b></div>
+    <div class="row"><span>Контактов</span><b id="d_contacts">—</b></div>
+    <div class="row"><span>Спящих</span><b id="d_sleep">—</b></div>
+    <div class="row"><span>Draw calls</span><b id="d_dc">—</b></div>
+    <div class="row"><span>Шагов/кадр</span><b id="d_steps">—</b></div>
+    <div class="toggles">
+      <label class="chk"><input type="checkbox" id="d_col"> коллайдеры</label>
+      <label class="chk"><input type="checkbox" id="d_con"> контакты + нормали</label>
+      <label class="chk"><input type="checkbox" id="d_vel"> скорости</label>
+    </div>
+  </div>
+
+  <div class="panel">
+    <div class="ctrl">
+      <label>Симметрия <b id="symVal">6</b></label>
+      <input type="range" id="sym" min="3" max="24" step="1" value="6">
+    </div>
+    <div class="ctrl">
+      <label>Вращение <b id="spdVal">0.30</b></label>
+      <input type="range" id="spd" min="-1.2" max="1.2" step="0.01" value="0.30">
+    </div>
+    <div class="ctrl">
+      <label>Тел <b id="cntVal">34</b></label>
+      <input type="range" id="cnt" min="8" max="60" step="1" value="34">
+    </div>
+    <div class="ctrl">
+      <label>Прозрачность <b id="alpVal">0.72</b></label>
+      <input type="range" id="alp" min="0.25" max="1" step="0.01" value="0.72">
+    </div>
+    <div class="ctrl">
+      <label>Преломление <b id="iorVal">1.50</b></label>
+      <input type="range" id="ior" min="1" max="2" step="0.01" value="1.5">
+    </div>
+    <div class="ctrl">
+      <label>Дисперсия <b id="dispVal">0.35</b></label>
+      <input type="range" id="disp" min="0" max="1" step="0.01" value="0.35">
+    </div>
+    <div class="ctrl">
+      <label>Свечение <b id="bloomVal">0.50</b></label>
+      <input type="range" id="bloom" min="0" max="1.5" step="0.01" value="0.5">
+    </div>
+    <div class="ctrl">
+      <label>Дисторсия <b id="barVal">0.15</b></label>
+      <input type="range" id="barrel" min="-0.3" max="0.4" step="0.01" value="0.15">
+    </div>
+    <div class="ctrl">
+      <label>Качество · AA <b id="qualVal">1.0</b></label>
+      <input type="range" id="qual" min="0.7" max="1.6" step="0.05" value="1.0">
+    </div>
+    <div class="ctrl">
+      <label>Громкость <b id="volVal">0.6</b></label>
+      <input type="range" id="vol" min="0" max="1" step="0.02" value="0.6">
+    </div>
+    <div class="vsep"></div>
+    <div class="btns">
+      <button id="shake">Встряхнуть</button>
+      <button id="palette">Палитра</button>
+      <button id="lightBtn" title="Освещение: день/ночь/свеча/витрина">День</button>
+      <button id="shapeBtn" title="Формы тел: смешанные/гладкие/правильные/неправильные/шершавые">Смешанные</button>
+      <button id="soundBtn" title="Звуковое окружение (генеративный эмбиент по физике)">Звук</button>
+      <button id="peekBtn" class="on">Камера</button>
+      <button id="rndBtn" title="Зеркала: Canvas 2D ↔ WebGL">2D</button>
+      <button id="glassBtn" class="on" title="Объёмное стекло (G-buffer, преломление фона)">Стекло</button>
+      <button id="opticsBtn" class="on" title="Пост-оптика: дисперсия, свечение, дисторсия линзы">Оптика</button>
+      <button id="modeBtn" title="Розетка (2 зеркала) ↔ бесконечная мозаика (3 зеркала)">Розетка</button>
+      <button id="triBtn" title="Треугольник мозаики (группа орнамента)">60·60·60</button>
+      <button id="dbgBtn">Отладка</button>
+    </div>
+    <div class="vsep"></div>
+    <div class="btns">
+      <select id="sceneSel" title="Готовые конфигурации (вид целиком)">
+        <option value="-1">✦ Пресеты…</option>
+      </select>
+      <button id="snapBtn" title="Снимок PNG высокого разрешения">Снимок</button>
+      <button id="recBtn" title="Запись WebM (один оборот; повторный клик — стоп)">Запись</button>
+      <button id="saveBtn" title="Сохранить пресет в файл .json">Сохранить</button>
+      <button id="loadBtn" title="Загрузить пресет из файла">Загрузить</button>
+      <button id="copyBtn" title="Скопировать пресет в буфер обмена">Копировать</button>
+      <input type="file" id="presetFile" accept="application/json,.json" style="display:none">
+    </div>
+  </div>
+
+<script>
+(() => {
+  "use strict";
+
+  /* =========================================================================
+   *  КАЛЕЙДОСКОП — Этап 2 (полигональная физика, направление C)
+   *  Новое относительно Этапа 1:
+   *    • выпуклые полигональные коллайдеры; вогнутые осколки -> ear-clipping
+   *      на треугольники (выпуклые части). Исходный контур хранится для отрисовки.
+   *    • масса/центроид/момент инерции из геометрии полигона
+   *    • broadphase: равномерная хеш-сетка
+   *    • narrowphase: SAT + клиппинг манифольдов (poly-poly), circle-circle, circle-poly
+   *    • стенка камеры: контакты вершин с ободом (нормаль внутрь)
+   *    • солвер последовательных импульсов: restitution + кулоновское трение,
+   *      позиционная коррекция (slop+percent)
+   *    • сон тел (когда труба покоится)
+   *  Каркас (Config/Scene/Renderer/PeekView/Debug/Input/UI/App) — со Этапа 1.
+   * ========================================================================= */
+
+  const TAU = Math.PI * 2;
+  const lerp  = (a, b, t) => a + (b - a) * t;
+  const clamp = (v, lo, hi) => v < lo ? lo : v > hi ? hi : v;
+
+  /* ----------------------------------------------------------------------
+   *  Config
+   * -------------------------------------------------------------------- */
+  const Config = {
+    symmetry:      6,
+    spin:          0.30,
+    bodyCount:     34,
+    paletteIndex:  0,
+    lighting:      0,          // индекс пресета освещения (см. Lightings)
+    shapeMode:     0,          // индекс семейства форм тел (см. Shapes)
+    renderer:      '2d',
+    mode:          'tiling',   // 'rosette' (2 зеркала) | 'tiling' (3 зеркала, бесконечная мозаика)
+    triangle:      0,          // индекс пресета треугольника (см. Triangles)
+    pan:           { x: 0, y: 0 },
+    zoom:          4.0,        // масштаб бесконечного поля (мира на пол-экрана)
+    showPeek:      true,
+    chamberRadius: 300,
+    glass: {
+      opacity: 0.72,         // прозрачность тел в Canvas-2D пути
+      on:      true,         // объёмное стекло (G-buffer) в GL; off -> плоский путь Этапа 3/4
+      ior:     1.5,          // показатель преломления (сила преломления фона)
+      absorb:  1.1,          // поглощение Бугера–Ламберта (углубление цвета с толщиной)
+      refr:    0.16,         // масштаб смещения UV при преломлении
+      dome:    0.9,          // крутизна купола (сила линзы)
+    },
+    optics: {
+      on:         true,      // пост-оптика Этапа 7 (дисперсия/блум/дисторсия)
+      dispersion: 0.55,      // сила спектрального расщепления (R/G/B — разный ior)
+      bloom:      0.85,      // сила свечения на бликах
+      barrel:     0.15,      // бочкообразная дисторсия линзы окуляра
+    },
+    quality: {
+      scale: 1.0,            // масштаб внутреннего рендера (>1 = суперсэмплинг/AA)
+      auto:  true,           // адаптивный подбор по кадровому времени
+      min:   0.7, max: 1.6,  // границы масштаба
+    },
+    sound: {
+      on:     false,         // звук стартует по жесту (кнопка «Звук») — политика автоплея
+      volume: 0.6,           // громкость мастера
+    },
+    physics: {
+      gravity:      900,
+      restitution:  0.20,    // совмещённый коэффициент восстановления
+      restThresh:   55,      // порог скорости для применения отскока (px/s)
+      frictionWall: 0.70,    // μ тело↔стенка трубы (выше — стенка увлекает тела вверх)
+      frictionBody: 0.30,    // μ тело↔тело (стекло о стекло — скользко, тела пересыпаются)
+      hz:           120,
+      linDamp:      0.999,
+      angDamp:      0.998,
+      density:      1.0,
+      velIters:     18,      // итерации солвера (выше -> устойчивее стопки, спокойнее покой)
+      posPercent:   0.40,    // доля коррекции проникновения за шаг
+      posSlop:      0.5,     // допустимое проникновение (px)
+      sleepLin:     12,      // порог линейной скорости сна (px/s)
+      sleepAng:     0.30,    // порог угловой скорости сна (rad/s)
+      sleepTime:    0.4,     // время покоя до засыпания (s)
+    },
+    debug: { show:false, colliders:false, contacts:false, velocities:false },
+  };
+
+  /* ----------------------------------------------------------------------
+   *  Палитры
+   * -------------------------------------------------------------------- */
+  /* ----------------------------------------------------------------------
+   *  Lightings — пресеты освещения. bg: [внутр, внешн] цвет фона камеры
+   *  (общий для всех тиров через drawChamber и подложку стекла). Прочие поля
+   *  управляют светом стекольного тира (POST_FS) и экспозицией (FINAL_FS).
+   *  «День» = текущий вид (без регрессии).
+   * -------------------------------------------------------------------- */
+  const Lightings = [
+    { name: 'День',    bg: ['#20242c', '#06070a'], dir: [-0.45, -0.5, 0.75], spec: 0.55, specPow: 42, rim: [0.92, 0.95, 1.0], rimInt: 0.30, tintMix: 0.40, exposure: 1.0 },
+    { name: 'Ночь',    bg: ['#0c1020', '#020308'], dir: [-0.3, -0.4, 0.85],  spec: 0.42, specPow: 64, rim: [0.55, 0.7, 1.0],  rimInt: 0.46, tintMix: 0.52, exposure: 0.86 },
+    { name: 'Свеча',   bg: ['#241a12', '#080503'], dir: [0.4, -0.3, 0.8],    spec: 0.62, specPow: 30, rim: [1.0, 0.82, 0.5],  rimInt: 0.42, tintMix: 0.34, exposure: 1.08 },
+    { name: 'Витрина', bg: ['#26262b', '#080809'], dir: [-0.5, -0.55, 0.7],  spec: 0.85, specPow: 82, rim: [1.0, 1.0, 1.0],   rimInt: 0.26, tintMix: 0.46, exposure: 1.04 },
+  ];
+
+  /* ----------------------------------------------------------------------
+   *  Shapes — семейства форм тел (силуэт + шероховатость материала).
+   * -------------------------------------------------------------------- */
+  const Shapes = [
+    { name: 'Смешанные'  },   // как раньше: круги/треуг./квадраты/мн-угольники/осколки
+    { name: 'Гладкие'    },   // круги и многоугольники с округлым силуэтом, низкая шероховатость
+    { name: 'Правильные' },   // правильные 3/4/5/6-угольники без дрожания
+    { name: 'Неправильн.'},   // асимметричные осколки/перекошенные многоугольники
+    { name: 'Шершавые'   },   // зубчатые многогранники, высокая шероховатость
+  ];
+
+  const Palettes = [
+    [[214,40,57],[247,148,30],[252,217,99],[46,160,107],[31,130,176],[107,72,158],[225,90,140]],
+    [[39,174,158],[18,118,140],[126,200,160],[80,160,200],[230,224,170],[60,90,120],[200,120,180]],
+    [[255,94,58],[255,159,67],[255,206,84],[219,84,97],[140,82,120],[90,60,110],[255,140,90]],
+    [[120,200,255],[160,160,255],[200,150,230],[120,230,210],[230,240,255],[90,130,220],[170,210,250]],
+  ];
+
+  /* ----------------------------------------------------------------------
+   *  ScenePresets — готовые согласованные конфигурации («вид целиком»).
+   *  Каждый — частичный Config, применяется через Presets.applyScene().
+   * -------------------------------------------------------------------- */
+  const ScenePresets = [
+    { name: 'Дневной витраж', cfg: {
+        mode:'tiling', renderer:'gl', triangle:0, symmetry:6, spin:0.25, bodyCount:44, zoom:4.0,
+        paletteIndex:0, lighting:0, shapeMode:2,
+        glass:{on:true, opacity:0.72, ior:1.5, refr:0.6, absorb:1.0, dome:1.0},
+        optics:{on:true, dispersion:0.55, bloom:0.85, barrel:0.15} } },
+    { name: 'Ночной неон', cfg: {
+        mode:'rosette', renderer:'gl', symmetry:8, spin:0.45, bodyCount:38,
+        paletteIndex:3, lighting:1, shapeMode:1,
+        glass:{on:true, opacity:0.66, ior:1.55, refr:0.7, absorb:1.2, dome:1.2},
+        optics:{on:true, dispersion:0.72, bloom:1.05, barrel:0.12} } },
+    { name: 'Свечная шкатулка', cfg: {
+        mode:'rosette', renderer:'gl', symmetry:6, spin:0.18, bodyCount:40,
+        paletteIndex:2, lighting:2, shapeMode:0,
+        glass:{on:true, opacity:0.74, ior:1.48, refr:0.55, absorb:0.9, dome:1.0},
+        optics:{on:true, dispersion:0.45, bloom:0.95, barrel:0.18} } },
+    { name: 'Морозные осколки', cfg: {
+        mode:'tiling', renderer:'gl', triangle:2, symmetry:6, spin:0.3, bodyCount:42, zoom:4.0,
+        paletteIndex:3, lighting:3, shapeMode:4,
+        glass:{on:true, opacity:0.7, ior:1.6, refr:0.65, absorb:1.0, dome:1.3},
+        optics:{on:true, dispersion:0.6, bloom:0.8, barrel:0.14} } },
+    { name: 'Самоцветная решётка', cfg: {
+        mode:'tiling', renderer:'gl', triangle:1, symmetry:4, spin:0.3, bodyCount:48, zoom:4.0,
+        paletteIndex:0, lighting:3, shapeMode:3,
+        glass:{on:true, opacity:0.72, ior:1.52, refr:0.62, absorb:1.0, dome:1.1},
+        optics:{on:true, dispersion:0.5, bloom:0.8, barrel:0.15} } },
+    { name: 'Тихий минимал', cfg: {
+        mode:'rosette', renderer:'gl', symmetry:5, spin:0.12, bodyCount:22,
+        paletteIndex:1, lighting:0, shapeMode:2,
+        glass:{on:true, opacity:0.78, ior:1.45, refr:0.5, absorb:0.7, dome:0.9},
+        optics:{on:true, dispersion:0.2, bloom:0.4, barrel:0.1} } },
+  ];
+
+  /* ----------------------------------------------------------------------
+   *  Triangles — пресеты калейдоскопических треугольников (углы π/p,π/q,π/r,
+   *  где 1/p+1/q+1/r=1 для евклидовых групп) и расчёт трёх зеркальных прямых.
+   *  Возвращает {n:[n1,n2,n3] (внешние единичные нормали), fit} —
+   *  все три прямые на расстоянии 1 от инцентра (вписанная окружность =1).
+   * -------------------------------------------------------------------- */
+  const Triangles = [
+    { name: '60·60·60', group: 'p6m', ang: [60, 60, 60] },
+    { name: '45·45·90', group: 'p4m', ang: [45, 45, 90] },
+    { name: '30·60·90', group: 'p6m', ang: [30, 60, 90] },
+    { name: '90·45·45', group: 'p4m', ang: [90, 45, 45] },
+    { name: '90·60·30', group: 'p6m', ang: [90, 60, 30] },
+  ];
+
+  function buildTriangle(degs){
+    const A = degs[0] * Math.PI / 180, B = degs[1] * Math.PI / 180, C = degs[2] * Math.PI / 180;
+    // длины сторон (закон синусов): a против A и т.д.
+    const a = Math.sin(A), b = Math.sin(B), c = Math.sin(C);
+    // B=(0,0), C=(a,0); A по длинам |AB|=c, |AC|=b
+    const Bx = 0, By = 0, Cx = a, Cy = 0;
+    const Ax = (c * c + a * a - b * b) / (2 * a);
+    const Ay = Math.sqrt(Math.max(0, c * c - Ax * Ax));
+    const peri = a + b + c;
+    const Ix = (a * Ax + b * Bx + c * Cx) / peri, Iy = (a * Ay + b * By + c * Cy) / peri;
+    const s = peri / 2, area = Math.sqrt(Math.max(1e-9, s * (s - a) * (s - b) * (s - c)));
+    const r = area / s;                          // радиус вписанной окружности
+    const tr = (px, py) => [(px - Ix) / r, (py - Iy) / r];   // инцентр в (0,0), r->1
+    const a2 = tr(Ax, Ay), b2 = tr(Bx, By), c2 = tr(Cx, Cy);
+    const edgeN = (p, q) => {                    // внешняя единичная нормаль ребра p-q
+      let nx = -(q[1] - p[1]), ny = (q[0] - p[0]);
+      const l = Math.hypot(nx, ny) || 1; nx /= l; ny /= l;
+      if(nx * p[0] + ny * p[1] < 0){ nx = -nx; ny = -ny; }   // наружу от инцентра
+      return [nx, ny];
+    };
+    const n1 = edgeN(b2, c2), n2 = edgeN(c2, a2), n3 = edgeN(a2, b2);
+    const Rc = Math.max(Math.hypot(a2[0], a2[1]), Math.hypot(b2[0], b2[1]), Math.hypot(c2[0], c2[1]));
+    // дальняя вершина (дотягивается до обода камеры): на неё «сажаем» кучу тел
+    const vs = [a2, b2, c2];
+    let far = vs[0]; for(const v of vs) if(Math.hypot(v[0], v[1]) > Math.hypot(far[0], far[1])) far = v;
+    const anchor = Math.PI / 2 - Math.atan2(far[1], far[0]);   // выборка: rot(anchor - theta)
+    return { n: [n1, n2, n3], fit: 1 / Rc, verts: vs, anchor };  // fit: описанная окружность -> диск камеры
+  }
+
+  /* ----------------------------------------------------------------------
+   *  Geom — геометрические утилиты: масса полигона, ориентация,
+   *         проверка выпуклости, триангуляция (ear clipping)
+   * -------------------------------------------------------------------- */
+  const Geom = {
+    signedArea(v){
+      let a = 0;
+      for(let i = 0; i < v.length; i++){
+        const p = v[i], q = v[(i + 1) % v.length];
+        a += p[0] * q[1] - q[0] * p[1];
+      }
+      return a * 0.5;
+    },
+    ensureCCW(v){ return this.signedArea(v) < 0 ? v.slice().reverse() : v; },
+
+    // масса/центроид/момент инерции (о центроиде) простого полигона
+    massData(v, density){
+      let area = 0, cx = 0, cy = 0, I = 0;
+      const n = v.length;
+      for(let i = 0; i < n; i++){
+        const p0 = v[i], p1 = v[(i + 1) % n];
+        const cross = p0[0] * p1[1] - p1[0] * p0[1];
+        area += cross;
+        cx += (p0[0] + p1[0]) * cross;
+        cy += (p0[1] + p1[1]) * cross;
+        const ix = p0[0] * p0[0] + p0[0] * p1[0] + p1[0] * p1[0];
+        const iy = p0[1] * p0[1] + p0[1] * p1[1] + p1[1] * p1[1];
+        I += cross * (ix + iy);
+      }
+      area *= 0.5;
+      cx /= (6 * area); cy /= (6 * area);
+      const mass = density * area;
+      let inertia = density * I / 12;
+      inertia -= mass * (cx * cx + cy * cy);   // параллельный перенос к центроиду
+      return { mass, cx, cy, inertia: Math.abs(inertia) };
+    },
+
+    isConvex(v){
+      const n = v.length; let sign = 0;
+      for(let i = 0; i < n; i++){
+        const a = v[i], b = v[(i + 1) % n], c = v[(i + 2) % n];
+        const cr = (b[0] - a[0]) * (c[1] - b[1]) - (b[1] - a[1]) * (c[0] - b[0]);
+        if(Math.abs(cr) > 1e-9){ const s = cr > 0 ? 1 : -1; if(sign === 0) sign = s; else if(s !== sign) return false; }
+      }
+      return true;
+    },
+
+    _sign(p, a, b){ return (p[0] - b[0]) * (a[1] - b[1]) - (a[0] - b[0]) * (p[1] - b[1]); },
+    _inTri(p, a, b, c){
+      const d1 = this._sign(p, a, b), d2 = this._sign(p, b, c), d3 = this._sign(p, c, a);
+      const neg = d1 < 0 || d2 < 0 || d3 < 0;
+      const pos = d1 > 0 || d2 > 0 || d3 > 0;
+      return !(neg && pos);
+    },
+
+    // ear clipping для простого CCW-полигона -> массив треугольников
+    triangulate(poly){
+      const idx = poly.map((_, i) => i);
+      const tris = [];
+      let guard = 0;
+      while(idx.length > 3 && guard++ < 2000){
+        let ear = false;
+        for(let i = 0; i < idx.length; i++){
+          const i0 = idx[(i - 1 + idx.length) % idx.length], i1 = idx[i], i2 = idx[(i + 1) % idx.length];
+          const a = poly[i0], b = poly[i1], c = poly[i2];
+          const cross = (b[0] - a[0]) * (c[1] - a[1]) - (b[1] - a[1]) * (c[0] - a[0]);
+          if(cross <= 0) continue;                       // рефлексная вершина
+          let ok = true;
+          for(const j of idx){
+            if(j === i0 || j === i1 || j === i2) continue;
+            if(this._inTri(poly[j], a, b, c)){ ok = false; break; }
+          }
+          if(!ok) continue;
+          tris.push([a, b, c]);
+          idx.splice(i, 1);
+          ear = true; break;
+        }
+        if(!ear) break;
+      }
+      if(idx.length === 3) tris.push([poly[idx[0]], poly[idx[1]], poly[idx[2]]]);
+      return tris;
+    },
+  };
+
+  /* ----------------------------------------------------------------------
+   *  Scene — данные сцены + фабрика тел
+   *
+   *  Body (расширена со Этапа 1; поля только добавлены):
+   *    colliders : [{type:'poly', local:[[x,y]...], wv, wn} | {type:'circle', r}]
+   *    sleepTimer: накопитель времени покоя
+   *  Геометрия коллайдеров — в системе центроида (centroid at origin).
+   * -------------------------------------------------------------------- */
+  const Scene = {
+    bodies: [],
+    _idSeq: 0,
+    generation: 0,
+
+    _unitRegular(sides, jitter = 0){
+      const v = [];
+      for(let i = 0; i < sides; i++){
+        const a = (i / sides) * TAU - Math.PI / 2;
+        const rr = 1 + (Math.random() * 2 - 1) * jitter;
+        v.push([Math.cos(a) * rr, Math.sin(a) * rr]);
+      }
+      return v;
+    },
+    _unitShard(){
+      const n = 5 + (Math.random() * 3 | 0);
+      const v = [];
+      for(let i = 0; i < n; i++){
+        const a = (i / n) * TAU;
+        const rr = 0.55 + Math.random() * 0.9;
+        v.push([Math.cos(a) * rr, Math.sin(a) * rr]);
+      }
+      return v;
+    },
+    _highlight(c){ return [Math.min(255, c[0] + 70), Math.min(255, c[1] + 70), Math.min(255, c[2] + 70)]; },
+    _pickColor(){ const pal = Palettes[Config.paletteIndex]; return pal[(Math.random() * pal.length) | 0]; },
+
+    makeBody(){
+      const RC = Config.chamberRadius;
+      const D = Config.physics.density;
+      const col = this._pickColor();
+
+      let r, shape = 'poly', unit = null, rough = 0.3;
+      const mode = Config.shapeMode | 0;
+      if(mode === 1){              // Гладкие: круги и округлые многоугольники
+        rough = 0.08;
+        if(Math.random() < 0.55){ shape = 'circle'; r = 16 + Math.random() * 26; }
+        else { unit = this._unitRegular(10 + (Math.random() * 4 | 0), 0.015); r = 18 + Math.random() * 22; }
+      } else if(mode === 2){       // Правильные: правильные 3/4/5/6-угольники
+        rough = 0.22;
+        unit = this._unitRegular(3 + (Math.random() * 4 | 0), 0.0); r = 18 + Math.random() * 24;
+      } else if(mode === 3){       // Неправильные: асимметричные
+        rough = 0.42;
+        if(Math.random() < 0.5){ unit = this._unitShard(); }
+        else { unit = this._unitRegular(4 + (Math.random() * 4 | 0), 0.22); }
+        r = 18 + Math.random() * 26;
+      } else if(mode === 4){       // Шершавые: зубчатые многогранники
+        rough = 0.8;
+        unit = this._unitRegular(8 + (Math.random() * 5 | 0), 0.34); r = 18 + Math.random() * 24;
+      } else {                     // Смешанные (как раньше)
+        const kind = Math.random();
+        if(kind < 0.34)      { shape = 'circle'; r = 14 + Math.random() * 26; }
+        else if(kind < 0.55) { unit = this._unitRegular(3, 0.04);                          r = 18 + Math.random() * 26; }
+        else if(kind < 0.72) { unit = this._unitRegular(4, 0.04);                          r = 16 + Math.random() * 24; }
+        else if(kind < 0.85) { unit = this._unitRegular(5 + (Math.random() * 2 | 0), 0.06); r = 18 + Math.random() * 22; }
+        else                 { unit = this._unitShard();                                    r = 18 + Math.random() * 26; }
+      }
+
+      let verts = null, colliders, m, I, boundR;
+
+      if(shape === 'circle'){
+        m = D * Math.PI * r * r;
+        I = 0.5 * m * r * r;
+        colliders = [{ type:'circle', r }];
+        boundR = r;
+      } else {
+        // контур в пикселях, ориентация CCW
+        let contour = Geom.ensureCCW(unit.map(([x, y]) => [x * r, y * r]));
+        const md = Geom.massData(contour, D);
+        // рецентровка к центроиду
+        contour = contour.map(([x, y]) => [x - md.cx, y - md.cy]);
+        verts = contour;
+        m = md.mass; I = md.inertia;
+        boundR = 0; for(const p of contour) boundR = Math.max(boundR, Math.hypot(p[0], p[1]));
+
+        // выпуклая декомпозиция: выпуклый -> один коллайдер, иначе треугольники
+        if(Geom.isConvex(contour)){
+          colliders = [{ type:'poly', local: contour }];
+        } else {
+          const tris = Geom.triangulate(contour);
+          if(tris.length){
+            colliders = tris.map(t => ({ type:'poly', local: t.map(p => [p[0], p[1]]) }));
+          } else {
+            // вырожденный случай: запасной круговой коллайдер
+            colliders = [{ type:'circle', r: boundR }];
+          }
+        }
+      }
+
+      const ang = Math.random() * TAU;
+      const rad = Math.random() * Math.max(0, RC - boundR - 6);
+      const x = Math.cos(ang) * rad, y = Math.sin(ang) * rad;
+      const a = Math.random() * TAU;
+
+      const body = {
+        id: this._idSeq++,
+        pos:  { x, y }, prev: { x, y },
+        vel:  { x: (Math.random() * 2 - 1) * 40, y: (Math.random() * 2 - 1) * 40 },
+        a, prevA: a, w: (Math.random() * 2 - 1) * 1.5,
+        m, invM: m > 0 ? 1 / m : 0, I, invI: I > 0 ? 1 / I : 0,
+        r: boundR, shape, verts, colliders,
+        mat: { baseColor: col, tint: col.slice(), ior: 1.5,
+               thickness: 0.55 + Math.random() * 0.45, absorb: 1.0, roughness: rough, opacity: 1.0 },
+        hi: this._highlight(col),
+        sleeping: false, sleepTimer: 0, touching: false,
+      };
+      body.dome = this._domeMesh(colliders, shape === 'circle' ? r : 0);  // меш-линза для GL
+      return body;
+    },
+
+    // Меш-купол для G-buffer: веер из центроида каждой выпуклой части.
+    // На вершину: [lx, ly, edge(1 в центре,0 на кромке), gnx, gny (внутр. нормаль ребра)].
+    _domeMesh(colliders, circleR){
+      const out = [];
+      const pushTri = (cx, cy, p, q) => {
+        // внутренняя нормаль ребра p->q (к центроиду)
+        let nx = -(q[1] - p[1]), ny = (q[0] - p[0]);
+        const mx = (p[0] + q[0]) * 0.5, my = (p[1] + q[1]) * 0.5;
+        if(nx * (cx - mx) + ny * (cy - my) < 0){ nx = -nx; ny = -ny; }
+        const l = Math.hypot(nx, ny) || 1; nx /= l; ny /= l;
+        out.push(cx, cy, 1, nx, ny,  p[0], p[1], 0, nx, ny,  q[0], q[1], 0, nx, ny);
+      };
+      if(circleR > 0){
+        const seg = 24;
+        for(let i = 0; i < seg; i++){
+          const a0 = (i / seg) * TAU, a1 = ((i + 1) / seg) * TAU;
+          pushTri(0, 0, [Math.cos(a0) * circleR, Math.sin(a0) * circleR],
+                        [Math.cos(a1) * circleR, Math.sin(a1) * circleR]);
+        }
+      } else {
+        for(const col of colliders){
+          if(col.type !== 'poly') continue;
+          const L = col.local, n = L.length;
+          let cx = 0, cy = 0; for(const v of L){ cx += v[0]; cy += v[1]; } cx /= n; cy /= n;
+          for(let i = 0; i < n; i++) pushTri(cx, cy, L[i], L[(i + 1) % n]);
+        }
+      }
+      return new Float32Array(out);
+    },
+
+    build(n){ Config.bodyCount = n; this.bodies = []; for(let i = 0; i < n; i++) this.bodies.push(this.makeBody()); this.generation++; },
+    recolor(){ for(const b of this.bodies){ const c = this._pickColor(); b.mat.baseColor = c; b.mat.tint = c.slice(); b.hi = this._highlight(c); } },
+    shake(){
+      for(const b of this.bodies){
+        const a = Math.random() * TAU, p = 420 + Math.random() * 420;
+        b.vel.x += Math.cos(a) * p; b.vel.y += Math.sin(a) * p; b.w += (Math.random() * 2 - 1) * 6;
+        b.sleeping = false; b.sleepTimer = 0;
+      }
+    },
+  };
+
+  /* ----------------------------------------------------------------------
+   *  Collision — narrowphase примитивы (возвращают {nx,ny,contacts:[{x,y,pen}]} | null)
+   *  Нормаль всегда направлена от тела A к телу B.
+   * -------------------------------------------------------------------- */
+  const Collision = {
+    circleCircle(ax, ay, ar, bx, by, br){
+      const dx = bx - ax, dy = by - ay, d = Math.hypot(dx, dy);
+      const rs = ar + br;
+      if(d >= rs) return null;
+      let nx, ny;
+      if(d > 1e-6){ nx = dx / d; ny = dy / d; } else { nx = 0; ny = 1; }
+      const pen = rs - d;
+      const px = ax + nx * (ar - pen * 0.5), py = ay + ny * (ar - pen * 0.5);
+      return { nx, ny, contacts: [{ x: px, y: py, pen }] };
+    },
+
+    // poly (мировые wv/wn) против круга (cx,cy,cr). Нормаль poly->circle.
+    polyCircle(poly, cx, cy, cr){
+      const V = poly.wv, N = poly.wn, n = V.length;
+      let sep = -Infinity, idx = 0;
+      for(let i = 0; i < n; i++){
+        const s = N[i][0] * (cx - V[i][0]) + N[i][1] * (cy - V[i][1]);
+        if(s > sep){ sep = s; idx = i; }
+      }
+      if(sep > cr) return null;
+      const v1 = V[idx], v2 = V[(idx + 1) % n];
+      if(sep < 1e-6){
+        const nx = N[idx][0], ny = N[idx][1];
+        return { nx, ny, contacts: [{ x: cx - nx * cr, y: cy - ny * cr, pen: cr - sep }] };
+      }
+      const u1 = (cx - v1[0]) * (v2[0] - v1[0]) + (cy - v1[1]) * (v2[1] - v1[1]);
+      const u2 = (cx - v2[0]) * (v1[0] - v2[0]) + (cy - v2[1]) * (v1[1] - v2[1]);
+      let nx, ny, px, py, pen;
+      if(u1 <= 0){
+        const dx = cx - v1[0], dy = cy - v1[1], d = Math.hypot(dx, dy);
+        if(d > cr) return null;
+        nx = dx / d; ny = dy / d; px = v1[0]; py = v1[1]; pen = cr - d;
+      } else if(u2 <= 0){
+        const dx = cx - v2[0], dy = cy - v2[1], d = Math.hypot(dx, dy);
+        if(d > cr) return null;
+        nx = dx / d; ny = dy / d; px = v2[0]; py = v2[1]; pen = cr - d;
+      } else {
+        nx = N[idx][0]; ny = N[idx][1]; px = cx - nx * cr; py = cy - ny * cr; pen = cr - sep;
+      }
+      return { nx, ny, contacts: [{ x: px, y: py, pen }] };
+    },
+
+    _maxSep(A, B){
+      let best = -Infinity, idx = 0;
+      const AV = A.wv, AN = A.wn, BV = B.wv;
+      for(let i = 0; i < AV.length; i++){
+        const nx = AN[i][0], ny = AN[i][1], vx = AV[i][0], vy = AV[i][1];
+        let min = Infinity, sx = 0, sy = 0;
+        for(let k = 0; k < BV.length; k++){
+          const d = nx * BV[k][0] + ny * BV[k][1];
+          if(d < min){ min = d; sx = BV[k][0]; sy = BV[k][1]; }
+        }
+        const sep = (nx * sx + ny * sy) - (nx * vx + ny * vy);
+        if(sep > best){ best = sep; idx = i; }
+      }
+      return { sep: best, idx };
+    },
+    _incident(inc, refNx, refNy){
+      let min = Infinity, idx = 0;
+      for(let i = 0; i < inc.wn.length; i++){
+        const d = inc.wn[i][0] * refNx + inc.wn[i][1] * refNy;
+        if(d < min){ min = d; idx = i; }
+      }
+      return idx;
+    },
+    _clip(v, nx, ny, o){
+      const out = [];
+      const d0 = nx * v[0][0] + ny * v[0][1] - o;
+      const d1 = nx * v[1][0] + ny * v[1][1] - o;
+      if(d0 <= 0) out.push(v[0]);
+      if(d1 <= 0) out.push(v[1]);
+      if(d0 * d1 < 0){
+        const t = d0 / (d0 - d1);
+        out.push([ v[0][0] + t * (v[1][0] - v[0][0]), v[0][1] + t * (v[1][1] - v[0][1]) ]);
+      }
+      return out;
+    },
+
+    // SAT + клиппинг. Нормаль A->B.
+    polyPoly(A, B){
+      const sa = this._maxSep(A, B); if(sa.sep > 0) return null;
+      const sb = this._maxSep(B, A); if(sb.sep > 0) return null;
+
+      let ref, inc, refIdx, flip;
+      if(sb.sep > sa.sep + 0.1){ ref = B; inc = A; refIdx = sb.idx; flip = true; }
+      else                     { ref = A; inc = B; refIdx = sa.idx; flip = false; }
+
+      const RV = ref.wv, cnt = RV.length;
+      const rv1 = RV[refIdx], rv2 = RV[(refIdx + 1) % cnt];
+      const refN = ref.wn[refIdx];
+
+      const incIdx = this._incident(inc, refN[0], refN[1]);
+      const iv1 = inc.wv[incIdx], iv2 = inc.wv[(incIdx + 1) % inc.wv.length];
+
+      let dx = rv2[0] - rv1[0], dy = rv2[1] - rv1[1];
+      const len = Math.hypot(dx, dy) || 1; dx /= len; dy /= len;
+
+      let cp = [iv1, iv2];
+      cp = this._clip(cp, -dx, -dy, -(dx * rv1[0] + dy * rv1[1])); if(cp.length < 2) return null;
+      cp = this._clip(cp,  dx,  dy,  (dx * rv2[0] + dy * rv2[1])); if(cp.length < 2) return null;
+
+      const refC = refN[0] * rv1[0] + refN[1] * rv1[1];
+      const contacts = [];
+      for(const p of cp){
+        const sep = refN[0] * p[0] + refN[1] * p[1] - refC;
+        if(sep <= 0) contacts.push({ x: p[0], y: p[1], pen: -sep });
+      }
+      if(!contacts.length) return null;
+
+      let nx = refN[0], ny = refN[1];
+      if(flip){ nx = -nx; ny = -ny; }   // refN наружу от ref; приводим к A->B
+      return { nx, ny, contacts };
+    },
+  };
+
+  /* ----------------------------------------------------------------------
+   *  ChamberSim — твердотельная физика с фиксированным шагом
+   * -------------------------------------------------------------------- */
+  const STATIC = { pos:{ x:0, y:0 }, vel:{ x:0, y:0 }, w:0, invM:0, invI:0 };
+
+  const ChamberSim = {
+    theta: 0, prevTheta: 0,
+    dragging: false,
+    acc: 0,
+    lastSteps: 0, lastContacts: 0, lastSleeping: 0,
+    debugContacts: [],
+    _grid: new Map(),
+    _hits: [],                 // очередь событий удара для аудио {v,col,r,wall,x}
+    _hitSet: new Set(),        // дедуп: одно событие на тело за кадр
+
+    applyDrag(d){ this.theta += d; this.prevTheta += d; },
+
+    update(dt){
+      const h = 1 / Config.physics.hz;
+      this._hitSet.clear();
+      this.acc += clamp(dt, 0, 0.1);
+      let steps = 0;
+      while(this.acc >= h){
+        this.step(h); this.acc -= h;
+        if(++steps > 8){ this.acc = 0; break; }
+      }
+      this.lastSteps = steps;
+      return this.acc / h;
+    },
+
+    // мировая геометрия коллайдеров (переиспользуем массивы, минимум GC)
+    _computeWorld(b){
+      const c = Math.cos(b.a), s = Math.sin(b.a), px = b.pos.x, py = b.pos.y;
+      for(const col of b.colliders){
+        if(col.type !== 'poly') continue;
+        const L = col.local, n = L.length;
+        let wv = col.wv, wn = col.wn;
+        if(!wv){ wv = col.wv = []; wn = col.wn = []; }
+        for(let i = 0; i < n; i++){
+          const lx = L[i][0], ly = L[i][1];
+          let w = wv[i]; if(!w){ w = wv[i] = [0, 0]; }
+          w[0] = px + c * lx - s * ly;
+          w[1] = py + s * lx + c * ly;
+        }
+        for(let i = 0; i < n; i++){
+          const a = wv[i], q = wv[(i + 1) % n];
+          let ex = q[0] - a[0], ey = q[1] - a[1];
+          const ln = Math.hypot(ex, ey) || 1;
+          let nm = wn[i]; if(!nm){ nm = wn[i] = [0, 0]; }
+          nm[0] = ey / ln; nm[1] = -ex / ln;   // наружу для CCW
+        }
+      }
+    },
+
+    // равномерная хеш-сетка -> кандидатные пары индексов тел
+    _broadphase(bodies){
+      const grid = this._grid; grid.clear();
+      const cell = 80;
+      const pairs = [];
+      const seen = new Set();
+      for(let i = 0; i < bodies.length; i++){
+        const b = bodies[i];
+        const x0 = Math.floor((b.pos.x - b.r) / cell), x1 = Math.floor((b.pos.x + b.r) / cell);
+        const y0 = Math.floor((b.pos.y - b.r) / cell), y1 = Math.floor((b.pos.y + b.r) / cell);
+        for(let gx = x0; gx <= x1; gx++) for(let gy = y0; gy <= y1; gy++){
+          const key = gx * 73856093 ^ gy * 19349663;
+          let arr = grid.get(key);
+          if(!arr){ arr = []; grid.set(key, arr); }
+          for(const j of arr){
+            const lo = j < i ? j : i, hi = j < i ? i : j;
+            const pk = lo * 100000 + hi;
+            if(!seen.has(pk)){ seen.add(pk); pairs.push(lo, hi); }
+          }
+          arr.push(i);
+        }
+      }
+      return pairs;
+    },
+
+    step(h){
+      const P = Config.physics;
+      const bodies = Scene.bodies;
+      const RC = Config.chamberRadius;
+      const debug = Config.debug.show;
+
+      // сон разрешён только при покоящейся трубе
+      const sleepEnabled = !this.dragging && Math.abs(Config.spin) < 0.02;
+
+      // 1) prev-состояние и сброс флагов
+      this.prevTheta = this.theta;
+      for(const b of bodies){
+        b.prev.x = b.pos.x; b.prev.y = b.pos.y; b.prevA = b.a; b.touching = false;
+        if(!sleepEnabled){ b.sleeping = false; b.sleepTimer = 0; }
+      }
+
+      // 2) вращение объектной камеры (барабана): угловая скорость стенки ω
+      const wOmega = Config.spin;          // рад/с — стенка трением тащит тела (реальный механизм)
+      this.theta += wOmega * h;            // накопленный угол барабана (для записи «оборота»)
+
+      // 3) гравитация — постоянная, направлена вниз (Земля); не вращается
+      const gx = 0, gy = P.gravity;
+
+      // 4) интеграция (бодрствующие тела)
+      for(const b of bodies){
+        if(b.sleeping) continue;
+        b.vel.x += gx * h; b.vel.y += gy * h;
+        b.vel.x *= P.linDamp; b.vel.y *= P.linDamp; b.w *= P.angDamp;
+        b.pos.x += b.vel.x * h; b.pos.y += b.vel.y * h; b.a += b.w * h;
+      }
+
+      // 5) мировая геометрия
+      for(const b of bodies) this._computeWorld(b);
+
+      // 6) сбор контактов
+      const contacts = [];
+
+      // 6a) стенка камеры (обод) — для бодрствующих
+      for(const b of bodies){
+        if(b.sleeping) continue;
+        for(const col of b.colliders){
+          if(col.type === 'circle'){
+            const d = Math.hypot(b.pos.x, b.pos.y);
+            if(d + col.r > RC && d > 1e-6){
+              const rx = b.pos.x / d, ry = b.pos.y / d;
+              const cx = b.pos.x + rx * col.r, cy = b.pos.y + ry * col.r;
+              contacts.push({ A: STATIC, B: b, nx: -rx, ny: -ry,
+                px: cx, py: cy, pen: d + col.r - RC, jn: 0, jt: 0,
+                wvx: -wOmega * cy, wvy: wOmega * cx });   // касательная скорость стенки
+              b.touching = true;
+            }
+          } else {
+            // до 2 самых глубоких вершин за ободом
+            let d1 = null, d2 = null;
+            for(const v of col.wv){
+              const d = Math.hypot(v[0], v[1]);
+              if(d > RC){
+                const c = { x: v[0], y: v[1], over: d - RC, dist: d };
+                if(!d1 || c.over > d1.over){ d2 = d1; d1 = c; }
+                else if(!d2 || c.over > d2.over){ d2 = c; }
+              }
+            }
+            for(const c of [d1, d2]){
+              if(!c) continue;
+              const rx = c.x / c.dist, ry = c.y / c.dist;
+              contacts.push({ A: STATIC, B: b, nx: -rx, ny: -ry, px: c.x, py: c.y, pen: c.over, jn: 0, jt: 0,
+                wvx: -wOmega * c.y, wvy: wOmega * c.x });   // касательная скорость стенки
+              b.touching = true;
+            }
+          }
+        }
+      }
+
+      // 6b) тело-тело
+      const pairs = this._broadphase(bodies);
+      for(let p = 0; p < pairs.length; p += 2){
+        const A = bodies[pairs[p]], B = bodies[pairs[p + 1]];
+        if(A.sleeping && B.sleeping) continue;
+        let hit = false;
+        for(const ca of A.colliders){
+          for(const cb of B.colliders){
+            let m = null, swap = false;
+            if(ca.type === 'circle' && cb.type === 'circle'){
+              m = Collision.circleCircle(A.pos.x, A.pos.y, ca.r, B.pos.x, B.pos.y, cb.r);
+            } else if(ca.type === 'poly' && cb.type === 'circle'){
+              m = Collision.polyCircle(ca, B.pos.x, B.pos.y, cb.r);
+            } else if(ca.type === 'circle' && cb.type === 'poly'){
+              m = Collision.polyCircle(cb, A.pos.x, A.pos.y, ca.r); swap = true;
+            } else {
+              m = Collision.polyPoly(ca, cb);
+            }
+            if(!m) continue;
+            hit = true;
+            let nx = m.nx, ny = m.ny;
+            if(swap){ nx = -nx; ny = -ny; }   // polyCircle вернул B->A, инвертируем к A->B
+            for(const c of m.contacts){
+              contacts.push({ A, B, nx, ny, px: c.x, py: c.y, pen: c.pen, jn: 0, jt: 0 });
+            }
+          }
+        }
+        if(hit){
+          A.touching = B.touching = true;
+          const sl2 = P.sleepLin * P.sleepLin;
+          const aMoving = (A.vel.x * A.vel.x + A.vel.y * A.vel.y) > sl2 || Math.abs(A.w) > P.sleepAng;
+          const bMoving = (B.vel.x * B.vel.x + B.vel.y * B.vel.y) > sl2 || Math.abs(B.w) > P.sleepAng;
+          if(A.sleeping && !B.sleeping && bMoving){ A.sleeping = false; A.sleepTimer = 0; }
+          if(B.sleeping && !A.sleeping && aMoving){ B.sleeping = false; B.sleepTimer = 0; }
+        }
+      }
+
+      // 7) предрасчёт: начальная нормальная скорость -> отскок
+      const e = P.restitution, rt = P.restThresh;
+      for(const c of contacts){
+        const A = c.A, B = c.B;
+        const rax = c.px - A.pos.x, ray = c.py - A.pos.y;
+        const rbx = c.px - B.pos.x, rby = c.py - B.pos.y;
+        const vax = A.vel.x - A.w * ray, vay = A.vel.y + A.w * rax;
+        const vbx = B.vel.x - B.w * rby, vby = B.vel.y + B.w * rbx;
+        const vn = (vbx - vax) * c.nx + (vby - vay) * c.ny;
+        c.restBias = vn < -rt ? -e * vn : 0;
+        c.mu = (A === STATIC) ? P.frictionWall : P.frictionBody;   // стенка vs тело-тело
+        if(Config.sound.on && vn < -90 && this._hits.length < 24){  // настоящий удар (сближение)
+          const id = B.id;
+          if(!this._hitSet.has(id)){
+            this._hitSet.add(id);
+            this._hits.push({ v: -vn, col: B.mat.baseColor, r: B.r, wall: (A === STATIC), x: c.px });
+          }
+        }
+      }
+
+      // 8) солвер скорости (последовательные импульсы)
+      for(let it = 0; it < P.velIters; it++){
+        for(const c of contacts){
+          const A = c.A, B = c.B;
+          const imA = A.sleeping ? 0 : A.invM, iiA = A.sleeping ? 0 : A.invI;
+          const imB = B.sleeping ? 0 : B.invM, iiB = B.sleeping ? 0 : B.invI;
+          const rax = c.px - A.pos.x, ray = c.py - A.pos.y;
+          const rbx = c.px - B.pos.x, rby = c.py - B.pos.y;
+
+          // --- нормальный импульс ---
+          let vax = A.vel.x - A.w * ray, vay = A.vel.y + A.w * rax;
+          let vbx = B.vel.x - B.w * rby, vby = B.vel.y + B.w * rbx;
+          let rvx = vbx - vax, rvy = vby - vay;
+          const vn = rvx * c.nx + rvy * c.ny;
+          const rnA = rax * c.ny - ray * c.nx, rnB = rbx * c.ny - rby * c.nx;
+          const kn = imA + imB + iiA * rnA * rnA + iiB * rnB * rnB;
+          if(kn <= 0) continue;
+          let dPn = (c.restBias - vn) / kn;
+          const oldN = c.jn; c.jn = Math.max(oldN + dPn, 0); dPn = c.jn - oldN;
+          let Px = dPn * c.nx, Py = dPn * c.ny;
+          A.vel.x -= Px * imA; A.vel.y -= Py * imA; A.w -= iiA * (rax * Py - ray * Px);
+          B.vel.x += Px * imB; B.vel.y += Py * imB; B.w += iiB * (rbx * Py - rby * Px);
+
+          // --- трение (относительно движущейся поверхности стенки, если задана) ---
+          vax = A.vel.x - A.w * ray; vay = A.vel.y + A.w * rax;
+          vbx = B.vel.x - B.w * rby; vby = B.vel.y + B.w * rbx;
+          rvx = vbx - vax - (c.wvx || 0); rvy = vby - vay - (c.wvy || 0);
+          const tx = -c.ny, ty = c.nx;
+          const vt = rvx * tx + rvy * ty;
+          const rtA = rax * ty - ray * tx, rtB = rbx * ty - rby * tx;
+          const kt = imA + imB + iiA * rtA * rtA + iiB * rtB * rtB;
+          if(kt <= 0) continue;
+          let dPt = -vt / kt;
+          const maxF = c.mu * c.jn;
+          const oldT = c.jt; c.jt = clamp(oldT + dPt, -maxF, maxF); dPt = c.jt - oldT;
+          const Ptx = dPt * tx, Pty = dPt * ty;
+          A.vel.x -= Ptx * imA; A.vel.y -= Pty * imA; A.w -= iiA * (rax * Pty - ray * Ptx);
+          B.vel.x += Ptx * imB; B.vel.y += Pty * imB; B.w += iiB * (rbx * Pty - rby * Ptx);
+        }
+      }
+
+      // 9) позиционная коррекция (линейная, slop + percent)
+      for(const c of contacts){
+        const imA = c.A.sleeping ? 0 : c.A.invM, imB = c.B.sleeping ? 0 : c.B.invM;
+        const im = imA + imB;
+        if(im <= 0) continue;
+        const corr = Math.max(c.pen - P.posSlop, 0) / im * P.posPercent;
+        c.A.pos.x -= c.nx * corr * imA; c.A.pos.y -= c.ny * corr * imA;
+        c.B.pos.x += c.nx * corr * imB; c.B.pos.y += c.ny * corr * imB;
+      }
+
+      // 10) сон
+      let sleeping = 0;
+      if(sleepEnabled){
+        const lin2 = P.sleepLin * P.sleepLin;
+        for(const b of bodies){
+          if(b.sleeping){ sleeping++; continue; }
+          const v2 = b.vel.x * b.vel.x + b.vel.y * b.vel.y;
+          if(v2 < lin2 && Math.abs(b.w) < P.sleepAng){
+            b.sleepTimer += h;
+            if(b.sleepTimer > P.sleepTime){ b.sleeping = true; b.vel.x = b.vel.y = b.w = 0; sleeping++; }
+          } else b.sleepTimer = Math.max(0, b.sleepTimer - h);
+        }
+      }
+      this.lastSleeping = sleeping;
+
+      // 11) данные для отладки
+      this.lastContacts = contacts.length;
+      if(debug && Config.debug.contacts){
+        this.debugContacts = contacts.map(c => ({ x: c.px, y: c.py, nx: c.nx, ny: c.ny }));
+      } else this.debugContacts = [];
+    },
+  };
+
+  /* ----------------------------------------------------------------------
+   *  drawChamber — отрисовка нерефлектированной камеры (исходные контуры)
+   * -------------------------------------------------------------------- */
+  function drawChamber(ctx, alpha){
+    const RC = Config.chamberRadius;
+    const op = Config.glass.opacity;
+
+    const bg = ctx.createRadialGradient(0, -RC * 0.3, 10, 0, 0, RC * 1.1);
+    const L = Lightings[Config.lighting] || Lightings[0];
+    bg.addColorStop(0, L.bg[0]); bg.addColorStop(1, L.bg[1]);
+    ctx.fillStyle = bg;
+    ctx.beginPath(); ctx.arc(0, 0, RC, 0, TAU); ctx.fill();
+
+    for(const b of Scene.bodies){
+      const x = lerp(b.prev.x, b.pos.x, alpha);
+      const y = lerp(b.prev.y, b.pos.y, alpha);
+      const a = lerp(b.prevA,  b.a,     alpha);
+      ctx.save();
+      ctx.translate(x, y); ctx.rotate(a);
+      ctx.beginPath();
+      if(b.shape === 'circle'){ ctx.arc(0, 0, b.colliders[0].r, 0, TAU); }
+      else { const v = b.verts; ctx.moveTo(v[0][0], v[0][1]); for(let i = 1; i < v.length; i++) ctx.lineTo(v[i][0], v[i][1]); ctx.closePath(); }
+      const [r, g, bl] = b.mat.baseColor;
+      ctx.fillStyle = `rgba(${r},${g},${bl},${op})`; ctx.fill();
+      ctx.lineWidth = 1.4;
+      ctx.strokeStyle = `rgba(${b.hi[0]},${b.hi[1]},${b.hi[2]},${Math.min(1, op + 0.18)})`; ctx.stroke();
+      const hr = b.r * 0.9;
+      const grad = ctx.createRadialGradient(-b.r * 0.32, -b.r * 0.32, 1, -b.r * 0.2, -b.r * 0.2, hr);
+      grad.addColorStop(0, `rgba(255,255,255,${0.42 * op})`);
+      grad.addColorStop(0.4, `rgba(255,255,255,${0.06 * op})`);
+      grad.addColorStop(1, 'rgba(255,255,255,0)');
+      ctx.fillStyle = grad; ctx.fill();
+      ctx.restore();
+    }
+  }
+
+  /* ----------------------------------------------------------------------
+   *  Chamber — общий offscreen камеры (Canvas 2D). Рисуется каждый кадр и
+   *  потребляется активным рендерером: Renderer2D берёт его через drawImage,
+   *  RendererGL загружает как текстуру (texImage2D). Полную растеризацию в GL
+   *  откладываем до Этапа 5.
+   * -------------------------------------------------------------------- */
+  const Chamber = {
+    cv: null, ctx: null,
+    init(){
+      const RC = Config.chamberRadius;
+      this.cv = document.createElement('canvas');
+      this.cv.width = this.cv.height = RC * 2;
+      this.ctx = this.cv.getContext('2d');
+    },
+    draw(alpha){
+      const RC = Config.chamberRadius, o = this.ctx;
+      o.setTransform(1, 0, 0, 1, 0, 0);
+      o.clearRect(0, 0, RC * 2, RC * 2);
+      o.save(); o.translate(RC, RC); drawChamber(o, alpha); o.restore();
+    },
+  };
+
+  /* ----------------------------------------------------------------------
+   *  Renderer2D — интерфейс init/resize/setScene/render.
+   *  Складывает клинья drawImage-копиями из общего Chamber.cv (как со Этапа 0).
+   * -------------------------------------------------------------------- */
+  const Renderer2D = {
+    name: '2D', canvas: null, ctx: null, R: 320, DPR: 1, stats: { drawCalls: 0 },
+    _triIdx2: -1, _tri2: null,
+    init(canvas){ this.canvas = canvas; this.ctx = canvas.getContext('2d'); },
+    resize(R, dpr){
+      this.R = R; this.DPR = dpr;
+      this.canvas.style.width = this.canvas.style.height = (R * 2) + 'px';
+      this.canvas.width = this.canvas.height = Math.floor(R * 2 * dpr);
+      this.ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    },
+    setScene(scene){ this.scene = scene; },
+    render(state){
+      const { theta } = state;
+      if(Config.mode === 'tiling'){ this._renderTiling(theta); return; }
+      const R = this.R, n = Config.symmetry;
+      const c = this.ctx;
+      c.save(); c.clearRect(0, 0, R * 2, R * 2);
+      c.beginPath(); c.arc(R, R, R, 0, TAU); c.clip();
+      c.translate(R, R);                          // зеркала неподвижны (без поворота на theta)
+      const tw = Math.PI / n, bleed = 0.012, Rdraw = R * Math.SQRT2;
+      const phi0 = Math.PI / 2 - tw / 2;          // фундаментальный клин смотрит вниз (к куче)
+      for(let i = 0; i < 2 * n; i++){
+        c.save();
+        if(i % 2 === 0) c.rotate(i * tw);
+        else { c.rotate((i + 1) * tw); c.scale(1, -1); }
+        c.beginPath(); c.moveTo(0, 0); c.arc(0, 0, Rdraw, -bleed, tw + bleed); c.closePath(); c.clip();
+        c.rotate(-phi0);                          // сместить выбираемый сектор камеры на дно
+        c.drawImage(Chamber.cv, -R, -R, R * 2, R * 2);
+        c.restore();
+      }
+      c.restore();
+
+      c.save(); c.beginPath(); c.arc(R, R, R, 0, TAU); c.clip();
+      const vg = c.createRadialGradient(R, R, R * 0.2, R, R, R);
+      vg.addColorStop(0, 'rgba(255,255,255,0.05)'); vg.addColorStop(0.7, 'rgba(0,0,0,0)'); vg.addColorStop(1, 'rgba(0,0,0,0.45)');
+      c.fillStyle = vg; c.fillRect(0, 0, R * 2, R * 2); c.restore();
+
+      this.stats.drawCalls = Scene.bodies.length + 2 * n + 2;
+    },
+
+    // Мозаика в Canvas 2D: прямой метод — фундаментальный треугольник
+    // размножается отражениями через рёбра (BFS), заполняя вьюпорт; в каждую
+    // плитку рисуется Chamber.cv через композитную аффинную матрицу + клип.
+    // Геометрия/ориентация/pan-zoom согласованы с WebGL-конвейером.
+    _renderTiling(theta){
+      const R = this.R, dpr = this.DPR, c = this.ctx;
+      if(Config.triangle !== this._triIdx2){ this._tri2 = buildTriangle(Triangles[Config.triangle].ang); this._triIdx2 = Config.triangle; }
+      const tri = this._tri2, fit = tri.fit, Z = Config.zoom, k = Z / R, pan = Config.pan;
+
+      // аффинные хелперы: [a,b,c,d,e,f], x'=a*x+c*y+e, y'=b*x+d*y+f
+      const mul = (A, B) => [
+        A[0]*B[0]+A[2]*B[1], A[1]*B[0]+A[3]*B[1],
+        A[0]*B[2]+A[2]*B[3], A[1]*B[2]+A[3]*B[3],
+        A[0]*B[4]+A[2]*B[5]+A[4], A[1]*B[4]+A[3]*B[5]+A[5],
+      ];
+      const ap = (M, p) => [M[0]*p[0]+M[2]*p[1]+M[4], M[1]*p[0]+M[3]*p[1]+M[5]];
+      const ph = (tri.anchor || 0), cph = Math.cos(ph), sph = Math.sin(ph);
+      const cnAff = [1/300, 0, 0, 1/300, -1, -1];                 // chamber px(0..600) -> норм. [-1,1]
+      const Saff  = [cph/fit, -sph/fit, sph/fit, cph/fit, 0, 0];  // (1/fit)·rot(-(anchor-theta)): норм -> q
+      const MB    = mul(Saff, cnAff);                             // chamber -> q (фундаментальный)
+      const SC    = [1/k, 0, 0, 1/k, R - pan.x/k, R - pan.y/k];   // world -> экран (css)
+      const reflAff = (P, Q) => {
+        let dx = Q[0]-P[0], dy = Q[1]-P[1]; const l = Math.hypot(dx,dy)||1; dx/=l; dy/=l;
+        const a = 2*dx*dx-1, cc = 2*dx*dy, d = 2*dy*dy-1;
+        return [a, cc, cc, d, P[0]-(a*P[0]+cc*P[1]), P[1]-(cc*P[0]+d*P[1])];
+      };
+      const cen = v => [(v[0][0]+v[1][0]+v[2][0])/3, (v[0][1]+v[1][1]+v[2][1])/3];
+      const neighbor = (t, kk) => { const P = t.verts[kk], Q = t.verts[(kk+1)%3], Rf = reflAff(P, Q);
+        return { verts: t.verts.map(v => ap(Rf, v)), M: mul(Rf, t.M) }; };
+      const inTri = (p, v) => { const s = (A,B) => (p[0]-B[0])*(A[1]-B[1])-(A[0]-B[0])*(p[1]-B[1]);
+        const d1 = s(v[0],v[1]), d2 = s(v[1],v[2]), d3 = s(v[2],v[0]);
+        return !((d1<0||d2<0||d3<0) && (d1>0||d2>0||d3>0)); };
+      const vis = t => { let mnx=1e9,mny=1e9,mxx=-1e9,mxy=-1e9;
+        for(const v of t.verts){ const s = ap(SC, v); if(s[0]<mnx)mnx=s[0]; if(s[0]>mxx)mxx=s[0]; if(s[1]<mny)mny=s[1]; if(s[1]>mxy)mxy=s[1]; }
+        return !(mxx<-2 || mnx>2*R+2 || mxy<-2 || mny>2*R+2); };
+      const key = t => { const cc = cen(t.verts); return Math.round(cc[0]*100)+'_'+Math.round(cc[1]*100); };
+
+      // фон + круглый окуляр-клип
+      c.setTransform(dpr, 0, 0, dpr, 0, 0);
+      c.clearRect(0, 0, R*2, R*2);
+      c.save();
+      c.beginPath(); c.arc(R, R, R, 0, TAU); c.clip();
+
+      // затравка: жадно шагаем отражениями к центру вьюпорта (world = pan)
+      let cur = { verts: tri.verts.map(v => [v[0], v[1]]), M: [1,0,0,1,0,0] };
+      const target = [pan.x, pan.y];
+      for(let g = 0; g < 4000; g++){
+        if(inTri(target, cur.verts)) break;
+        const cc = cen(cur.verts); let best = null, bd = Math.hypot(cc[0]-target[0], cc[1]-target[1]);
+        for(let kk = 0; kk < 3; kk++){ const nb = neighbor(cur, kk), nc = cen(nb.verts);
+          const dd = Math.hypot(nc[0]-target[0], nc[1]-target[1]); if(dd < bd - 1e-9){ bd = dd; best = nb; } }
+        if(!best) break; cur = best;
+      }
+
+      // BFS только по видимым плиткам
+      const seen = new Set([key(cur)]), queue = [cur], tiles = [], CAP = 3000;
+      while(queue.length && tiles.length < CAP){
+        const t = queue.shift(); tiles.push(t);
+        for(let kk = 0; kk < 3; kk++){ const nb = neighbor(t, kk), ky = key(nb);
+          if(!seen.has(ky)){ seen.add(ky); if(vis(nb)) queue.push(nb); } }
+      }
+
+      // отрисовка плиток
+      const bleed = 1.004;
+      let drawn = 0;
+      for(const t of tiles){
+        if(!vis(t)) continue;
+        const cc = cen(t.verts);
+        const sv = t.verts.map(v => ap(SC, [cc[0]+(v[0]-cc[0])*bleed, cc[1]+(v[1]-cc[1])*bleed]));
+        c.save();
+        c.setTransform(dpr, 0, 0, dpr, 0, 0);
+        c.beginPath(); c.moveTo(sv[0][0], sv[0][1]); c.lineTo(sv[1][0], sv[1][1]); c.lineTo(sv[2][0], sv[2][1]); c.closePath(); c.clip();
+        const dev = mul([dpr,0,0,dpr,0,0], mul(SC, mul(t.M, MB)));   // chamber -> устройство
+        c.setTransform(dev[0], dev[1], dev[2], dev[3], dev[4], dev[5]);
+        c.drawImage(Chamber.cv, 0, 0);
+        c.restore(); drawn++;
+      }
+      c.restore();
+
+      // лёгкая виньетка окуляра
+      c.save(); c.setTransform(dpr, 0, 0, dpr, 0, 0);
+      c.beginPath(); c.arc(R, R, R, 0, TAU); c.clip();
+      const vg = c.createRadialGradient(R, R, R*0.5, R, R, R);
+      vg.addColorStop(0, 'rgba(0,0,0,0)'); vg.addColorStop(1, 'rgba(0,0,0,0.35)');
+      c.fillStyle = vg; c.fillRect(0, 0, R*2, R*2); c.restore();
+
+      this.stats.drawCalls = drawn;
+    },
+  };
+
+  /* ----------------------------------------------------------------------
+   *  RendererGL — WebGL2. Конвейер:
+   *    (A) G-buffer (MRT): купола-линзы тел -> RT0 цвет+покрытие, RT1 нормаль, RT2 толщина
+   *    (B) композит: преломление фона по нормали·толщине·(ior−1), поглощение
+   *        Бугера–Ламберта, блик, краевой Френель -> текстура «освещённой камеры»
+   *    (C) фолдинг (Этап 3/4): сэмплит результат -> экран (розетка/мозаика)
+   *  Если объёмное стекло выключено или его инициализация не удалась — плоский
+   *  путь Этапа 3/4 (загрузка Chamber.cv). При отсутствии WebGL2 — supported=false.
+   * -------------------------------------------------------------------- */
+  const RendererGL = {
+    name: 'GL', supported: false, glassReady: false,
+    canvas: null, gl: null, prog: null, tex: null, vao: null, loc: {},
+    R: 320, DPR: 1, stats: { drawCalls: 0 },
+
+    VS: `#version 300 es
+out vec2 v_uv;
+void main(){
+  vec2 p = vec2(gl_VertexID == 2 ? 3.0 : -1.0, gl_VertexID == 1 ? 3.0 : -1.0);
+  v_uv = p * 0.5 + 0.5;
+  gl_Position = vec4(p, 0.0, 1.0);
+}`,
+    FS: `#version 300 es
+precision highp float;
+in vec2 v_uv;
+out vec4 frag;
+uniform sampler2D u_cham;
+uniform float u_n;
+uniform float u_theta;
+uniform float u_mode;
+uniform vec2  u_n1;
+uniform vec2  u_n2;
+uniform vec2  u_n3;
+uniform float u_tileFit;
+uniform float u_zoom;
+uniform vec2  u_pan;
+uniform float u_anchor;
+const float PI = 3.141592653589793;
+void main(){
+  vec2 p = v_uv * 2.0 - 1.0;
+  p.y = -p.y;
+  float r = length(p);
+  vec3 col;
+  if(u_mode > 0.5){
+    vec2 q = p * u_zoom + u_pan;
+    for(int i = 0; i < 16; i++){
+      bool ref = false;
+      float s1 = dot(u_n1, q) - 1.0; if(s1 > 1e-4){ q -= 2.0 * s1 * u_n1; ref = true; }
+      float s2 = dot(u_n2, q) - 1.0; if(s2 > 1e-4){ q -= 2.0 * s2 * u_n2; ref = true; }
+      float s3 = dot(u_n3, q) - 1.0; if(s3 > 1e-4){ q -= 2.0 * s3 * u_n3; ref = true; }
+      if(!ref) break;
+    }
+    vec2 sp = q * u_tileFit;
+    float ph = u_anchor, ct = cos(ph), st = sin(ph);
+    sp = vec2(ct * sp.x - st * sp.y, st * sp.x + ct * sp.y);
+    col = texture(u_cham, sp * 0.5 + 0.5).rgb;
+    col *= mix(0.80, 1.0, smoothstep(1.0, 0.55, r));
+  } else {
+    float ang = atan(p.y, p.x);
+    float tw = PI / u_n;
+    float a = abs(mod(ang, 2.0 * tw) - tw);
+    float beta = tw - a + (1.5707963267 - tw * 0.5);   // клин смотрит вниз (к куче)
+    vec2 dir = vec2(cos(beta), sin(beta));
+    vec2 sp = dir * r;
+    col = texture(u_cham, sp * 0.5 + 0.5).rgb;
+    float vig = smoothstep(1.0, 0.5, r);
+    col *= mix(0.55, 1.0, vig);
+    col += vec3(0.05) * smoothstep(0.45, 0.0, r);
+  }
+  frag = vec4(col, 1.0);
+}`,
+
+    // --- Этап 5: купол в G-buffer ---
+    DOME_VS: `#version 300 es
+layout(location = 0) in vec2 a_local;
+layout(location = 1) in float a_edge;
+layout(location = 2) in vec2 a_gnorm;
+uniform vec2 u_pos;
+uniform vec2 u_rot;     // (cos, sin)
+uniform float u_depth;
+uniform float u_rc;
+out float v_edge;
+out vec2 v_gnorm;
+void main(){
+  float c = u_rot.x, s = u_rot.y;
+  vec2 w = u_pos + vec2(c * a_local.x - s * a_local.y, s * a_local.x + c * a_local.y);
+  gl_Position = vec4(w / u_rc, u_depth, 1.0);
+  v_edge = a_edge;
+  v_gnorm = vec2(c * a_gnorm.x - s * a_gnorm.y, s * a_gnorm.x + c * a_gnorm.y);
+}`,
+    DOME_FS: `#version 300 es
+precision highp float;
+in float v_edge;
+in vec2 v_gnorm;
+layout(location = 0) out vec4 o_col;   // цвет + покрытие
+layout(location = 1) out vec4 o_nrm;   // нормаль.xy (упакована)
+layout(location = 2) out vec4 o_thk;   // толщина
+uniform vec3 u_tint;
+uniform float u_thick;
+uniform float u_dome;
+void main(){
+  float e = clamp(v_edge, 0.0, 1.0);
+  float denom = sqrt(max(1e-3, e * (2.0 - e)));
+  float fp = min((1.0 - e) / denom, 6.0);     // f'(e), клампим у кромки
+  vec2 slope = u_dome * fp * v_gnorm;          // градиент высоты (внутрь)
+  vec3 N = normalize(vec3(-slope, 1.0));       // нормаль купола (наружу/вверх)
+  float h = sqrt(max(0.0, e * (2.0 - e)));     // профиль высоты [0,1]
+  o_col = vec4(u_tint, 1.0);
+  o_nrm = vec4(N.xy * 0.5 + 0.5, 0.0, 1.0);
+  o_thk = vec4(h * u_thick, 0.0, 0.0, 1.0);
+}`,
+    // --- Этап 5: композит стекла ---
+    // --- Этап 6: фолдинг G-buffer -> экранный свёрнутый G-buffer ---
+    //  Складывает камеру и тащит нормаль/толщину сквозь зеркала: нормаль из
+    //  пространства камеры переводится в экранное якобианом свёртки (dFdx/dFdy
+    //  от точки выборки sp), сохраняя величину наклона. Так преломление и блики
+    //  опираются на реальную геометрию стекла и корректно тиражируются.
+    FOLDG_FS: `#version 300 es
+precision highp float;
+in vec2 v_uv;
+layout(location = 0) out vec4 o_a;   // альбедо (тинт/фон) + покрытие
+layout(location = 1) out vec4 o_b;   // экранная нормаль.xy + толщина
+uniform sampler2D u_g0;
+uniform sampler2D u_g1;
+uniform sampler2D u_g2;
+uniform float u_n, u_theta, u_mode, u_tileFit, u_zoom;
+uniform vec2  u_n1, u_n2, u_n3, u_pan;
+uniform float u_anchor;
+const float PI = 3.141592653589793;
+vec3 background(vec2 uv){
+  vec2 c = uv * 2.0 - 1.0; float r = length(c);
+  vec3 base = mix(vec3(0.102, 0.110, 0.133), vec3(0.020, 0.020, 0.027), smoothstep(0.0, 1.1, r));
+  float pat = 0.5 + 0.5 * sin(uv.x * 42.0) * sin(uv.y * 42.0);
+  return base + 0.012 * pat;
+}
+vec2 foldSP(vec2 p){
+  if(u_mode > 0.5){
+    vec2 q = p * u_zoom + u_pan;
+    for(int i = 0; i < 16; i++){
+      bool ref = false;
+      float s1 = dot(u_n1, q) - 1.0; if(s1 > 1e-4){ q -= 2.0 * s1 * u_n1; ref = true; }
+      float s2 = dot(u_n2, q) - 1.0; if(s2 > 1e-4){ q -= 2.0 * s2 * u_n2; ref = true; }
+      float s3 = dot(u_n3, q) - 1.0; if(s3 > 1e-4){ q -= 2.0 * s3 * u_n3; ref = true; }
+      if(!ref) break;
+    }
+    vec2 sp = q * u_tileFit; float ph = u_anchor, ct = cos(ph), st = sin(ph);
+    return vec2(ct * sp.x - st * sp.y, st * sp.x + ct * sp.y);
+  }
+  float r = length(p); float ang = atan(p.y, p.x); float tw = PI / u_n;
+  float a = abs(mod(ang, 2.0 * tw) - tw); float beta = tw - a + (1.5707963267 - tw * 0.5);
+  return vec2(cos(beta), sin(beta)) * r;
+}
+void main(){
+  vec2 p = v_uv * 2.0 - 1.0; p.y = -p.y;
+  vec2 sp = foldSP(p);
+  vec2 uv = sp * 0.5 + 0.5;
+  vec4 g0 = texture(u_g0, uv); float cov = g0.a;
+  vec2 nc = texture(u_g1, uv).xy * 2.0 - 1.0;
+  float th = texture(u_g2, uv).r;
+  // якобиан фолда (экран -> камера); нормаль камеры -> экранная (поворот/отражение)
+  vec2 dx = dFdx(sp), dy = dFdy(sp);
+  float det = dx.x * dy.y - dy.x * dx.y;
+  float mag = length(nc);
+  vec2 ns = vec2(0.0);
+  if(mag > 1e-5 && abs(det) > 1e-12){
+    vec2 raw = vec2(dy.y * nc.x - dy.x * nc.y, -dx.y * nc.x + dx.x * nc.y); // inv(J)*nc
+    ns = normalize(raw) * mag;                                              // величина наклона сохранена
+  }
+  vec3 albedo = cov > 0.5 ? g0.rgb : background(uv);
+  o_a = vec4(albedo, cov);
+  o_b = vec4(ns * 0.5 + 0.5, th, 1.0);
+}`,
+    // --- Этап 6: пост-освещение в экранном пространстве ---
+    //  Преломление свёрнутого поля вдоль экранной нормали, поглощение Бугера–
+    //  Ламберта, блик и краевой Френель (на свёрнутой нормали — корректно
+    //  тиражируются отражениями), единый тон-маппинг в линейном пространстве.
+    // --- Этап 7: освещение + по-канальная дисперсия (вывод линейного цвета) ---
+    //  Свёрнутое поле сэмплится по R/G/B со сдвигом вдоль экранной нормали при
+    //  разном ior — края расщепляются в спектр; сила от толщины стекла. Bias на
+    //  выборках (по мип-уровням fTexA) гасит спектральный шиммер. Без тон-
+    //  маппинга/виньетки — это делает финальный проход (для корректного bloom).
+    POST_FS: `#version 300 es
+precision highp float;
+in vec2 v_uv;
+out vec4 frag;
+uniform sampler2D u_fa;   // альбедо + покрытие (свёрнутое поле, с мипами)
+uniform sampler2D u_fb;   // экранная нормаль + толщина
+uniform float u_ior, u_absorb, u_refr, u_disp;
+uniform vec3 u_bg, u_lightDir, u_rimCol;
+uniform float u_specInt, u_specPow, u_rimInt, u_tintMix;
+vec3 toLin(vec3 c){ return pow(max(c, 0.0), vec3(2.2)); }
+void main(){
+  vec4 A = texture(u_fa, v_uv);
+  if(A.a < 0.5){ frag = vec4(toLin(u_bg), 1.0); return; }   // подложка (цвет фона)
+  vec4 B = texture(u_fb, v_uv);
+  vec2 nxy = B.xy * 2.0 - 1.0; float th = B.z;
+  float nz = sqrt(max(0.0, 1.0 - min(1.0, dot(nxy, nxy))));
+  vec3 N = vec3(nxy, nz);
+  vec2 base = nxy * th * u_refr;                  // направление преломления (без (ior-1))
+  float dd = u_disp * 0.06;                        // разнос ior по каналам
+  float bias = u_disp * 1.5;                       // смягчение шиммера через мипы
+  vec2 ruvR = v_uv + base * (u_ior - dd - 1.0);
+  vec2 ruvG = v_uv + base * (u_ior      - 1.0);
+  vec2 ruvB = v_uv + base * (u_ior + dd - 1.0);
+  vec3 refrS = vec3(texture(u_fa, ruvR, bias).r,
+                    texture(u_fa, ruvG, bias).g,
+                    texture(u_fa, ruvB, bias).b);
+  vec3 refr = toLin(refrS);
+  vec3 tint = toLin(A.rgb);
+  vec3 absorbCol = (1.0 - tint) * u_absorb;
+  vec3 transmit = refr * exp(-absorbCol * th * 3.0);          // Бугер–Ламберт
+  vec3 col = mix(transmit, tint, u_tintMix);
+  vec3 L = normalize(u_lightDir);
+  vec3 H = normalize(L + vec3(0.0, 0.0, 1.0));
+  float spec = pow(max(0.0, dot(N, H)), u_specPow);
+  float fres = pow(1.0 - nz, 3.0);
+  col += spec * u_specInt;
+  col = mix(col, u_rimCol, fres * u_rimInt);                  // краевой Френель
+  frag = vec4(col, 1.0);
+}`,
+    // --- Этап 7: финал — дисторсия окуляра, bloom, виньетка, тон-маппинг ---
+    FINAL_FS: `#version 300 es
+precision highp float;
+in vec2 v_uv;
+out vec4 frag;
+uniform sampler2D u_src;   // линейный цвет (pTex)
+uniform vec2 u_srcTexel;   // 1 / размер источника (для даунсэмплинга)
+uniform float u_barrel, u_bloom, u_mode, u_optics, u_exposure;
+vec2 distort(vec2 uv){
+  if(u_optics < 0.5 || u_barrel == 0.0) return uv;
+  vec2 c = uv * 2.0 - 1.0; float r2 = dot(c, c);
+  c *= 1.0 + u_barrel * r2;                  // бочкообразная дисторсия линзы
+  return c * 0.5 + 0.5;
+}
+vec3 sample5(vec2 uv){                        // тент-даунсэмплинг (AA чистых краёв)
+  vec2 o = u_srcTexel * 0.5;
+  vec3 c = texture(u_src, uv).rgb * 0.5;
+  c += texture(u_src, uv + vec2( o.x,  o.y)).rgb * 0.125;
+  c += texture(u_src, uv + vec2(-o.x,  o.y)).rgb * 0.125;
+  c += texture(u_src, uv + vec2( o.x, -o.y)).rgb * 0.125;
+  c += texture(u_src, uv + vec2(-o.x, -o.y)).rgb * 0.125;
+  return c;
+}
+void main(){
+  vec2 uv = distort(v_uv);
+  vec3 col = sample5(uv);
+  if(u_optics > 0.5 && u_bloom > 0.001){      // лёгкий bloom на бликах
+    vec3 b = vec3(0.0); float w = 0.0;
+    for(int i = 0; i < 12; i++){
+      float a = float(i) / 12.0 * 6.2831853;
+      vec2 dir = vec2(cos(a), sin(a));
+      for(int j = 1; j <= 2; j++){
+        vec3 s = texture(u_src, uv + dir * (0.004 * float(j))).rgb;
+        float ww = 1.0 / float(j);
+        b += max(s - 0.6, 0.0) * ww; w += ww;
+      }
+    }
+    col += (b / max(w, 1e-3)) * u_bloom * 1.6;
+  }
+  vec2 p = v_uv * 2.0 - 1.0; float r = length(p);
+  if(u_mode > 0.5){
+    col *= mix(0.80, 1.0, smoothstep(1.0, 0.55, r));           // окуляр (мозаика)
+  } else {
+    col *= mix(0.55, 1.0, smoothstep(1.0, 0.5, r));             // виньетка (розетка)
+    col += vec3(0.04) * smoothstep(0.45, 0.0, r);
+  }
+  col *= u_exposure;                                           // экспозиция (пресет освещения)
+  col = col / (col + vec3(1.0));                                // тон-маппинг (Рейнхард)
+  frag = vec4(pow(max(col, 0.0), vec3(1.0 / 2.2)), 1.0);        // -> sRGB
+}`,
+
+    _shader(type, src){
+      const gl = this.gl, s = gl.createShader(type);
+      gl.shaderSource(s, src); gl.compileShader(s);
+      if(!gl.getShaderParameter(s, gl.COMPILE_STATUS)){
+        console.warn('GL shader error:', gl.getShaderInfoLog(s)); gl.deleteShader(s); return null;
+      }
+      return s;
+    },
+    _program(vs, fs){
+      const gl = this.gl;
+      const v = this._shader(gl.VERTEX_SHADER, vs), f = this._shader(gl.FRAGMENT_SHADER, fs);
+      if(!v || !f) return null;
+      const p = gl.createProgram();
+      gl.attachShader(p, v); gl.attachShader(p, f); gl.linkProgram(p);
+      if(!gl.getProgramParameter(p, gl.LINK_STATUS)){
+        console.warn('GL link error:', gl.getProgramInfoLog(p)); return null;
+      }
+      return p;
+    },
+
+    init(canvas){
+      this.canvas = canvas;
+      let gl = null;
+      try { gl = canvas.getContext('webgl2', { alpha: false, antialias: true, premultipliedAlpha: false }); }
+      catch(e){ gl = null; }
+      if(!gl){ this.supported = false; return false; }
+      this.gl = gl;
+      this.prog = this._program(this.VS, this.FS);
+      if(!this.prog){ this.supported = false; return false; }
+      for(const u of ['n','theta','cham','mode','n1','n2','n3','tileFit','zoom','pan','anchor'])
+        this.loc[u === 'tileFit' ? 'fit' : u] = gl.getUniformLocation(this.prog, 'u_' + u);
+      this._triIdx = -1; this._tri = null;
+      this.vao = gl.createVertexArray();
+      this.tex = gl.createTexture();
+      gl.activeTexture(gl.TEXTURE0);
+      gl.bindTexture(gl.TEXTURE_2D, this.tex);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+      this.supported = true;
+      this.glassReady = this._initGlass();    // объёмное стекло (необязательно)
+      return true;
+    },
+
+    _initGlass(){
+      const gl = this.gl;
+      try {
+        this.progDome = this._program(this.DOME_VS, this.DOME_FS); if(!this.progDome) return false;
+        this.progFoldG = this._program(this.VS, this.FOLDG_FS);     if(!this.progFoldG) return false;
+        this.progPost  = this._program(this.VS, this.POST_FS);      if(!this.progPost)  return false;
+        this.progFinal = this._program(this.VS, this.FINAL_FS);     if(!this.progFinal) return false;
+        const P = this.progDome;
+        this.dloc = {
+          pos: gl.getUniformLocation(P, 'u_pos'), rot: gl.getUniformLocation(P, 'u_rot'),
+          depth: gl.getUniformLocation(P, 'u_depth'), rc: gl.getUniformLocation(P, 'u_rc'),
+          tint: gl.getUniformLocation(P, 'u_tint'), thick: gl.getUniformLocation(P, 'u_thick'),
+          dome: gl.getUniformLocation(P, 'u_dome'),
+        };
+        const F = this.progFoldG; this.floc = {};
+        for(const u of ['g0','g1','g2','n','theta','mode','n1','n2','n3','tileFit','zoom','pan','anchor'])
+          this.floc[u === 'tileFit' ? 'fit' : u] = gl.getUniformLocation(F, 'u_' + u);
+        const Q = this.progPost;
+        this.ploc = {
+          fa: gl.getUniformLocation(Q, 'u_fa'), fb: gl.getUniformLocation(Q, 'u_fb'),
+          ior: gl.getUniformLocation(Q, 'u_ior'), absorb: gl.getUniformLocation(Q, 'u_absorb'),
+          refr: gl.getUniformLocation(Q, 'u_refr'), disp: gl.getUniformLocation(Q, 'u_disp'),
+          bg: gl.getUniformLocation(Q, 'u_bg'), lightDir: gl.getUniformLocation(Q, 'u_lightDir'),
+          rimCol: gl.getUniformLocation(Q, 'u_rimCol'), specInt: gl.getUniformLocation(Q, 'u_specInt'),
+          specPow: gl.getUniformLocation(Q, 'u_specPow'), rimInt: gl.getUniformLocation(Q, 'u_rimInt'),
+          tintMix: gl.getUniformLocation(Q, 'u_tintMix'),
+        };
+        const Z = this.progFinal;
+        this.qloc = {
+          src: gl.getUniformLocation(Z, 'u_src'), srcTexel: gl.getUniformLocation(Z, 'u_srcTexel'),
+          barrel: gl.getUniformLocation(Z, 'u_barrel'),
+          bloom: gl.getUniformLocation(Z, 'u_bloom'), mode: gl.getUniformLocation(Z, 'u_mode'),
+          optics: gl.getUniformLocation(Z, 'u_optics'), exposure: gl.getUniformLocation(Z, 'u_exposure'),
+        };
+        const S = Config.chamberRadius * 2; this.S = S;
+        this.gTex = [0, 1, 2].map(() => {
+          const t = gl.createTexture(); gl.bindTexture(gl.TEXTURE_2D, t);
+          gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA8, S, S, 0, gl.RGBA, gl.UNSIGNED_BYTE, null);
+          gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
+          gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
+          gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+          gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+          return t;
+        });
+        this.gFBO = gl.createFramebuffer(); gl.bindFramebuffer(gl.FRAMEBUFFER, this.gFBO);
+        for(let i = 0; i < 3; i++)
+          gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0 + i, gl.TEXTURE_2D, this.gTex[i], 0);
+        this.gDepth = gl.createRenderbuffer(); gl.bindRenderbuffer(gl.RENDERBUFFER, this.gDepth);
+        gl.renderbufferStorage(gl.RENDERBUFFER, gl.DEPTH_COMPONENT16, S, S);
+        gl.framebufferRenderbuffer(gl.FRAMEBUFFER, gl.DEPTH_ATTACHMENT, gl.RENDERBUFFER, this.gDepth);
+        gl.drawBuffers([gl.COLOR_ATTACHMENT0, gl.COLOR_ATTACHMENT1, gl.COLOR_ATTACHMENT2]);
+        if(gl.checkFramebufferStatus(gl.FRAMEBUFFER) !== gl.FRAMEBUFFER_COMPLETE) return false;
+        // Экранный свёрнутый G-buffer (fTexA: альбедо+покрытие, fTexB: нормаль+толщина).
+        // Размер зависит от канвы — выделяется в resize()/_allocFold().
+        this.fFBO = gl.createFramebuffer();
+        this.fTexA = gl.createTexture();
+        this.fTexB = gl.createTexture();
+        this.pFBO = gl.createFramebuffer();   // линейный буфер освещения (Этап 7)
+        this.pTex = gl.createTexture();
+        this._fw = 0; this._fh = 0;
+        gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+        this.domeVAO = gl.createVertexArray();
+        this.bodyVBO = gl.createBuffer();
+        this._gen = -1; this.ranges = [];
+        return true;
+      } catch(e){ console.warn('Glass init failed:', e); return false; }
+    },
+
+    // (Пере)выделение текстур экранного свёрнутого G-buffer и буфера освещения
+    _allocFold(w, h){
+      const gl = this.gl;
+      if(w === this._fw && h === this._fh) return;
+      this._fw = w; this._fh = h;
+      // fTexA — альбедо свёрнутого поля, с мипами (сглаживание спектрального шиммера)
+      gl.bindTexture(gl.TEXTURE_2D, this.fTexA);
+      gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA8, w, h, 0, gl.RGBA, gl.UNSIGNED_BYTE, null);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR_MIPMAP_LINEAR);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+      // fTexB — экранная нормаль+толщина (без мипов: нормали не размываем) и pTex — линейный цвет
+      for(const t of [this.fTexB, this.pTex]){
+        gl.bindTexture(gl.TEXTURE_2D, t);
+        gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA8, w, h, 0, gl.RGBA, gl.UNSIGNED_BYTE, null);
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+      }
+      gl.bindFramebuffer(gl.FRAMEBUFFER, this.fFBO);
+      gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, this.fTexA, 0);
+      gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT1, gl.TEXTURE_2D, this.fTexB, 0);
+      gl.drawBuffers([gl.COLOR_ATTACHMENT0, gl.COLOR_ATTACHMENT1]);
+      gl.bindFramebuffer(gl.FRAMEBUFFER, this.pFBO);
+      gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, this.pTex, 0);
+      gl.drawBuffers([gl.COLOR_ATTACHMENT0]);
+      gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+    },
+
+    // Сборка статического VBO куполов всех тел (перестраивается при смене сцены)
+    _buildBuffers(){
+      const gl = this.gl, bodies = Scene.bodies;
+      let total = 0; for(const b of bodies) total += b.dome.length;
+      const data = new Float32Array(total);
+      this.ranges = []; let o = 0, voff = 0;
+      const N = Math.max(1, bodies.length);
+      for(let i = 0; i < bodies.length; i++){
+        const b = bodies[i]; data.set(b.dome, o); o += b.dome.length;
+        const count = b.dome.length / 5;
+        this.ranges.push({ off: voff, count, body: b, depth: 0.9 - 1.8 * (i / N) });
+        voff += count;
+      }
+      gl.bindVertexArray(this.domeVAO);
+      gl.bindBuffer(gl.ARRAY_BUFFER, this.bodyVBO);
+      gl.bufferData(gl.ARRAY_BUFFER, data, gl.STATIC_DRAW);
+      gl.enableVertexAttribArray(0); gl.vertexAttribPointer(0, 2, gl.FLOAT, false, 20, 0);
+      gl.enableVertexAttribArray(1); gl.vertexAttribPointer(1, 1, gl.FLOAT, false, 20, 8);
+      gl.enableVertexAttribArray(2); gl.vertexAttribPointer(2, 2, gl.FLOAT, false, 20, 12);
+      this._gen = Scene.generation;
+    },
+
+    resize(R, dpr){
+      this.R = R; this.DPR = dpr;
+      this.canvas.style.width = this.canvas.style.height = (R * 2) + 'px';
+      this.canvas.width = this.canvas.height = Math.floor(R * 2 * dpr);
+      if(this.glassReady) this._allocFold(this.canvas.width, this.canvas.height);
+    },
+    setScene(scene){ this.scene = scene; },
+
+    render(state){
+      const gl = this.gl; if(!gl) return;
+      const useGlass = Config.glass.on && this.glassReady;
+      const W = this.canvas.width, H = this.canvas.height;
+
+      if(useGlass){
+        if(this._gen !== Scene.generation) this._buildBuffers();
+        const sc = Config.quality.scale;
+        const iw = Math.max(2, Math.round(W * sc)), ih = Math.max(2, Math.round(H * sc));
+        this._allocFold(iw, ih);
+        this._passGBuffer(state.alpha);
+        this._passFold(state, iw, ih);
+        this._passLight(iw, ih);
+        this._passFinal(null, W, H, iw, ih);
+        this.stats.drawCalls = this.ranges.length + 3;
+        return;
+      }
+
+      // --- плоский путь Этапа 3/4: загрузка Chamber.cv, фолдинг -> экран ---
+      gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+      gl.viewport(0, 0, W, H);
+      gl.activeTexture(gl.TEXTURE0);
+      gl.bindTexture(gl.TEXTURE_2D, this.tex);
+      gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, Chamber.cv);
+      gl.useProgram(this.prog);
+      gl.uniform1i(this.loc.cham, 0);
+      this._setFoldUniforms(this.loc, state);
+      gl.bindVertexArray(this.vao);
+      gl.drawArrays(gl.TRIANGLES, 0, 3);
+      this.stats.drawCalls = 1;
+    },
+
+    // (A) G-buffer камеры: купола тел -> gFBO (MRT)
+    _passGBuffer(alpha){
+      const gl = this.gl, S = this.S;
+      gl.bindFramebuffer(gl.FRAMEBUFFER, this.gFBO);
+      gl.drawBuffers([gl.COLOR_ATTACHMENT0, gl.COLOR_ATTACHMENT1, gl.COLOR_ATTACHMENT2]);
+      gl.viewport(0, 0, S, S);
+      gl.clearColor(0, 0, 0, 0); gl.clearDepth(1.0);
+      gl.enable(gl.DEPTH_TEST); gl.depthFunc(gl.LEQUAL);
+      gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+      gl.useProgram(this.progDome);
+      gl.uniform1f(this.dloc.rc, Config.chamberRadius);
+      gl.uniform1f(this.dloc.dome, Config.glass.dome);
+      gl.bindVertexArray(this.domeVAO);
+      for(const rg of this.ranges){
+        const b = rg.body;
+        const x = lerp(b.prev.x, b.pos.x, alpha), y = lerp(b.prev.y, b.pos.y, alpha), a = lerp(b.prevA, b.a, alpha);
+        gl.uniform2f(this.dloc.pos, x, y);
+        gl.uniform2f(this.dloc.rot, Math.cos(a), Math.sin(a));
+        gl.uniform1f(this.dloc.depth, rg.depth);
+        gl.uniform3f(this.dloc.tint, b.mat.baseColor[0] / 255, b.mat.baseColor[1] / 255, b.mat.baseColor[2] / 255);
+        gl.uniform1f(this.dloc.thick, b.mat.thickness);
+        gl.drawArrays(gl.TRIANGLES, rg.off, rg.count);
+      }
+      gl.disable(gl.DEPTH_TEST);
+    },
+
+    // (C) фолдинг G-buffer -> экранный свёрнутый G-buffer (нормаль протащена сквозь зеркала)
+    _passFold(state, iw, ih){
+      const gl = this.gl;
+      gl.bindFramebuffer(gl.FRAMEBUFFER, this.fFBO);
+      gl.drawBuffers([gl.COLOR_ATTACHMENT0, gl.COLOR_ATTACHMENT1]);
+      gl.viewport(0, 0, iw, ih);
+      gl.useProgram(this.progFoldG);
+      gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_2D, this.gTex[0]); gl.uniform1i(this.floc.g0, 0);
+      gl.activeTexture(gl.TEXTURE1); gl.bindTexture(gl.TEXTURE_2D, this.gTex[1]); gl.uniform1i(this.floc.g1, 1);
+      gl.activeTexture(gl.TEXTURE2); gl.bindTexture(gl.TEXTURE_2D, this.gTex[2]); gl.uniform1i(this.floc.g2, 2);
+      this._setFoldUniforms(this.floc, state);
+      gl.bindVertexArray(this.vao);
+      gl.drawArrays(gl.TRIANGLES, 0, 3);
+      gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_2D, this.fTexA); gl.generateMipmap(gl.TEXTURE_2D);
+    },
+
+    // (D) освещение + по-канальная дисперсия -> линейный pTex
+    _passLight(iw, ih){
+      const gl = this.gl, optics = Config.optics.on;
+      gl.bindFramebuffer(gl.FRAMEBUFFER, this.pFBO);
+      gl.drawBuffers([gl.COLOR_ATTACHMENT0]);
+      gl.viewport(0, 0, iw, ih);
+      gl.useProgram(this.progPost);
+      gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_2D, this.fTexA); gl.uniform1i(this.ploc.fa, 0);
+      gl.activeTexture(gl.TEXTURE1); gl.bindTexture(gl.TEXTURE_2D, this.fTexB); gl.uniform1i(this.ploc.fb, 1);
+      gl.uniform1f(this.ploc.ior, Config.glass.ior);
+      gl.uniform1f(this.ploc.absorb, Config.glass.absorb);
+      gl.uniform1f(this.ploc.refr, Config.glass.refr);
+      gl.uniform1f(this.ploc.disp, optics ? Config.optics.dispersion : 0.0);
+      const L = Lightings[Config.lighting] || Lightings[0];
+      const hx = L.bg[0], br = parseInt(hx.slice(1, 3), 16) / 255, bg_ = parseInt(hx.slice(3, 5), 16) / 255, bb = parseInt(hx.slice(5, 7), 16) / 255;
+      gl.uniform3f(this.ploc.bg, br, bg_, bb);
+      gl.uniform3f(this.ploc.lightDir, L.dir[0], L.dir[1], L.dir[2]);
+      gl.uniform3f(this.ploc.rimCol, L.rim[0], L.rim[1], L.rim[2]);
+      gl.uniform1f(this.ploc.specInt, L.spec);
+      gl.uniform1f(this.ploc.specPow, L.specPow);
+      gl.uniform1f(this.ploc.rimInt, L.rimInt);
+      gl.uniform1f(this.ploc.tintMix, L.tintMix);
+      gl.bindVertexArray(this.vao);
+      gl.drawArrays(gl.TRIANGLES, 0, 3);
+    },
+
+    // (E) финал: даунсэмплинг(AA) + дисторсия + bloom + виньетка + тон-маппинг
+    _passFinal(targetFBO, W, H, iw, ih){
+      const gl = this.gl, optics = Config.optics.on;
+      gl.bindFramebuffer(gl.FRAMEBUFFER, targetFBO);
+      gl.viewport(0, 0, W, H);
+      gl.useProgram(this.progFinal);
+      gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_2D, this.pTex); gl.uniform1i(this.qloc.src, 0);
+      gl.uniform2f(this.qloc.srcTexel, 1 / iw, 1 / ih);
+      gl.uniform1f(this.qloc.barrel, Config.optics.barrel);
+      gl.uniform1f(this.qloc.bloom, Config.optics.bloom);
+      gl.uniform1f(this.qloc.mode, Config.mode === 'tiling' ? 1 : 0);
+      gl.uniform1f(this.qloc.optics, optics ? 1 : 0);
+      gl.uniform1f(this.qloc.exposure, (Lightings[Config.lighting] || Lightings[0]).exposure);
+      gl.bindVertexArray(this.vao);
+      gl.drawArrays(gl.TRIANGLES, 0, 3);
+    },
+
+    // Снимок высокого разрешения через FBO-readback (px×px, RGBA, снизу вверх)
+    snapshot(px){
+      const gl = this.gl; if(!gl) return null;
+      if(!this.sFBO){ this.sFBO = gl.createFramebuffer(); this.sTex = gl.createTexture(); this._sw = 0; }
+      if(this._sw !== px){
+        this._sw = px;
+        gl.bindTexture(gl.TEXTURE_2D, this.sTex);
+        gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA8, px, px, 0, gl.RGBA, gl.UNSIGNED_BYTE, null);
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+        gl.bindFramebuffer(gl.FRAMEBUFFER, this.sFBO);
+        gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, this.sTex, 0);
+      }
+      const st = { alpha: 1, theta: ChamberSim.theta };
+      if(Config.glass.on && this.glassReady){
+        if(this._gen !== Scene.generation) this._buildBuffers();
+        this._allocFold(px, px);
+        this._passGBuffer(1);
+        this._passFold(st, px, px);
+        this._passLight(px, px);
+        this._passFinal(this.sFBO, px, px, px, px);
+      } else {
+        gl.bindFramebuffer(gl.FRAMEBUFFER, this.sFBO);
+        gl.viewport(0, 0, px, px);
+        gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_2D, this.tex);
+        gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, Chamber.cv);
+        gl.useProgram(this.prog); gl.uniform1i(this.loc.cham, 0);
+        this._setFoldUniforms(this.loc, st);
+        gl.bindVertexArray(this.vao); gl.drawArrays(gl.TRIANGLES, 0, 3);
+      }
+      const buf = new Uint8Array(px * px * 4);
+      gl.bindFramebuffer(gl.FRAMEBUFFER, this.sFBO);
+      gl.readPixels(0, 0, px, px, gl.RGBA, gl.UNSIGNED_BYTE, buf);
+      gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+      return { buf, px };
+    },
+
+    // Общие uniform'ы фолдинга (розетка/мозаика) для FOLDG_FS и плоского FS
+    _setFoldUniforms(loc, state){
+      const gl = this.gl;
+      gl.uniform1f(loc.n, Config.symmetry);
+      gl.uniform1f(loc.theta, state.theta % TAU);
+      const tiling = Config.mode === 'tiling';
+      gl.uniform1f(loc.mode, tiling ? 1 : 0);
+      if(tiling){
+        if(Config.triangle !== this._triIdx){
+          this._tri = buildTriangle(Triangles[Config.triangle].ang);
+          this._triIdx = Config.triangle;
+        }
+        const t = this._tri;
+        gl.uniform2f(loc.n1, t.n[0][0], t.n[0][1]);
+        gl.uniform2f(loc.n2, t.n[1][0], t.n[1][1]);
+        gl.uniform2f(loc.n3, t.n[2][0], t.n[2][1]);
+        gl.uniform1f(loc.fit, t.fit);
+        gl.uniform1f(loc.zoom, Config.zoom);
+        gl.uniform2f(loc.pan, Config.pan.x, Config.pan.y);
+        gl.uniform1f(loc.anchor, t.anchor);
+      }
+    },
+  };
+
+  /* ----------------------------------------------------------------------
+   *  RendererGL1 — узкая WebGL1-прослойка (GLSL ES 1.00). Плоский фолдинг:
+   *  розетка + бесконечная мозаика (тот же шейдер складывания, что и плоский
+   *  путь WebGL2), камера грузится из Chamber.cv в текстуру. Без MRT/dFdx и
+   *  без объёмного стекла — они остаются эксклюзивом WebGL2 (RendererGL).
+   *  Тот же интерфейс init/resize/setScene/render/snapshot, своя канва-контекст.
+   * -------------------------------------------------------------------- */
+  const RendererGL1 = {
+    name: 'GL¹', supported: false, glassReady: false,
+    canvas: null, gl: null, prog: null, tex: null, buf: null, loc: {},
+    R: 320, DPR: 1, stats: { drawCalls: 0 }, _triIdx: -1, _tri: null,
+
+    VS: `attribute vec2 a_pos;
+varying vec2 v_uv;
+void main(){
+  v_uv = a_pos * 0.5 + 0.5;
+  gl_Position = vec4(a_pos, 0.0, 1.0);
+}`,
+    FS: `precision highp float;
+varying vec2 v_uv;
+uniform sampler2D u_cham;
+uniform float u_n;
+uniform float u_theta;
+uniform float u_mode;
+uniform vec2  u_n1;
+uniform vec2  u_n2;
+uniform vec2  u_n3;
+uniform float u_tileFit;
+uniform float u_zoom;
+uniform vec2  u_pan;
+uniform float u_anchor;
+const float PI = 3.141592653589793;
+void main(){
+  vec2 p = v_uv * 2.0 - 1.0;
+  p.y = -p.y;
+  float r = length(p);
+  vec3 col;
+  if(u_mode > 0.5){
+    vec2 q = p * u_zoom + u_pan;
+    for(int i = 0; i < 16; i++){
+      bool ref = false;
+      float s1 = dot(u_n1, q) - 1.0; if(s1 > 1e-4){ q -= 2.0 * s1 * u_n1; ref = true; }
+      float s2 = dot(u_n2, q) - 1.0; if(s2 > 1e-4){ q -= 2.0 * s2 * u_n2; ref = true; }
+      float s3 = dot(u_n3, q) - 1.0; if(s3 > 1e-4){ q -= 2.0 * s3 * u_n3; ref = true; }
+      if(!ref) break;
+    }
+    vec2 sp = q * u_tileFit; float ph = u_anchor, ct = cos(ph), st = sin(ph);
+    sp = vec2(ct * sp.x - st * sp.y, st * sp.x + ct * sp.y);
+    col = texture2D(u_cham, sp * 0.5 + 0.5).rgb;
+    col *= mix(0.80, 1.0, smoothstep(1.0, 0.55, r));
+  } else {
+    float ang = atan(p.y, p.x); float tw = PI / u_n;
+    float a = abs(mod(ang, 2.0 * tw) - tw); float beta = tw - a + (1.5707963267 - tw * 0.5);
+    vec2 dir = vec2(cos(beta), sin(beta));
+    vec2 sp = dir * r;
+    col = texture2D(u_cham, sp * 0.5 + 0.5).rgb;
+    float vig = smoothstep(1.0, 0.5, r);
+    col *= mix(0.55, 1.0, vig);
+    col += vec3(0.05) * smoothstep(0.45, 0.0, r);
+  }
+  gl_FragColor = vec4(col, 1.0);
+}`,
+
+    _shader(type, src){
+      const gl = this.gl, s = gl.createShader(type);
+      gl.shaderSource(s, src); gl.compileShader(s);
+      if(!gl.getShaderParameter(s, gl.COMPILE_STATUS)){
+        console.warn('GL1 shader error:', gl.getShaderInfoLog(s)); gl.deleteShader(s); return null;
+      }
+      return s;
+    },
+    _program(vs, fs){
+      const gl = this.gl;
+      const v = this._shader(gl.VERTEX_SHADER, vs), f = this._shader(gl.FRAGMENT_SHADER, fs);
+      if(!v || !f) return null;
+      const p = gl.createProgram();
+      gl.attachShader(p, v); gl.attachShader(p, f); gl.linkProgram(p);
+      if(!gl.getProgramParameter(p, gl.LINK_STATUS)){ console.warn('GL1 link error:', gl.getProgramInfoLog(p)); return null; }
+      return p;
+    },
+
+    init(canvas){
+      this.canvas = canvas;
+      let gl = null;
+      try { gl = canvas.getContext('webgl', { alpha: false, antialias: true, premultipliedAlpha: false })
+                || canvas.getContext('experimental-webgl', { alpha: false, antialias: true }); }
+      catch(e){ gl = null; }
+      if(!gl){ this.supported = false; return false; }
+      this.gl = gl;
+      this.prog = this._program(this.VS, this.FS);
+      if(!this.prog){ this.supported = false; return false; }
+      for(const u of ['cham','n','theta','mode','n1','n2','n3','tileFit','zoom','pan','anchor'])
+        this.loc[u === 'tileFit' ? 'fit' : u] = gl.getUniformLocation(this.prog, 'u_' + u);
+      this.loc.pos = gl.getAttribLocation(this.prog, 'a_pos');
+      this.buf = gl.createBuffer();
+      gl.bindBuffer(gl.ARRAY_BUFFER, this.buf);
+      gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1, -1, 3, -1, -1, 3]), gl.STATIC_DRAW);
+      this.tex = gl.createTexture();
+      gl.bindTexture(gl.TEXTURE_2D, this.tex);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+      this.supported = true;
+      return true;
+    },
+    resize(R, dpr){
+      this.R = R; this.DPR = dpr;
+      this.canvas.style.width = this.canvas.style.height = (R * 2) + 'px';
+      this.canvas.width = this.canvas.height = Math.floor(R * 2 * dpr);
+    },
+    setScene(scene){ this.scene = scene; },
+
+    _setFoldUniforms(state){
+      const gl = this.gl, loc = this.loc;
+      gl.uniform1f(loc.n, Config.symmetry);
+      gl.uniform1f(loc.theta, state.theta % TAU);
+      const tiling = Config.mode === 'tiling';
+      gl.uniform1f(loc.mode, tiling ? 1 : 0);
+      if(tiling){
+        if(Config.triangle !== this._triIdx){ this._tri = buildTriangle(Triangles[Config.triangle].ang); this._triIdx = Config.triangle; }
+        const t = this._tri;
+        gl.uniform2f(loc.n1, t.n[0][0], t.n[0][1]);
+        gl.uniform2f(loc.n2, t.n[1][0], t.n[1][1]);
+        gl.uniform2f(loc.n3, t.n[2][0], t.n[2][1]);
+        gl.uniform1f(loc.fit, t.fit);
+        gl.uniform1f(loc.zoom, Config.zoom);
+        gl.uniform2f(loc.pan, Config.pan.x, Config.pan.y);
+        gl.uniform1f(loc.anchor, t.anchor);
+      }
+    },
+    _drawFold(state){
+      const gl = this.gl;
+      gl.activeTexture(gl.TEXTURE0);
+      gl.bindTexture(gl.TEXTURE_2D, this.tex);
+      gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, Chamber.cv);
+      gl.useProgram(this.prog);
+      gl.uniform1i(this.loc.cham, 0);
+      this._setFoldUniforms(state);
+      gl.bindBuffer(gl.ARRAY_BUFFER, this.buf);
+      gl.enableVertexAttribArray(this.loc.pos);
+      gl.vertexAttribPointer(this.loc.pos, 2, gl.FLOAT, false, 0, 0);
+      gl.drawArrays(gl.TRIANGLES, 0, 3);
+    },
+    render(state){
+      const gl = this.gl; if(!gl) return;
+      gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+      gl.viewport(0, 0, this.canvas.width, this.canvas.height);
+      this._drawFold(state);
+      this.stats.drawCalls = 1;
+    },
+    // Снимок высокого разрешения (FBO-readback, px×px, RGBA, снизу вверх)
+    snapshot(px){
+      const gl = this.gl; if(!gl) return null;
+      if(!this.sFBO){ this.sFBO = gl.createFramebuffer(); this.sTex = gl.createTexture(); this._sw = 0; }
+      if(this._sw !== px){
+        this._sw = px;
+        gl.bindTexture(gl.TEXTURE_2D, this.sTex);
+        gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, px, px, 0, gl.RGBA, gl.UNSIGNED_BYTE, null);
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+        gl.bindFramebuffer(gl.FRAMEBUFFER, this.sFBO);
+        gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, this.sTex, 0);
+      }
+      gl.bindFramebuffer(gl.FRAMEBUFFER, this.sFBO);
+      gl.viewport(0, 0, px, px);
+      this._drawFold({ theta: ChamberSim.theta });
+      const buf = new Uint8Array(px * px * 4);
+      gl.readPixels(0, 0, px, px, gl.RGBA, gl.UNSIGNED_BYTE, buf);
+      gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+      return { buf, px };
+    },
+  };
+
+  /* ----------------------------------------------------------------------
+   *  PeekView — окошко «камера» + отладочные слои (коллайдеры/контакты/скорости)
+   * -------------------------------------------------------------------- */
+  const PeekView = {
+    el: null, canvas: null, ctx: null, S: 65, _triIdx: -1, _tri: null,
+    init(){ this.el = document.getElementById('peek'); this.canvas = document.getElementById('peekCanvas'); this.ctx = this.canvas.getContext('2d'); },
+    resize(dpr){ this.canvas.width = this.canvas.height = Math.floor(130 * dpr); this.ctx.setTransform(dpr, 0, 0, dpr, 0, 0); },
+    setVisible(v){ this.el.classList.toggle('hidden', !v); },
+
+    render(alpha, theta){
+      const dbg = Config.debug;
+      const anyDbg = dbg.show && (dbg.colliders || dbg.contacts || dbg.velocities);
+      if(!Config.showPeek && !anyDbg) return;
+
+      const RC = Config.chamberRadius, S = this.S, k = S / RC, p = this.ctx;
+      const tiling = Config.mode === 'tiling';
+      p.clearRect(0, 0, 130, 130);
+      p.save();
+      p.beginPath(); p.arc(S, S, S, 0, TAU); p.clip();
+      p.translate(S, S);
+      p.scale(k, k);                  // камера как есть: гравитация постоянна вниз, куча оседает внизу
+      drawChamber(p, alpha);
+      if(anyDbg) this._drawDebug(p, alpha, RC / S);
+      p.restore();
+
+      p.save(); p.translate(S, S);
+      p.strokeStyle = 'rgba(200,164,92,.6)'; p.lineWidth = 1;
+      if(tiling){
+        // неподвижный фундаментальный треугольник — реальная область выборки (с привязкой anchor)
+        if(Config.triangle !== this._triIdx){ this._tri = buildTriangle(Triangles[Config.triangle].ang); this._triIdx = Config.triangle; }
+        const t = this._tri, a = t.anchor, ca = Math.cos(a), sa = Math.sin(a);
+        p.lineWidth = 1.2;
+        p.beginPath();
+        for(let i = 0; i < 3; i++){
+          const x = t.verts[i][0] * t.fit, y = t.verts[i][1] * t.fit;   // q·fit -> норм. камеры (радиус 1 = обод)
+          const sx = (ca * x - sa * y) * S, sy = (sa * x + ca * y) * S;  // rot(anchor) -> экран миникарты
+          if(i === 0) p.moveTo(sx, sy); else p.lineTo(sx, sy);
+        }
+        p.closePath(); p.stroke();
+      } else {
+        // розетка: неподвижный клин из пары зеркал, направлен вниз (к куче)
+        const tw = Math.PI / Config.symmetry, phi0 = Math.PI / 2 - tw / 2;
+        p.beginPath();
+        p.moveTo(0, 0); p.lineTo((S + 5) * Math.cos(phi0),      (S + 5) * Math.sin(phi0));
+        p.moveTo(0, 0); p.lineTo((S + 5) * Math.cos(phi0 + tw), (S + 5) * Math.sin(phi0 + tw));
+        p.stroke();
+      }
+      p.restore();
+    },
+
+    _drawDebug(ctx, alpha, invK){
+      const dbg = Config.debug, lw = 1.3 * invK;
+      // коллайдеры (выпуклые части) и сон
+      if(dbg.colliders){
+        for(const b of Scene.bodies){
+          const x = lerp(b.prev.x, b.pos.x, alpha), y = lerp(b.prev.y, b.pos.y, alpha), a = lerp(b.prevA, b.a, alpha);
+          const ca = Math.cos(a), sa = Math.sin(a);
+          ctx.lineWidth = lw;
+          ctx.strokeStyle = b.sleeping ? 'rgba(150,150,160,.7)' : (b.touching ? 'rgba(255,120,120,.9)' : 'rgba(120,220,255,.85)');
+          for(const col of b.colliders){
+            ctx.beginPath();
+            if(col.type === 'circle'){ ctx.arc(x, y, col.r, 0, TAU); }
+            else {
+              const L = col.local;
+              for(let i = 0; i < L.length; i++){
+                const wx = x + ca * L[i][0] - sa * L[i][1], wy = y + sa * L[i][0] + ca * L[i][1];
+                if(i === 0) ctx.moveTo(wx, wy); else ctx.lineTo(wx, wy);
+              }
+              ctx.closePath();
+            }
+            ctx.stroke();
+          }
+        }
+      }
+      // скорости
+      if(dbg.velocities){
+        ctx.strokeStyle = 'rgba(255,220,120,.9)'; ctx.lineWidth = lw;
+        for(const b of Scene.bodies){
+          const x = lerp(b.prev.x, b.pos.x, alpha), y = lerp(b.prev.y, b.pos.y, alpha);
+          ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(x + b.vel.x * 0.12, y + b.vel.y * 0.12); ctx.stroke();
+        }
+      }
+      // контакты + нормали
+      if(dbg.contacts){
+        const r = 3 * invK, nl = 12 * invK;
+        for(const c of ChamberSim.debugContacts){
+          ctx.fillStyle = 'rgba(255,80,90,.95)';
+          ctx.beginPath(); ctx.arc(c.x, c.y, r, 0, TAU); ctx.fill();
+          ctx.strokeStyle = 'rgba(120,255,150,.95)'; ctx.lineWidth = lw;
+          ctx.beginPath(); ctx.moveTo(c.x, c.y); ctx.lineTo(c.x + c.nx * nl, c.y + c.ny * nl); ctx.stroke();
+        }
+      }
+    },
+  };
+
+  /* ----------------------------------------------------------------------
+   *  Debug — оверлей метрик
+   * -------------------------------------------------------------------- */
+  const Debug = {
+    el: null, els: {}, fps: 0, _n: 0, _t: 0,
+    init(){
+      this.el = document.getElementById('dbg');
+      this.els = {
+        fps: document.getElementById('d_fps'), rnd: document.getElementById('d_rnd'),
+        bodies: document.getElementById('d_bodies'), contacts: document.getElementById('d_contacts'),
+        sleep: document.getElementById('d_sleep'), dc: document.getElementById('d_dc'),
+        steps: document.getElementById('d_steps'),
+      };
+    },
+    setVisible(v){ this.el.classList.toggle('show', v); },
+    sample(now){
+      this._n++; if(this._t === 0) this._t = now;
+      if(now - this._t >= 200){
+        this.fps = Math.round(this._n * 1000 / (now - this._t)); this._n = 0; this._t = now;
+        if(Config.debug.show){
+          this.els.fps.textContent = this.fps;
+          this.els.rnd.textContent = App.renderer.name;
+          this.els.bodies.textContent = Scene.bodies.length;
+          this.els.contacts.textContent = ChamberSim.lastContacts;
+          this.els.sleep.textContent = ChamberSim.lastSleeping;
+          this.els.dc.textContent = App.renderer.stats.drawCalls;
+          this.els.steps.textContent = ChamberSim.lastSteps;
+        }
+      }
+    },
+  };
+
+  /* ----------------------------------------------------------------------
+   *  Input
+   * -------------------------------------------------------------------- */
+  const Input = {
+    dragPrev: 0, lastX: 0, lastY: 0,
+    attach(el){
+      const angleAt = (e) => {
+        const rect = el.getBoundingClientRect();
+        const cx = rect.left + rect.width / 2, cy = rect.top + rect.height / 2;
+        const px = e.touches ? e.touches[0].clientX : e.clientX;
+        const py = e.touches ? e.touches[0].clientY : e.clientY;
+        return Math.atan2(py - cy, px - cx);
+      };
+      el.addEventListener('pointerdown', e => {
+        ChamberSim.dragging = true;
+        this.dragPrev = angleAt(e);
+        this.lastX = e.clientX; this.lastY = e.clientY;
+        el.setPointerCapture(e.pointerId);
+      });
+      el.addEventListener('pointermove', e => {
+        if(!ChamberSim.dragging) return;
+        if(Config.mode === 'tiling'){
+          // панорамирование бесконечного поля (содержимое следует за курсором)
+          const k = Config.zoom / Math.max(1, App.R);
+          Config.pan.x -= (e.clientX - this.lastX) * k;
+          Config.pan.y -= (e.clientY - this.lastY) * k;
+          this.lastX = e.clientX; this.lastY = e.clientY;
+        } else {
+          const a = angleAt(e); let d = a - this.dragPrev;
+          if(d > Math.PI) d -= TAU; if(d < -Math.PI) d += TAU;
+          ChamberSim.applyDrag(d); this.dragPrev = a;
+        }
+      });
+      const end = () => { ChamberSim.dragging = false; };
+      el.addEventListener('pointerup', end); el.addEventListener('pointercancel', end);
+      el.addEventListener('wheel', e => {
+        if(Config.mode !== 'tiling') return;
+        e.preventDefault();
+        Config.zoom = clamp(Config.zoom * (1 + e.deltaY * 0.0012), 0.6, 20);
+      }, { passive: false });
+    },
+  };
+
+  /* ----------------------------------------------------------------------
+   *  UI — биндинг к Config
+   * -------------------------------------------------------------------- */
+  const UI = {
+    bind(){
+      const $ = id => document.getElementById(id);
+      $('sym').addEventListener('input', e => { Config.symmetry = +e.target.value; $('symVal').textContent = Config.symmetry; });
+      $('spd').addEventListener('input', e => { Config.spin = +e.target.value; $('spdVal').textContent = Config.spin.toFixed(2); });
+      $('cnt').addEventListener('input', e => { const n = +e.target.value; $('cntVal').textContent = n; Scene.build(n); });
+      $('alp').addEventListener('input', e => { Config.glass.opacity = +e.target.value; $('alpVal').textContent = Config.glass.opacity.toFixed(2); });
+      $('ior').addEventListener('input', e => { Config.glass.ior = +e.target.value; $('iorVal').textContent = Config.glass.ior.toFixed(2); });
+      $('disp').addEventListener('input', e => { Config.optics.dispersion = +e.target.value; $('dispVal').textContent = Config.optics.dispersion.toFixed(2); });
+      $('bloom').addEventListener('input', e => { Config.optics.bloom = +e.target.value; $('bloomVal').textContent = Config.optics.bloom.toFixed(2); });
+      $('barrel').addEventListener('input', e => { Config.optics.barrel = +e.target.value; $('barVal').textContent = Config.optics.barrel.toFixed(2); });
+      $('qual').addEventListener('input', e => { Config.quality.scale = +e.target.value; Config.quality.auto = false; $('qualVal').textContent = Config.quality.scale.toFixed(2); });
+      $('shake').addEventListener('click', () => Scene.shake());
+      $('palette').addEventListener('click', () => { Config.paletteIndex = (Config.paletteIndex + 1) % Palettes.length; Scene.recolor(); });
+      const lightBtn = $('lightBtn');
+      lightBtn.textContent = Lightings[Config.lighting].name;
+      lightBtn.addEventListener('click', () => {
+        Config.lighting = (Config.lighting + 1) % Lightings.length;
+        lightBtn.textContent = Lightings[Config.lighting].name;   // фон/свет читаются на лету
+      });
+      const shapeBtn = $('shapeBtn');
+      shapeBtn.textContent = Shapes[Config.shapeMode].name;
+      shapeBtn.addEventListener('click', () => {
+        Config.shapeMode = (Config.shapeMode + 1) % Shapes.length;
+        shapeBtn.textContent = Shapes[Config.shapeMode].name;
+        Scene.build(Config.bodyCount);                            // перестроить тела под новое семейство
+      });
+      const soundBtn = $('soundBtn');
+      soundBtn.addEventListener('click', () => {
+        if(Config.sound.on){ Sound.disable(); soundBtn.classList.remove('on'); }
+        else { const ok = Sound.enable(); soundBtn.classList.toggle('on', ok); if(!ok) soundBtn.title = 'Web Audio недоступен в этом браузере'; }
+      });
+      $('vol').addEventListener('input', e => { const v = +e.target.value; $('volVal').textContent = v.toFixed(2); Sound.setVolume(v); });
+
+      const peekBtn = $('peekBtn');
+      peekBtn.addEventListener('click', e => { Config.showPeek = !Config.showPeek; PeekView.setVisible(Config.showPeek); e.target.classList.toggle('on', Config.showPeek); });
+      const dbgBtn = $('dbgBtn');
+      dbgBtn.addEventListener('click', e => { Config.debug.show = !Config.debug.show; Debug.setVisible(Config.debug.show); e.target.classList.toggle('on', Config.debug.show); });
+
+      const rndBtn = $('rndBtn');
+      const modeBtn = $('modeBtn');
+      const triBtn = $('triBtn');
+      const glassBtn = $('glassBtn');
+      const opticsBtn = $('opticsBtn');
+
+      if(!RendererGL.supported || !RendererGL.glassReady){
+        glassBtn.disabled = true; glassBtn.classList.remove('on');
+        glassBtn.title = 'Объёмное стекло требует WebGL2/MRT';
+        opticsBtn.disabled = true; opticsBtn.classList.remove('on');
+        opticsBtn.title = 'Пост-оптика требует WebGL2/MRT';
+      } else {
+        glassBtn.classList.toggle('on', Config.glass.on);
+        glassBtn.addEventListener('click', e => {
+          Config.glass.on = !Config.glass.on;
+          e.target.classList.toggle('on', Config.glass.on);
+        });
+        opticsBtn.classList.toggle('on', Config.optics.on);
+        opticsBtn.addEventListener('click', e => {
+          Config.optics.on = !Config.optics.on;
+          e.target.classList.toggle('on', Config.optics.on);
+        });
+      }
+      const hint = document.querySelector('.hint');
+      const setHint = () => {
+        hint.textContent = Config.mode === 'tiling'
+          ? 'Тяните — панорама · колесо — масштаб'
+          : 'Тяните по кругу, чтобы вращать вручную';
+      };
+      triBtn.textContent = Triangles[Config.triangle].name;
+
+      if(!App.glRenderer){
+        rndBtn.disabled = true; rndBtn.textContent = '2D';
+        rndBtn.title = 'WebGL недоступен — используется Canvas 2D';
+      } else {
+        rndBtn.textContent = Config.renderer === 'gl' ? 'GL' : '2D';
+        rndBtn.title = App.glTier === 'gl1' ? 'Зеркала: Canvas 2D ↔ WebGL1' : 'Зеркала: Canvas 2D ↔ WebGL2';
+        rndBtn.classList.toggle('on', Config.renderer === 'gl');
+        rndBtn.addEventListener('click', () => {
+          const mode = Config.renderer === 'gl' ? '2d' : 'gl';
+          App.setRenderer(mode);
+          rndBtn.textContent = mode === 'gl' ? 'GL' : '2D';
+          rndBtn.classList.toggle('on', mode === 'gl');
+          UI.sync();   // пересчитать доступность «Стекло»/«Оптика» под новый рендерер
+        });
+      }
+
+      // Мозаика и треугольник доступны всегда — мозаика работает и в Canvas 2D
+      modeBtn.addEventListener('click', () => {
+        if(Config.mode === 'tiling'){
+          Config.mode = 'rosette';
+          modeBtn.classList.remove('on'); modeBtn.textContent = 'Розетка';
+        } else {
+          Config.mode = 'tiling';
+          Config.pan.x = Config.pan.y = 0; Config.zoom = 4.0;
+          modeBtn.classList.add('on'); modeBtn.textContent = 'Мозаика';
+        }
+        setHint();
+        UI.sync();   // обновить доступность кнопки треугольника под режим
+      });
+      triBtn.addEventListener('click', () => {
+        Config.triangle = (Config.triangle + 1) % Triangles.length;
+        triBtn.textContent = Triangles[Config.triangle].name;
+      });
+
+      const ensurePeek = () => { if(!Config.showPeek){ Config.showPeek = true; PeekView.setVisible(true); peekBtn.classList.add('on'); } };
+      $('d_col').addEventListener('change', e => { Config.debug.colliders  = e.target.checked; if(e.target.checked) ensurePeek(); });
+      $('d_con').addEventListener('change', e => { Config.debug.contacts   = e.target.checked; if(e.target.checked) ensurePeek(); });
+      $('d_vel').addEventListener('change', e => { Config.debug.velocities = e.target.checked; if(e.target.checked) ensurePeek(); });
+
+      // Этап 8: экспорт и пресеты
+      $('snapBtn').addEventListener('click', () => Export.png(2048));
+      const recBtn = $('recBtn'); Recorder.btn = recBtn;
+      if(!Recorder.supported()){
+        recBtn.disabled = true; recBtn.title = 'Запись WebM не поддерживается этим браузером';
+      } else {
+        recBtn.addEventListener('click', () => Recorder.toggle());
+      }
+      $('saveBtn').addEventListener('click', () => Presets.download());
+      $('copyBtn').addEventListener('click', () => Presets.copy());
+      const sceneSel = $('sceneSel');
+      if(sceneSel){
+        ScenePresets.forEach((p, i) => {
+          const o = document.createElement('option'); o.value = String(i); o.textContent = p.name; sceneSel.appendChild(o);
+        });
+        sceneSel.addEventListener('change', e => {
+          const i = +e.target.value;
+          if(i >= 0 && ScenePresets[i]) Presets.applyScene(ScenePresets[i].cfg);
+          sceneSel.value = '-1';   // вернуть плейсхолдер, чтобы пресет можно было выбрать снова
+        });
+      }
+      const presetFile = $('presetFile');
+      $('loadBtn').addEventListener('click', () => presetFile.click());
+      presetFile.addEventListener('change', e => {
+        const f = e.target.files && e.target.files[0]; if(!f) return;
+        const rd = new FileReader();
+        rd.onload = () => Presets.import(String(rd.result));
+        rd.readAsText(f); presetFile.value = '';
+      });
+
+      this._refs = { peekBtn, dbgBtn, rndBtn, modeBtn, triBtn, glassBtn, opticsBtn, lightBtn, shapeBtn, setHint };
+      this.sync();
+    },
+
+    // Синхронизация всех контролов/кнопок из Config (после импорта пресета или старта)
+    sync(){
+      const $ = id => document.getElementById(id);
+      const set = (id, v, val) => { const el = $(id); if(el) el.value = v; if(val !== undefined){ const b = $(val.id); if(b) b.textContent = val.t; } };
+      set('sym', Config.symmetry, { id: 'symVal', t: String(Config.symmetry) });
+      set('spd', Config.spin, { id: 'spdVal', t: Config.spin.toFixed(2) });
+      set('cnt', Scene.bodies.length, { id: 'cntVal', t: String(Scene.bodies.length) });
+      set('alp', Config.glass.opacity, { id: 'alpVal', t: Config.glass.opacity.toFixed(2) });
+      set('ior', Config.glass.ior, { id: 'iorVal', t: Config.glass.ior.toFixed(2) });
+      set('disp', Config.optics.dispersion, { id: 'dispVal', t: Config.optics.dispersion.toFixed(2) });
+      set('bloom', Config.optics.bloom, { id: 'bloomVal', t: Config.optics.bloom.toFixed(2) });
+      set('barrel', Config.optics.barrel, { id: 'barVal', t: Config.optics.barrel.toFixed(2) });
+      set('qual', Config.quality.scale, { id: 'qualVal', t: Config.quality.scale.toFixed(2) });
+      set('vol', Config.sound.volume, { id: 'volVal', t: Config.sound.volume.toFixed(2) });
+      const r = this._refs; if(!r) return;
+      r.peekBtn.classList.toggle('on', Config.showPeek); PeekView.setVisible(Config.showPeek);
+      r.dbgBtn.classList.toggle('on', Config.debug.show); Debug.setVisible(Config.debug.show);
+      // Стекло/оптика — пост-обработка WebGL2; активны только когда реально рисует GL-рендерер
+      const glCan = App.glRenderer && App.glTier === 'gl2' && RendererGL.glassReady;
+      const glAct = glCan && App.renderer === App.glRenderer;
+      if(r.glassBtn && r.opticsBtn){
+        r.glassBtn.disabled = !glAct; r.opticsBtn.disabled = !glAct;
+        r.glassBtn.classList.toggle('on', glAct && Config.glass.on);
+        r.opticsBtn.classList.toggle('on', glAct && Config.optics.on);
+        r.glassBtn.title  = glAct ? 'Объёмное стекло (G-buffer, преломление фона)'
+                          : (glCan ? 'Стекло доступно в WebGL — переключите 2D → GL' : 'Объёмное стекло требует WebGL2/MRT');
+        r.opticsBtn.title = glAct ? 'Пост-оптика: дисперсия, свечение, дисторсия линзы'
+                          : (glCan ? 'Оптика доступна в WebGL — переключите 2D → GL' : 'Пост-оптика требует WebGL2/MRT');
+      }
+      r.triBtn.textContent = Triangles[Config.triangle].name;
+      if(r.lightBtn) r.lightBtn.textContent = Lightings[Config.lighting].name;
+      if(r.shapeBtn) r.shapeBtn.textContent = Shapes[Config.shapeMode].name;
+      const tiling = Config.mode === 'tiling';
+      // треугольник задаёт фундаментальную область только для мозаики; в розетке он неактивен
+      r.triBtn.disabled = !tiling;
+      r.triBtn.title = tiling ? 'Треугольник мозаики (группа орнамента)'
+                              : 'Треугольник доступен в режиме «Мозаика» (розетка задаётся «Симметрией»)';
+      r.modeBtn.classList.toggle('on', tiling); r.modeBtn.textContent = tiling ? 'Мозаика' : 'Розетка';
+      if(App.glRenderer){
+        const gl = Config.renderer === 'gl';
+        r.rndBtn.textContent = gl ? 'GL' : '2D'; r.rndBtn.classList.toggle('on', gl);
+      }
+      r.setHint();
+    },
+  };
+
+  /* ----------------------------------------------------------------------
+   *  Presets — весь настроечный Config <-> JSON (файл / буфер / localStorage).
+   *  Сериализуется только белый список настроек (без рантайм-состояния тел).
+   * -------------------------------------------------------------------- */
+  const Presets = {
+    LS_KEY: 'kaleidoscope.preset.v1',
+    serialize(){
+      const C = Config;
+      return {
+        symmetry: C.symmetry, spin: C.spin, bodyCount: Scene.bodies.length,
+        paletteIndex: C.paletteIndex, lighting: C.lighting, shapeMode: C.shapeMode,
+        renderer: C.renderer, mode: C.mode,
+        triangle: C.triangle, zoom: C.zoom, showPeek: C.showPeek,
+        glass:  { on: C.glass.on, ior: C.glass.ior, absorb: C.glass.absorb, refr: C.glass.refr, dome: C.glass.dome, opacity: C.glass.opacity },
+        optics: { on: C.optics.on, dispersion: C.optics.dispersion, bloom: C.optics.bloom, barrel: C.optics.barrel },
+        quality:{ scale: C.quality.scale, auto: C.quality.auto },
+      };
+    },
+    toJSON(){ return JSON.stringify(this.serialize(), null, 2); },
+    // только Config (без сцены/DOM/рендерера) — для применения до сборки сцены
+    applyConfig(o){
+      if(!o || typeof o !== 'object') return;
+      const C = Config, num = (v, d) => (typeof v === 'number' && isFinite(v)) ? v : d;
+      const mod = (v, n) => ((v % n) + n) % n;
+      C.symmetry = clamp(Math.round(num(o.symmetry, C.symmetry)), 3, 24);
+      C.spin = clamp(num(o.spin, C.spin), -2, 2);
+      C.paletteIndex = mod(Math.round(num(o.paletteIndex, C.paletteIndex)), Palettes.length);
+      C.lighting = mod(Math.round(num(o.lighting, C.lighting)), Lightings.length);
+      C.shapeMode = mod(Math.round(num(o.shapeMode, C.shapeMode)), Shapes.length);
+      C.triangle = mod(Math.round(num(o.triangle, C.triangle)), Triangles.length);
+      C.zoom = clamp(num(o.zoom, C.zoom), 0.6, 20);
+      if(typeof o.showPeek === 'boolean') C.showPeek = o.showPeek;
+      if(o.renderer === 'gl' || o.renderer === '2d') C.renderer = o.renderer;
+      if(o.mode === 'tiling' || o.mode === 'rosette') C.mode = o.mode;
+      C.bodyCount = clamp(Math.round(num(o.bodyCount, C.bodyCount)), 4, 120);
+      if(o.glass){ const g = o.glass;
+        if(typeof g.on === 'boolean') C.glass.on = g.on;
+        C.glass.ior = clamp(num(g.ior, C.glass.ior), 1, 2);
+        C.glass.absorb = clamp(num(g.absorb, C.glass.absorb), 0, 4);
+        C.glass.refr = clamp(num(g.refr, C.glass.refr), 0, 1);
+        C.glass.dome = clamp(num(g.dome, C.glass.dome), 0, 3);
+        C.glass.opacity = clamp(num(g.opacity, C.glass.opacity), 0.25, 1);
+      }
+      if(o.optics){ const p = o.optics;
+        if(typeof p.on === 'boolean') C.optics.on = p.on;
+        C.optics.dispersion = clamp(num(p.dispersion, C.optics.dispersion), 0, 1);
+        C.optics.bloom = clamp(num(p.bloom, C.optics.bloom), 0, 1.5);
+        C.optics.barrel = clamp(num(p.barrel, C.optics.barrel), -0.3, 0.4);
+      }
+      if(o.quality){ const q = o.quality;
+        C.quality.scale = clamp(num(q.scale, C.quality.scale), C.quality.min, C.quality.max);
+        if(typeof q.auto === 'boolean') C.quality.auto = q.auto;
+      }
+    },
+    // полное применение (с пересборкой сцены, сменой рендерера и обновлением UI)
+    import(text){
+      let o; try { o = JSON.parse(text); } catch(e){ return false; }
+      this.applyConfig(o);
+      Scene.build(Config.bodyCount);
+      Scene.recolor();
+      App.setRenderer(Config.mode === 'tiling' ? 'gl' : Config.renderer);
+      UI.sync();
+      this.saveLocal();
+      return true;
+    },
+    // применить готовую конфигурацию из ScenePresets (объект Config)
+    applyScene(cfg){
+      this.applyConfig(cfg);
+      Scene.build(Config.bodyCount);
+      Scene.recolor();
+      App.setRenderer(Config.mode === 'tiling' ? 'gl' : Config.renderer);
+      UI.sync();
+      this.saveLocal();
+    },
+    read(){ try { const s = localStorage.getItem(this.LS_KEY); return s ? JSON.parse(s) : null; } catch(e){ return null; } },
+    saveLocal(){ try { localStorage.setItem(this.LS_KEY, this.toJSON()); } catch(e){ /* fallback: без сохранения */ } },
+    download(){
+      const blob = new Blob([this.toJSON()], { type: 'application/json' });
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(blob); a.download = 'kaleidoscope_preset.json';
+      document.body.appendChild(a); a.click(); a.remove();
+      setTimeout(() => URL.revokeObjectURL(a.href), 2000);
+    },
+    copy(){ try { navigator.clipboard.writeText(this.toJSON()); } catch(e){ /* буфер недоступен */ } },
+  };
+
+  /* ----------------------------------------------------------------------
+   *  Export — снимок PNG высокого разрешения (GL: FBO-readback; 2D: канва)
+   * -------------------------------------------------------------------- */
+  const Export = {
+    png(size = 2048){
+      const r = App.renderer;
+      if(r && typeof r.snapshot === 'function'){
+        const snap = r.snapshot(size);
+        if(snap){ this._fromBuf(snap.buf, snap.px); return; }
+      }
+      this._from2D(size);
+    },
+    _fromBuf(buf, px){
+      const cv = document.createElement('canvas'); cv.width = px; cv.height = px;
+      const ctx = cv.getContext('2d'); const img = ctx.createImageData(px, px);
+      for(let y = 0; y < px; y++){                       // переворот по Y (GL снизу вверх)
+        const sy = px - 1 - y;
+        img.data.set(buf.subarray(sy * px * 4, (sy + 1) * px * 4), y * px * 4);
+      }
+      ctx.putImageData(img, 0, 0);
+      cv.toBlob(b => this._dl(b));
+    },
+    _from2D(px){
+      Renderer2D.resize(Math.floor(px / 2), 1);
+      Chamber.draw(1);
+      Renderer2D.render({ theta: ChamberSim.theta, alpha: 1 });
+      Renderer2D.canvas.toBlob(b => { this._dl(b); App.layout(); });
+    },
+    _dl(blob){
+      if(!blob) return;
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(blob); a.download = 'kaleidoscope_' + Date.now() + '.png';
+      document.body.appendChild(a); a.click(); a.remove();
+      setTimeout(() => URL.revokeObjectURL(a.href), 2000);
+    },
+  };
+
+  /* ----------------------------------------------------------------------
+   *  Recorder — запись WebM с активной канвы (captureStream + MediaRecorder).
+   *  По умолчанию пишет один полный оборот трубы (Δθ = 2π), затем сам
+   *  останавливается и скачивает файл; предохранитель — 30 c. Повторный
+   *  клик останавливает раньше. При смене рендерера запись корректно встаёт.
+   * -------------------------------------------------------------------- */
+  const Recorder = {
+    rec: null, chunks: [], active: false, startTheta: 0, startTime: 0, btn: null,
+    supported(){
+      return typeof MediaRecorder !== 'undefined' && typeof HTMLCanvasElement !== 'undefined' &&
+        !!(HTMLCanvasElement.prototype.captureStream || HTMLCanvasElement.prototype.mozCaptureStream);
+    },
+    _mime(){
+      const cands = ['video/webm;codecs=vp9', 'video/webm;codecs=vp8', 'video/webm'];
+      for(const m of cands){ try { if(MediaRecorder.isTypeSupported(m)) return m; } catch(e){} }
+      return '';
+    },
+    start(){
+      if(this.active) return false;
+      const canvas = App.renderer.canvas;
+      const cap = canvas.captureStream || canvas.mozCaptureStream;
+      if(!cap) return false;
+      let stream; try { stream = cap.call(canvas, 60); } catch(e){ return false; }
+      const mime = this._mime();
+      try { this.rec = new MediaRecorder(stream, mime ? { mimeType: mime, videoBitsPerSecond: 12000000 } : undefined); }
+      catch(e){ try { this.rec = new MediaRecorder(stream); } catch(e2){ return false; } }
+      this.chunks = [];
+      this.rec.ondataavailable = e => { if(e.data && e.data.size) this.chunks.push(e.data); };
+      this.rec.onstop = () => this._finalize();
+      try { this.rec.start(); } catch(e){ return false; }
+      this.active = true;
+      this.startTheta = ChamberSim.theta;
+      this.startTime = performance.now();
+      this._ui();
+      return true;
+    },
+    stop(){
+      if(!this.active) return;
+      this.active = false;
+      try { this.rec.stop(); } catch(e){ this._finalize(); }
+      this._ui();
+    },
+    toggle(){ this.active ? this.stop() : this.start(); },
+    // вызывается каждый кадр: авто-стоп по завершении оборота или по предохранителю
+    tick(){
+      if(!this.active) return;
+      const dTheta = Math.abs(ChamberSim.theta - this.startTheta);
+      if(dTheta >= TAU || (performance.now() - this.startTime) > 30000) this.stop();
+    },
+    _finalize(){
+      if(!this.chunks.length) return;
+      const blob = new Blob(this.chunks, { type: 'video/webm' });
+      this.chunks = [];
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(blob); a.download = 'kaleidoscope_' + Date.now() + '.webm';
+      document.body.appendChild(a); a.click(); a.remove();
+      setTimeout(() => URL.revokeObjectURL(a.href), 4000);
+    },
+    _ui(){ if(this.btn){ this.btn.classList.toggle('on', this.active); this.btn.textContent = this.active ? 'Стоп ●' : 'Запись'; } },
+  };
+
+  /* ----------------------------------------------------------------------
+   *  Sound — генеративное звуковое окружение (Web Audio, без библиотек).
+   *  Слои: (1) удары тел -> ноты-колокольчики (импульс->громкость/яркость,
+   *  цвет->высота в гамме, размер->октава, стена/тело->тембр, позиция->панорама);
+   *  (2) дроновая подушка (аккорд из гаммы, громкость ~ скорость вращения);
+   *  (3) большой ревербератор. Гамма выбирается пресетом освещения.
+   * -------------------------------------------------------------------- */
+  const Sound = {
+    ctx: null, master: null, busIn: null, drone: null, on: false,
+    _voices: 0, _nextChord: 0, _lastTrig: 0,
+    // гаммы по индексу освещения (День/Ночь/Свеча/Витрина) — пентатоники
+    scales: [
+      { root: 69, notes: [0, 2, 4, 7, 9] },    // День — A мажорная пентатоника
+      { root: 57, notes: [0, 3, 5, 7, 10] },   // Ночь — A минорная пентатоника (ниже/темнее)
+      { root: 62, notes: [0, 2, 4, 7, 9] },    // Свеча — D пентатоника (тёплая середина)
+      { root: 72, notes: [0, 2, 4, 7, 9] },    // Витрина — C5 яркая пентатоника
+    ],
+    _scale(){ return this.scales[Config.lighting] || this.scales[0]; },
+    _hue(c){
+      const r = c[0] / 255, g = c[1] / 255, b = c[2] / 255;
+      const mx = Math.max(r, g, b), mn = Math.min(r, g, b), d = mx - mn;
+      if(d < 1e-4) return 0;
+      let h; if(mx === r) h = ((g - b) / d) % 6; else if(mx === g) h = (b - r) / d + 2; else h = (r - g) / d + 4;
+      h *= 60; if(h < 0) h += 360; return h;
+    },
+    _makeIR(ctx, dur, decay){
+      const rate = ctx.sampleRate, len = Math.max(1, Math.floor(rate * dur)), buf = ctx.createBuffer(2, len, rate);
+      for(let ch = 0; ch < 2; ch++){ const d = buf.getChannelData(ch); for(let i = 0; i < len; i++){ const t = i / len; d[i] = (Math.random() * 2 - 1) * Math.pow(1 - t, decay); } }
+      return buf;
+    },
+    init(){
+      const AC = window.AudioContext || window.webkitAudioContext;
+      if(!AC) throw new Error('no WebAudio');
+      const ctx = new AC(); this.ctx = ctx;
+      const master = ctx.createGain(); master.gain.value = Config.sound.volume;
+      const comp = ctx.createDynamicsCompressor();   // мягкий лимитер на мастере
+      comp.threshold.value = -8; comp.knee.value = 6; comp.ratio.value = 12; comp.attack.value = 0.003; comp.release.value = 0.25;
+      master.connect(comp); comp.connect(ctx.destination);
+      const busIn = ctx.createGain(); this.busIn = busIn;
+      const dry = ctx.createGain(); dry.gain.value = 0.7;
+      const wet = ctx.createGain(); wet.gain.value = 0.55;
+      const conv = ctx.createConvolver(); conv.buffer = this._makeIR(ctx, 2.6, 2.4);
+      busIn.connect(dry); dry.connect(master);
+      busIn.connect(conv); conv.connect(wet); wet.connect(master);
+      this.master = master;
+      // дрон: 3 осциллятора -> фильтр -> усиление(0) -> шина
+      const dg = ctx.createGain(); dg.gain.value = 0;
+      const df = ctx.createBiquadFilter(); df.type = 'lowpass'; df.frequency.value = 700; df.Q.value = 0.6;
+      dg.connect(df); df.connect(busIn);
+      const oscs = [];
+      for(let i = 0; i < 3; i++){
+        const o = ctx.createOscillator(); o.type = (i === 2) ? 'triangle' : 'sawtooth';
+        const og = ctx.createGain(); og.gain.value = (i === 0) ? 0.5 : 0.28;
+        o.connect(og); og.connect(dg); o.start(); oscs.push(o);
+      }
+      this.drone = { gain: dg, filt: df, osc: oscs };
+      this._nextChord = 0; this._lastTrig = 0; this._voices = 0;
+    },
+    enable(){
+      if(!this.ctx){ try { this.init(); } catch(e){ return false; } }
+      if(this.ctx.state === 'suspended') this.ctx.resume();
+      this.on = true; Config.sound.on = true; return true;
+    },
+    disable(){
+      this.on = false; Config.sound.on = false;
+      if(this.drone && this.ctx) this.drone.gain.gain.setTargetAtTime(0, this.ctx.currentTime, 0.4);
+    },
+    setVolume(v){
+      Config.sound.volume = v;
+      if(this.master && this.ctx) this.master.gain.setTargetAtTime(v, this.ctx.currentTime, 0.05);
+    },
+    _trigger(ev, when){
+      if(this._voices > 26) return;
+      const ctx = this.ctx, sc = this._scale();
+      const notes = sc.notes, deg = Math.floor(this._hue(ev.col) / 360 * notes.length) % notes.length;
+      let oct = Math.round((38 - ev.r) / 10); oct = clamp(oct, -1, 3);    // крупное -> ниже
+      let midi = sc.root + notes[deg] + oct * 12; if(ev.wall) midi -= 12;  // стенка глуше/ниже
+      const f = 440 * Math.pow(2, (midi - 69) / 12);
+      const vel = clamp(ev.v / 360, 0.05, 1);
+      const g = ctx.createGain(), lp = ctx.createBiquadFilter();
+      lp.type = 'lowpass';
+      const o1 = ctx.createOscillator(), o2 = ctx.createOscillator(), o2g = ctx.createGain();
+      if(ev.wall){ o1.type = 'sine'; o2.type = 'sine'; o2.frequency.value = f * 2.0; o2g.gain.value = 0.12; lp.frequency.value = 500 + vel * 1100; }
+      else       { o1.type = 'triangle'; o2.type = 'sine'; o2.frequency.value = f * 2.01; o2g.gain.value = 0.3; lp.frequency.value = 1300 + vel * 5200; }
+      o1.frequency.value = f;
+      o1.connect(lp); o2.connect(o2g); o2g.connect(lp); lp.connect(g);
+      let out = g;
+      if(ctx.createStereoPanner){ const pan = ctx.createStereoPanner(); pan.pan.value = clamp(ev.x / Config.chamberRadius, -1, 1); g.connect(pan); out = pan; this._panNode = pan; }
+      out.connect(this.busIn);
+      const peak = (ev.wall ? 0.5 : 0.72) * vel;
+      const dur = ev.wall ? 0.5 : (0.9 + Math.random() * 0.7);
+      const t = when;
+      g.gain.setValueAtTime(0.0001, t);
+      g.gain.linearRampToValueAtTime(peak, t + (ev.wall ? 0.012 : 0.004));
+      g.gain.exponentialRampToValueAtTime(0.0008, t + dur);
+      o1.start(t); o2.start(t); o1.stop(t + dur + 0.05); o2.stop(t + dur + 0.05);
+      this._voices++;
+      const self = this, pn = out !== g ? out : null;
+      o1.onended = () => { try { o1.disconnect(); o2.disconnect(); o2g.disconnect(); lp.disconnect(); g.disconnect(); if(pn) pn.disconnect(); } catch(e){} self._voices--; };
+    },
+    _updateDrone(){
+      if(!this.drone) return;
+      const ctx = this.ctx, now = ctx.currentTime;
+      const act = clamp(Math.abs(Config.spin) / 1.0, 0, 1);
+      const target = this.on ? (0.045 + 0.06 * act) : 0;
+      this.drone.gain.gain.setTargetAtTime(target, now, 0.6);
+      if(now > this._nextChord){
+        this._nextChord = now + 4 + Math.random() * 3;
+        const sc = this._scale(), base = sc.root - 12;            // подушка на октаву ниже
+        const degs = [0, 7, sc.notes[2] || 4];                    // корень, квинта, терция-ish
+        this.drone.osc.forEach((o, i) => {
+          const midi = base + degs[i] + (i === 2 ? 12 : 0);
+          o.frequency.setTargetAtTime(440 * Math.pow(2, (midi - 69) / 12), now, 1.6);
+        });
+      }
+    },
+    tick(){
+      const hits = ChamberSim._hits;
+      if(!this.on || !this.ctx){ if(hits.length) hits.length = 0; return; }
+      const now = this.ctx.currentTime;
+      let budget = 3;                                             // не более 3 нот/кадр (анти-спам)
+      for(let i = 0; i < hits.length && budget > 0; i++){
+        this._trigger(hits[i], now + (3 - budget) * 0.02);        // лёгкий разнос по времени
+        budget--;
+      }
+      hits.length = 0;
+      this._updateDrone();
+    },
+  };
+
+  /* ----------------------------------------------------------------------
+   *  App
+   * -------------------------------------------------------------------- */
+  const App = {
+    renderer: Renderer2D, glRenderer: null, glTier: null, R: 320, DPR: 1, last: 0,
+
+    setRenderer(mode){
+      if(mode === 'gl' && !this.glRenderer) mode = '2d';
+      if(typeof Recorder !== 'undefined' && Recorder.active) Recorder.stop();   // канва меняется — закрываем запись
+      Config.renderer = mode;
+      this.renderer = mode === 'gl' ? this.glRenderer : Renderer2D;
+      document.getElementById('scope').style.display   = mode === '2d' ? 'block' : 'none';
+      document.getElementById('scopeGL').style.display = mode === 'gl' ? 'block' : 'none';
+      this.layout();
+    },
+    layout(){
+      // рендерим с запасом разрешения (суперсэмплинг): минимум 2× к CSS-размеру,
+      // браузер даунскейлит буфер -> сглаживание краёв тел даже при dpr=1
+      this.DPR = Math.min(Math.max(window.devicePixelRatio || 1, 2), 2.5);
+      // измеряем реальные зоны: подсказка сверху и панель снизу (обе fixed)
+      const rectOf = el => { try { return el && el.getBoundingClientRect ? el.getBoundingClientRect() : null; } catch(e){ return null; } };
+      const hb = rectOf(document.querySelector('.hint'));
+      const pb = rectOf(document.querySelector('.panel'));
+      const hintB  = (hb && isFinite(hb.bottom)) ? hb.bottom : 100;
+      const panelH = (pb && isFinite(pb.height)) ? pb.height : 150;
+      const topRes = hintB + 18;
+      const botRes = panelH + 22 + 18;            // 22 = .panel bottom-offset
+      const availH = window.innerHeight - topRes - botRes;
+      const availW = window.innerWidth - 56;
+      const dia = Math.min(availW, availH);        // внешний диаметр оправы (с паддингом 2×16)
+      this.R = clamp(Math.floor((dia - 32) / 2), 130, 360);
+      // центрируем оправу в доступной полосе, а не в полном окне
+      const stage = document.querySelector('.stage');
+      if(stage) stage.style.transform = `translateY(${Math.round((topRes - botRes) / 2)}px)`;
+      Renderer2D.resize(this.R, this.DPR);
+      if(RendererGL.supported)  RendererGL.resize(this.R, this.DPR);
+      if(RendererGL1.supported) RendererGL1.resize(this.R, this.DPR);
+      PeekView.resize(this.DPR);
+    },
+    frame(now){
+      const dt = (now - App.last) / 1000; App.last = now;
+      const alpha = ChamberSim.update(dt);
+      const theta = lerp(ChamberSim.prevTheta, ChamberSim.theta, alpha);
+      const glassActive = App.renderer === RendererGL && Config.glass.on && RendererGL.glassReady;
+      if(!glassActive) Chamber.draw(alpha);   // плоский путь (2D или GL без стекла)
+      App.renderer.render({ alpha, theta });
+      PeekView.render(alpha, theta);
+      Debug.sample(now);
+      Recorder.tick();
+      Sound.tick();
+      // адаптивное качество: подгон масштаба суперсэмплинга по кадровому времени (только GL+стекло)
+      if(Config.quality.auto && glassActive && dt > 0 && dt < 0.5){
+        App._ft = App._ft ? App._ft * 0.9 + dt * 0.1 : dt;
+        if((App._acd = (App._acd || 0) + 1) > 40){
+          App._acd = 0;
+          const ms = App._ft * 1000, q = Config.quality;
+          if(ms > 20 && q.scale > q.min) q.scale = Math.max(q.min, +(q.scale - 0.1).toFixed(2));
+          else if(ms < 12 && q.scale < q.max) q.scale = Math.min(q.max, +(q.scale + 0.1).toFixed(2));
+        }
+      }
+      requestAnimationFrame(App.frame);
+    },
+    start(){
+      Chamber.init();
+      Renderer2D.init(document.getElementById('scope')); Renderer2D.setScene(Scene);
+      // Выбор GL-тира на общей канве #scopeGL: WebGL2 (стекло) -> WebGL1 (фолдинг+мозаика) -> нет
+      const glCanvas = document.getElementById('scopeGL');
+      RendererGL.init(glCanvas);
+      if(!RendererGL.supported) RendererGL1.init(glCanvas);
+      this.glRenderer = RendererGL.supported ? RendererGL : (RendererGL1.supported ? RendererGL1 : null);
+      this.glTier = RendererGL.supported ? 'gl2' : (RendererGL1.supported ? 'gl1' : null);
+      if(RendererGL.supported)  RendererGL.setScene(Scene);
+      if(RendererGL1.supported) RendererGL1.setScene(Scene);
+      PeekView.init(); Debug.init();
+      // мобильная ветка качества (меньше внутреннее разрешение) + загрузка пресета
+      const mobile = (window.matchMedia && window.matchMedia('(pointer:coarse)').matches) ||
+                     Math.min(window.innerWidth, window.innerHeight) < 560;
+      if(mobile){ Config.quality.scale = 0.85; Config.quality.max = 1.0; }
+      const saved = Presets.read(); if(saved) Presets.applyConfig(saved);
+      Scene.build(Config.bodyCount);
+      this.setRenderer(Config.mode === 'tiling' ? 'gl' : Config.renderer);
+      window.addEventListener('resize', () => this.layout());
+      window.addEventListener('beforeunload', () => Presets.saveLocal());
+      Input.attach(document.getElementById('bezel'));
+      UI.bind();
+      this.last = performance.now();
+      requestAnimationFrame(this.frame);
+    },
+  };
+
+  App.start();
+})();
+</script>
+</body>
+</html>
