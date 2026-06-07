@@ -1,0 +1,1516 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ВИНИЛОГРАФЪ — лаборатория механической звукозаписи</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Oranienbaum&family=Spectral:ital,wght@0,300;0,400;0,600;1,400&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#13100d;
+  --panel:#1e1913;
+  --panel2:#241e16;
+  --line:#3c3326;
+  --line-soft:#2c261d;
+  --ink:#e8dcc8;
+  --ink-dim:#9c8f7a;
+  --ink-faint:#6b6052;
+  --amber:#e2a23c;
+  --amber-hot:#ffc46b;
+  --red:#c4503a;
+  --green:#8fae6a;
+  --brass:linear-gradient(160deg,#caa45a,#8a6c33 55%,#5f4a22);
+  --disp:'Oranienbaum',serif;
+  --body:'Spectral',serif;
+  --mono:'JetBrains Mono',monospace;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html{background:var(--bg)}
+body{
+  font-family:var(--body);color:var(--ink);
+  background:
+    radial-gradient(1200px 800px at 20% -10%, rgba(226,162,60,.06), transparent 60%),
+    radial-gradient(900px 700px at 110% 110%, rgba(196,80,58,.05), transparent 60%),
+    var(--bg);
+  min-height:100vh;line-height:1.5;
+}
+body::after{
+  content:"";position:fixed;inset:0;pointer-events:none;z-index:50;opacity:.5;
+  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2'/%3E%3CfeColorMatrix values='0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0.04 0'/%3E%3C/filter%3E%3Crect width='160' height='160' filter='url(%23n)'/%3E%3C/svg%3E");
+}
+.wrap{max-width:1180px;margin:0 auto;padding:26px 22px 60px}
+
+/* ---------- header ---------- */
+header{
+  border:1px solid var(--line);border-radius:6px;
+  background:linear-gradient(180deg,#241d14,#1a1510);
+  padding:26px 30px 22px;position:relative;overflow:hidden;
+  box-shadow:0 1px 0 rgba(255,255,255,.04) inset,0 14px 40px rgba(0,0,0,.5);
+}
+header::before{
+  content:"";position:absolute;inset:8px;border:1px solid rgba(226,162,60,.22);
+  border-radius:3px;pointer-events:none;
+}
+header h1{
+  font-family:var(--disp);font-size:clamp(34px,5vw,56px);font-weight:400;
+  letter-spacing:.14em;color:var(--amber-hot);
+  text-shadow:0 0 26px rgba(226,162,60,.35);
+}
+header .sub{
+  font-family:var(--mono);font-size:11.5px;letter-spacing:.22em;text-transform:uppercase;
+  color:var(--ink-dim);margin-top:8px;
+}
+header .ribbon{
+  position:absolute;top:18px;right:26px;text-align:right;font-family:var(--mono);
+  font-size:10px;letter-spacing:.18em;color:var(--ink-faint);line-height:1.9;
+}
+header .ribbon b{color:var(--amber);font-weight:400}
+
+/* ---------- panels ---------- */
+.grid{display:grid;grid-template-columns:minmax(420px,620px) 1fr;gap:18px;margin-top:18px}
+@media(max-width:980px){.grid{grid-template-columns:1fr}}
+.panel{
+  background:linear-gradient(180deg,var(--panel2),var(--panel));
+  border:1px solid var(--line);border-radius:6px;position:relative;
+  box-shadow:0 1px 0 rgba(255,255,255,.045) inset,0 10px 28px rgba(0,0,0,.45);
+  padding:18px 18px 16px;
+}
+.panel .screw{position:absolute;width:9px;height:9px;border-radius:50%;
+  background:radial-gradient(circle at 35% 30%,#d9b878,#7d6132 55%,#3e3016);
+  box-shadow:0 1px 2px rgba(0,0,0,.7)}
+.panel .screw::after{content:"";position:absolute;left:1px;right:1px;top:3.6px;height:1.4px;
+  background:#241c0e;transform:rotate(28deg)}
+.screw.tl{top:7px;left:7px}.screw.tr{top:7px;right:7px}
+.screw.bl{bottom:7px;left:7px}.screw.br{bottom:7px;right:7px}
+.panel h2{
+  font-family:var(--mono);font-weight:700;font-size:11px;letter-spacing:.3em;
+  text-transform:uppercase;color:var(--amber);margin-bottom:14px;
+  display:flex;align-items:center;gap:10px;
+}
+.panel h2::after{content:"";flex:1;height:1px;background:linear-gradient(90deg,var(--line),transparent)}
+.panel h2 .lamp{width:8px;height:8px;border-radius:50%;background:#3a2f1e;
+  box-shadow:0 0 0 2px #11100c;transition:.3s}
+.panel h2 .lamp.on{background:var(--amber-hot);box-shadow:0 0 10px var(--amber),0 0 0 2px #11100c}
+.panel h2 .lamp.red.on{background:#ff6a4d;box-shadow:0 0 10px var(--red),0 0 0 2px #11100c}
+
+/* ---------- controls ---------- */
+.row{display:flex;gap:14px;align-items:center;flex-wrap:wrap;margin:10px 0}
+label.fld{display:block;margin:11px 0}
+label.fld .cap{
+  display:flex;justify-content:space-between;font-family:var(--mono);
+  font-size:10.5px;letter-spacing:.14em;text-transform:uppercase;color:var(--ink-dim);
+  margin-bottom:5px;
+}
+label.fld .cap output{color:var(--amber-hot);letter-spacing:0}
+input[type=range]{
+  -webkit-appearance:none;appearance:none;width:100%;height:22px;background:transparent;cursor:pointer;
+}
+input[type=range]::-webkit-slider-runnable-track{
+  height:5px;border-radius:3px;
+  background:linear-gradient(180deg,#0c0a07,#171310);
+  box-shadow:0 1px 0 rgba(255,255,255,.05),0 1px 3px rgba(0,0,0,.8) inset;
+}
+input[type=range]::-webkit-slider-thumb{
+  -webkit-appearance:none;width:17px;height:17px;border-radius:50%;margin-top:-6px;
+  background:radial-gradient(circle at 35% 30%,#f3cf8a,#b78a3f 55%,#6e5524);
+  border:1px solid #43351a;box-shadow:0 2px 5px rgba(0,0,0,.6);
+}
+input[type=range]::-moz-range-track{height:5px;border-radius:3px;background:#14110d;box-shadow:0 1px 3px rgba(0,0,0,.8) inset}
+input[type=range]::-moz-range-thumb{width:16px;height:16px;border-radius:50%;
+  background:radial-gradient(circle at 35% 30%,#f3cf8a,#b78a3f 55%,#6e5524);border:1px solid #43351a}
+select{
+  font-family:var(--mono);font-size:12px;color:var(--ink);
+  background:#15110c;border:1px solid var(--line);border-radius:4px;padding:7px 10px;
+  outline:none;width:100%;
+}
+.btn{
+  font-family:var(--mono);font-size:11.5px;letter-spacing:.18em;text-transform:uppercase;
+  color:var(--ink);background:linear-gradient(180deg,#2e2619,#1d1810);
+  border:1px solid #4a3d28;border-radius:4px;padding:10px 16px;cursor:pointer;
+  box-shadow:0 1px 0 rgba(255,255,255,.07) inset,0 3px 8px rgba(0,0,0,.45);
+  transition:.15s;
+}
+.btn:hover{color:var(--amber-hot);border-color:var(--amber)}
+.btn:active{transform:translateY(1px)}
+.btn:disabled{opacity:.4;cursor:default;color:var(--ink-dim);border-color:var(--line)}
+.btn.primary{color:#1a1207;background:linear-gradient(180deg,#eebb63,#c08e36);
+  border-color:#8a6a2c;text-shadow:0 1px 0 rgba(255,255,255,.25);font-weight:700}
+.btn.primary:hover{filter:brightness(1.08);color:#1a1207}
+.btn.danger{color:#ffb3a3;border-color:#6e3a2c}
+.seg{display:flex;border:1px solid var(--line);border-radius:4px;overflow:hidden}
+.seg button{
+  font-family:var(--mono);font-size:11px;letter-spacing:.1em;padding:7px 12px;cursor:pointer;
+  background:#15110c;color:var(--ink-dim);border:0;
+}
+.seg button.on{background:linear-gradient(180deg,#3a2f1c,#2a2113);color:var(--amber-hot)}
+.chk{display:flex;align-items:center;gap:9px;font-family:var(--mono);font-size:11px;
+  letter-spacing:.12em;text-transform:uppercase;color:var(--ink-dim);cursor:pointer;user-select:none}
+.chk input{accent-color:var(--amber)}
+
+/* ---------- disc ---------- */
+.discPanel{padding:14px}
+#disc{display:block;width:100%;height:auto;border-radius:4px;
+  background:radial-gradient(circle at 50% 42%,#262019,#15110d 70%);
+  border:1px solid var(--line-soft)}
+.status{
+  margin-top:12px;font-family:var(--mono);font-size:11.5px;letter-spacing:.12em;
+  color:var(--green);background:#100e0a;border:1px solid var(--line-soft);border-radius:4px;
+  padding:9px 12px;min-height:36px;display:flex;align-items:center;gap:10px;
+}
+.status::before{content:"▸";color:var(--amber)}
+
+/* ---------- readouts ---------- */
+.readouts{display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:10px;margin-top:14px}
+.ro{background:#0e0c08;border:1px solid var(--line-soft);border-radius:4px;padding:8px 10px;
+  box-shadow:0 2px 6px rgba(0,0,0,.5) inset}
+.ro .t{font-family:var(--mono);font-size:9px;letter-spacing:.2em;text-transform:uppercase;color:var(--ink-faint)}
+.ro .v{font-family:var(--mono);font-size:16px;color:var(--amber-hot);margin-top:2px;
+  text-shadow:0 0 8px rgba(226,162,60,.4)}
+.ro .v small{font-size:10px;color:var(--ink-dim)}
+
+/* ---------- scopes ---------- */
+.scopes{display:grid;grid-template-columns:1fr;gap:18px;margin-top:18px}
+.scopeRow{display:grid;grid-template-columns:1fr 1fr;gap:18px}
+@media(max-width:760px){.scopeRow{grid-template-columns:1fr}}
+canvas.scope{display:block;width:100%;height:auto;background:#0c0a07;border-radius:4px;border:1px solid var(--line-soft)}
+
+/* ---------- theory ---------- */
+.theory{margin-top:26px}
+.theory h3{font-family:var(--disp);font-weight:400;font-size:26px;letter-spacing:.08em;
+  color:var(--ink);margin-bottom:10px}
+details{
+  border:1px solid var(--line-soft);border-radius:5px;background:#181410;
+  margin:8px 0;overflow:hidden;
+}
+details summary{
+  cursor:pointer;list-style:none;padding:12px 16px;font-family:var(--mono);
+  font-size:11.5px;letter-spacing:.18em;text-transform:uppercase;color:var(--amber);
+}
+details summary::before{content:"◈ ";color:var(--ink-faint)}
+details[open] summary{border-bottom:1px solid var(--line-soft);color:var(--amber-hot)}
+details .bd{padding:14px 18px 16px;font-size:15px;color:var(--ink-dim);max-width:78ch}
+details .bd b{color:var(--ink);font-weight:600}
+details .bd i{color:#c9b894}
+
+footer{margin-top:34px;text-align:center;font-family:var(--mono);font-size:10px;
+  letter-spacing:.22em;color:var(--ink-faint);text-transform:uppercase}
+footer b{color:var(--amber)}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<header>
+  <h1>ВИНИЛОГРАФЪ</h1>
+  <div class="sub">лаборатория механической звукозаписи · нарезка лаковой матрицы и её воспроизведение</div>
+  <div class="ribbon">студия № 7<br><b>лакъ-мастеръ</b><br>модель ВГ-33/45</div>
+</header>
+
+<div class="grid">
+  <!-- ================= ДИСК ================= -->
+  <div class="panel discPanel">
+    <span class="screw tl"></span><span class="screw tr"></span>
+    <span class="screw bl"></span><span class="screw br"></span>
+    <h2><span class="lamp" id="lampMotor"></span>Проигрыватель · диск Ø 300 мм</h2>
+    <canvas id="disc" width="620" height="620"></canvas>
+    <div class="status" id="status">Матрица не нарезана. Выберите программу и нажмите «Нарезать матрицу».</div>
+    <div class="readouts">
+      <div class="ro"><div class="t">Время</div><div class="v" id="roTime">—</div></div>
+      <div class="ro"><div class="t">Радиус иглы</div><div class="v" id="roR">— <small>мм</small></div></div>
+      <div class="ro"><div class="t">Лин. скорость</div><div class="v" id="roV">— <small>см/с</small></div></div>
+      <div class="ro"><div class="t">Полоса канавки</div><div class="v" id="roF">— <small>кГц</small></div></div>
+      <div class="ro"><div class="t">Вращение</div><div class="v" id="roRPM">— <small>об/мин</small></div></div>
+    </div>
+  </div>
+
+  <!-- ================= УПРАВЛЕНИЕ ================= -->
+  <div>
+    <div class="panel">
+      <span class="screw tl"></span><span class="screw tr"></span>
+      <span class="screw bl"></span><span class="screw br"></span>
+      <h2><span class="lamp red" id="lampCut"></span>Станок нарезки матрицы</h2>
+
+      <label class="fld">
+        <span class="cap"><span>Программа (фонограмма с «ленты»)</span></span>
+        <select id="program">
+          <option value="waltz" selected>Вальс для канавки · щипковый ансамбль · ~24 с</option>
+          <option value="choral">Хорал · орган, тянущиеся аккорды · ~18 с</option>
+          <option value="sweep">Измерительный свип 30 Гц → 18 кГц · 12 с</option>
+          <option value="tone">Опорный тон 1 кГц · 6 с</option>
+          <option value="mic">Запись с микрофона</option>
+          <option value="file">Загруженный аудиофайл</option>
+        </select>
+      </label>
+
+      <div class="row" id="srcRow" style="display:none">
+        <button class="btn" id="btnMic" type="button" style="display:none">● Записать</button>
+        <button class="btn" id="btnFile" type="button" style="display:none">⤒ Выбрать файл…</button>
+        <input type="file" id="fileInp" accept="audio/*" style="display:none">
+        <span id="srcInfo" style="font-family:var(--mono);font-size:11px;color:var(--ink-dim)">источник не загружен</span>
+      </div>
+
+      <label class="fld">
+        <span class="cap"><span>Уровень записи</span><output id="vLevel">+0.0 дБ</output></span>
+        <input type="range" id="level" min="-9" max="9" step="0.5" value="0">
+      </label>
+
+      <label class="fld">
+        <span class="cap"><span>Шаг резца (питч)</span><output id="vPitch">2.0 мм/об</output></span>
+        <input type="range" id="pitch" min="0.8" max="4" step="0.1" value="2">
+      </label>
+
+      <div class="row">
+        <span class="cap" style="font-family:var(--mono);font-size:10.5px;letter-spacing:.14em;text-transform:uppercase;color:var(--ink-dim)">Скорость нарезки</span>
+        <div class="seg" id="rpmCutSeg">
+          <button data-v="33.333" class="on">33⅓</button>
+          <button data-v="45">45</button>
+        </div>
+        <button class="btn primary" id="btnCut" style="margin-left:auto">⛏ Нарезать матрицу</button>
+      </div>
+    </div>
+
+    <div class="panel" style="margin-top:18px">
+      <span class="screw tl"></span><span class="screw tr"></span>
+      <span class="screw bl"></span><span class="screw br"></span>
+      <h2><span class="lamp" id="lampPlay"></span>Тракт воспроизведения</h2>
+
+      <div class="row">
+        <button class="btn primary" id="btnPlay" disabled>▼ Опустить иглу</button>
+        <button class="btn" id="btnRestart" disabled>⟲ К началу</button>
+        <div class="seg" id="rpmPlaySeg" style="margin-left:auto">
+          <button data-v="33.333" class="on">33⅓</button>
+          <button data-v="45">45</button>
+        </div>
+      </div>
+
+      <label class="fld">
+        <span class="cap"><span>Износ иглы</span><output id="vWear">0 %</output></span>
+        <input type="range" id="wear" min="0" max="100" value="8">
+      </label>
+      <label class="fld">
+        <span class="cap"><span>Состояние поверхности (пыль · трески)</span><output id="vSurf">0 %</output></span>
+        <input type="range" id="surface" min="0" max="100" value="22">
+      </label>
+      <label class="fld">
+        <span class="cap"><span>Детонация (эксцентриситет, wow)</span><output id="vWow">0 %</output></span>
+        <input type="range" id="wow" min="0" max="100" value="14">
+      </label>
+      <label class="fld">
+        <span class="cap"><span>Флаттер (вибрации привода)</span><output id="vFl">0 %</output></span>
+        <input type="range" id="flutter" min="0" max="100" value="10">
+      </label>
+      <label class="fld">
+        <span class="cap"><span>Рокот двигателя</span><output id="vRum">0 %</output></span>
+        <input type="range" id="rumble" min="0" max="100" value="12">
+      </label>
+      <label class="fld">
+        <span class="cap"><span>Громкость</span><output id="vVol">80 %</output></span>
+        <input type="range" id="vol" min="0" max="100" value="80">
+      </label>
+      <label class="chk"><input type="checkbox" id="bypass"> Прямой монитор «ленты» (обход всего тракта — для сравнения)</label>
+
+      <div class="row" style="margin-top:10px;border-top:1px solid rgba(255,235,200,.12);padding-top:12px">
+        <button class="btn" id="btnWav" disabled>⬇ Аудио · WAV</button>
+        <button class="btn" id="btnVideo" disabled>⬇ Видео · WebM</button>
+        <span id="expInfo" style="font-family:var(--mono);font-size:11px;color:var(--ink-dim);margin-left:auto">выгрузка стороны с текущими параметрами</span>
+      </div>
+      <div class="row" style="margin-top:6px">
+        <label class="chk" style="margin:0"><input type="checkbox" id="vexOsc" checked> Осциллограф · выход корректора</label>
+        <label class="chk" style="margin:0"><input type="checkbox" id="vexSpec" checked> Анализатор спектра</label>
+      </div>
+      <div id="vexWrap" style="display:none;margin-top:10px">
+        <canvas id="vexCv" width="1280" height="720" style="width:100%;height:auto;display:block;border:1px solid rgba(255,235,200,.18);border-radius:6px;background:#171310"></canvas>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ================= МИКРОСКОП И ОСЦИЛЛОГРАФ ================= -->
+<div class="scopes">
+  <div class="panel">
+    <span class="screw tl"></span><span class="screw tr"></span>
+    <span class="screw bl"></span><span class="screw br"></span>
+    <h2><span class="lamp" id="lampMicro"></span>Микроскоп канавки · поперечная (латеральная) запись</h2>
+    <canvas id="micro" class="scope" width="1100" height="150"></canvas>
+  </div>
+  <div class="scopeRow">
+    <div class="panel">
+      <span class="screw tl"></span><span class="screw tr"></span>
+      <h2>Осциллограф · выход корректора</h2>
+      <canvas id="wave" class="scope" width="520" height="150"></canvas>
+    </div>
+    <div class="panel">
+      <span class="screw tl"></span><span class="screw tr"></span>
+      <h2>Анализатор спектра</h2>
+      <canvas id="spec" class="scope" width="520" height="150"></canvas>
+    </div>
+  </div>
+</div>
+
+<!-- ================= ТЕОРИЯ ================= -->
+<div class="theory">
+  <h3>Записки лакъ-мастера</h3>
+  <details>
+    <summary>Зачем нужна кривая RIAA</summary>
+    <div class="bd">Амплитуда колебаний резца при равной громкости растёт к низким частотам: басы «как есть» прорезали бы соседние витки, а высокие частоты тонули бы в шуме лака. Поэтому при нарезке басы <b>ослабляют</b>, а верха <b>поднимают</b> (предыскажение), а корректор проигрывателя выполняет строго обратную операцию (постоянные времени 3180 / 318 / 75 мкс). Попутно обратная коррекция давит шум поверхности на ВЧ. Включите «прямой монитор» и сравните: весь этот контур в симуляции честно проходится туда и обратно.</div>
+  </details>
+  <details>
+    <summary>Внутренние канавки звучат хуже — почему</summary>
+    <div class="bd">Диск вращается с постоянной <i>угловой</i> скоростью, поэтому <i>линейная</i> скорость канавки под иглой падает от ≈50 см/с у края до ≈21 см/с у этикетки (на 33⅓). Один и тот же звук у центра записан «теснее»: длина волны на лаке короче, и закруглённая игла перестаёт вписываться в извивы. В симуляции полоса пропускания привязана к текущему радиусу — следите за индикатором «Полоса канавки», особенно на свипе.</div>
+  </details>
+  <details>
+    <summary>Эхо канавки (pre-echo)</summary>
+    <div class="bd">Стенка между соседними витками тонка, и при нарезке громкий пассаж слегка деформирует соседний — ещё <b>пустой</b> — виток. Результат: призрачное эхо ровно за один оборот (1,8 с на 33⅓) <i>до</i> громкого места. Чтобы услышать его здесь: поднимите уровень записи, уменьшите шаг резца и слушайте тишину перед первым аккордом.</div>
+  </details>
+  <details>
+    <summary>Детонация, флаттер, рокот и пыль</summary>
+    <div class="bd"><b>Детонация (wow)</b> — медленное плавание высоты тона; главная причина — несоосность отверстия, поэтому здесь она качается строго раз в оборот. <b>Флаттер</b> — быстрая дрожь от вибраций привода. <b>Рокот</b> — инфранизкий гул подшипника, пролезающий через головку. <b>Пылинки</b> в симуляции — настоящие объекты: каждая сидит в конкретной точке канавки, видна на диске и щёлкает в момент прохода иглы. Дослушайте сторону до конца — игла попадёт в замочную канавку и будет кружить в ней с глухим толчком раз в оборот.</div>
+  </details>
+</div>
+
+<footer>винилографъ · симуляция полного цикла: лента → резецъ → лакъ → игла → корректоръ · <b>ranatar maivandion approved</b></footer>
+</div>
+<script>
+'use strict';
+/* ============================================================
+   ВИНИЛОГРАФЪ — симуляция нарезки лаковой матрицы и проигрывания
+   Тракт: программа → RIAA-предыскажение → резец (tanh-ограничение)
+   → канавка (+эхо соседнего витка) → игла (wow/flutter, потеря ВЧ
+   на внутренних радиусах, износ) → обратная RIAA → шумы поверхности
+   ============================================================ */
+const $ = id => document.getElementById(id);
+const clamp = (x,a,b)=>Math.min(b,Math.max(a,x));
+const lerp = (a,b,t)=>a+(b-a)*t;
+const TAU = Math.PI*2;
+
+/* ---------- геометрия диска (мм) ---------- */
+const MMDISC = 150;        // радиус диска
+const MM_GROOVE0 = 146;    // начало записи
+const MM_LABEL = 50;       // этикетка
+const MM_MIN = 62;         // минимальный радиус записи
+const PITCH_LEAD = 3.2;    // шаг вводной/выводной канавки
+
+/* ---------- состояние ---------- */
+const S = {
+  actx:null, SR:48000, sp:null, analyser:null, master:null,
+  program:null, progName:'',
+  groove:null,            // Float32Array смещений резца, −1..1
+  P:0,                    // отсчётов на оборот (в домене нарезки)
+  rpmCut:100/3, rpmPlay:100/3,
+  segs:[],                // сегменты спирали {rev0,rev1,r0,pitch}
+  totalRev:0, progStartPos:0, progEndPos:0, lockStartPos:0,
+  pitchUsed:2,
+  cutDone:false, cutting:false, cutAnimT0:0,
+  playing:false, locked:false, lockAnnounced:false, posVis:0,
+  extBuf:null, extLabel:'',
+  pos:0,                  // позиция иглы в отсчётах канавки (float)
+  specks:[], speckPtr:0,  // пылинки {pos, size}
+  // огибающие щелчков
+  popEnv:0, crkEnv:0, thudEnv:0, thudPh:0,
+  flPh:0, flNoise:0,
+  lpInner:0, lpWear:0, rumLP1:0, rumLP2:0, hissLP:0,
+  deemph:null,
+  lastWrapRev:-1,
+};
+
+/* ============================================================
+   DSP: RIAA как каскад звеньев 1-го порядка (билинейное преобр.)
+   H(s)=(1+sTz)/(1+sTp);  воспроизведение: zeros{318µ}, poles{3180µ,75µ}
+   ============================================================ */
+function section(Tz,Tp,fs){
+  const K=2*fs, a0=1+K*Tp;
+  return {b0:(1+K*Tz)/a0, b1:(1-K*Tz)/a0, a1:(1-K*Tp)/a0, x1:0, y1:0};
+}
+function runSec(s,x){ const y=s.b0*x+s.b1*s.x1-s.a1*s.y1; s.x1=x; s.y1=y; return y; }
+function chainGainAt(secs,f,fs){
+  const w=TAU*f/fs, cr=Math.cos(-w), ci=Math.sin(-w);
+  let Hr=1,Hi=0;
+  for(const s of secs){
+    const nr=s.b0+s.b1*cr, ni=s.b1*ci;
+    const dr=1+s.a1*cr,  di=s.a1*ci;
+    const den=dr*dr+di*di;
+    const r=(nr*dr+ni*di)/den, i=(ni*dr-nr*di)/den;
+    const tr=Hr*r-Hi*i; Hi=Hr*i+Hi*r; Hr=tr;
+  }
+  return Math.hypot(Hr,Hi);
+}
+const T1=3180e-6, T2=318e-6, T3=75e-6, T4=3.18e-6; // T4 — паразитный полюс предыскажения
+function makePre(fs){  // предыскажение (запись): зеркало кривой воспроизведения
+  const secs=[section(T1,T2,fs), section(T3,T4,fs)];
+  return {secs, g:1/chainGainAt(secs,1000,fs)};
+}
+function makeDe(fs){   // обратная коррекция (воспроизведение)
+  const secs=[section(T2,T1,fs), section(0,T3,fs)];
+  return {secs, g:1/chainGainAt(secs,1000,fs)};
+}
+function runChain(ch,x){ for(const s of ch.secs) x=runSec(s,x); return x*ch.g; }
+
+/* ============================================================
+   СИНТЕЗ ПРОГРАММ («лента»)
+   ============================================================ */
+const NOTE_OFF={C:0,D:2,E:4,F:5,G:7,A:9,B:11};
+function freqOf(name){ // 'G#3'
+  const m=name.match(/^([A-G])(#?)(\d)$/);
+  const midi=12*(+m[3]+1)+NOTE_OFF[m[1]]+(m[2]?1:0);
+  return 440*Math.pow(2,(midi-69)/12);
+}
+/* Карплус–Стронг: щипковая струна */
+function pluck(buf,start,f,ring,amp,SR){
+  const N=Math.max(2,Math.round(SR/f));
+  const d=new Float32Array(N);
+  for(let i=0;i<N;i++) d[i]=Math.random()*2-1;
+  let idx=0;
+  const total=Math.min(Math.round(ring*SR), buf.length-start);
+  const damp=0.498*Math.pow(0.994, 220/f); // высоким — короче
+  for(let n=0;n<total;n++){
+    const j=(idx+1)%N;
+    const out=d[idx];
+    d[idx]=damp*(d[idx]+d[j]);
+    idx=j;
+    const fade=n<48? n/48 : (total-n<400? (total-n)/400 : 1);
+    buf[start+n]+=out*amp*fade;
+  }
+}
+/* органный голос: аддитивные партиалы с лёгким хорусом */
+function organ(buf,start,f,dur,amp,SR){
+  const total=Math.min(Math.round(dur*SR), buf.length-start);
+  const parts=[[1,1],[2,.45],[3,.28],[4,.16],[6,.07]];
+  const det=0.0014;
+  for(let n=0;n<total;n++){
+    const t=n/SR;
+    const env=Math.min(1,t/0.14)*Math.min(1,(total-n)/(0.35*SR));
+    let s=0;
+    for(const [k,a] of parts){
+      s+=a*Math.sin(TAU*f*k*t)*0.5;
+      s+=a*Math.sin(TAU*f*k*(1+det)*t+0.7)*0.5;
+    }
+    buf[start+n]+=s*amp*env*0.32;
+  }
+}
+const PROG_BARS=[ // [бас, [аккорд], [мелодия: ноты по долям, '-'=тянуть]]
+  ['A2',['A3','C4','E4'],['E5','-','C5']],
+  ['D3',['D4','F4','A4'],['D5','-','F5']],
+  ['G2',['G3','B3','D4'],['B4','-','D5']],
+  ['C3',['C4','E4','G4'],['C5','-','-']],
+  ['F2',['F3','A3','C4'],['A4','-','C5']],
+  ['D3',['D4','F4','A4'],['F5','-','D5']],
+  ['E2',['E3','G#3','B3'],['B4','-','G#4']],
+  ['A2',['A3','C4','E4'],['A4','-','-']],
+];
+function makeWaltz(SR){
+  const beat=60/138, bar=3*beat, passes=2;
+  const dur=passes*PROG_BARS.length*bar+bar+2.2;
+  const buf=new Float32Array(Math.round(dur*SR));
+  for(let p=0;p<passes;p++){
+    PROG_BARS.forEach((B,bi)=>{
+      const t0=(p*PROG_BARS.length+bi)*bar;
+      pluck(buf,Math.round(t0*SR),freqOf(B[0]),2.2,0.5,SR);            // бас на «раз»
+      for(const b of [1,2]) B[1].forEach((n,k)=>                        // аккорды на «два-три»
+        pluck(buf,Math.round((t0+b*beat)*SR),freqOf(n),1.1,0.16,SR));
+      B[2].forEach((n,k)=>{                                             // мелодия
+        if(n==='-')return;
+        pluck(buf,Math.round((t0+k*beat)*SR),freqOf(n),2.0,p===1?0.42:0.36,SR);
+        if(p===1) pluck(buf,Math.round((t0+k*beat)*SR),freqOf(n)*2,1.6,0.18,SR); // второй проход — октавный подголосок
+      });
+    });
+  }
+  const tEnd=passes*PROG_BARS.length*bar;                               // кода: арпеджио Am вверх
+  ['A2','E3','A3','C4','E4','A4','C5','E5','A5'].forEach((n,k)=>
+    pluck(buf,Math.round((tEnd+k*beat*0.5)*SR),freqOf(n),2.4,0.34,SR));
+  return buf;
+}
+function makeChoral(SR){
+  const chDur=2.1;
+  const dur=PROG_BARS.length*chDur+1.2;
+  const buf=new Float32Array(Math.round(dur*SR));
+  PROG_BARS.forEach((B,bi)=>{
+    const t0=bi*chDur, st=Math.round(t0*SR);
+    organ(buf,st,freqOf(B[0]),chDur+0.25,0.6,SR);
+    B[1].forEach(n=>organ(buf,st,freqOf(n),chDur+0.25,0.42,SR));
+    const m=B[2][0]; if(m!=='-') organ(buf,st,freqOf(m)*2,chDur+0.25,0.3,SR);
+  });
+  return buf;
+}
+function makeSweep(SR){
+  const T=12, f0=30, f1=18000;
+  const buf=new Float32Array(Math.round(T*SR));
+  let ph=0;
+  for(let n=0;n<buf.length;n++){
+    const t=n/SR, f=f0*Math.pow(f1/f0,t/T);
+    ph+=TAU*f/SR;
+    const fade=Math.min(1,t/0.1,(T-t)/0.2);
+    buf[n]=Math.sin(ph)*0.8*fade;
+  }
+  return buf;
+}
+function makeTone(SR){
+  const T=6, buf=new Float32Array(Math.round(T*SR));
+  for(let n=0;n<buf.length;n++){
+    const t=n/SR, fade=Math.min(1,t/0.05,(T-t)/0.1);
+    buf[n]=Math.sin(TAU*1000*t)*0.8*fade;
+  }
+  return buf;
+}
+const PROG_TRIM={waltz:1, choral:0.9, sweep:0.28, tone:0.9}; // свип тише: предыскажение на ВЧ даёт до +20 дБ
+function makeProgram(kind,SR){
+  if(kind==='mic'||kind==='file'){
+    return S.extBuf||null; // уже нормирован при загрузке
+  }
+  let b;
+  if(kind==='waltz') b=makeWaltz(SR);
+  else if(kind==='choral') b=makeChoral(SR);
+  else if(kind==='sweep') b=makeSweep(SR);
+  else b=makeTone(SR);
+  let pk=1e-9; for(let i=0;i<b.length;i++) pk=Math.max(pk,Math.abs(b[i]));
+  const g=0.5*(PROG_TRIM[kind]||1)/pk; for(let i=0;i<b.length;i++) b[i]*=g;
+  return b;
+}
+
+/* ============================================================
+   ВНЕШНИЕ ИСТОЧНИКИ: МИКРОФОН И АУДИОФАЙЛ
+   ============================================================ */
+function finishExt(b,label){
+  /* обрезка тишины по краям (порог −46 дБ, запас 0.1 с) */
+  const SR=S.SR, th=0.005, pad=Math.round(0.1*SR);
+  let a=0,z=b.length-1;
+  while(a<z&&Math.abs(b[a])<th)a++;
+  while(z>a&&Math.abs(b[z])<th)z--;
+  a=Math.max(0,a-pad); z=Math.min(b.length-1,z+pad);
+  b=b.subarray(a,z+1);
+  if(b.length<SR*0.25){ setStatus('Источник пуст или слишком короток (< 0.25 с).'); return; }
+  /* нормировка пика к 0.5 — как у синтезируемых программ */
+  let pk=1e-9; for(let i=0;i<b.length;i++) pk=Math.max(pk,Math.abs(b[i]));
+  const out=new Float32Array(b.length), g=0.5/pk;
+  for(let i=0;i<b.length;i++) out[i]=b[i]*g;
+  /* фейды против щелчков: 30 мс вход, 80 мс выход */
+  const fi=Math.round(0.03*SR), fo=Math.round(0.08*SR);
+  for(let i=0;i<fi;i++) out[i]*=i/fi;
+  for(let i=0;i<fo;i++) out[out.length-1-i]*=i/fo;
+  S.extBuf=out;
+  S.extLabel=label;
+  $('srcInfo').textContent=`${label} · ${(out.length/SR).toFixed(1)} с · готово`;
+  if(S.cutDone){S.cutDone=false;stopPlayback();$('btnPlay').disabled=true;$('btnRestart').disabled=true;$('btnWav').disabled=true;$('btnVideo').disabled=true;}
+  setStatus('Источник готов — нарезайте матрицу.');
+}
+async function loadAudioFile(file){
+  ensureCtx(); S.actx.resume();
+  setStatus('Декодирование файла…'); $('srcInfo').textContent='декодирование…';
+  try{
+    const ab=await file.arrayBuffer();
+    const buf=await S.actx.decodeAudioData(ab); // пересэмплируется к частоте контекста
+    const n=buf.length, ch=buf.numberOfChannels;
+    const b=new Float32Array(n);
+    for(let c=0;c<ch;c++){const d=buf.getChannelData(c); for(let i=0;i<n;i++) b[i]+=d[i]/ch;}
+    finishExt(b,file.name.length>26?file.name.slice(0,24)+'…':file.name);
+  }catch(e){
+    $('srcInfo').textContent='ошибка декодирования';
+    setStatus('Не удалось декодировать файл: '+((e&&e.message)||e));
+  }
+}
+const REC={sp:null,src:null,mute:null,stream:null,chunks:[],t0:0,timer:null,on:false};
+const REC_MAX=180; // с — ёмкость стороны при минимальном шаге всё равно меньше ~3.3 мин
+async function micStart(){
+  ensureCtx(); S.actx.resume();
+  let stream;
+  try{
+    stream=await navigator.mediaDevices.getUserMedia({audio:{echoCancellation:false,noiseSuppression:false,autoGainControl:false}});
+  }catch(e){ setStatus('Микрофон недоступен: '+((e&&e.message)||e)); return; }
+  REC.stream=stream; REC.chunks=[]; REC.t0=performance.now(); REC.on=true;
+  REC.src=S.actx.createMediaStreamSource(stream);
+  REC.sp=S.actx.createScriptProcessor(4096,1,1);
+  REC.sp.onaudioprocess=e=>{
+    if(!REC.on) return;
+    REC.chunks.push(new Float32Array(e.inputBuffer.getChannelData(0)));
+    if((performance.now()-REC.t0)/1000>=REC_MAX) micStop();
+  };
+  REC.mute=S.actx.createGain(); REC.mute.gain.value=0; // без монитора — иначе самовозбуждение
+  REC.src.connect(REC.sp); REC.sp.connect(REC.mute); REC.mute.connect(S.actx.destination);
+  $('btnMic').textContent='■ Остановить';
+  REC.timer=setInterval(()=>{$('srcInfo').textContent=`запись… ${((performance.now()-REC.t0)/1000)|0} с (макс. ${REC_MAX})`;},250);
+  setStatus('Идёт запись с микрофона. Говорите, играйте — затем остановите.');
+}
+function micStop(){
+  if(!REC.on) return;
+  REC.on=false; clearInterval(REC.timer);
+  try{REC.src.disconnect();REC.sp.disconnect();REC.mute.disconnect();}catch(e){}
+  REC.stream.getTracks().forEach(t=>t.stop());
+  const len=REC.chunks.reduce((a,c)=>a+c.length,0);
+  const b=new Float32Array(len); let o=0;
+  for(const c of REC.chunks){b.set(c,o);o+=c.length;}
+  REC.chunks=[];
+  $('btnMic').textContent='● Записать';
+  finishExt(b,'микрофонная запись');
+}
+
+/* ============================================================
+   НАРЕЗКА МАТРИЦЫ
+   ============================================================ */
+function buildGeometry(progRev,pitch){
+  const leadRev=2, outRev=1.2, lockRev=1.5;
+  const segs=[]; let rev=0, r=MM_GROOVE0;
+  const add=(n,p)=>{segs.push({rev0:rev,rev1:rev+n,r0:r,pitch:p}); r-=n*p; rev+=n;};
+  add(leadRev,PITCH_LEAD);
+  add(progRev,pitch);
+  add(outRev,PITCH_LEAD);
+  add(lockRev,0);
+  return {segs,totalRev:rev,leadRev,rEnd:r};
+}
+function radiusAtRev(rev){
+  if(!S.segs.length) return MM_GROOVE0;
+  for(const s of S.segs) if(rev<=s.rev1) return s.r0-(rev-s.rev0)*s.pitch;
+  const L=S.segs[S.segs.length-1]; return L.r0;
+}
+function ensureCtx(){
+  if(S.actx) return;
+  S.actx=new (window.AudioContext||window.webkitAudioContext)();
+  S.SR=S.actx.sampleRate;
+  S.master=S.actx.createGain(); S.master.gain.value=0.8;
+  S.analyser=S.actx.createAnalyser(); S.analyser.fftSize=2048; S.analyser.smoothingTimeConstant=0.78;
+  S.sp=S.actx.createScriptProcessor(2048,1,1);
+  S.sp.onaudioprocess=audioProcess;
+  S.sp.connect(S.master); S.master.connect(S.analyser); S.analyser.connect(S.actx.destination);
+  S.deemph=makeDe(S.SR);
+}
+function cutDisc(){
+  if(S.cutting) return;
+  ensureCtx(); S.actx.resume();
+  stopPlayback();
+  if(REC.on) micStop();
+  const SR=S.SR;
+  setStatus('Подготовка фонограммы…');
+  S.cutting=true; S.cutDone=false; lamp('lampCut',true);
+  $('btnPlay').disabled=true; $('btnRestart').disabled=true; $('btnWav').disabled=true; $('btnVideo').disabled=true;
+  setTimeout(()=>{
+    let prog=makeProgram($('program').value,SR);
+    if(!prog){
+      S.cutting=false; lamp('lampCut',false);
+      setStatus('Источник не готов: запишите с микрофона или загрузите аудиофайл.');
+      return;
+    }
+    S.rpmCut=segVal('rpmCutSeg');
+    S.P=Math.round(SR*60/S.rpmCut);
+    const maxBand=MM_GROOVE0-MM_MIN-(2+1.2)*PITCH_LEAD;
+    /* ёмкость стороны: даже при минимальном шаге 0.5 мм/об больше не влезет */
+    const maxRev=Math.floor(maxBand/0.5);
+    let progRev=Math.ceil(prog.length/S.P);
+    let trimmed=false;
+    if(progRev>maxRev){
+      const keep=maxRev*S.P;
+      const cut=new Float32Array(prog.subarray(0,keep));
+      const F=Math.round(0.25*SR);
+      for(let i=0;i<F;i++) cut[keep-1-i]*=i/F;
+      prog=cut; progRev=maxRev; trimmed=true;
+    }
+    S.program=prog;
+    /* шаг резца: при нехватке места — автоуменьшение */
+    let pitch=+$('pitch').value;
+    if(progRev*pitch>maxBand){
+      pitch=Math.max(0.5,Math.floor(maxBand/progRev*10)/10);
+      setStatus(trimmed
+        ?`Фонограмма обрезана до ${(prog.length/SR)|0} с (ёмкость стороны); шаг уменьшен до ${pitch.toFixed(1)} мм/об.`
+        :`Программа длинна для такого шага — шаг уменьшен до ${pitch.toFixed(1)} мм/об.`);
+    }
+    S.pitchUsed=pitch;
+    const G=buildGeometry(progRev,pitch);
+    S.segs=G.segs; S.totalRev=G.totalRev;
+    /* RIAA-предыскажение + резец */
+    const pre=makePre(SR);
+    const gain=Math.pow(10,(+$('level').value)/20)*1.9;
+    const cutw=new Float32Array(prog.length);
+    for(let i=0;i<prog.length;i++) cutw[i]=Math.tanh(runChain(pre,prog[i])*gain);
+    /* канавка целиком: вводная + программа + выводная + замочная */
+    const total=Math.round(G.totalRev*S.P);
+    const g0=new Float32Array(total);
+    const off=Math.round(G.leadRev*S.P);
+    g0.set(cutw.subarray(0,Math.min(cutw.length,total-off)),off);
+    /* эхо канавки: просачивание на соседний оборот (пре- и пост-эхо) */
+    const echo=clamp(0.0035*gain*(2.0/pitch),0,0.05);
+    const gv=new Float32Array(g0);
+    for(let i=0;i<total;i++){
+      let e=0;
+      if(i-S.P>=0)    e+=g0[i-S.P];
+      if(i+S.P<total) e+=g0[i+S.P];
+      gv[i]=clamp(g0[i]+echo*e,-1,1);
+    }
+    S.groove=gv;
+    S.progStartPos=off;
+    S.progEndPos=off+cutw.length;
+    S.lockStartPos=Math.round(S.segs[3].rev0*S.P);
+    S.pos=0; S.locked=false; S.lockAnnounced=false; S.lastWrapRev=-1;
+    renderDiscBase();
+    makeSpecks();
+    S.cutDone=true;
+    S.cutAnimT0=performance.now();
+    setStatus('Нарезка матрицы… резец идёт от края к центру.');
+  },30);
+}
+
+/* ============================================================
+   ПЫЛИНКИ — реальные объекты на канавке
+   ============================================================ */
+function makeSpecks(){
+  if(!S.groove){S.specks=[];return;}
+  const s=+$('surface').value/100;
+  const n=Math.round(s*s*260);
+  const arr=[];
+  for(let i=0;i<n;i++) arr.push({pos:Math.random()*S.groove.length, size:0.6+Math.random()*1.9});
+  arr.sort((a,b)=>a.pos-b.pos);
+  S.specks=arr;
+  resyncSpeckPtr();
+  renderLabelLayer();
+}
+function resyncSpeckPtr(){
+  let lo=0,hi=S.specks.length;
+  while(lo<hi){const m=(lo+hi)>>1; if(S.specks[m].pos<S.pos) lo=m+1; else hi=m;}
+  S.speckPtr=lo;
+}
+
+/* ============================================================
+   ОТРИСОВКА ДИСКА (офскрин-слои)
+   ============================================================ */
+const disc=$('disc'), dx=disc.getContext('2d');
+const CW=disc.width, CH=disc.height;
+const CX=276, CY=330, RPX=252;             // центр и радиус диска в px
+const PXMM=RPX/MMDISC;                      // px на мм
+const PIVOT={x:CW-58,y:64}, ARM_L=340;      // тонарм
+let discBase=null, labelLayer=null, sheen=null, stylusPhiMid=0;
+
+function mkCanvas(){const c=document.createElement('canvas');c.width=CW;c.height=CH;return c;}
+
+function renderDiscBase(){
+  discBase=mkCanvas();
+  const c=discBase.getContext('2d');
+  /* тело диска */
+  const grd=c.createRadialGradient(CX,CY-40,30,CX,CY,RPX);
+  grd.addColorStop(0,'#221d17'); grd.addColorStop(0.55,'#191511'); grd.addColorStop(1,'#15110d');
+  c.fillStyle=grd;
+  c.beginPath(); c.arc(CX,CY,RPX,0,TAU); c.fill();
+  c.strokeStyle='rgba(255,235,200,.18)'; c.lineWidth=2;
+  c.beginPath(); c.arc(CX,CY,RPX-1,0,TAU); c.stroke();
+  /* спираль: яркость витка = локальная амплитуда */
+  const STEPS=240, g=S.groove, P=S.P;
+  c.lineWidth=Math.max(1,S.pitchUsed*PXMM*0.55);
+  for(let k=0;k<S.totalRev;k++){
+    const lim=Math.min(1,S.totalRev-k);
+    for(let j=0;j<STEPS*lim;j++){
+      const rev0=k+j/STEPS, rev1=k+(j+1)/STEPS;
+      const i0=Math.floor(rev0*P), i1=Math.min(g.length,Math.floor(rev1*P));
+      let a=0; for(let i=i0;i<i1;i+=7) a=Math.max(a,Math.abs(g[i]||0));
+      const r0=radiusAtRev(rev0)*PXMM, r1=radiusAtRev(rev1)*PXMM;
+      const t0=rev0*TAU, t1=rev1*TAU+0.004;
+      const L=13+Math.pow(a,0.7)*46;
+      c.strokeStyle=`hsl(36 ${6+a*16}% ${L}%)`;
+      c.beginPath();
+      c.moveTo(CX+r0*Math.cos(t0),CY+r0*Math.sin(t0));
+      c.lineTo(CX+r1*Math.cos(t1),CY+r1*Math.sin(t1));
+      c.stroke();
+    }
+  }
+  /* блик-веер (статичный, как отражение лампы) */
+  sheen=mkCanvas();
+  const sc=sheen.getContext('2d');
+  sc.save(); sc.translate(CX,CY);
+  for(const ang of [-1.05, 2.1]){
+    const gr=sc.createRadialGradient(0,0,MM_LABEL*PXMM,0,0,RPX);
+    gr.addColorStop(0,'rgba(255,232,190,0)');
+    gr.addColorStop(.6,'rgba(255,232,190,.075)');
+    gr.addColorStop(1,'rgba(255,232,190,0)');
+    sc.fillStyle=gr;
+    sc.beginPath(); sc.moveTo(0,0);
+    sc.arc(0,0,RPX,ang-0.30,ang+0.30); sc.closePath(); sc.fill();
+  }
+  sc.restore();
+  /* угол иглы на среднем радиусе — для синхронизации вращения */
+  const pMid=stylusXY((MM_GROOVE0+MM_MIN)/2*PXMM);
+  stylusPhiMid=Math.atan2(pMid.y-CY,pMid.x-CX);
+}
+function renderLabelLayer(){
+  labelLayer=mkCanvas();
+  const c=labelLayer.getContext('2d');
+  /* этикетка */
+  const R=MM_LABEL*PXMM;
+  const gr=c.createRadialGradient(CX,CY-14,8,CX,CY,R);
+  gr.addColorStop(0,'#caa45a'); gr.addColorStop(.6,'#9d7a36'); gr.addColorStop(1,'#6e5524');
+  c.fillStyle=gr; c.beginPath(); c.arc(CX,CY,R,0,TAU); c.fill();
+  c.strokeStyle='rgba(40,28,8,.8)'; c.lineWidth=2; c.stroke();
+  c.strokeStyle='rgba(255,240,210,.35)'; c.lineWidth=1;
+  c.beginPath(); c.arc(CX,CY,R-6,0,TAU); c.stroke();
+  c.fillStyle='#241a08'; c.textAlign='center';
+  c.font=`700 ${Math.round(R*0.205)}px Oranienbaum, serif`;
+  c.fillText('ВИНИЛОГРАФЪ',CX,CY-R*0.42);
+  c.font=`400 ${Math.round(R*0.135)}px "JetBrains Mono", monospace`;
+  const names={waltz:'«Вальсъ для канавки»',choral:'«Хоралъ»',sweep:'Измерительный свипъ',tone:'Опорный тонъ 1 кГц',mic:'Живая запись',file:'Съ фонограммы'};
+  c.fillText(names[$('program').value]||'',CX,CY-R*0.18);
+  c.fillText(`${S.rpmCut>40?'45':'33⅓'} об/мин · моно`,CX,CY+R*0.30);
+  c.fillText('сторона А · ЛМ-7',CX,CY+R*0.50);
+  /* шпиндель */
+  c.fillStyle='#0d0b08'; c.beginPath(); c.arc(CX,CY,3.6*PXMM,0,TAU); c.fill();
+  c.strokeStyle='rgba(255,255,255,.25)'; c.lineWidth=1; c.stroke();
+  /* пылинки — по их позиции на канавке */
+  for(const sp of S.specks){
+    const rev=sp.pos/S.P, r=radiusAtRev(rev)*PXMM, a=rev*TAU;
+    c.fillStyle=`rgba(232,220,200,${0.35+sp.size*0.22})`;
+    c.beginPath(); c.arc(CX+r*Math.cos(a),CY+r*Math.sin(a),sp.size,0,TAU); c.fill();
+  }
+}
+/* точка контакта иглы: пересечение окружностей (радиус r вокруг центра, плечо вокруг пивота) */
+function stylusXY(rpx){
+  const dx0=CX-PIVOT.x, dy0=CY-PIVOT.y, D=Math.hypot(dx0,dy0);
+  const M=clamp((ARM_L*ARM_L-rpx*rpx-D*D)/(2*rpx*Math.max(1e-6,D)),-1,1);
+  const base=Math.atan2(dy0,dx0), da=Math.acos(M);
+  const c1={x:CX+rpx*Math.cos(base+da),y:CY+rpx*Math.sin(base+da)};
+  const c2={x:CX+rpx*Math.cos(base-da),y:CY+rpx*Math.sin(base-da)};
+  return c1.x>c2.x?c1:c2; // тонарм справа
+}
+
+/* ============================================================
+   АУДИОТРАКТ ВОСПРОИЗВЕДЕНИЯ (ScriptProcessor)
+   ============================================================ */
+function onepole(prev,x,a){ return prev+a*(x-prev); }
+function alphaFor(fc,SR){ return 1-Math.exp(-TAU*clamp(fc,5,SR*0.45)/SR); }
+
+function audioProcess(ev){
+  const out=ev.outputBuffer.getChannelData(0);
+  const SR=S.SR;
+  if(!S.playing||!S.groove){ out.fill(0); return; }
+  const g=S.groove, P=S.P, N=out.length;
+  const baseInc=S.rpmPlay/S.rpmCut;
+  const wowD=(+$('wow').value/100)*0.007;
+  const flD=(+$('flutter').value/100)*0.0032;
+  const surf=+$('surface').value/100;
+  const wear=+$('wear').value/100;
+  const rum=+$('rumble').value/100;
+  const bypass=$('bypass').checked;
+  const hissG=bypass?0:(0.0008+surf*0.0045);
+  const crkP=bypass?0:(surf*9/SR);
+  const fcWear=18000*Math.pow(2200/18000,wear);
+  const aWear=alphaFor(fcWear,SR);
+  const aRum=alphaFor(27,SR);
+  const aHiss=alphaFor(8500,SR);
+  const innerK=36; // циклов на мм пути канавки → полоса
+  const de=S.deemph;
+
+  for(let n=0;n<N;n++){
+    const rev=S.pos/P;
+    /* — кинематика: детонация раз в оборот + флаттер — */
+    const wow=wowD*Math.sin(rev*TAU+0.9);
+    S.flPh+=TAU*12.5/SR;
+    S.flNoise=onepole(S.flNoise,(Math.random()*2-1),0.002);
+    const fl=flD*(Math.sin(S.flPh)*0.6+S.flNoise*14);
+    S.pos+=baseInc*(1+(bypass?0:wow+fl));
+    /* — конец стороны: замочная канавка — */
+    if(S.pos>=g.length-2) S.pos=S.lockStartPos+1;
+    if(!S.locked && S.pos>=S.lockStartPos){ S.locked=true; S.thudEnv=0.5; }
+    if(S.locked && S.pos>=S.lockStartPos+P){
+      S.pos-=P; resyncSpeckPtr();
+      S.thudEnv=0.5; S.popEnv+=0.22;        // толчок раз в оборот
+    }
+    /* — пылинки и трески — */
+    while(S.speckPtr<S.specks.length && S.specks[S.speckPtr].pos<=S.pos){
+      if(!bypass) S.popEnv+=0.12+S.specks[S.speckPtr].size*0.16;
+      S.speckPtr++;
+    }
+    if(Math.random()<crkP) S.crkEnv+=0.03+Math.random()*Math.random()*0.16;
+
+    let s;
+    if(bypass){
+      const pi=S.pos-S.progStartPos;
+      s=(pi>=0&&pi<S.program.length)?S.program[Math.floor(pi)]:0;
+      out[n]=s*1.4;
+      continue;
+    }
+    /* — чтение канавки (линейная интерполяция) — */
+    const i0=Math.floor(S.pos), fr=S.pos-i0;
+    s=g[i0]+(g[i0+1]-g[i0])*fr;
+    /* — потеря ВЧ к центру: полоса ∝ линейной скорости — */
+    const rmm=radiusAtRev(rev);
+    const vmm=TAU*rmm*(S.rpmPlay/60);              // мм/с
+    S.lpInner=onepole(S.lpInner,s,alphaFor(innerK*vmm,SR));
+    s=S.lpInner;
+    /* — износ иглы: завал ВЧ + лёгкая нелинейность трения — */
+    S.lpWear=onepole(S.lpWear,s,aWear);
+    s=S.lpWear;
+    s=s+wear*0.22*(s*s*s-s*0.3);
+    /* — обратная RIAA — */
+    s=runChain(de,s)*1.35;
+    /* — шумы поверхности — */
+    S.hissLP=onepole(S.hissLP,(Math.random()*2-1),aHiss);
+    s+=S.hissLP*hissG*2.2;
+    const rn=(Math.random()*2-1);
+    S.rumLP1=onepole(S.rumLP1,rn,aRum);
+    S.rumLP2=onepole(S.rumLP2,S.rumLP1,aRum);
+    s+=S.rumLP2*rum*6;
+    /* — щелчки: пыль, трески, толчок замочной канавки — */
+    if(S.popEnv>1e-4){ s+=S.popEnv*((Math.random()*2-1)*0.7+0.35); S.popEnv*=0.965; }
+    if(S.crkEnv>1e-4){ s+=S.crkEnv*(Math.random()*2-1); S.crkEnv*=0.90; }
+    if(S.thudEnv>1e-4){ S.thudPh+=TAU*64/SR; s+=S.thudEnv*Math.sin(S.thudPh)*0.8; S.thudEnv*=0.9994; }
+    out[n]=Math.tanh(s*1.25)*0.85;
+  }
+}
+
+/* ============================================================
+   ВЫГРУЗКА: ОФЛАЙН-РЕНДЕР СТОРОНЫ, WAV, ВИДЕО
+   ============================================================ */
+function lowerBoundSpecks(pos){
+  let lo=0,hi=S.specks.length;
+  while(lo<hi){const m=(lo+hi)>>1; if(S.specks[m].pos<pos)lo=m+1;else hi=m;}
+  return lo;
+}
+/* Точная офлайн-копия тракта воспроизведения: те же формулы, что в audioProcess,
+   но с независимым состоянием st — реальное воспроизведение не задевается. */
+function renderSide(){
+  const SR=S.SR, g=S.groove, P=S.P;
+  const baseInc=S.rpmPlay/S.rpmCut;
+  const wowD=(+$('wow').value/100)*0.007;
+  const flD=(+$('flutter').value/100)*0.0032;
+  const surf=+$('surface').value/100;
+  const wear=+$('wear').value/100;
+  const rum=+$('rumble').value/100;
+  const bypass=$('bypass').checked;
+  const hissG=bypass?0:(0.0008+surf*0.0045);
+  const crkP=bypass?0:(surf*9/SR);
+  const aWear=alphaFor(18000*Math.pow(2200/18000,wear),SR);
+  const aRum=alphaFor(27,SR);
+  const aHiss=alphaFor(8500,SR);
+  const innerK=36;
+  const de=makeDe(SR);
+  const st={pos:0,flPh:0,flNoise:0,lpInner:0,lpWear:0,hissLP:0,rumLP1:0,rumLP2:0,
+            popEnv:0,crkEnv:0,thudEnv:0,thudPh:0,speckPtr:0,locked:false,lockRevs:0};
+  const endCap=Math.ceil((S.lockStartPos+2*P)/baseInc)+SR;
+  const out=new Float32Array(endCap);
+  let n=0;
+  for(;n<endCap;n++){
+    const rev=st.pos/P;
+    const wow=wowD*Math.sin(rev*TAU+0.9);
+    st.flPh+=TAU*12.5/SR;
+    st.flNoise=onepole(st.flNoise,(Math.random()*2-1),0.002);
+    const fl=flD*(Math.sin(st.flPh)*0.6+st.flNoise*14);
+    st.pos+=baseInc*(1+(bypass?0:wow+fl));
+    if(st.pos>=g.length-2) st.pos=S.lockStartPos+1;
+    if(!st.locked && st.pos>=S.lockStartPos){ st.locked=true; st.thudEnv=0.5; }
+    if(st.locked && st.pos>=S.lockStartPos+P){
+      st.pos-=P; st.speckPtr=lowerBoundSpecks(st.pos);
+      st.thudEnv=0.5; st.popEnv+=0.22;
+      if(++st.lockRevs>=2) break;               // две «замочные» — и хватит
+    }
+    while(st.speckPtr<S.specks.length && S.specks[st.speckPtr].pos<=st.pos){
+      if(!bypass) st.popEnv+=0.12+S.specks[st.speckPtr].size*0.16;
+      st.speckPtr++;
+    }
+    if(Math.random()<crkP) st.crkEnv+=0.03+Math.random()*Math.random()*0.16;
+    let s;
+    if(bypass){
+      const pi=st.pos-S.progStartPos;
+      s=(pi>=0&&pi<S.program.length)?S.program[Math.floor(pi)]:0;
+      out[n]=s*1.4;
+      continue;
+    }
+    const i0=Math.floor(st.pos), fr=st.pos-i0;
+    s=g[i0]+(g[i0+1]-g[i0])*fr;
+    const rmm=radiusAtRev(rev);
+    const vmm=TAU*rmm*(S.rpmPlay/60);
+    st.lpInner=onepole(st.lpInner,s,alphaFor(innerK*vmm,SR));
+    s=st.lpInner;
+    st.lpWear=onepole(st.lpWear,s,aWear);
+    s=st.lpWear;
+    s=s+wear*0.22*(s*s*s-s*0.3);
+    s=runChain(de,s)*1.35;
+    st.hissLP=onepole(st.hissLP,(Math.random()*2-1),aHiss);
+    s+=st.hissLP*hissG*2.2;
+    const rn=(Math.random()*2-1);
+    st.rumLP1=onepole(st.rumLP1,rn,aRum);
+    st.rumLP2=onepole(st.rumLP2,st.rumLP1,aRum);
+    s+=st.rumLP2*rum*6;
+    if(st.popEnv>1e-4){ s+=st.popEnv*((Math.random()*2-1)*0.7+0.35); st.popEnv*=0.965; }
+    if(st.crkEnv>1e-4){ s+=st.crkEnv*(Math.random()*2-1); st.crkEnv*=0.90; }
+    if(st.thudEnv>1e-4){ st.thudPh+=TAU*64/SR; s+=st.thudEnv*Math.sin(st.thudPh)*0.8; st.thudEnv*=0.9994; }
+    out[n]=Math.tanh(s*1.25)*0.85;
+  }
+  const res=out.subarray(0,n);
+  const F=Math.min(Math.round(0.3*SR),res.length);
+  for(let i=0;i<F;i++) res[res.length-1-i]*=i/F;   // финальный фейд
+  return new Float32Array(res);
+}
+function encodeWav(f32,SR){
+  const n=f32.length, buf=new ArrayBuffer(44+n*2), v=new DataView(buf);
+  const ws=(o,t)=>{for(let i=0;i<t.length;i++)v.setUint8(o+i,t.charCodeAt(i));};
+  ws(0,'RIFF'); v.setUint32(4,36+n*2,true); ws(8,'WAVE'); ws(12,'fmt ');
+  v.setUint32(16,16,true); v.setUint16(20,1,true); v.setUint16(22,1,true);
+  v.setUint32(24,SR,true); v.setUint32(28,SR*2,true); v.setUint16(32,2,true); v.setUint16(34,16,true);
+  ws(36,'data'); v.setUint32(40,n*2,true);
+  for(let i=0;i<n;i++){const x=clamp(f32[i],-1,1); v.setInt16(44+i*2,x<0?x*32768:x*32767,true);}
+  return new Blob([buf],{type:'audio/wav'});
+}
+function dlBlob(blob,name){
+  const a=document.createElement('a');
+  a.href=URL.createObjectURL(blob); a.download=name; a.click();
+  setTimeout(()=>URL.revokeObjectURL(a.href),10000);
+}
+function exportWav(){
+  if(!S.cutDone||S.cutting) return;
+  ensureCtx();
+  $('expInfo').textContent='рендер тракта…'; $('btnWav').disabled=true;
+  setTimeout(()=>{
+    const f32=renderSide();
+    dlBlob(encodeWav(f32,S.SR),'vinilograf.wav');
+    $('expInfo').textContent=`WAV готов · ${(f32.length/S.SR).toFixed(1)} с · 16 бит моно`;
+    $('btnWav').disabled=false;
+  },30);
+}
+
+/* ---- видео: профиль канавки + опциональные осциллограф и спектр ---- */
+const VEX={on:false,rec:null,raf:0,src:null,an:null,msd:null,t0:0,dur:0,cancelled:false};
+function exportVideo(){
+  if(VEX.on){ vexCancel(); return; }
+  if(!S.cutDone||S.cutting) return;
+  ensureCtx(); S.actx.resume();
+  stopPlayback();
+  $('expInfo').textContent='рендер тракта…';
+  setTimeout(()=>{
+    const f32=renderSide(), SR=S.SR;
+    const abuf=S.actx.createBuffer(1,f32.length,SR);
+    abuf.getChannelData(0).set(f32);
+    const cv=$('vexCv'), W=cv.width, H=cv.height;
+    const c=cv.getContext('2d');
+    $('vexWrap').style.display='';
+    const stream=cv.captureStream(30);
+    VEX.msd=S.actx.createMediaStreamDestination();
+    VEX.an=S.actx.createAnalyser(); VEX.an.fftSize=2048; VEX.an.smoothingTimeConstant=0.78;
+    VEX.src=S.actx.createBufferSource(); VEX.src.buffer=abuf;
+    VEX.src.connect(VEX.an); VEX.an.connect(VEX.msd);
+    VEX.src.connect(S.master);                       // слышим, что пишется
+    stream.addTrack(VEX.msd.stream.getAudioTracks()[0]);
+    const mime=['video/webm;codecs=vp9,opus','video/webm;codecs=vp8,opus','video/webm']
+      .find(m=>window.MediaRecorder&&MediaRecorder.isTypeSupported(m))||'';
+    const chunks=[];
+    VEX.rec=new MediaRecorder(stream,mime?{mimeType:mime,videoBitsPerSecond:5e6}:undefined);
+    VEX.rec.ondataavailable=e=>{if(e.data.size)chunks.push(e.data);};
+    VEX.rec.onstop=()=>{
+      cancelAnimationFrame(VEX.raf);
+      if(!VEX.cancelled) dlBlob(new Blob(chunks,{type:'video/webm'}),'vinilograf.webm');
+      $('expInfo').textContent=VEX.cancelled?'запись видео отменена':'WebM готов · '+VEX.dur.toFixed(1)+' с';
+      $('btnVideo').textContent='⬇ Видео · WebM';
+      $('btnCut').disabled=false;
+      if(S.cutDone){$('btnPlay').disabled=false; $('btnRestart').disabled=false; $('btnWav').disabled=false; $('btnVideo').disabled=false;}
+      $('vexWrap').style.display='none';
+      VEX.on=false;
+    };
+    VEX.dur=f32.length/SR; VEX.cancelled=false;
+    const fq=new Uint8Array(VEX.an.frequencyBinCount);
+    const baseInc=S.rpmPlay/S.rpmCut;
+    const names={waltz:'«Вальсъ для канавки»',choral:'«Хоралъ»',sweep:'Измерительный свипъ',tone:'Опорный тонъ 1 кГц',mic:'Живая запись',file:S.extLabel||'Съ фонограммы'};
+    const title=names[$('program').value]||'';
+    const mmss=t=>`${Math.floor(t/60)}:${String(Math.floor(t%60)).padStart(2,'0')}`;
+    const MONO='13px "JetBrains Mono", monospace';
+
+    const td2=new Uint8Array(VEX.an.fftSize);
+    function caption(txt,y0){
+      c.fillStyle='rgba(240,225,200,.5)'; c.font=MONO; c.textAlign='left';
+      c.fillText(txt,36,y0+16);
+    }
+    function modGroove(y0,h,t){
+      caption('МИКРОСКОП КАНАВКИ · ПОПЕРЕЧНАЯ (ЛАТЕРАЛЬНАЯ) ЗАПИСЬ',y0);
+      let p=t*SR*baseInc;
+      if(p>S.lockStartPos) p=S.lockStartPos+((p-S.lockStartPos)%S.P); // игла кружит в замочной
+      paintMicro(c,36,y0+26,W-72,h-26,p,true);
+    }
+    function modOsc(y0,h){
+      caption('ОСЦИЛЛОГРАФ · ВЫХОД КОРРЕКТОРА',y0);
+      VEX.an.getByteTimeDomainData(td2);
+      paintWave(c,36,y0+26,W-72,h-26,td2);
+    }
+    function modSpec(y0,h){
+      caption('АНАЛИЗАТОР СПЕКТРА',y0);
+      VEX.an.getByteFrequencyData(fq);
+      paintSpec(c,36,y0+26,W-72,h-26,fq);
+    }
+    function frame(){
+      const t=clamp(S.actx.currentTime-VEX.t0,0,VEX.dur);
+      c.fillStyle='#171310'; c.fillRect(0,0,W,H);
+      c.fillStyle='rgba(226,162,60,.06)'; c.fillRect(0,0,W,92);
+      c.fillStyle='#e2a23c'; c.textAlign='left'; c.textBaseline='alphabetic';
+      c.font='700 38px Oranienbaum, serif'; c.fillText('ВИНИЛОГРАФЪ',36,58);
+      c.fillStyle='rgba(240,225,200,.78)'; c.font='20px Spectral, serif';
+      c.fillText(title+`  ·  ${S.rpmCut>40?'45':'33⅓'}→${S.rpmPlay>40?'45':'33⅓'} об/мин`,300,56);
+      const mods=[modGroove];
+      if($('vexOsc').checked) mods.push(modOsc);
+      if($('vexSpec').checked) mods.push(modSpec);
+      const top=112, bot=H-58, gap=22;
+      const bh=(bot-top-gap*(mods.length-1))/mods.length;
+      let y=top;
+      for(const m of mods){ m(y,bh,t); y+=bh+gap; }
+      c.fillStyle='rgba(240,225,200,.85)'; c.font='16px "JetBrains Mono", monospace';
+      c.fillText(`${mmss(t)} / ${mmss(VEX.dur)}`,36,H-22);
+      c.fillStyle='rgba(255,235,200,.15)'; c.fillRect(190,H-32,W-226,8);
+      c.fillStyle='#e2a23c'; c.fillRect(190,H-32,(W-226)*(t/VEX.dur),8);
+      if(VEX.on) VEX.raf=requestAnimationFrame(frame);
+    }
+    VEX.on=true;
+    $('btnVideo').textContent='■ Отменить запись';
+    $('btnPlay').disabled=true; $('btnRestart').disabled=true; $('btnCut').disabled=true; $('btnWav').disabled=true;
+    $('expInfo').textContent='идёт запись видео в реальном времени…';
+    VEX.rec.start(250);
+    VEX.t0=S.actx.currentTime+0.06;                  // старт по аудиочасам, без джиттера кванта
+    VEX.src.onended=()=>{ if(VEX.on&&!VEX.cancelled) setTimeout(()=>VEX.rec.state!=='inactive'&&VEX.rec.stop(),300); };
+    VEX.src.start(VEX.t0);
+    VEX.raf=requestAnimationFrame(frame);
+    $('vexWrap').scrollIntoView({behavior:'smooth',block:'nearest'});
+  },30);
+}
+function vexCancel(){
+  if(!VEX.on) return;
+  VEX.cancelled=true;
+  try{VEX.src.onended=null;VEX.src.stop();}catch(e){}
+  if(VEX.rec&&VEX.rec.state!=='inactive') VEX.rec.stop();
+}
+
+
+function startPlayback(){
+  if(!S.cutDone||S.cutting) return;
+  ensureCtx(); S.actx.resume();
+  for(const sec of S.deemph.secs){sec.x1=0;sec.y1=0;}
+  S.lpInner=0;S.lpWear=0;S.popEnv=0;S.crkEnv=0;S.thudEnv=0;
+  if(S.pos>=S.groove.length-4){S.pos=0;S.locked=false;}
+  S.lockAnnounced=S.locked;
+  resyncSpeckPtr();
+  S.playing=true;
+  $('btnPlay').textContent='▲ Поднять иглу';
+  lamp('lampPlay',true); lamp('lampMotor',true);
+  setStatus(S.locked?'Игла в замочной канавке.':'Игла опущена. Идёт воспроизведение.');
+}
+function stopPlayback(){
+  if(!S.playing) return;
+  S.playing=false;
+  $('btnPlay').textContent='▼ Опустить иглу';
+  lamp('lampPlay',false); lamp('lampMotor',false);
+  setStatus('Игла поднята.');
+}
+
+/* ============================================================
+   ВИЗУАЛИЗАЦИЯ (rAF)
+   ============================================================ */
+const micro=$('micro'), mx=micro.getContext('2d');
+const wave=$('wave'), wx=wave.getContext('2d');
+const spec=$('spec'), sx=spec.getContext('2d');
+const tdData=new Uint8Array(2048), fqData=new Uint8Array(1024);
+
+function drawArm(rpx,posT,downT){
+  // posT: 0 — на стойке, 1 — над канавкой; downT: 0 — поднята, 1 — опущена
+  const rest={x:PIVOT.x+ARM_L*Math.cos(1.69),y:PIVOT.y+ARM_L*Math.sin(1.69)};
+  const tgt=stylusXY(rpx);
+  const p={x:lerp(rest.x,tgt.x,posT),y:lerp(rest.y,tgt.y,posT)};
+  const lift=1-downT;
+  const pr={x:p.x,y:p.y-6*lift};           // поднятая головка чуть «к зрителю»
+  const ang=Math.atan2(pr.y-PIVOT.y,pr.x-PIVOT.x);
+  dx.save();
+  // тень парящей головки на диске
+  if(posT>0.4&&lift>0.05){
+    dx.fillStyle=`rgba(0,0,0,${0.30*lift*posT})`;
+    dx.beginPath(); dx.ellipse(p.x+3,p.y+4,9,4.5,0.3,0,TAU); dx.fill();
+  }
+  // противовес
+  dx.strokeStyle='#3b3022'; dx.lineWidth=7; dx.lineCap='round';
+  dx.beginPath();
+  dx.moveTo(PIVOT.x-34*Math.cos(ang),PIVOT.y-34*Math.sin(ang));
+  dx.lineTo(PIVOT.x,PIVOT.y); dx.stroke();
+  dx.fillStyle='#191510';
+  dx.beginPath(); dx.arc(PIVOT.x-40*Math.cos(ang),PIVOT.y-40*Math.sin(ang),11,0,TAU); dx.fill();
+  dx.strokeStyle='#5c4b2e'; dx.lineWidth=1.5; dx.stroke();
+  // труба
+  const grd=dx.createLinearGradient(PIVOT.x,PIVOT.y,pr.x,pr.y);
+  grd.addColorStop(0,'#cfa95e'); grd.addColorStop(1,'#8a6c33');
+  dx.strokeStyle=grd; dx.lineWidth=5.5;
+  dx.beginPath(); dx.moveTo(PIVOT.x,PIVOT.y); dx.lineTo(pr.x,pr.y); dx.stroke();
+  // пивот
+  dx.fillStyle='#241d12';
+  dx.beginPath(); dx.arc(PIVOT.x,PIVOT.y,13,0,TAU); dx.fill();
+  dx.strokeStyle='#6e5524'; dx.lineWidth=2; dx.stroke();
+  // головка
+  dx.save(); dx.translate(pr.x,pr.y); dx.rotate(ang+0.42);
+  dx.fillStyle='#1d1812'; dx.strokeStyle='#7d6132'; dx.lineWidth=1.5;
+  dx.beginPath(); dx.roundRect(-7,-7,26,14,3); dx.fill(); dx.stroke();
+  dx.restore();
+  // игла: опущена — точка (с накалом при игре), поднята — кольцо
+  const hot=(S.playing||VEX.on)&&downT>0.5;
+  if(downT>0.5){
+    dx.fillStyle=hot?'#ff5a3c':'#7a4538';
+    dx.beginPath(); dx.arc(pr.x,pr.y,3.4,0,TAU); dx.fill();
+    if(hot){ dx.shadowColor='#ff5a3c'; dx.shadowBlur=10;
+      dx.beginPath(); dx.arc(pr.x,pr.y,3.4,0,TAU); dx.fill(); }
+  }else{
+    dx.strokeStyle='#7a4538'; dx.lineWidth=1.6;
+    dx.beginPath(); dx.arc(pr.x,pr.y,3.2,0,TAU); dx.stroke();
+  }
+  dx.restore();
+}
+if(!CanvasRenderingContext2D.prototype.roundRect){
+  CanvasRenderingContext2D.prototype.roundRect=function(x,y,w,h,r){
+    r=Math.min(r,w/2,h/2);
+    this.moveTo(x+r,y); this.arcTo(x+w,y,x+w,y+h,r); this.arcTo(x+w,y+h,x,y+h,r);
+    this.arcTo(x,y+h,x,y,r); this.arcTo(x,y,x+w,y,r); this.closePath(); return this;
+  };
+}
+let armPos=0, armDown=0;
+function drawDisc(now){
+  dx.clearRect(0,0,CW,CH);
+  // постамент
+  dx.fillStyle='#0f0d0a';
+  dx.beginPath(); dx.arc(CX,CY,RPX+8,0,TAU); dx.fill();
+  if(!S.cutDone){
+    // пустой лак
+    const gr=dx.createRadialGradient(CX,CY-50,30,CX,CY,RPX);
+    gr.addColorStop(0,'#262019'); gr.addColorStop(1,'#16120e');
+    dx.fillStyle=gr; dx.beginPath(); dx.arc(CX,CY,RPX,0,TAU); dx.fill();
+    dx.fillStyle='rgba(232,220,200,.18)';
+    dx.font='400 13px "JetBrains Mono",monospace'; dx.textAlign='center';
+    dx.fillText('чистый лаковый диск',CX,CY-6);
+    dx.fillText('ожидает резца',CX,CY+14);
+    armPos=onepole(armPos,0,0.08); armDown=onepole(armDown,0,0.08);
+    drawArm(MM_GROOVE0*PXMM,armPos,armDown);
+    return;
+  }
+  if(S.cutting){
+    // анимация нарезки: база → маска нераскрытой части → этикетка → блики → резец
+    const T=(now-S.cutAnimT0)/3800;
+    const t=clamp(T,0,1);
+    const revNow=t*S.totalRev;
+    const rHead=radiusAtRev(revNow)*PXMM;
+    dx.drawImage(discBase,0,0);
+    dx.fillStyle='#1b1712';
+    dx.beginPath(); dx.arc(CX,CY,Math.max(rHead-1,MM_LABEL*PXMM+2),0,TAU); dx.fill();
+    const rotC=stylusPhiMid - revNow*TAU*0.35;
+    dx.save(); dx.translate(CX,CY); dx.rotate(rotC); dx.drawImage(labelLayer,-CX,-CY); dx.restore();
+    dx.drawImage(sheen,0,0);
+    // резцовая головка (идёт по верхнему лучу)
+    const hx=CX, hy=CY-rHead;
+    dx.strokeStyle='#5a4a2c'; dx.lineWidth=6; dx.lineCap='round';
+    dx.beginPath(); dx.moveTo(hx,28); dx.lineTo(hx,hy-16); dx.stroke();
+    dx.fillStyle='#caa45a';
+    dx.beginPath(); dx.moveTo(hx-9,hy-18); dx.lineTo(hx+9,hy-18); dx.lineTo(hx,hy-2); dx.closePath(); dx.fill();
+    dx.fillStyle='#ffd98f';
+    dx.beginPath(); dx.arc(hx,hy,2.2,0,TAU); dx.fill();
+    // стружка
+    dx.strokeStyle='rgba(255,217,143,.5)'; dx.lineWidth=1;
+    for(let i=0;i<3;i++){
+      dx.beginPath();
+      dx.moveTo(hx+3,hy);
+      dx.quadraticCurveTo(hx+14+i*7,hy-8-i*5,hx+10+i*11,hy+6+i*4);
+      dx.stroke();
+    }
+    S.pos=0;
+    if(T>=1){
+      S.cutting=false; lamp('lampCut',false);
+      $('btnPlay').disabled=false; $('btnRestart').disabled=false; $('btnWav').disabled=false; $('btnVideo').disabled=false;
+      setStatus(`Матрица готова: ${(S.progEndPos-S.progStartPos)/S.SR|0} с программы, ${Math.ceil(S.totalRev)} витков, шаг ${S.pitchUsed.toFixed(1)} мм/об. Опустите иглу.`);
+    }
+    armPos=onepole(armPos,0,0.12); armDown=onepole(armDown,0,0.12);
+    drawArm(MM_GROOVE0*PXMM,armPos,armDown);
+    return;
+  }
+  dx.drawImage(discBase,0,0);
+  // вращающийся слой: этикетка + пылинки
+  const rot=stylusPhiMid - (S.posVis/S.P)*TAU;
+  dx.save(); dx.translate(CX,CY); dx.rotate(rot); dx.drawImage(labelLayer,-CX,-CY); dx.restore();
+  dx.drawImage(sheen,0,0);
+  // тонарм: всегда над своей канавкой; «поднять» — только вверх, не на стойку
+  armPos=onepole(armPos,1,0.08);
+  armDown=onepole(armDown,(S.playing||VEX.on)?1:0,0.08);
+  const rpx=radiusAtRev(S.posVis/S.P)*PXMM;
+  drawArm(rpx,armPos,armDown);
+}
+/* Общие отрисовщики приборов: ими рисует и страница, и кадр видео —
+   стили совпадают по построению, а не по подражанию. */
+function paintMicro(q,X,Y,W,H,pos,playing){
+  const g=S.groove, win=1400, half=win/2, cy=Y+H/2;
+  const amp=H*0.26, gw=H*0.135;
+  // «земля» — поверхность лака
+  q.fillStyle='#262019'; q.fillRect(X,Y,W,H);
+  // канавка
+  q.beginPath();
+  for(let x=0;x<=W;x++){
+    const i=Math.floor(pos-half+x/W*win);
+    const v=(i>=0&&i<g.length)?g[i]:0;
+    q[x?'lineTo':'moveTo'](X+x,cy+v*amp-gw);
+  }
+  for(let x=W;x>=0;x--){
+    const i=Math.floor(pos-half+x/W*win);
+    const v=(i>=0&&i<g.length)?g[i]:0;
+    q.lineTo(X+x,cy+v*amp+gw);
+  }
+  q.closePath();
+  const gr=q.createLinearGradient(0,cy-amp,0,cy+amp);
+  gr.addColorStop(0,'#0a0806'); gr.addColorStop(.5,'#050403'); gr.addColorStop(1,'#0a0806');
+  q.fillStyle=gr; q.fill();
+  // блики стенок
+  q.strokeStyle='rgba(255,224,170,.35)'; q.lineWidth=1.2;
+  q.beginPath();
+  for(let x=0;x<=W;x+=2){
+    const i=Math.floor(pos-half+x/W*win);
+    const v=(i>=0&&i<g.length)?g[i]:0;
+    q[x?'lineTo':'moveTo'](X+x,cy+v*amp-gw);
+  }
+  q.stroke();
+  q.strokeStyle='rgba(255,224,170,.18)';
+  q.beginPath();
+  for(let x=0;x<=W;x+=2){
+    const i=Math.floor(pos-half+x/W*win);
+    const v=(i>=0&&i<g.length)?g[i]:0;
+    q[x?'lineTo':'moveTo'](X+x,cy+v*amp+gw);
+  }
+  q.stroke();
+  // пылинки в окне
+  q.fillStyle='rgba(240,230,210,.85)';
+  for(const sp of S.specks){
+    if(sp.pos>pos-half&&sp.pos<pos+half){
+      const x=(sp.pos-(pos-half))/win*W;
+      const i=Math.floor(sp.pos), v=(i>=0&&i<g.length)?g[i]:0;
+      q.beginPath(); q.arc(X+x,cy+v*amp,sp.size*1.6,0,TAU); q.fill();
+    }
+  }
+  // игла
+  q.fillStyle=playing?'#ff5a3c':'rgba(255,90,60,.4)';
+  q.beginPath(); q.moveTo(X+W/2,cy-gw*2.4); q.lineTo(X+W/2-6,cy-gw*4.4); q.lineTo(X+W/2+6,cy-gw*4.4);
+  q.closePath(); q.fill();
+  q.fillStyle='rgba(232,220,200,.45)'; q.font='10px "JetBrains Mono",monospace'; q.textAlign='left';
+  q.fillText('направление движения канавки →',X+10,Y+14);
+}
+function paintWave(q,X,Y,W,H,td){
+  q.fillStyle='#0c0a07'; q.fillRect(X,Y,W,H);
+  q.strokeStyle='rgba(226,162,60,.12)';
+  for(let i=1;i<4;i++){q.beginPath();q.moveTo(X,Y+H*i/4);q.lineTo(X+W,Y+H*i/4);q.stroke();}
+  q.strokeStyle='#e2a23c'; q.lineWidth=1.6; q.shadowColor='#e2a23c'; q.shadowBlur=6;
+  q.beginPath();
+  for(let i=0;i<td.length;i++){
+    const x=X+i/td.length*W, y=Y+td[i]/255*H;
+    q[i?'lineTo':'moveTo'](x,y);
+  }
+  q.stroke(); q.shadowBlur=0;
+}
+function paintSpec(q,X,Y,W,H,fqA){
+  q.fillStyle='#0c0a07'; q.fillRect(X,Y,W,H);
+  const bars=64;
+  for(let b=0;b<bars;b++){
+    const f0=Math.pow(fqA.length-2,b/bars), f1=Math.pow(fqA.length-2,(b+1)/bars);
+    let v=0; for(let i=Math.floor(f0);i<=Math.floor(f1);i++) v=Math.max(v,fqA[i]||0);
+    const h=v/255*(H-8);
+    const x=X+b/bars*W;
+    const gr=q.createLinearGradient(0,Y+H,0,Y+H-h);
+    gr.addColorStop(0,'#7d6132'); gr.addColorStop(1,'#ffc46b');
+    q.fillStyle=gr;
+    q.fillRect(x+1,Y+H-h,W/bars-2,h);
+  }
+}
+function drawMicro(){
+  const W=micro.width,H=micro.height;
+  if(!S.cutDone){
+    mx.fillStyle='#0c0a07'; mx.fillRect(0,0,W,H);
+    mx.fillStyle='rgba(232,220,200,.2)'; mx.font='12px "JetBrains Mono",monospace';
+    mx.textAlign='center'; mx.fillText('канавка появится после нарезки',W/2,H/2);
+    return;
+  }
+  paintMicro(mx,0,0,W,H,S.posVis,S.playing||VEX.on);
+}
+function drawScopes(){
+  if(!S.analyser){return;}
+  S.analyser.getByteTimeDomainData(tdData);
+  paintWave(wx,0,0,wave.width,wave.height,tdData);
+  S.analyser.getByteFrequencyData(fqData);
+  paintSpec(sx,0,0,spec.width,spec.height,fqData);
+}
+function updateReadouts(){
+  const fm=(x,d=1)=>x.toFixed(d);
+  if(!S.cutDone){ return; }
+  const rev=S.posVis/S.P, rmm=radiusAtRev(rev);
+  const tProg=clamp((S.posVis-S.progStartPos)/S.SR,0,(S.progEndPos-S.progStartPos)/S.SR);
+  const tTot=(S.progEndPos-S.progStartPos)/S.SR;
+  const mmss=t=>`${Math.floor(t/60)}:${String(Math.floor(t%60)).padStart(2,'0')}`;
+  $('roTime').textContent=`${mmss(tProg)} / ${mmss(tTot)}`;
+  $('roR').innerHTML=`${fm(rmm,1)} <small>мм</small>`;
+  const v=TAU*rmm*(S.rpmPlay/60)/10;
+  $('roV').innerHTML=`${fm(v,1)} <small>см/с</small>`;
+  $('roF').innerHTML=`${fm(Math.min(20,36*v*10/1000),1)} <small>кГц</small>`;
+  $('roRPM').innerHTML=`${(S.playing||VEX.on)?(S.rpmPlay>40?'45':'33⅓'):'0'} <small>об/мин</small>`;
+}
+/* Визуальная позиция иглы: S.pos — то, что аудиопоток уже ДОСЧИТАЛ; слышно это
+   позже на очередь ScriptProcessor (2048 отсчётов) + системную задержку вывода.
+   Компенсируем, чтобы глаз и ухо встречали пылинку одновременно. */
+function computePosVis(){
+  if(VEX.on){
+    /* страница зеркалит запись видео: позиция — по часам экспорта */
+    const t=clamp(S.actx.currentTime-VEX.t0,0,VEX.dur);
+    let p=t*S.SR*(S.rpmPlay/S.rpmCut);
+    if(p>S.lockStartPos) p=S.lockStartPos+((p-S.lockStartPos)%S.P);
+    S.posVis=Math.min(p,S.groove.length-2);
+    return;
+  }
+  if(!S.playing||!S.cutDone){ S.posVis=S.pos; return; }
+  const outLat=(S.actx&&(S.actx.outputLatency||S.actx.baseLatency))||0;
+  const d=(2048/S.SR+outLat)*S.SR*(S.rpmPlay/S.rpmCut);
+  S.posVis=Math.max(0,S.pos-d);
+}
+function loop(now){
+  computePosVis();
+  drawDisc(now);
+  drawMicro();
+  drawScopes();
+  updateReadouts();
+  if(S.playing && S.locked && !S.lockAnnounced){
+    S.lockAnnounced=true;
+    setStatus('Сторона окончена — игла кружит в замочной канавке. Поднимите её или вернитесь к началу.');
+  }
+  requestAnimationFrame(loop);
+}
+
+/* ============================================================
+   ПРИВЯЗКА UI
+   ============================================================ */
+function setStatus(t){$('status').textContent=t;}
+function lamp(id,on){$(id).classList.toggle('on',on);}
+function segVal(id){return +document.querySelector(`#${id} button.on`).dataset.v;}
+function segInit(id,cb){
+  document.querySelectorAll(`#${id} button`).forEach(b=>b.addEventListener('click',()=>{
+    document.querySelectorAll(`#${id} button`).forEach(x=>x.classList.remove('on'));
+    b.classList.add('on'); cb&&cb(+b.dataset.v);
+  }));
+}
+segInit('rpmCutSeg',()=>{ if(S.cutDone){S.cutDone=false;$('btnPlay').disabled=true;$('btnRestart').disabled=true;stopPlayback();setStatus('Скорость нарезки изменена — требуется новая матрица.');} });
+segInit('rpmPlaySeg',v=>{S.rpmPlay=v; if(S.playing) setStatus(Math.abs(S.rpmPlay-S.rpmCut)>1?'Скорости нарезки и проигрывания не совпадают — слышите?':'Игла опущена. Идёт воспроизведение.');});
+$('btnCut').addEventListener('click',cutDisc);
+$('btnWav').addEventListener('click',exportWav);
+$('btnVideo').addEventListener('click',exportVideo);
+$('btnPlay').addEventListener('click',()=>{ensureCtx(); S.playing?stopPlayback():startPlayback();});
+$('btnRestart').addEventListener('click',()=>{S.pos=0;S.locked=false;S.lockAnnounced=false;S.lastWrapRev=-1;resyncSpeckPtr();if(!S.playing)setStatus('Игла переставлена к началу.');else setStatus('С начала стороны.');});
+const bindOut=(id,out,fmt)=>{const el=$(id);const f=()=>$(out).textContent=fmt(+el.value);el.addEventListener('input',f);f();};
+bindOut('level','vLevel',v=>`${v>0?'+':''}${v.toFixed(1)} дБ`);
+bindOut('pitch','vPitch',v=>`${v.toFixed(1)} мм/об`);
+bindOut('wear','vWear',v=>`${v|0} %`);
+bindOut('surface','vSurf',v=>`${v|0} %`);
+bindOut('wow','vWow',v=>`${v|0} %`);
+bindOut('flutter','vFl',v=>`${v|0} %`);
+bindOut('rumble','vRum',v=>`${v|0} %`);
+bindOut('vol','vVol',v=>`${v|0} %`);
+$('vol').addEventListener('input',()=>{if(S.master)S.master.gain.value=(+$('vol').value/100)**1.5;});
+$('surface').addEventListener('change',()=>{if(S.cutDone)makeSpecks();});
+const invalidate=()=>{if(S.cutDone){S.cutDone=false;stopPlayback();$('btnPlay').disabled=true;$('btnRestart').disabled=true;$('btnWav').disabled=true;$('btnVideo').disabled=true;setStatus('Параметры нарезки изменены — нарежьте матрицу заново.');}};
+function syncSrcRow(){
+  const v=$('program').value, ext=(v==='mic'||v==='file');
+  $('srcRow').style.display=ext?'':'none';
+  $('btnMic').style.display=v==='mic'?'':'none';
+  $('btnFile').style.display=v==='file'?'':'none';
+  if(ext) $('srcInfo').textContent=S.extBuf?`${S.extLabel} · ${(S.extBuf.length/S.SR).toFixed(1)} с · готово`:'источник не загружен';
+  if(v!=='mic'&&REC.on) micStop();
+}
+$('program').addEventListener('change',()=>{invalidate();syncSrcRow();});
+$('btnMic').addEventListener('click',()=>{REC.on?micStop():micStart();});
+$('btnFile').addEventListener('click',()=>$('fileInp').click());
+$('fileInp').addEventListener('change',e=>{const f=e.target.files[0]; if(f) loadAudioFile(f); e.target.value='';});
+syncSrcRow();
+$('level').addEventListener('change',invalidate);
+$('pitch').addEventListener('change',invalidate);
+lamp('lampMicro',true);
+requestAnimationFrame(loop);
+</script>
+</body>
+</html>
