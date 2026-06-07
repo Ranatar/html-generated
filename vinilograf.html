@@ -467,6 +467,16 @@
         color: var(--ink);
         margin-bottom: 10px;
       }
+      .grpcap {
+        font-family: var(--mono);
+        font-size: 10px;
+        letter-spacing: 0.16em;
+        text-transform: uppercase;
+        color: #caa45a;
+        margin: 16px 0 4px;
+        padding-top: 12px;
+        border-top: 1px solid rgba(255, 235, 200, 0.12);
+      }
       details {
         border: 1px solid var(--line-soft);
         border-radius: 5px;
@@ -602,6 +612,22 @@
               <input type="range" id="pitch" min="0.8" max="4" step="0.1" value="2" />
             </label>
 
+            <label class="fld">
+              <span class="cap"><span>Резцовая головка</span></span>
+              <select id="cutterHead">
+                <option value="feedback" selected>Стерео-головка с обратной связью · до 20 кГц</option>
+                <option value="mono50">Моно-головка 1950-х · до 14 кГц, резонанс</option>
+                <option value="acoustic">Акустический рекордер 1930-х · 250 Гц – 7.5 кГц</option>
+              </select>
+            </label>
+            <label class="fld">
+              <span class="cap"
+                ><span>Детонация привода станка (впишется в канавку)</span
+                ><output id="vCutWow">0 %</output></span
+              >
+              <input type="range" id="cutWow" min="0" max="100" value="4" />
+            </label>
+
             <div class="row">
               <span
                 class="cap"
@@ -636,19 +662,54 @@
               </div>
             </div>
 
+            <div class="grpcap">Пресс и тираж</div>
+            <div class="row">
+              <div class="seg" id="stamperSeg">
+                <button data-v="1" class="on">штамп 1-го поколения</button>
+                <button data-v="3">3-го</button>
+                <button data-v="5">5-го</button>
+              </div>
+              <div class="seg" id="vinylSeg" style="margin-left: auto">
+                <button data-v="0" class="on">первичный винил</button>
+                <button data-v="1">вторичный</button>
+              </div>
+            </div>
+            <label class="fld">
+              <span class="cap"
+                ><span>Эксцентриситет отверстия (брак пресса)</span><output id="vEcc">0.10 мм</output></span
+              >
+              <input type="range" id="ecc" min="0" max="0.6" step="0.02" value="0.1" />
+            </label>
+            <label class="fld">
+              <span class="cap"><span>Коробление диска</span><output id="vWarp">0 %</output></span>
+              <input type="range" id="warp" min="0" max="100" value="6" />
+            </label>
+
+            <div class="grpcap">Аппаратура: вертушка · игла · корректор</div>
+            <div class="row">
+              <span
+                class="cap"
+                style="
+                  font-family: var(--mono);
+                  font-size: 10.5px;
+                  letter-spacing: 0.14em;
+                  text-transform: uppercase;
+                  color: var(--ink-dim);
+                "
+                >Профиль иглы</span
+              >
+              <div class="seg" id="profSeg">
+                <button data-v="26">конус</button>
+                <button data-v="36" class="on">эллипс</button>
+              </div>
+            </div>
             <label class="fld">
               <span class="cap"><span>Износ иглы</span><output id="vWear">0 %</output></span>
               <input type="range" id="wear" min="0" max="100" value="8" />
             </label>
             <label class="fld">
               <span class="cap"
-                ><span>Состояние поверхности (пыль · трески)</span><output id="vSurf">0 %</output></span
-              >
-              <input type="range" id="surface" min="0" max="100" value="22" />
-            </label>
-            <label class="fld">
-              <span class="cap"
-                ><span>Детонация (эксцентриситет, wow)</span><output id="vWow">0 %</output></span
+                ><span>Детонация привода вертушки (wow)</span><output id="vWow">0 %</output></span
               >
               <input type="range" id="wow" min="0" max="100" value="14" />
             </label>
@@ -661,9 +722,30 @@
               <input type="range" id="rumble" min="0" max="100" value="12" />
             </label>
             <label class="fld">
+              <span class="cap"><span>Фон сети 50 Гц (корректор)</span><output id="vHum">0 %</output></span>
+              <input type="range" id="hum" min="0" max="100" value="5" />
+            </label>
+            <label class="fld">
               <span class="cap"><span>Громкость</span><output id="vVol">80 %</output></span>
               <input type="range" id="vol" min="0" max="100" value="80" />
             </label>
+            <div class="grpcap">Экземпляр пластинки</div>
+            <label class="fld">
+              <span class="cap"
+                ><span>Состояние поверхности (пыль · трески)</span><output id="vSurf">0 %</output></span
+              >
+              <input type="range" id="surface" min="0" max="100" value="22" />
+            </label>
+            <div class="row">
+              <button class="btn" id="btnScratch" disabled>⚡ Поцарапать</button>
+              <button class="btn" id="btnNewCopy" disabled>✦ Новый экземпляр</button>
+              <span
+                id="copyInfo"
+                style="font-family: var(--mono); font-size: 11px; color: var(--ink-dim); margin-left: auto"
+                >состояние: 100%</span
+              >
+            </div>
+
             <label class="chk"
               ><input type="checkbox" id="bypass" /> Прямой монитор «ленты» (обход всего тракта — для
               сравнения)</label
@@ -776,6 +858,19 @@
             в ней с глухим толчком раз в оборот.
           </div>
         </details>
+        <details>
+          <summary>Четыре источника качества</summary>
+          <div class="bd">
+            Звук пластинки складывается из четырёх независимых звеньев. <b>Станок</b>: полоса и резонанс
+            резцовой головки да детонация его привода впечатываются в саму канавку — их не исправит никакая
+            вертушка. <b>Пресс</b>: каждое поколение штампа теряет верха, вторичный винил шуршит сором,
+            смещённое отверстие даёт «плач» раз в оборот — тем сильнее, чем ближе игла к центру
+            (<i>Δv/v&nbsp;=&nbsp;e/r</i>), а коробление — медленное колыхание тона. <b>Аппаратура</b>: профиль
+            и износ иглы, детонация и рокот привода, фон сети корректора — единственное звено, которое
+            слушатель волен улучшить. <b>Экземпляр</b>: каждый проигрыш стачивает стенки канавки (быстрее —
+            изношенной иглой), пыль и царапины копятся. Берегите пластинки.
+          </div>
+        </details>
       </div>
 
       <footer>
@@ -830,6 +925,13 @@
         lockAnnounced: false,
         posVis: 0,
         extBuf: null,
+        discWear: 0,
+        scratchAngles: [],
+        humPh: 0,
+        lpStamp: 0,
+        lpRec: 0,
+        lockRevs: 0,
+        resync: null,
         extLabel: "",
         pos: 0, // позиция иглы в отсчётах канавки (float)
         specks: [],
@@ -1091,6 +1193,8 @@
           $("btnRestart").disabled = true;
           $("btnWav").disabled = true;
           $("btnVideo").disabled = true;
+          $("btnScratch").disabled = true;
+          $("btnNewCopy").disabled = true;
         }
         setStatus("Источник готов — нарезайте матрицу.");
       }
@@ -1225,6 +1329,35 @@
         S.master.connect(S.analyser);
         S.analyser.connect(S.actx.destination);
         S.deemph = makeDe(S.SR);
+        S.de = S.deemph;
+        S.resync = () => resyncSpeckPtr();
+      }
+      /* Резцовая головка: механика = резонансный НЧ-фильтр + срез снизу */
+      function makeHead(kind, SR) {
+        const cfg = {
+          feedback: { fc: 20000, Q: 0.71, hp: 25 },
+          mono50: { fc: 14000, Q: 1.5, hp: 60 },
+          acoustic: { fc: 7500, Q: 2.4, hp: 250 },
+        }[kind] || { fc: 20000, Q: 0.71, hp: 25 };
+        const w = (TAU * Math.min(cfg.fc, SR * 0.45)) / SR,
+          al = Math.sin(w) / (2 * cfg.Q),
+          cw = Math.cos(w);
+        const b0 = (1 - cw) / 2,
+          b1 = 1 - cw,
+          b2 = (1 - cw) / 2,
+          a0 = 1 + al,
+          a1 = -2 * cw,
+          a2 = 1 - al;
+        const st = { x1: 0, x2: 0, y1: 0, y2: 0, lp: 0, hpa: alphaFor(cfg.hp, SR) };
+        return (x) => {
+          const y = (b0 * x + b1 * st.x1 + b2 * st.x2 - a1 * st.y1 - a2 * st.y2) / a0;
+          st.x2 = st.x1;
+          st.x1 = x;
+          st.y2 = st.y1;
+          st.y1 = y;
+          st.lp = onepole(st.lp, y, st.hpa);
+          return y - st.lp; // вычитаем НЧ — акустический рекордер не пишет басов
+        };
       }
       function cutDisc() {
         if (S.cutting) return;
@@ -1241,6 +1374,8 @@
         $("btnRestart").disabled = true;
         $("btnWav").disabled = true;
         $("btnVideo").disabled = true;
+        $("btnScratch").disabled = true;
+        $("btnNewCopy").disabled = true;
         setTimeout(() => {
           let prog = makeProgram($("program").value, SR);
           if (!prog) {
@@ -1283,8 +1418,20 @@
           /* RIAA-предыскажение + резец */
           const pre = makePre(SR);
           const gain = Math.pow(10, +$("level").value / 20) * 1.9;
+          const offLead = Math.round(G.leadRev * S.P);
+          const head = makeHead($("cutterHead").value, SR);
+          const cwD = (+$("cutWow").value / 100) * 0.004;
           const cutw = new Float32Array(prog.length);
-          for (let i = 0; i < prog.length; i++) cutw[i] = Math.tanh(runChain(pre, prog[i]) * gain);
+          let jr = 0;
+          for (let i = 0; i < prog.length; i++) {
+            const rev = (offLead + i) / S.P;
+            jr += 1 + cwD * Math.sin(rev * TAU + 0.4); // детонация станка впечатывается в саму канавку
+            const j0 = Math.floor(jr),
+              jf = jr - j0;
+            const va = j0 < prog.length ? prog[j0] : 0;
+            const vb = j0 + 1 < prog.length ? prog[j0 + 1] : 0;
+            cutw[i] = head(Math.tanh(runChain(pre, va + (vb - va) * jf) * gain));
+          }
           /* канавка целиком: вводная + программа + выводная + замочная */
           const total = Math.round(G.totalRev * S.P);
           const g0 = new Float32Array(total);
@@ -1307,6 +1454,8 @@
           S.locked = false;
           S.lockAnnounced = false;
           S.lastWrapRev = -1;
+          S.discWear = 0;
+          S.scratchAngles = [];
           renderDiscBase();
           makeSpecks();
           S.cutDone = true;
@@ -1328,6 +1477,11 @@
         const arr = [];
         for (let i = 0; i < n; i++)
           arr.push({ pos: Math.random() * S.groove.length, size: 0.6 + Math.random() * 1.9 });
+        for (const ang of S.scratchAngles || [])
+          for (let r = 0; r < Math.ceil(S.totalRev); r++) {
+            const pos = (r + ang / TAU) * S.P;
+            if (pos < S.groove.length) arr.push({ pos, size: 2.0, sc: true });
+          }
         arr.sort((a, b) => a.pos - b.pos);
         S.specks = arr;
         resyncSpeckPtr();
@@ -1342,6 +1496,26 @@
           else hi = m;
         }
         S.speckPtr = lo;
+      }
+      function addScratch() {
+        if (!S.cutDone) return;
+        const ang = Math.random() * TAU;
+        S.scratchAngles.push(ang);
+        for (let r = 0; r < Math.ceil(S.totalRev); r++) {
+          const pos = (r + ang / TAU) * S.P;
+          if (pos < S.groove.length) S.specks.push({ pos, size: 2.0, sc: true });
+        }
+        S.specks.sort((a, b) => a.pos - b.pos);
+        resyncSpeckPtr();
+        renderLabelLayer();
+        setStatus("По поверхности прошла царапина — теперь щёлкает раз в оборот.");
+      }
+      function newCopy() {
+        if (!S.cutDone) return;
+        S.discWear = 0;
+        S.scratchAngles = [];
+        makeSpecks();
+        setStatus("Достали свежий экземпляр из конверта.");
       }
 
       /* ============================================================
@@ -1481,6 +1655,7 @@
         c.stroke();
         /* пылинки — по их позиции на канавке */
         for (const sp of S.specks) {
+          if (sp.sc) continue; // царапины рисуются линиями ниже
           const rev = sp.pos / S.P,
             r = radiusAtRev(rev) * PXMM,
             a = rev * TAU;
@@ -1488,6 +1663,19 @@
           c.beginPath();
           c.arc(CX + r * Math.cos(a), CY + r * Math.sin(a), sp.size, 0, TAU);
           c.fill();
+        }
+        for (const ang of S.scratchAngles || []) {
+          const r0 = MM_LABEL * PXMM + 4,
+            r1 = MM_GROOVE0 * PXMM + 5;
+          c.strokeStyle = "rgba(238,228,212,.55)";
+          c.lineWidth = 1.1;
+          c.beginPath();
+          c.moveTo(CX + r0 * Math.cos(ang), CY + r0 * Math.sin(ang));
+          c.lineTo(CX + r1 * Math.cos(ang + 0.05), CY + r1 * Math.sin(ang + 0.05));
+          c.stroke();
+          c.strokeStyle = "rgba(255,255,255,.16)";
+          c.lineWidth = 2.6;
+          c.stroke();
         }
       }
       /* точка контакта иглы: пересечение окружностей (радиус r вокруг центра, плечо вокруг пивота) */
@@ -1513,106 +1701,149 @@
         return 1 - Math.exp((-TAU * clamp(fc, 5, SR * 0.45)) / SR);
       }
 
+      /* ============================================================
+         ОБЩЕЕ ЯДРО ТРАКТА: один код для живой иглы и офлайн-рендера
+         st — состояние (S для живого тракта, локальное для рендера)
+         ============================================================ */
+      function readPlayParams() {
+        const SR = S.SR;
+        const stamp = segVal("stamperSeg");
+        const recyc = segVal("vinylSeg") > 0;
+        const prof = segVal("profSeg");
+        const dW = S.discWear;
+        const surf = +$("surface").value / 100;
+        const wear = +$("wear").value / 100;
+        const bypass = $("bypass").checked;
+        return {
+          SR,
+          g: S.groove,
+          P: S.P,
+          baseInc: S.rpmPlay / S.rpmCut,
+          wowD: (+$("wow").value / 100) * 0.007,
+          flD: (+$("flutter").value / 100) * 0.0032,
+          surf,
+          wear,
+          bypass,
+          rum: +$("rumble").value / 100,
+          eccMM: +$("ecc").value,
+          warpD: (+$("warp").value / 100) * 0.006,
+          warpSub: (+$("warp").value / 100) * 0.05,
+          humG: (+$("hum").value / 100) * 0.004,
+          hissG: bypass
+            ? 0
+            : (0.0008 + surf * 0.0045) * (recyc ? 1.45 : 1) * (1 + (stamp - 1) * 0.18) * (1 + dW * 0.8),
+          crkP: bypass ? 0 : ((surf * 9) / SR) * (recyc ? 3 : 1) * (1 + dW * 5),
+          aWear: alphaFor(18000 * Math.pow(2200 / 18000, wear), SR),
+          aRec: alphaFor(16000 * Math.pow(4800 / 16000, dW), SR),
+          aStamp: alphaFor(stamp === 1 ? 17500 : stamp === 3 ? 13500 : 9500, SR),
+          aRum: alphaFor(27, SR),
+          aHiss: alphaFor(8500, SR),
+          innerK: prof, // циклов на мм: конус 26, эллипс 36
+          traceK: prof < 30 ? 0.1 : 0.04,
+          dW,
+        };
+      }
+      function vinylTick(st, p) {
+        const SR = p.SR,
+          g = p.g,
+          P = p.P;
+        const rev = st.pos / P;
+        const rmm = radiusAtRev(rev);
+        /* — кинематика: вертушка (wow, flutter) + брак пресса (эксцентриситет, коробление) — */
+        const wow = p.wowD * Math.sin(rev * TAU + 0.9);
+        st.flPh += (TAU * 12.5) / SR;
+        st.flNoise = onepole(st.flNoise, Math.random() * 2 - 1, 0.002);
+        const fl = p.flD * (Math.sin(st.flPh) * 0.6 + st.flNoise * 14);
+        const ecc = (p.eccMM / Math.max(rmm, 30)) * Math.sin(rev * TAU + 1.7); // Δv/v = e/r — плач сильнее к центру
+        const wrp = p.warpD * (0.7 * Math.sin(rev * TAU + 2.6) + 0.3 * Math.sin(rev * 2 * TAU + 0.5));
+        st.pos += p.baseInc * (1 + (p.bypass ? 0 : wow + fl + ecc + wrp));
+        /* — конец стороны: замочная канавка — */
+        if (st.pos >= g.length - 2) st.pos = S.lockStartPos + 1;
+        if (!st.locked && st.pos >= S.lockStartPos) {
+          st.locked = true;
+          st.thudEnv = 0.5;
+        }
+        if (st.locked && st.pos >= S.lockStartPos + P) {
+          st.pos -= P;
+          st.lockRevs++;
+          st.resync(st);
+          st.thudEnv = 0.5;
+          st.popEnv += 0.22; // толчок раз в оборот
+        }
+        /* — пылинки, царапины, трески — */
+        while (st.speckPtr < S.specks.length && S.specks[st.speckPtr].pos <= st.pos) {
+          const sp = S.specks[st.speckPtr];
+          if (!p.bypass) {
+            st.popEnv += sp.sc ? 0.55 : 0.12 + sp.size * 0.16;
+            if (sp.sc) st.crkEnv += 0.18;
+          }
+          st.speckPtr++;
+        }
+        if (Math.random() < p.crkP) st.crkEnv += 0.03 + Math.random() * Math.random() * 0.16;
+
+        if (p.bypass) {
+          const pi = st.pos - S.progStartPos;
+          return (pi >= 0 && pi < S.program.length ? S.program[Math.floor(pi)] : 0) * 1.4;
+        }
+        /* — чтение канавки (линейная интерполяция) — */
+        const i0 = Math.floor(st.pos),
+          fr = st.pos - i0;
+        let s = g[i0] + (g[i0 + 1] - g[i0]) * fr;
+        /* — пресс: поколение штампа теряет верха — */
+        st.lpStamp = onepole(st.lpStamp, s, p.aStamp);
+        s = st.lpStamp;
+        /* — износ экземпляра: затёртые стенки канавки — */
+        st.lpRec = onepole(st.lpRec, s, p.aRec);
+        s = st.lpRec;
+        s += p.dW * 0.25 * (s * s * s);
+        /* — потеря ВЧ к центру: полоса ∝ линейной скорости; профиль иглы — цикл/мм — */
+        const vmm = TAU * rmm * (S.rpmPlay / 60); // мм/с
+        st.lpInner = onepole(st.lpInner, s, alphaFor(p.innerK * vmm, SR));
+        s = st.lpInner;
+        s += p.traceK * (120 / Math.max(vmm, 40)) * (s * s * s); // нелинейность огибания к центру
+        /* — износ иглы: завал ВЧ + нелинейность трения — */
+        st.lpWear = onepole(st.lpWear, s, p.aWear);
+        s = st.lpWear;
+        s = s + p.wear * 0.22 * (s * s * s - s * 0.3);
+        /* — обратная RIAA — */
+        s = runChain(st.de, s) * 1.35;
+        /* — шумы: винил, рокот, фон сети, коробление — */
+        st.hissLP = onepole(st.hissLP, Math.random() * 2 - 1, p.aHiss);
+        s += st.hissLP * p.hissG * 2.2;
+        st.rumLP1 = onepole(st.rumLP1, Math.random() * 2 - 1, p.aRum);
+        st.rumLP2 = onepole(st.rumLP2, st.rumLP1, p.aRum);
+        s += st.rumLP2 * p.rum * 6;
+        st.humPh += (TAU * 50) / SR;
+        s += p.humG * (Math.sin(st.humPh) + 0.45 * Math.sin(2 * st.humPh) + 0.18 * Math.sin(3 * st.humPh));
+        s += p.warpSub * Math.sin(rev * TAU);
+        /* — щелчки: пыль, трески, толчок замочной канавки — */
+        if (st.popEnv > 1e-4) {
+          s += st.popEnv * ((Math.random() * 2 - 1) * 0.7 + 0.35);
+          st.popEnv *= 0.965;
+        }
+        if (st.crkEnv > 1e-4) {
+          s += st.crkEnv * (Math.random() * 2 - 1);
+          st.crkEnv *= 0.9;
+        }
+        if (st.thudEnv > 1e-4) {
+          st.thudPh += (TAU * 64) / SR;
+          s += st.thudEnv * Math.sin(st.thudPh) * 0.8;
+          st.thudEnv *= 0.9994;
+        }
+        return Math.tanh(s * 1.25) * 0.85;
+      }
       function audioProcess(ev) {
         const out = ev.outputBuffer.getChannelData(0);
-        const SR = S.SR;
         if (!S.playing || !S.groove) {
           out.fill(0);
           return;
         }
-        const g = S.groove,
-          P = S.P,
-          N = out.length;
-        const baseInc = S.rpmPlay / S.rpmCut;
-        const wowD = (+$("wow").value / 100) * 0.007;
-        const flD = (+$("flutter").value / 100) * 0.0032;
-        const surf = +$("surface").value / 100;
-        const wear = +$("wear").value / 100;
-        const rum = +$("rumble").value / 100;
-        const bypass = $("bypass").checked;
-        const hissG = bypass ? 0 : 0.0008 + surf * 0.0045;
-        const crkP = bypass ? 0 : (surf * 9) / SR;
-        const fcWear = 18000 * Math.pow(2200 / 18000, wear);
-        const aWear = alphaFor(fcWear, SR);
-        const aRum = alphaFor(27, SR);
-        const aHiss = alphaFor(8500, SR);
-        const innerK = 36; // циклов на мм пути канавки → полоса
-        const de = S.deemph;
-
-        for (let n = 0; n < N; n++) {
-          const rev = S.pos / P;
-          /* — кинематика: детонация раз в оборот + флаттер — */
-          const wow = wowD * Math.sin(rev * TAU + 0.9);
-          S.flPh += (TAU * 12.5) / SR;
-          S.flNoise = onepole(S.flNoise, Math.random() * 2 - 1, 0.002);
-          const fl = flD * (Math.sin(S.flPh) * 0.6 + S.flNoise * 14);
-          S.pos += baseInc * (1 + (bypass ? 0 : wow + fl));
-          /* — конец стороны: замочная канавка — */
-          if (S.pos >= g.length - 2) S.pos = S.lockStartPos + 1;
-          if (!S.locked && S.pos >= S.lockStartPos) {
-            S.locked = true;
-            S.thudEnv = 0.5;
-          }
-          if (S.locked && S.pos >= S.lockStartPos + P) {
-            S.pos -= P;
-            resyncSpeckPtr();
-            S.thudEnv = 0.5;
-            S.popEnv += 0.22; // толчок раз в оборот
-          }
-          /* — пылинки и трески — */
-          while (S.speckPtr < S.specks.length && S.specks[S.speckPtr].pos <= S.pos) {
-            if (!bypass) S.popEnv += 0.12 + S.specks[S.speckPtr].size * 0.16;
-            S.speckPtr++;
-          }
-          if (Math.random() < crkP) S.crkEnv += 0.03 + Math.random() * Math.random() * 0.16;
-
-          let s;
-          if (bypass) {
-            const pi = S.pos - S.progStartPos;
-            s = pi >= 0 && pi < S.program.length ? S.program[Math.floor(pi)] : 0;
-            out[n] = s * 1.4;
-            continue;
-          }
-          /* — чтение канавки (линейная интерполяция) — */
-          const i0 = Math.floor(S.pos),
-            fr = S.pos - i0;
-          s = g[i0] + (g[i0 + 1] - g[i0]) * fr;
-          /* — потеря ВЧ к центру: полоса ∝ линейной скорости — */
-          const rmm = radiusAtRev(rev);
-          const vmm = TAU * rmm * (S.rpmPlay / 60); // мм/с
-          S.lpInner = onepole(S.lpInner, s, alphaFor(innerK * vmm, SR));
-          s = S.lpInner;
-          /* — износ иглы: завал ВЧ + лёгкая нелинейность трения — */
-          S.lpWear = onepole(S.lpWear, s, aWear);
-          s = S.lpWear;
-          s = s + wear * 0.22 * (s * s * s - s * 0.3);
-          /* — обратная RIAA — */
-          s = runChain(de, s) * 1.35;
-          /* — шумы поверхности — */
-          S.hissLP = onepole(S.hissLP, Math.random() * 2 - 1, aHiss);
-          s += S.hissLP * hissG * 2.2;
-          const rn = Math.random() * 2 - 1;
-          S.rumLP1 = onepole(S.rumLP1, rn, aRum);
-          S.rumLP2 = onepole(S.rumLP2, S.rumLP1, aRum);
-          s += S.rumLP2 * rum * 6;
-          /* — щелчки: пыль, трески, толчок замочной канавки — */
-          if (S.popEnv > 1e-4) {
-            s += S.popEnv * ((Math.random() * 2 - 1) * 0.7 + 0.35);
-            S.popEnv *= 0.965;
-          }
-          if (S.crkEnv > 1e-4) {
-            s += S.crkEnv * (Math.random() * 2 - 1);
-            S.crkEnv *= 0.9;
-          }
-          if (S.thudEnv > 1e-4) {
-            S.thudPh += (TAU * 64) / SR;
-            s += S.thudEnv * Math.sin(S.thudPh) * 0.8;
-            S.thudEnv *= 0.9994;
-          }
-          out[n] = Math.tanh(s * 1.25) * 0.85;
-        }
+        const p = readPlayParams();
+        for (let n = 0; n < out.length; n++) out[n] = vinylTick(S, p);
+        /* каждый проигрыш стачивает экземпляр: ~0.8 %/мин, быстрее изношенной иглой */
+        if (!p.bypass)
+          S.discWear = Math.min(1, S.discWear + (out.length / S.SR) * (0.008 / 60) * (1 + p.wear * 3));
       }
-
       /* ============================================================
    ВЫГРУЗКА: ОФЛАЙН-РЕНДЕР СТОРОНЫ, WAV, ВИДЕО
    ============================================================ */
@@ -1628,30 +1859,19 @@
       }
       /* Точная офлайн-копия тракта воспроизведения: те же формулы, что в audioProcess,
    но с независимым состоянием st — реальное воспроизведение не задевается. */
+      /* Офлайн-рендер стороны: то же ядро vinylTick с независимым состоянием */
       function renderSide() {
         const SR = S.SR,
-          g = S.groove,
           P = S.P;
-        const baseInc = S.rpmPlay / S.rpmCut;
-        const wowD = (+$("wow").value / 100) * 0.007;
-        const flD = (+$("flutter").value / 100) * 0.0032;
-        const surf = +$("surface").value / 100;
-        const wear = +$("wear").value / 100;
-        const rum = +$("rumble").value / 100;
-        const bypass = $("bypass").checked;
-        const hissG = bypass ? 0 : 0.0008 + surf * 0.0045;
-        const crkP = bypass ? 0 : (surf * 9) / SR;
-        const aWear = alphaFor(18000 * Math.pow(2200 / 18000, wear), SR);
-        const aRum = alphaFor(27, SR);
-        const aHiss = alphaFor(8500, SR);
-        const innerK = 36;
-        const de = makeDe(SR);
+        const p = readPlayParams();
         const st = {
           pos: 0,
           flPh: 0,
           flNoise: 0,
           lpInner: 0,
           lpWear: 0,
+          lpStamp: 0,
+          lpRec: 0,
           hissLP: 0,
           rumLP1: 0,
           rumLP2: 0,
@@ -1659,75 +1879,24 @@
           crkEnv: 0,
           thudEnv: 0,
           thudPh: 0,
+          humPh: 0,
           speckPtr: 0,
           locked: false,
           lockRevs: 0,
+          de: makeDe(SR),
+          resync: (q) => {
+            q.speckPtr = lowerBoundSpecks(q.pos);
+          },
         };
-        const endCap = Math.ceil((S.lockStartPos + 2 * P) / baseInc) + SR;
+        const endCap = Math.ceil((S.lockStartPos + 2 * P) / p.baseInc) + SR;
         const out = new Float32Array(endCap);
         let n = 0;
         for (; n < endCap; n++) {
-          const rev = st.pos / P;
-          const wow = wowD * Math.sin(rev * TAU + 0.9);
-          st.flPh += (TAU * 12.5) / SR;
-          st.flNoise = onepole(st.flNoise, Math.random() * 2 - 1, 0.002);
-          const fl = flD * (Math.sin(st.flPh) * 0.6 + st.flNoise * 14);
-          st.pos += baseInc * (1 + (bypass ? 0 : wow + fl));
-          if (st.pos >= g.length - 2) st.pos = S.lockStartPos + 1;
-          if (!st.locked && st.pos >= S.lockStartPos) {
-            st.locked = true;
-            st.thudEnv = 0.5;
-          }
-          if (st.locked && st.pos >= S.lockStartPos + P) {
-            st.pos -= P;
-            st.speckPtr = lowerBoundSpecks(st.pos);
-            st.thudEnv = 0.5;
-            st.popEnv += 0.22;
-            if (++st.lockRevs >= 2) break; // две «замочные» — и хватит
-          }
-          while (st.speckPtr < S.specks.length && S.specks[st.speckPtr].pos <= st.pos) {
-            if (!bypass) st.popEnv += 0.12 + S.specks[st.speckPtr].size * 0.16;
-            st.speckPtr++;
-          }
-          if (Math.random() < crkP) st.crkEnv += 0.03 + Math.random() * Math.random() * 0.16;
-          let s;
-          if (bypass) {
-            const pi = st.pos - S.progStartPos;
-            s = pi >= 0 && pi < S.program.length ? S.program[Math.floor(pi)] : 0;
-            out[n] = s * 1.4;
-            continue;
-          }
-          const i0 = Math.floor(st.pos),
-            fr = st.pos - i0;
-          s = g[i0] + (g[i0 + 1] - g[i0]) * fr;
-          const rmm = radiusAtRev(rev);
-          const vmm = TAU * rmm * (S.rpmPlay / 60);
-          st.lpInner = onepole(st.lpInner, s, alphaFor(innerK * vmm, SR));
-          s = st.lpInner;
-          st.lpWear = onepole(st.lpWear, s, aWear);
-          s = st.lpWear;
-          s = s + wear * 0.22 * (s * s * s - s * 0.3);
-          s = runChain(de, s) * 1.35;
-          st.hissLP = onepole(st.hissLP, Math.random() * 2 - 1, aHiss);
-          s += st.hissLP * hissG * 2.2;
-          const rn = Math.random() * 2 - 1;
-          st.rumLP1 = onepole(st.rumLP1, rn, aRum);
-          st.rumLP2 = onepole(st.rumLP2, st.rumLP1, aRum);
-          s += st.rumLP2 * rum * 6;
-          if (st.popEnv > 1e-4) {
-            s += st.popEnv * ((Math.random() * 2 - 1) * 0.7 + 0.35);
-            st.popEnv *= 0.965;
-          }
-          if (st.crkEnv > 1e-4) {
-            s += st.crkEnv * (Math.random() * 2 - 1);
-            st.crkEnv *= 0.9;
-          }
-          if (st.thudEnv > 1e-4) {
-            st.thudPh += (TAU * 64) / SR;
-            s += st.thudEnv * Math.sin(st.thudPh) * 0.8;
-            st.thudEnv *= 0.9994;
-          }
-          out[n] = Math.tanh(s * 1.25) * 0.85;
+          out[n] = vinylTick(st, p);
+          if (st.lockRevs >= 2) {
+            n++;
+            break;
+          } // две «замочные» — и хватит
         }
         const res = out.subarray(0, n);
         const F = Math.min(Math.round(0.3 * SR), res.length);
@@ -1845,6 +2014,8 @@
               $("btnRestart").disabled = false;
               $("btnWav").disabled = false;
               $("btnVideo").disabled = false;
+              $("btnScratch").disabled = false;
+              $("btnNewCopy").disabled = false;
             }
             $("vexWrap").style.display = "none";
             VEX.on = false;
@@ -2181,6 +2352,8 @@
             $("btnRestart").disabled = false;
             $("btnWav").disabled = false;
             $("btnVideo").disabled = false;
+            $("btnScratch").disabled = false;
+            $("btnNewCopy").disabled = false;
             setStatus(
               `Матрица готова: ${((S.progEndPos - S.progStartPos) / S.SR) | 0} с программы, ${Math.ceil(S.totalRev)} витков, шаг ${S.pitchUsed.toFixed(1)} мм/об. Опустите иглу.`,
             );
@@ -2360,6 +2533,9 @@
         $("roF").innerHTML = `${fm(Math.min(20, (36 * v * 10) / 1000), 1)} <small>кГц</small>`;
         $("roRPM").innerHTML =
           `${S.playing || VEX.on ? (S.rpmPlay > 40 ? "45" : "33⅓") : "0"} <small>об/мин</small>`;
+        $("copyInfo").textContent =
+          `состояние: ${Math.round((1 - S.discWear) * 100)}%` +
+          (S.scratchAngles.length ? ` · царапин: ${S.scratchAngles.length}` : "");
       }
       /* Визуальная позиция иглы: S.pos — то, что аудиопоток уже ДОСЧИТАЛ; слышно это
    позже на очередь ScriptProcessor (2048 отсчётов) + системную задержку вывода.
@@ -2462,6 +2638,10 @@
       bindOut("wear", "vWear", (v) => `${v | 0} %`);
       bindOut("surface", "vSurf", (v) => `${v | 0} %`);
       bindOut("wow", "vWow", (v) => `${v | 0} %`);
+      bindOut("cutWow", "vCutWow", (v) => `${v | 0} %`);
+      bindOut("ecc", "vEcc", (v) => `${v.toFixed(2)} мм`);
+      bindOut("warp", "vWarp", (v) => `${v | 0} %`);
+      bindOut("hum", "vHum", (v) => `${v | 0} %`);
       bindOut("flutter", "vFl", (v) => `${v | 0} %`);
       bindOut("rumble", "vRum", (v) => `${v | 0} %`);
       bindOut("vol", "vVol", (v) => `${v | 0} %`);
@@ -2479,6 +2659,8 @@
           $("btnRestart").disabled = true;
           $("btnWav").disabled = true;
           $("btnVideo").disabled = true;
+          $("btnScratch").disabled = true;
+          $("btnNewCopy").disabled = true;
           setStatus("Параметры нарезки изменены — нарежьте матрицу заново.");
         }
       };
@@ -2494,6 +2676,13 @@
             : "источник не загружен";
         if (v !== "mic" && REC.on) micStop();
       }
+      segInit("stamperSeg", () => {});
+      segInit("vinylSeg", () => {});
+      segInit("profSeg", () => {});
+      $("btnScratch").addEventListener("click", addScratch);
+      $("btnNewCopy").addEventListener("click", newCopy);
+      $("cutterHead").addEventListener("change", invalidate);
+      $("cutWow").addEventListener("change", invalidate);
       $("program").addEventListener("change", () => {
         invalidate();
         syncSrcRow();
