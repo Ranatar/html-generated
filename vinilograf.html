@@ -2439,14 +2439,45 @@
             q.fill();
           }
         }
-        // игла
-        q.fillStyle = playing ? "#ff5a3c" : "rgba(255,90,60,.4)";
+        // ── игла (звукосниматель): алмазный наконечник сидит в канавке в точке
+        //    контакта (центр окна) и качается вместе с поперечной модуляцией —
+        //    лат. смещение канавки на виде сверху отображается как вертикаль. ──
+        const ci = Math.floor(pos);
+        const vc = ci >= 0 && ci < g.length ? g[ci] : 0; // то же значение, что у стенки канавки
+        const tx = X + W / 2; // контакт всегда по центру окна
+        const ty = cy + vc * amp; // центр канавки здесь = вертикаль наконечника
+        const lit = playing ? 1 : 0.45;
+        // кантилевер (шток): неподвижный подвес сверху → наконечник в канавке
+        q.strokeStyle = `rgba(255,120,90,${0.8 * lit})`;
+        q.lineWidth = 2.2;
+        q.lineCap = "round";
         q.beginPath();
-        q.moveTo(X + W / 2, cy - gw * 2.4);
-        q.lineTo(X + W / 2 - 6, cy - gw * 4.4);
-        q.lineTo(X + W / 2 + 6, cy - gw * 4.4);
+        q.moveTo(tx, Y + 5);
+        q.lineTo(tx, ty - gw * 1.7);
+        q.stroke();
+        q.fillStyle = `rgba(255,120,90,${0.55 * lit})`;
+        q.beginPath();
+        q.arc(tx, Y + 5, 2.6, 0, TAU);
+        q.fill();
+        // алмазный наконечник — треугольник вершиной точно в центр канавки
+        q.fillStyle = playing ? "#ff5a3c" : "rgba(255,90,60,.45)";
+        q.beginPath();
+        q.moveTo(tx, ty);
+        q.lineTo(tx - 5.5, ty - gw * 1.9);
+        q.lineTo(tx + 5.5, ty - gw * 1.9);
         q.closePath();
         q.fill();
+        // горячий блик в точке контакта при игре
+        if (playing) {
+          q.save();
+          q.shadowColor = "#ff5a3c";
+          q.shadowBlur = 7;
+          q.fillStyle = "rgba(255,220,190,.95)";
+          q.beginPath();
+          q.arc(tx, ty, 1.8, 0, TAU);
+          q.fill();
+          q.restore();
+        }
         q.fillStyle = "rgba(232,220,200,.45)";
         q.font = '10px "JetBrains Mono",monospace';
         q.textAlign = "left";
