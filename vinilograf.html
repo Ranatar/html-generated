@@ -907,7 +907,8 @@
         master: null,
         program: null,
         progName: "",
-        groove: null, // Float32Array смещений резца, −1..1
+        groove: null, // Float32Array скорости резца (post-RIAA-pre), −1..1
+        disp: null, // Float32Array смещения стенки (∫g) — только для визуализации
         P: 0, // отсчётов на оборот (в домене нарезки)
         rpmCut: 100 / 3,
         rpmPlay: 100 / 3,
@@ -948,6 +949,7 @@
         rumLP1: 0,
         rumLP2: 0,
         hissLP: 0,
+        hissHP: 0,
         deemph: null,
         lastWrapRev: -1,
       };
@@ -1447,6 +1449,24 @@
             gv[i] = clamp(g0[i] + echo * e, -1, 1);
           }
           S.groove = gv;
+          /* профиль СМЕЩЕНИЯ стенки для визуализации: смещение = ∫скорости.
+             g — скоростной (post-RIAA-pre) сигнал, реальная форма канавки доминируется
+             НЧ. Утечный интегратор (ФВЧ ~12 Гц гасит DC) + нормировка к пику.
+             На аудиотракт не влияет — используется только в отрисовке. */
+          {
+            const disp = new Float32Array(total);
+            let acc = 0;
+            const leak = 1 - (TAU * 12) / SR;
+            for (let i = 0; i < total; i++) {
+              acc = acc * leak + gv[i];
+              disp[i] = acc;
+            }
+            let pk = 1e-9;
+            for (let i = 0; i < total; i++) pk = Math.max(pk, Math.abs(disp[i]));
+            const gn = 1 / pk;
+            for (let i = 0; i < total; i++) disp[i] *= gn;
+            S.disp = disp;
+          }
           S.progStartPos = off;
           S.progEndPos = off + cutw.length;
           S.lockStartPos = Math.round(S.segs[3].rev0 * S.P);
@@ -1562,7 +1582,7 @@
         c.stroke();
         /* спираль: яркость витка = локальная амплитуда */
         const STEPS = 240,
-          g = S.groove,
+          g = S.disp || S.groove,
           P = S.P;
         c.lineWidth = Math.max(1, S.pitchUsed * PXMM * 0.55);
         for (let k = 0; k < S.totalRev; k++) {
@@ -1738,6 +1758,7 @@
           aStamp: alphaFor(stamp === 1 ? 17500 : stamp === 3 ? 13500 : 9500, SR),
           aRum: alphaFor(27, SR),
           aHiss: alphaFor(8500, SR),
+          aHissHP: alphaFor(160, SR),
           innerK: prof, // циклов на мм: конус 26, эллипс 36
           traceK: prof < 30 ? 0.1 : 0.04,
           dW,
@@ -1805,26 +1826,30 @@
         st.lpWear = onepole(st.lpWear, s, p.aWear);
         s = st.lpWear;
         s = s + p.wear * 0.22 * (s * s * s - s * 0.3);
-        /* — обратная RIAA — */
-        s = runChain(st.de, s) * 1.35;
-        /* — шумы: винил, рокот, фон сети, коробление — */
+        /* — шум поверхности и трески рождаются в самой канавке: входят в головку
+           в скоростном домене и проходят обратную RIAA, которая и скругляет их верх — */
         st.hissLP = onepole(st.hissLP, Math.random() * 2 - 1, p.aHiss);
-        s += st.hissLP * p.hissG * 2.2;
+        st.hissHP = onepole(st.hissHP, st.hissLP, p.aHissHP);
+        let nz = (st.hissLP - st.hissHP) * p.hissG * 2.2; // ФВЧ ~160 Гц: остаётся «шорох», не рокот
+        if (st.popEnv > 1e-4) {
+          nz += st.popEnv * ((Math.random() * 2 - 1) * 0.7 + 0.35);
+          st.popEnv *= 0.965;
+        }
+        if (st.crkEnv > 1e-4) {
+          nz += st.crkEnv * (Math.random() * 2 - 1);
+          st.crkEnv *= 0.9;
+        }
+        /* — обратная RIAA по сумме канавочных сигналов (программа + шум + трески) — */
+        s = runChain(st.de, s + nz) * 1.35;
+        /* — добавки после корректора: рокот и субзвук коробления (узкополосный НЧ —
+           перенос до RIAA дал бы лишь смену уровня), фон сети 50 Гц (родится в корректоре) — */
         st.rumLP1 = onepole(st.rumLP1, Math.random() * 2 - 1, p.aRum);
         st.rumLP2 = onepole(st.rumLP2, st.rumLP1, p.aRum);
         s += st.rumLP2 * p.rum * 6;
         st.humPh += (TAU * 50) / SR;
         s += p.humG * (Math.sin(st.humPh) + 0.45 * Math.sin(2 * st.humPh) + 0.18 * Math.sin(3 * st.humPh));
         s += p.warpSub * Math.sin(rev * TAU);
-        /* — щелчки: пыль, трески, толчок замочной канавки — */
-        if (st.popEnv > 1e-4) {
-          s += st.popEnv * ((Math.random() * 2 - 1) * 0.7 + 0.35);
-          st.popEnv *= 0.965;
-        }
-        if (st.crkEnv > 1e-4) {
-          s += st.crkEnv * (Math.random() * 2 - 1);
-          st.crkEnv *= 0.9;
-        }
+        /* — толчок замочной канавки (НЧ-резонанс, оставлен после корректора) — */
         if (st.thudEnv > 1e-4) {
           st.thudPh += (TAU * 64) / SR;
           s += st.thudEnv * Math.sin(st.thudPh) * 0.8;
@@ -1873,6 +1898,7 @@
           lpStamp: 0,
           lpRec: 0,
           hissLP: 0,
+          hissHP: 0,
           rumLP1: 0,
           rumLP2: 0,
           popEnv: 0,
@@ -2381,7 +2407,7 @@
       /* Общие отрисовщики приборов: ими рисует и страница, и кадр видео —
    стили совпадают по построению, а не по подражанию. */
       function paintMicro(q, X, Y, W, H, pos, playing) {
-        const g = S.groove,
+        const g = S.disp || S.groove,
           win = 1400,
           half = win / 2,
           cy = Y + H / 2;
@@ -2561,7 +2587,8 @@
         $("roR").innerHTML = `${fm(rmm, 1)} <small>мм</small>`;
         const v = (TAU * rmm * (S.rpmPlay / 60)) / 10;
         $("roV").innerHTML = `${fm(v, 1)} <small>см/с</small>`;
-        $("roF").innerHTML = `${fm(Math.min(20, (36 * v * 10) / 1000), 1)} <small>кГц</small>`;
+        const innerK = segVal("profSeg");
+        $("roF").innerHTML = `${fm(Math.min(20, (innerK * v * 10) / 1000), 1)} <small>кГц</small>`;
         $("roRPM").innerHTML =
           `${S.playing || VEX.on ? (S.rpmPlay > 40 ? "45" : "33⅓") : "0"} <small>об/мин</small>`;
         $("copyInfo").textContent =
