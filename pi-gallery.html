@@ -1,0 +1,4166 @@
+<!doctype html>
+<html lang="ru">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <title>Бильярдное вычисление π · теорема Гальперина</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500;700&display=swap&subset=cyrillic,cyrillic-ext,latin"
+      rel="stylesheet"
+    />
+    <style>
+      :root {
+        --ink: #0a0e17; /* фон */
+        --ink-2: #0e1422;
+        --panel: #121a2c; /* поверхности */
+        --panel-2: #16203492;
+        --line: #243049; /* разделители */
+        --line-soft: #1c2740;
+        --text: #e7edf8;
+        --muted: #8593ad;
+        --muted-2: #5d6a85;
+
+        --small: #f4a948; /* малый шар, масса m */
+        --big: #5b8def; /* большой шар, масса M */
+        --scope: #34e3a0; /* энергия / осциллограф */
+        --pi: #ff7a8a; /* число π */
+        --wall: #cbd6ea;
+
+        --r: 14px;
+        --maxw: 1180px;
+        font-synthesis-weight: none;
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+      html,
+      body {
+        margin: 0;
+      }
+      body {
+        background:
+          radial-gradient(1200px 700px at 80% -10%, #15203a 0%, transparent 60%),
+          radial-gradient(900px 600px at -10% 110%, #16122a 0%, transparent 55%), var(--ink);
+        color: var(--text);
+        font-family: "Inter", system-ui, sans-serif;
+        line-height: 1.55;
+        -webkit-font-smoothing: antialiased;
+        text-rendering: optimizeLegibility;
+        padding: clamp(16px, 3vw, 40px);
+      }
+      .wrap {
+        max-width: var(--maxw);
+        margin: 0 auto;
+      }
+
+      /* ---------- Шапка ---------- */
+      header {
+        margin-bottom: clamp(18px, 2.4vw, 30px);
+      }
+      .eyebrow {
+        font-family: "JetBrains Mono", monospace;
+        font-size: 12px;
+        letter-spacing: 0.22em;
+        text-transform: uppercase;
+        color: var(--scope);
+        display: flex;
+        gap: 0.7em;
+        align-items: center;
+        flex-wrap: wrap;
+      }
+      .eyebrow::before {
+        content: "";
+        width: 26px;
+        height: 1px;
+        background: var(--scope);
+        opacity: 0.7;
+        display: inline-block;
+      }
+      h1 {
+        font-family: "Space Grotesk", sans-serif;
+        font-weight: 600;
+        font-size: clamp(30px, 6vw, 58px);
+        line-height: 1.02;
+        letter-spacing: -0.02em;
+        margin: 0.32em 0 0.25em;
+      }
+      h1 .pi {
+        color: var(--pi);
+        font-style: italic;
+        font-weight: 700;
+      }
+      .lede {
+        color: var(--muted);
+        max-width: 62ch;
+        font-size: clamp(14px, 1.6vw, 16.5px);
+      }
+      .lede b {
+        color: var(--text);
+        font-weight: 600;
+      }
+
+      /* ---------- Панель управления ---------- */
+      .controls {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 14px 20px;
+        align-items: flex-end;
+        background: var(--panel);
+        border: 1px solid var(--line-soft);
+        border-radius: var(--r);
+        padding: 16px 18px;
+        margin: 22px 0 18px;
+      }
+      .ctl-label {
+        font-family: "JetBrains Mono", monospace;
+        font-size: 11px;
+        letter-spacing: 0.16em;
+        text-transform: uppercase;
+        color: var(--muted-2);
+        margin-bottom: 8px;
+        display: block;
+      }
+      .ratios {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 6px;
+      }
+      .ratio-btn {
+        font-family: "JetBrains Mono", monospace;
+        font-size: 13px;
+        font-weight: 500;
+        color: var(--muted);
+        background: var(--ink-2);
+        border: 1px solid var(--line);
+        border-radius: 9px;
+        padding: 9px 12px;
+        cursor: pointer;
+        transition: 0.14s;
+        line-height: 1;
+        white-space: nowrap;
+      }
+      .ratio-btn sup {
+        font-size: 0.72em;
+      }
+      .ratio-btn:hover {
+        color: var(--text);
+        border-color: #33415f;
+      }
+      .ratio-btn[aria-pressed="true"] {
+        color: var(--ink);
+        background: var(--big);
+        border-color: var(--big);
+        font-weight: 700;
+        box-shadow: 0 0 0 3px #5b8def33;
+      }
+      .ctl-group {
+        display: flex;
+        flex-direction: column;
+      }
+      .transport {
+        display: flex;
+        gap: 8px;
+      }
+      .btn {
+        font-family: "Inter", sans-serif;
+        font-size: 14px;
+        font-weight: 600;
+        color: var(--text);
+        background: var(--ink-2);
+        border: 1px solid var(--line);
+        border-radius: 9px;
+        padding: 10px 16px;
+        cursor: pointer;
+        transition: 0.14s;
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+      }
+      .btn:hover {
+        border-color: #33415f;
+        background: #101728;
+      }
+      .btn.primary {
+        background: var(--scope);
+        color: #04130c;
+        border-color: var(--scope);
+      }
+      .btn.primary:hover {
+        background: #52edaf;
+      }
+      .btn svg {
+        display: block;
+      }
+      .slider-wrap {
+        min-width: 190px;
+        flex: 1 1 200px;
+      }
+      input[type="range"] {
+        -webkit-appearance: none;
+        appearance: none;
+        width: 100%;
+        height: 4px;
+        border-radius: 99px;
+        background: linear-gradient(90deg, var(--scope) var(--p, 40%), var(--line) var(--p, 40%));
+        outline: none;
+        margin-top: 6px;
+        cursor: pointer;
+      }
+      input[type="range"]::-webkit-slider-thumb {
+        -webkit-appearance: none;
+        width: 16px;
+        height: 16px;
+        border-radius: 50%;
+        background: var(--text);
+        border: 3px solid var(--scope);
+        cursor: pointer;
+      }
+      input[type="range"]::-moz-range-thumb {
+        width: 14px;
+        height: 14px;
+        border-radius: 50%;
+        background: var(--text);
+        border: 3px solid var(--scope);
+        cursor: pointer;
+      }
+      .speed-val {
+        font-family: "JetBrains Mono", monospace;
+        font-size: 12px;
+        color: var(--muted);
+        float: right;
+      }
+      .toggle {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        cursor: pointer;
+        color: var(--muted);
+        font-size: 13px;
+        user-select: none;
+      }
+      .toggle input {
+        accent-color: var(--scope);
+        width: 15px;
+        height: 15px;
+      }
+
+      /* ---------- Табло ---------- */
+      .scoreboard {
+        display: grid;
+        grid-template-columns: minmax(220px, 1fr) 1.3fr;
+        gap: 14px;
+        margin-bottom: 18px;
+      }
+      .card {
+        background: var(--panel);
+        border: 1px solid var(--line-soft);
+        border-radius: var(--r);
+        padding: 18px 20px;
+      }
+      .card .ctl-label {
+        margin-bottom: 4px;
+      }
+      .count {
+        font-family: "JetBrains Mono", monospace;
+        font-weight: 700;
+        font-size: clamp(48px, 11vw, 92px);
+        line-height: 0.92;
+        letter-spacing: -0.02em;
+        color: var(--scope);
+        font-variant-numeric: tabular-nums;
+        text-shadow: 0 0 26px #34e3a055;
+      }
+      .count .target {
+        color: var(--muted-2);
+        font-size: 0.34em;
+        font-weight: 500;
+        letter-spacing: 0;
+        margin-left: 0.4em;
+      }
+      .pi-row {
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+        height: 100%;
+      }
+      .pi-string {
+        font-family: "JetBrains Mono", monospace;
+        font-weight: 500;
+        font-size: clamp(26px, 5.2vw, 46px);
+        letter-spacing: 0.01em;
+        color: var(--muted-2);
+        word-break: break-all;
+      }
+      .pi-string .lit {
+        color: var(--pi);
+        text-shadow: 0 0 18px #ff7a8a55;
+        transition: color 0.15s;
+      }
+      .pi-tag {
+        font-family: "JetBrains Mono", monospace;
+        font-size: 12px;
+        color: var(--muted);
+        margin-top: 8px;
+        min-height: 1.2em;
+      }
+      .pi-tag.match {
+        color: var(--scope);
+      }
+
+      /* ---------- Сцена ---------- */
+      .stage {
+        display: grid;
+        grid-template-columns: 1.55fr 1fr;
+        gap: 14px;
+      }
+      .canvas-card {
+        background: var(--panel);
+        border: 1px solid var(--line-soft);
+        border-radius: var(--r);
+        padding: 14px;
+        position: relative;
+        overflow: hidden;
+      }
+      .canvas-head {
+        display: flex;
+        justify-content: space-between;
+        align-items: baseline;
+        margin-bottom: 10px;
+        gap: 10px;
+      }
+      .canvas-title {
+        font-family: "Space Grotesk", sans-serif;
+        font-weight: 600;
+        font-size: 15px;
+      }
+      .canvas-sub {
+        font-family: "JetBrains Mono", monospace;
+        font-size: 11px;
+        color: var(--muted-2);
+        letter-spacing: 0.04em;
+        text-align: right;
+      }
+      canvas {
+        display: block;
+        width: 100%;
+        border-radius: 8px;
+      }
+      #apparatus {
+        height: 300px;
+        background: linear-gradient(180deg, #0c1322, #0a0f1b);
+      }
+      #scope {
+        height: 300px;
+        background: radial-gradient(120% 120% at 50% 50%, #0c1622, #080d16);
+      }
+      .legend {
+        display: flex;
+        gap: 16px;
+        flex-wrap: wrap;
+        margin-top: 10px;
+        font-size: 12px;
+        color: var(--muted);
+      }
+      .legend span {
+        display: inline-flex;
+        align-items: center;
+        gap: 7px;
+      }
+      .dot {
+        width: 11px;
+        height: 11px;
+        border-radius: 50%;
+        display: inline-block;
+      }
+      .dot.s {
+        background: var(--small);
+      }
+      .dot.b {
+        background: var(--big);
+      }
+      .dot.e {
+        background: var(--scope);
+      }
+      .dot.w {
+        background: var(--wall);
+        border-radius: 2px;
+        width: 8px;
+        height: 13px;
+      }
+
+      /* ---------- Объяснение ---------- */
+      details.explain {
+        margin-top: 26px;
+        background: var(--panel);
+        border: 1px solid var(--line-soft);
+        border-radius: var(--r);
+        padding: 0 22px;
+        overflow: hidden;
+      }
+      details.explain summary {
+        cursor: pointer;
+        list-style: none;
+        padding: 18px 0;
+        font-family: "Space Grotesk", sans-serif;
+        font-weight: 600;
+        font-size: 18px;
+        display: flex;
+        align-items: center;
+        gap: 12px;
+      }
+      details.explain summary::-webkit-details-marker {
+        display: none;
+      }
+      .chev {
+        transition: 0.2s;
+        color: var(--scope);
+      }
+      details[open] .chev {
+        transform: rotate(90deg);
+      }
+      .explain-body {
+        padding-bottom: 26px;
+        border-top: 1px solid var(--line-soft);
+        padding-top: 18px;
+        color: #c4cfe2;
+      }
+      .explain-body p {
+        margin: 0.7em 0;
+        max-width: 72ch;
+      }
+      .explain-body h3 {
+        font-family: "Space Grotesk", sans-serif;
+        color: var(--text);
+        font-size: 16px;
+        margin: 1.6em 0 0.4em;
+        letter-spacing: -0.01em;
+      }
+      .explain-body h3:first-child {
+        margin-top: 0.2em;
+      }
+      .explain-body b {
+        color: var(--text);
+      }
+      .formula {
+        font-family: "JetBrains Mono", monospace;
+        background: var(--ink-2);
+        border: 1px solid var(--line);
+        border-left: 3px solid var(--scope);
+        border-radius: 8px;
+        padding: 12px 16px;
+        margin: 1em 0;
+        font-size: 14.5px;
+        overflow-x: auto;
+        color: #dbe4f3;
+      }
+      .formula .pi {
+        color: var(--pi);
+      }
+      .digits {
+        font-family: "JetBrains Mono", monospace;
+        font-size: 13.5px;
+        color: var(--muted);
+      }
+      .digits b {
+        color: var(--scope);
+      }
+      .ref {
+        font-size: 12.5px;
+        color: var(--muted-2);
+        margin-top: 1.4em;
+        border-top: 1px solid var(--line-soft);
+        padding-top: 12px;
+      }
+
+      footer {
+        margin-top: 30px;
+        color: var(--muted-2);
+        font-size: 12.5px;
+        font-family: "JetBrains Mono", monospace;
+        letter-spacing: 0.03em;
+      }
+
+      /* ---------- Адаптив ---------- */
+      @media (max-width: 860px) {
+        .scoreboard {
+          grid-template-columns: 1fr;
+        }
+        .stage {
+          grid-template-columns: 1fr;
+        }
+      }
+      @media (prefers-reduced-motion: reduce) {
+        * {
+          transition: none !important;
+        }
+      }
+
+      /* ===== Вкладки и общие элементы галереи ===== */
+      .site-head {
+        margin-bottom: 16px;
+      }
+      .site-head .eyebrow {
+        color: var(--pi);
+      }
+      .site-head .eyebrow::before {
+        background: var(--pi);
+      }
+      .site-head h1 {
+        font-size: clamp(26px, 5vw, 48px);
+        margin: 0.3em 0 0.18em;
+      }
+      .tabbar {
+        display: flex;
+        gap: 6px;
+        overflow-x: auto;
+        padding: 6px;
+        margin: 0 0 24px;
+        background: var(--panel);
+        border: 1px solid var(--line-soft);
+        border-radius: 12px;
+        scrollbar-width: thin;
+        scrollbar-color: var(--line) transparent;
+      }
+      .tabbar::-webkit-scrollbar {
+        height: 7px;
+      }
+      .tabbar::-webkit-scrollbar-thumb {
+        background: var(--line);
+        border-radius: 99px;
+      }
+      .tab-btn {
+        flex: 0 0 auto;
+        font-family: "Space Grotesk", sans-serif;
+        font-weight: 500;
+        font-size: 14px;
+        color: var(--muted);
+        background: transparent;
+        border: 1px solid transparent;
+        border-radius: 8px;
+        padding: 9px 13px;
+        cursor: pointer;
+        transition: 0.14s;
+        white-space: nowrap;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+      }
+      .tab-btn .num {
+        font-family: "JetBrains Mono", monospace;
+        font-size: 11px;
+        color: var(--muted-2);
+      }
+      .tab-btn:hover {
+        color: var(--text);
+        background: var(--ink-2);
+      }
+      .tab-btn.active {
+        color: var(--ink);
+        background: var(--scope);
+        border-color: var(--scope);
+        font-weight: 600;
+      }
+      .tab-btn.active .num {
+        color: #04130c;
+      }
+      .tab-panel {
+        display: none;
+      }
+      .tab-panel.active {
+        display: block;
+        animation: fadeTab 0.26s ease;
+      }
+      @keyframes fadeTab {
+        from {
+          opacity: 0;
+          transform: translateY(5px);
+        }
+        to {
+          opacity: 1;
+          transform: none;
+        }
+      }
+      .panel-head {
+        margin-bottom: 18px;
+      }
+      .panel-head h2 {
+        font-family: "Space Grotesk", sans-serif;
+        font-weight: 600;
+        font-size: clamp(24px, 4.4vw, 42px);
+        letter-spacing: -0.02em;
+        margin: 0.26em 0 0.22em;
+        line-height: 1.03;
+      }
+      .panel-head h2 .pi {
+        color: var(--pi);
+        font-style: italic;
+        font-weight: 700;
+      }
+      .sim-grid {
+        display: grid;
+        grid-template-columns: 1.4fr 1fr;
+        gap: 14px;
+      }
+      .sim-grid.solo {
+        grid-template-columns: 1fr;
+      }
+      @media (max-width: 860px) {
+        .sim-grid {
+          grid-template-columns: 1fr;
+        }
+      }
+      canvas.sim {
+        height: 320px;
+        display: block;
+        width: 100%;
+        border-radius: 8px;
+        background: #0a0f1b;
+      }
+      .mono-val {
+        font-family: "JetBrains Mono", monospace;
+        font-variant-numeric: tabular-nums;
+      }
+      .count.pi-est {
+        color: var(--pi);
+        text-shadow: 0 0 24px #ff7a8a44;
+      }
+
+      /* ===== пошаговые демо-панели ===== */
+      .demo-card {
+        margin-top: 14px;
+        border-color: #2c2342;
+        background: linear-gradient(180deg, #14122a, #101424);
+      }
+      .demo-card .canvas-title::before {
+        content: "\25B6  ";
+        color: var(--pi);
+        font-size: 10px;
+        vertical-align: 1px;
+      }
+      canvas.demo-canvas {
+        height: 240px;
+        background: #0a0f1b;
+      }
+      .demo-controls {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        margin-top: 12px;
+        flex-wrap: wrap;
+      }
+      .demo-controls .btn {
+        padding: 8px 14px;
+        font-size: 13px;
+      }
+      .demo-caption {
+        font-family: "JetBrains Mono", monospace;
+        font-size: 13px;
+        color: var(--muted);
+        flex: 1 1 200px;
+        min-width: 160px;
+        line-height: 1.5;
+      }
+      .demo-caption b {
+        color: var(--pi);
+      }
+      .demo-caption .ok {
+        color: var(--scope);
+      }
+    </style>
+  </head>
+  <body>
+    <div class="wrap">
+      <header class="site-head">
+        <div class="eyebrow">галерея появлений π · интерактивные модели</div>
+        <h1>π из ниоткуда</h1>
+        <p class="lede">
+          Семь систем, где число <b>π</b> возникает там, где его никто не звал — из упругих
+          соударений, делимости чисел, фрактальной динамики, постоянного тока, случайных блужданий и
+          диффузии. Каждая вкладка — отдельная точная симуляция.
+        </p>
+      </header>
+      <nav class="tabbar" id="tabbar">
+        <button class="tab-btn active" data-tab="billiard">
+          <span class="num">01</span>Бильярд Гальперина
+        </button>
+        <button class="tab-btn" data-tab="buffon"><span class="num">02</span>Лапша Бюффона</button>
+        <button class="tab-btn" data-tab="lattice"><span class="num">03</span>Узлы решётки</button>
+        <button class="tab-btn" data-tab="mandelbrot">
+          <span class="num">04</span>Мандельброт
+        </button>
+        <button class="tab-btn" data-tab="resistor">
+          <span class="num">05</span>Сетка резисторов
+        </button>
+        <button class="tab-btn" data-tab="diffusion"><span class="num">06</span>Диффузия √π</button>
+        <button class="tab-btn" data-tab="walk">
+          <span class="num">07</span>Территория блуждания
+        </button>
+      </nav>
+
+      <section class="tab-panel active" data-tab="billiard">
+        <header>
+          <div class="eyebrow">Григорий Гальперин · 2003 · упругий бильярд</div>
+          <h1>Как два шара считают&nbsp;<span class="pi">π</span></h1>
+          <p class="lede">
+            Гладкий пол без трения, слева — стена. Большой шар массой <b>M</b> налетает на
+            покоящийся малый шар массой <b>m</b>. Все удары абсолютно упруги. Если
+            <b>M / m = 100ⁿ</b>, то полное число соударений (шар о шар и шар о стену) в точности
+            равно первым цифрам числа&nbsp;<b>π</b>.
+          </p>
+        </header>
+
+        <!-- Управление -->
+        <div class="controls">
+          <div class="ctl-group">
+            <span class="ctl-label">Отношение масс&nbsp; M / m</span>
+            <div class="ratios" id="ratios" role="group" aria-label="Отношение масс"></div>
+          </div>
+          <div class="ctl-group">
+            <span class="ctl-label">Управление</span>
+            <div class="transport">
+              <button class="btn primary" id="playBtn" aria-label="Запуск / пауза">
+                <svg id="playIcon" width="14" height="14" viewBox="0 0 14 14" fill="currentColor">
+                  <path d="M2 1l11 6L2 13z" />
+                </svg>
+                <span id="playLabel">Запуск</span>
+              </button>
+              <button class="btn" id="resetBtn">Сброс</button>
+            </div>
+          </div>
+          <div class="ctl-group slider-wrap">
+            <span class="ctl-label">Скорость <span class="speed-val" id="speedVal"></span></span>
+            <input type="range" id="speed" min="0" max="100" value="42" />
+          </div>
+          <div class="ctl-group">
+            <span class="ctl-label">Звук</span>
+            <label class="toggle"><input type="checkbox" id="sound" /> щелчки соударений</label>
+          </div>
+        </div>
+
+        <!-- Табло -->
+        <div class="scoreboard">
+          <div class="card">
+            <span class="ctl-label">Соударений</span>
+            <div class="count">
+              <span id="count">0</span><span class="target" id="target">/ 314</span>
+            </div>
+          </div>
+          <div class="card pi-row">
+            <span class="ctl-label">Цифры π</span>
+            <div class="pi-string" id="piString"></div>
+            <div class="pi-tag" id="piTag"></div>
+          </div>
+        </div>
+
+        <!-- Сцена -->
+        <div class="stage">
+          <div class="canvas-card">
+            <div class="canvas-head">
+              <span class="canvas-title">Установка</span>
+              <span class="canvas-sub" id="apparatusSub"></span>
+            </div>
+            <canvas id="apparatus"></canvas>
+            <div class="legend">
+              <span><i class="dot w"></i> стена</span>
+              <span><i class="dot s"></i> малый шар · m</span>
+              <span><i class="dot b"></i> большой шар · M</span>
+            </div>
+          </div>
+
+          <div class="canvas-card">
+            <div class="canvas-head">
+              <span class="canvas-title">Фазовый осциллограф</span>
+              <span class="canvas-sub" id="scopeSub"></span>
+            </div>
+            <canvas id="scope"></canvas>
+            <div class="legend">
+              <span><i class="dot e"></i> окружность энергии</span>
+              <span style="color: var(--pi)"
+                ><i class="dot" style="background: var(--pi)"></i> траектория</span
+              >
+            </div>
+          </div>
+        </div>
+
+        <!-- Объяснение -->
+        <div class="canvas-card demo-card">
+          <div class="canvas-head">
+            <span class="canvas-title">Как это работает — по шагам</span>
+            <span class="canvas-sub" data-demo-sub></span>
+          </div>
+          <canvas class="sim demo-canvas" data-demo-canvas></canvas>
+          <div class="demo-controls">
+            <button class="btn primary" data-demo-step>Шаг</button>
+            <button class="btn" data-demo-play>Авто</button>
+            <button class="btn" data-demo-reset>Сброс</button>
+            <span class="demo-caption" data-demo-caption></span>
+          </div>
+        </div>
+        <details class="explain" open>
+          <summary>
+            <svg class="chev" width="12" height="12" viewBox="0 0 12 12" fill="currentColor">
+              <path d="M3 1l6 5-6 5z" /></svg
+            >Почему это работает
+          </summary>
+          <div class="explain-body">
+            <h3>Что мы наблюдаем</h3>
+            <p>
+              Считаем <b>все</b> столкновения: каждый удар большого шара о малый и каждый удар
+              малого шара о стену. При равных массах (M/m = 1) их ровно <b>3</b>. Каждое стократное
+              увеличение массы добавляет ещё одну цифру π:
+            </p>
+            <p class="digits">
+              M/m = 1 → <b>3</b> &nbsp;·&nbsp; 100 → <b>31</b> &nbsp;·&nbsp; 10⁴ →
+              <b>314</b> &nbsp;·&nbsp; 10⁶ → <b>3141</b> &nbsp;·&nbsp; 10⁸ →
+              <b>31415</b> &nbsp;·&nbsp; 10¹⁰ → <b>314159</b>
+            </p>
+
+            <h3>Шаг 1. Энергия — это окружность</h3>
+            <p>
+              Удары идеально упругие, значит кинетическая энергия не теряется: E = ½·m·v₁² + ½·M·v₂²
+              постоянна. Хочется, чтобы это сохранение выглядело геометрически просто. Уравнение
+              окружности — это x² + y² = const, сумма квадратов. Поэтому возьмём новые оси, в
+              которых энергия как раз станет суммой квадратов: растянем каждую скорость на корень из
+              её массы.
+            </p>
+            <div class="formula">
+              w₁ = √m · v₁ &nbsp;&nbsp; w₂ = √M · v₂ &nbsp;&nbsp;⟹&nbsp;&nbsp; E = ½(w₁² + w₂²) =
+              const
+            </div>
+            <p>
+              В координатах (w₁, w₂) точка состояния системы всё время лежит на
+              <b>окружности</b> постоянного радиуса — это и есть зелёный круг на осциллографе
+              справа.
+            </p>
+
+            <h3>Шаг 2. Удары — это отражения</h3>
+            <p>
+              Раз энергия не меняется, точка остаётся на той же окружности — удар лишь переставляет
+              её по кругу. А преобразование, сохраняющее расстояние до центра, бывает лишь двух
+              видов: поворот или зеркальное отражение. Можно проверить, что оба наших удара — это
+              именно отражения от двух прямых, проходящих через центр:
+            </p>
+            <p>
+              · <b>Удар о стену</b> меняет знак v₁ — это отражение от вертикальной оси w₁ = 0.<br />
+              · <b>Удар шара о шар</b> сохраняет импульс √m·w₁ + √M·w₂ — это отражение от прямой с
+              наклоном √(M/m).
+            </p>
+            <p>
+              Точка состояния «бегает» внутри узкого клина между этими двумя зеркалами, отскакивая
+              от стенок. Каждый отскок — это одно соударение.
+            </p>
+
+            <h3>Шаг 3. Угол клина и арктангенс</h3>
+            <p>Угол между зеркалами равен</p>
+            <div class="formula">θ = arctan √(m / M) = arctan(1 / 10ⁿ)</div>
+            <p>
+              Дальше — красивый приём «разворачивания». Вместо того чтобы следить за отражениями
+              точки, отразим сами зеркала: каждый отскок распрямляется в прямолинейное движение
+              через зеркальные копии клина. Тогда вопрос «сколько будет отскоков?» превращается в
+              «сколько клиньев угла θ пересечёт прямая, пройдя развёрнутый угол π (полукруг)?».
+              Ответ — целая часть от деления:
+            </p>
+            <div class="formula">N = ⌊ <span class="pi">π</span> / θ ⌋</div>
+            <p>
+              Осталось вычислить θ. Для маленьких углов арктангенс почти равен своему аргументу,
+              arctan(x) ≈ x, поэтому при M/m = 100ⁿ угол θ ≈ 1/10ⁿ, и
+            </p>
+            <div class="formula">
+              N ≈ ⌊ <span class="pi">π</span> · 10ⁿ ⌋ = первые n+1 цифр <span class="pi">π</span>
+            </div>
+            <p>
+              Ровно тот же арктангенс, что прячется в разложении π, и порождает цифры в счётчике
+              соударений. При M/m = 1 угол θ = 45°, и π/θ = 4 целое — поэтому особый случай даёт 3,
+              а не 4.
+            </p>
+
+            <p class="ref">
+              Результат: Г. А. Гальперин, «Billiards and the Inequality π &gt; 3» / «Playing pool
+              with π» (Regular and Chaotic Dynamics, 2003). Популярное геометрическое доказательство
+              — на канале 3Blue1Brown. Здесь физика считается событийным методом (точное время до
+              каждого следующего удара), поэтому счётчик совпадает с π без накопления ошибок.
+            </p>
+          </div>
+        </details>
+
+        <footer>точная событийная симуляция · θ = arctan √(m/M) · N = ⌊π/θ⌋</footer>
+      </section>
+
+      <!-- ════════ 02 · Лапша Бюффона ════════ -->
+      <section class="tab-panel" data-tab="buffon">
+        <header class="panel-head">
+          <div class="eyebrow">Жорж-Луи де Бюффон · 1733 · геометрическая вероятность</div>
+          <h2>Лапша Бюффона</h2>
+          <p class="lede">
+            Роняем на пол, расчерченный линиями с шагом d, случайные кривые длины L. Среднее число
+            пересечений с линиями равно 2L/(πd) — и совершенно <b>не зависит</b> от формы «лапшины».
+            Считая броски и пересечения, восстанавливаем <span class="pi">π</span>.
+          </p>
+        </header>
+        <div class="controls">
+          <div class="ctl-group">
+            <span class="ctl-label">Форма</span>
+            <div class="ratios" data-role="shapes">
+              <button class="ratio-btn active" data-shape="needle">игла</button>
+              <button class="ratio-btn" data-shape="noodle">лапша</button>
+              <button class="ratio-btn" data-shape="arc">дуга</button>
+            </div>
+          </div>
+          <div class="ctl-group">
+            <span class="ctl-label">Управление</span>
+            <div class="transport">
+              <button class="btn primary" data-role="play">Запуск</button>
+              <button class="btn" data-role="reset">Сброс</button>
+              <button class="btn" data-role="burst">+1000</button>
+            </div>
+          </div>
+          <div class="ctl-group slider-wrap">
+            <span class="ctl-label"
+              >Скорость <span class="speed-val" data-role="speedval"></span></span
+            ><input type="range" data-role="speed" min="0" max="100" value="55" />
+          </div>
+        </div>
+        <div class="scoreboard">
+          <div class="card">
+            <span class="ctl-label">Оценка π</span>
+            <div class="count pi-est mono-val" data-role="est">—</div>
+          </div>
+          <div class="card pi-row">
+            <span class="ctl-label">Статистика</span>
+            <div
+              class="mono-val"
+              data-role="stats"
+              style="font-size: 14.5px; color: var(--muted); line-height: 1.9"
+            ></div>
+          </div>
+        </div>
+        <div class="sim-grid solo">
+          <div class="canvas-card">
+            <div class="canvas-head">
+              <span class="canvas-title">Пол с линиями</span
+              ><span class="canvas-sub" data-role="sub"></span>
+            </div>
+            <canvas class="sim" data-role="canvas" style="height: 380px"></canvas>
+            <div class="legend">
+              <span><i class="dot" style="background: var(--scope)"></i> пересекает линию</span
+              ><span><i class="dot" style="background: #7886a0"></i> не пересекает</span>
+            </div>
+          </div>
+        </div>
+        <div class="canvas-card demo-card">
+          <div class="canvas-head">
+            <span class="canvas-title">Как это работает — по шагам</span>
+            <span class="canvas-sub" data-demo-sub></span>
+          </div>
+          <canvas class="sim demo-canvas" data-demo-canvas></canvas>
+          <div class="demo-controls">
+            <button class="btn primary" data-demo-step>Шаг</button>
+            <button class="btn" data-demo-play>Авто</button>
+            <button class="btn" data-demo-reset>Сброс</button>
+            <span class="demo-caption" data-demo-caption></span>
+          </div>
+        </div>
+        <details class="explain">
+          <summary>
+            <svg class="chev" width="12" height="12" viewBox="0 0 12 12" fill="currentColor">
+              <path d="M3 1l6 5-6 5z" /></svg
+            >Почему форма не важна
+          </summary>
+          <div class="explain-body">
+            <h3>Эксперимент</h3>
+            <p>
+              Пол расчерчен параллельными линиями через равные промежутки d. Мы много раз роняем на
+              него тонкую «лапшину» (кривую) длины L под случайным углом в случайном месте и
+              считаем, сколько раз она пересекает линии. Удивительно, что среднее число пересечений
+              зависит только от L и d — но не от того, прямая это игла, дуга или загогулина.
+            </p>
+            <h3>Простейший случай — прямая игла</h3>
+            <p>
+              Для короткой иглы (L ≤ d) вероятность задеть линию можно посчитать напрямую, усредняя
+              по всем углам наклона и положениям, и она равна 2L/(πd). Именно тут впервые появляется
+              π: оно приходит из усреднения по углу. «Вертикальный размах» иглы есть L·|sin φ|, а
+              среднее значение |sin φ| по всем направлениям равно как раз 2/π.
+            </p>
+            <div class="formula">
+              среднее число пересечений иглы = 2L / (<span class="pi">π</span>·d)
+            </div>
+            <h3>Главная идея: средние складываются</h3>
+            <p>
+              Теперь ключевой шаг. Представим, что лапшина собрана из множества крошечных звеньев.
+              Число пересечений всей кривой — это сумма пересечений её звеньев. А
+              <b>среднее значение суммы всегда равно сумме средних</b>, даже если слагаемые зависят
+              друг от друга — так устроено матожидание. Значит, неважно, как звенья изогнуты и
+              повёрнуты: вклад каждого в среднее пропорционален лишь его длине.
+            </p>
+            <p>
+              Сложив вклады, получаем для кривой любой формы суммарной длины L всё то же 2L/(πd).
+              Это и есть «теорема о лапше» (Buffon's noodle).
+            </p>
+            <h3>Как добыть π</h3>
+            <p>Перевернём формулу. После большого числа бросков:</p>
+            <div class="formula">
+              <span class="pi">π</span> ≈ 2 · L · (число бросков) / (d · число пересечений)
+            </div>
+            <p>
+              В симуляции отношение L/d фиксировано, поэтому масштаб не важен. Это метод
+              Монте-Карло: точность растёт медленно, примерно как 1/√(число бросков), — оттого
+              первые знаки π проступают лишь после многих тысяч лапшин.
+            </p>
+          </div>
+        </details>
+      </section>
+
+      <!-- ════════ 03 · Видимые узлы решётки ════════ -->
+      <section class="tab-panel" data-tab="lattice">
+        <header class="panel-head">
+          <div class="eyebrow">теория чисел · ζ(2) = π²/6</div>
+          <h2>Видимые узлы решётки</h2>
+          <p class="lede">
+            Узел (a, b) целочисленной решётки «виден» из начала координат, если его не заслоняет
+            другой узел, то есть НОД(a, b) = 1. Доля видимых узлов равна 6/π² ≈ 0,6079 — и из неё
+            извлекается <span class="pi">π</span>. Картинка справа — само «звёздное небо» видимых
+            узлов.
+          </p>
+        </header>
+        <div class="controls">
+          <div class="ctl-group">
+            <span class="ctl-label">Выборка пар</span>
+            <div class="transport">
+              <button class="btn primary" data-role="play">Запуск</button>
+              <button class="btn" data-role="reset">Сброс</button>
+            </div>
+          </div>
+          <div class="ctl-group slider-wrap">
+            <span class="ctl-label"
+              >Скорость <span class="speed-val" data-role="speedval"></span></span
+            ><input type="range" data-role="speed" min="0" max="100" value="45" />
+          </div>
+        </div>
+        <div class="scoreboard">
+          <div class="card">
+            <span class="ctl-label">Оценка π</span>
+            <div class="count pi-est mono-val" data-role="est">—</div>
+          </div>
+          <div class="card pi-row">
+            <span class="ctl-label">Статистика</span>
+            <div
+              class="mono-val"
+              data-role="stats"
+              style="font-size: 14.5px; color: var(--muted); line-height: 1.9"
+            ></div>
+          </div>
+        </div>
+        <div class="sim-grid solo">
+          <div class="canvas-card">
+            <div class="canvas-head">
+              <span class="canvas-title">Видимые узлы (НОД = 1)</span
+              ><span class="canvas-sub" data-role="sub"></span>
+            </div>
+            <canvas class="sim" data-role="canvas" style="height: 420px"></canvas>
+            <div class="legend">
+              <span><i class="dot" style="background: var(--pi)"></i> виден, НОД=1</span
+              ><span><i class="dot" style="background: #5a6882"></i> заслонён</span>
+            </div>
+          </div>
+        </div>
+        <div class="canvas-card demo-card">
+          <div class="canvas-head">
+            <span class="canvas-title">Как это работает — по шагам</span>
+            <span class="canvas-sub" data-demo-sub></span>
+          </div>
+          <canvas class="sim demo-canvas" data-demo-canvas></canvas>
+          <div class="demo-controls">
+            <button class="btn primary" data-demo-step>Шаг</button>
+            <button class="btn" data-demo-play>Авто</button>
+            <button class="btn" data-demo-reset>Сброс</button>
+            <span class="demo-caption" data-demo-caption></span>
+          </div>
+        </div>
+        <details class="explain">
+          <summary>
+            <svg class="chev" width="12" height="12" viewBox="0 0 12 12" fill="currentColor">
+              <path d="M3 1l6 5-6 5z" /></svg
+            >Откуда здесь π
+          </summary>
+          <div class="explain-body">
+            <h3>Что значит «виден»</h3>
+            <p>
+              Встаньте в начало координат и смотрите на узел (a, b). Если на отрезке до него лежит
+              другой узел решётки, он заслоняет обзор. Узел виден тогда и только тогда, когда между
+              ним и началом нет других узлов — а это в точности означает, что у a и b нет общего
+              делителя, то есть НОД(a, b) = 1 (числа взаимно просты). Например, (2, 4) заслонён
+              узлом (1, 2), а (2, 3) виден.
+            </p>
+            <h3>Вероятность взаимной простоты</h3>
+            <p>
+              Возьмём два случайных больших числа. Какова вероятность, что они взаимно просты?
+              Зафиксируем простое p. Вероятность, что оба делятся на p, равна (1/p)·(1/p) = 1/p².
+              Значит, вероятность, что они не делятся на p одновременно, равна 1 − 1/p². Числа
+              взаимно просты, если это выполнено сразу для всех простых, и (считая события для
+              разных p независимыми) вероятности перемножаются:
+            </p>
+            <div class="formula">P(НОД = 1) = (1 − 1/2²)·(1 − 1/3²)·(1 − 1/5²)·…</div>
+            <h3>Тождество Эйлера и базельская задача</h3>
+            <p>
+              Эйлер показал, что такое произведение по всем простым равно 1/ζ(2), где ζ(2) = 1 +
+              1/2² + 1/3² + 1/4² + … — сумма обратных квадратов всех целых. А знаменитая «базельская
+              задача» даёт её точное значение:
+            </p>
+            <div class="formula">
+              ζ(2) = 1 + 1/4 + 1/9 + 1/16 + … = <span class="pi">π</span>²/6
+            </div>
+            <p>
+              Вот откуда здесь π — оно спрятано в сумме обратных квадратов. Значит, доля взаимно
+              простых пар (и плотность видимых узлов) равна 6/π² ≈ 0,6079, а π восстанавливается как
+              π = √(6 / доля). Симуляция накапливает эту долю по случайным парам — снова
+              Монте-Карло.
+            </p>
+          </div>
+        </details>
+      </section>
+
+      <!-- ════════ 04 · π в множестве Мандельброта ════════ -->
+      <section class="tab-panel" data-tab="mandelbrot">
+        <header class="panel-head">
+          <div class="eyebrow">Дэйв Болл · 1991 · параболическая динамика</div>
+          <h2>π, спрятанное в множестве <span class="pi">Мандельброта</span></h2>
+          <p class="lede">
+            Прямой родственник бильярда. Берём точку на «шейке» множества: c = −0,75 + εi, итерируем
+            z → z² + c и считаем шаги N до вылета |z| > 2. Тогда N·ε → π. При ε = 10⁻ⁿ счётчик
+            итераций буквально выписывает цифры π — как соударения шаров.
+          </p>
+        </header>
+        <div class="controls">
+          <div class="ctl-group slider-wrap">
+            <span class="ctl-label">ε = <span class="speed-val" data-role="epsval"></span></span>
+            <input type="range" data-role="eps" min="0" max="100" value="20" />
+          </div>
+          <div class="ctl-group">
+            <span class="ctl-label">Управление</span>
+            <div class="transport">
+              <button class="btn primary" data-role="run">Вычислить</button>
+              <button class="btn" data-role="sweep">Авторазвёртка</button>
+            </div>
+          </div>
+        </div>
+        <div class="scoreboard">
+          <div class="card">
+            <span class="ctl-label">N · ε ≈ π</span>
+            <div class="count pi-est mono-val" data-role="est">—</div>
+          </div>
+          <div class="card pi-row">
+            <span class="ctl-label">Подробности</span>
+            <div
+              class="mono-val"
+              data-role="stats"
+              style="font-size: 14.5px; color: var(--muted); line-height: 1.9"
+            ></div>
+          </div>
+        </div>
+        <div class="sim-grid">
+          <div class="canvas-card">
+            <div class="canvas-head">
+              <span class="canvas-title">Орбита z (динамика)</span
+              ><span class="canvas-sub">медленный пролёт мимо параболической точки</span>
+            </div>
+            <canvas class="sim" data-role="orbit"></canvas>
+          </div>
+          <div class="canvas-card">
+            <div class="canvas-head">
+              <span class="canvas-title">Плоскость c</span
+              ><span class="canvas-sub">шейка между кардиоидой и почкой</span>
+            </div>
+            <canvas class="sim" data-role="cplane"></canvas>
+          </div>
+        </div>
+        <div class="canvas-card demo-card">
+          <div class="canvas-head">
+            <span class="canvas-title">Как это работает — по шагам</span>
+            <span class="canvas-sub" data-demo-sub></span>
+          </div>
+          <canvas class="sim demo-canvas" data-demo-canvas></canvas>
+          <div class="demo-controls">
+            <button class="btn primary" data-demo-step>Шаг</button>
+            <button class="btn" data-demo-play>Авто</button>
+            <button class="btn" data-demo-reset>Сброс</button>
+            <span class="demo-caption" data-demo-caption></span>
+          </div>
+        </div>
+        <details class="explain">
+          <summary>
+            <svg class="chev" width="12" height="12" viewBox="0 0 12 12" fill="currentColor">
+              <path d="M3 1l6 5-6 5z" /></svg
+            >Почему N·ε → π
+          </summary>
+          <div class="explain-body">
+            <h3>Что мы итерируем</h3>
+            <p>
+              Множество Мандельброта строят так: для каждой точки c на комплексной плоскости берут
+              z₀ = 0 и повторяют z → z² + c. Если последовательность убегает в бесконечность (модуль
+              превышает 2), точка не входит в множество; мы считаем число шагов N до этого вылета.
+            </p>
+            <h3>Особое место — «шейка»</h3>
+            <p>
+              Точка c = −0,75 лежит ровно там, где главная «сердцевина» (кардиоида) касается круглой
+              «почки» слева, — это пограничное, критическое место. Сдвинемся чуть вверх: c = −0,75 +
+              εi с крошечным ε. Тогда у отображения почти возникает устойчивый цикл, и между
+              «почти-циклом» и вылетом образуется узкий коридор. Орбита z вползает в него и движется
+              мучительно медленно — это видно на левом холсте: точки еле ползут, прежде чем
+              вырваться.
+            </p>
+            <h3>Откуда π</h3>
+            <p>
+              Вблизи такой «параболической» точки шаг крошечный, и дискретный процесс хорошо
+              приближается непрерывным уравнением вида dz/dn ≈ z² + ε². Его решение — арктангенс, а
+              число шагов на проход всего коридора от входа до выхода равно полному «развороту»
+              арктангенса, делённому на ε:
+            </p>
+            <div class="formula">
+              N ≈ (1/ε)·[arctan(+∞) − arctan(−∞)] = <span class="pi">π</span>/ε
+            </div>
+            <p>
+              Поэтому N·ε → π. Это тот же арктангенс, что управляет бильярдом Гальперина: и там, и
+              тут π рождается как суммарный угол поворота. При ε = 10⁻ⁿ счётчик итераций буквально
+              выписывает первые цифры π — прямая родня соударениям шаров (открытие Дэйва Болла,
+              1991).
+            </p>
+          </div>
+        </details>
+      </section>
+
+      <!-- ════════ 05 · Сопротивление бесконечной сетки ════════ -->
+      <section class="tab-panel" data-tab="resistor">
+        <header class="panel-head">
+          <div class="eyebrow">решёточная функция Грина · постоянный ток</div>
+          <h2>Сопротивление бесконечной сетки</h2>
+          <p class="lede">
+            Бесконечная квадратная решётка из единичных резисторов. Сопротивление между соседями по
+            ребру — ровно ½, а между узлами <b>по диагонали</b> (через клетку) — 2/π ≈ 0,6366.
+            <span class="pi">π</span> в чистом постоянном токе. Решаем уравнение Лапласа
+            релаксацией; цвет — потенциал.
+          </p>
+        </header>
+        <div class="controls">
+          <div class="ctl-group slider-wrap">
+            <span class="ctl-label"
+              >Размер сетки <span class="speed-val" data-role="sizeval"></span
+            ></span>
+            <input type="range" data-role="size" min="21" max="121" value="71" step="2" />
+          </div>
+          <div class="ctl-group">
+            <span class="ctl-label">Управление</span>
+            <div class="transport">
+              <button class="btn primary" data-role="play">Пауза</button>
+              <button class="btn" data-role="reset">Сброс</button>
+            </div>
+          </div>
+        </div>
+        <div class="scoreboard">
+          <div class="card">
+            <span class="ctl-label">R через клетку</span>
+            <div class="count pi-est mono-val" data-role="est">—</div>
+          </div>
+          <div class="card pi-row">
+            <span class="ctl-label">Подробности</span>
+            <div
+              class="mono-val"
+              data-role="stats"
+              style="font-size: 14.5px; color: var(--muted); line-height: 1.9"
+            ></div>
+          </div>
+        </div>
+        <div class="sim-grid solo">
+          <div class="canvas-card">
+            <div class="canvas-head">
+              <span class="canvas-title">Поле потенциала (диполь источник↔сток)</span
+              ><span class="canvas-sub">белые рамки — два узла измерения</span>
+            </div>
+            <canvas class="sim" data-role="canvas" style="height: 420px"></canvas>
+            <div class="legend">
+              <span><i class="dot" style="background: var(--pi)"></i> + потенциал</span
+              ><span><i class="dot" style="background: var(--scope)"></i> − потенциал</span>
+            </div>
+          </div>
+        </div>
+        <div class="canvas-card demo-card">
+          <div class="canvas-head">
+            <span class="canvas-title">Как это работает — по шагам</span>
+            <span class="canvas-sub" data-demo-sub></span>
+          </div>
+          <canvas class="sim demo-canvas" data-demo-canvas></canvas>
+          <div class="demo-controls">
+            <button class="btn primary" data-demo-step>Шаг</button>
+            <button class="btn" data-demo-play>Авто</button>
+            <button class="btn" data-demo-reset>Сброс</button>
+            <span class="demo-caption" data-demo-caption></span>
+          </div>
+        </div>
+        <details class="explain">
+          <summary>
+            <svg class="chev" width="12" height="12" viewBox="0 0 12 12" fill="currentColor">
+              <path d="M3 1l6 5-6 5z" /></svg
+            >Метод и откуда π
+          </summary>
+          <div class="explain-body">
+            <h3>Задача</h3>
+            <p>
+              Возьмём бесконечную квадратную сетку, где каждое ребро — резистор в 1 Ом. Каково
+              сопротивление между двумя узлами? Между соседями по ребру ответ — ровно ½ Ом. А между
+              узлами, стоящими по диагонали (через клетку), сопротивление оказывается равно 2/π ≈
+              0,6366 Ом. π — в обычной цепи постоянного тока, без единой окружности.
+            </p>
+            <h3>Как мы это считаем</h3>
+            <p>
+              Вливаем в узел A ток +1, столько же вытягиваем из диагонального соседа B и ищем
+              потенциалы во всех узлах. Закон Кирхгофа говорит: в каждом узле без источника
+              потенциал равен среднему от четырёх соседей (это дискретное уравнение Лапласа). Решаем
+              «релаксацией»: многократно заменяем потенциал каждого узла средним по соседям, пока
+              картина не устаканится (приём SOR ускоряет сходимость). Тогда сопротивление R = V_A −
+              V_B, ведь ток равен 1.
+            </p>
+            <h3>Откуда здесь π</h3>
+            <p>
+              Точный ответ для бесконечной решётки даёт «функция Грина» — описание того, как
+              растекается ток от одного узла. Она выражается двойным интегралом по всем направлениям
+              волн в решётке, и при интегрировании косинусов вылезает π — так же, как оно появляется
+              в площади круга. Итог для диагонали — ровно 2/π.
+            </p>
+            <p>
+              На конечной сетке с краями ответ слегка смещён, но с ростом размера подтягивается к
+              2/π. Подвиньте ползунок размера — увидите, как R приближается к 0,6366, а π = 2/R к
+              3,14159.
+            </p>
+          </div>
+        </details>
+      </section>
+
+      <!-- ════════ 06 · Диффузия и √π ════════ -->
+      <section class="tab-panel" data-tab="diffusion">
+        <header class="panel-head">
+          <div class="eyebrow">центральная предельная теорема · гауссиана</div>
+          <h2>Диффузия и <span class="pi">√π</span></h2>
+          <p class="lede">
+            Ансамбль одномерных случайных блужданий из n шагов ±1. Колокол складывается сам собой, а
+            π прячется в его нормировке: вероятность вернуться в ноль равна √(2/πn). Меряя эту долю,
+            получаем <span class="pi">π</span> = 2/(n·P₀²).
+          </p>
+        </header>
+        <div class="controls">
+          <div class="ctl-group slider-wrap">
+            <span class="ctl-label"
+              >Шагов n = <span class="speed-val" data-role="nval"></span
+            ></span>
+            <input type="range" data-role="n" min="20" max="400" value="200" step="2" />
+          </div>
+          <div class="ctl-group">
+            <span class="ctl-label">Управление</span>
+            <div class="transport">
+              <button class="btn primary" data-role="play">Запуск</button>
+              <button class="btn" data-role="reset">Сброс</button>
+            </div>
+          </div>
+          <div class="ctl-group slider-wrap">
+            <span class="ctl-label"
+              >Скорость <span class="speed-val" data-role="speedval"></span></span
+            ><input type="range" data-role="speed" min="0" max="100" value="55" />
+          </div>
+        </div>
+        <div class="scoreboard">
+          <div class="card">
+            <span class="ctl-label">Оценка π</span>
+            <div class="count pi-est mono-val" data-role="est">—</div>
+          </div>
+          <div class="card pi-row">
+            <span class="ctl-label">Статистика</span>
+            <div
+              class="mono-val"
+              data-role="stats"
+              style="font-size: 14.5px; color: var(--muted); line-height: 1.85"
+            ></div>
+          </div>
+        </div>
+        <div class="sim-grid solo">
+          <div class="canvas-card">
+            <div class="canvas-head">
+              <span class="canvas-title">Гистограмма конечных позиций</span
+              ><span class="canvas-sub">зелёная кривая — теоретическая гауссиана</span>
+            </div>
+            <canvas class="sim" data-role="canvas" style="height: 360px"></canvas>
+          </div>
+        </div>
+        <div class="canvas-card demo-card">
+          <div class="canvas-head">
+            <span class="canvas-title">Как это работает — по шагам</span>
+            <span class="canvas-sub" data-demo-sub></span>
+          </div>
+          <canvas class="sim demo-canvas" data-demo-canvas></canvas>
+          <div class="demo-controls">
+            <button class="btn primary" data-demo-step>Шаг</button>
+            <button class="btn" data-demo-play>Авто</button>
+            <button class="btn" data-demo-reset>Сброс</button>
+            <span class="demo-caption" data-demo-caption></span>
+          </div>
+        </div>
+        <details class="explain">
+          <summary>
+            <svg class="chev" width="12" height="12" viewBox="0 0 12 12" fill="currentColor">
+              <path d="M3 1l6 5-6 5z" /></svg
+            >Где здесь π
+          </summary>
+          <div class="explain-body">
+            <h3>Колокол из случайности</h3>
+            <p>
+              Каждое блуждание делает n шагов влево/вправо по монетке и где-то останавливается.
+              Конечная позиция — это разность числа шагов вправо и влево; она распределена
+              биномиально и при больших n приближается к знаменитой колоколообразной кривой Гаусса
+              (центральная предельная теорема). Гистограмма на холсте складывается в этот колокол
+              сама собой.
+            </p>
+            <h3>π прячется в высоте колокола</h3>
+            <p>
+              Чтобы под кривой Гаусса была площадь 1, её делят на нормирующий множитель, и в нём
+              сидит π:
+            </p>
+            <div class="formula">∫ e^(−x²) dx = √<span class="pi">π</span></div>
+            <p>
+              Из-за этого множителя у самого центра колокол имеет вполне определённую высоту.
+              Конкретно, вероятность вернуться ровно в ноль (при чётном n) равна
+            </p>
+            <div class="formula">P₀ = C(n, n/2) / 2ⁿ ≈ √( 2 / (<span class="pi">π</span>·n) )</div>
+            <h3>Как добыть π</h3>
+            <p>
+              Перевернём формулу: измерив долю блужданий, вернувшихся в ноль, получаем π ≈
+              2/(n·P₀²). Та же √π управляет любой диффузией — расплыванием капли чернил, остыванием,
+              броуновским движением. Оценка тут шумная: P₀ мало, а его погрешность удваивается в π,
+              поэтому нужно очень много блужданий, чтобы увидеть устойчивые знаки.
+            </p>
+          </div>
+        </details>
+      </section>
+
+      <!-- ════════ 07 · Территория двумерного блуждания ════════ -->
+      <section class="tab-panel" data-tab="walk">
+        <header class="panel-head">
+          <div class="eyebrow">Дворецкий–Эрдёш · 1951 · диапазон случайного блуждания</div>
+          <h2>Территория двумерного блуждания</h2>
+          <p class="lede">
+            Пьяница бродит по бесконечной решётке Z². За n шагов он посещает примерно π·n/ln n
+            различных клеток. Закрашиваем след — и из площади территории извлекаем
+            <span class="pi">π</span> = S·ln n / n. Сходимость логарифмически медленная: π
+            проступает неохотно.
+          </p>
+        </header>
+        <div class="controls">
+          <div class="ctl-group slider-wrap">
+            <span class="ctl-label"
+              >Шагов n = <span class="speed-val" data-role="nval"></span
+            ></span>
+            <input type="range" data-role="n" min="5000" max="300000" value="100000" step="5000" />
+          </div>
+          <div class="ctl-group">
+            <span class="ctl-label">Управление</span>
+            <div class="transport">
+              <button class="btn primary" data-role="play">Запуск</button>
+              <button class="btn" data-role="new">Новое</button>
+              <button class="btn" data-role="reset">Сброс среднего</button>
+            </div>
+          </div>
+          <div class="ctl-group slider-wrap">
+            <span class="ctl-label"
+              >Скорость <span class="speed-val" data-role="speedval"></span></span
+            ><input type="range" data-role="speed" min="0" max="100" value="60" />
+          </div>
+        </div>
+        <div class="scoreboard">
+          <div class="card">
+            <span class="ctl-label">Оценка π (среднее)</span>
+            <div class="count pi-est mono-val" data-role="est">—</div>
+          </div>
+          <div class="card pi-row">
+            <span class="ctl-label">Статистика</span>
+            <div
+              class="mono-val"
+              data-role="stats"
+              style="font-size: 14.5px; color: var(--muted); line-height: 1.85"
+            ></div>
+          </div>
+        </div>
+        <div class="sim-grid solo">
+          <div class="canvas-card">
+            <div class="canvas-head">
+              <span class="canvas-title">Территория (посещённые клетки)</span
+              ><span class="canvas-sub">белая точка — текущее положение</span>
+            </div>
+            <canvas class="sim" data-role="canvas" style="height: 420px"></canvas>
+          </div>
+        </div>
+        <div class="canvas-card demo-card">
+          <div class="canvas-head">
+            <span class="canvas-title">Как это работает — по шагам</span>
+            <span class="canvas-sub" data-demo-sub></span>
+          </div>
+          <canvas class="sim demo-canvas" data-demo-canvas></canvas>
+          <div class="demo-controls">
+            <button class="btn primary" data-demo-step>Шаг</button>
+            <button class="btn" data-demo-play>Авто</button>
+            <button class="btn" data-demo-reset>Сброс</button>
+            <span class="demo-caption" data-demo-caption></span>
+          </div>
+        </div>
+        <details class="explain">
+          <summary>
+            <svg class="chev" width="12" height="12" viewBox="0 0 12 12" fill="currentColor">
+              <path d="M3 1l6 5-6 5z" /></svg
+            >Откуда π·n/ln n
+          </summary>
+          <div class="explain-body">
+            <h3>Сколько клеток затопчет пьяница</h3>
+            <p>
+              Точка случайно бродит по бесконечной решётке, на каждом шаге уходя в одну из четырёх
+              сторон. Нас интересует не где она окажется, а сколько <b>различных</b> клеток посетит
+              за n шагов — площадь «вытоптанной территории» S(n).
+            </p>
+            <h3>Почему след рыхлый</h3>
+            <p>
+              Двумерное блуждание возвратно: рано или поздно оно вернётся в любую заданную клетку с
+              вероятностью 1. Но возвраты «ленивые» — среднее время до возврата бесконечно. Поэтому
+              блуждание подолгу топчется по уже пройденным местам, и территория растёт медленнее
+              числа шагов: не как n, а как n/ln n. Точная асимптотика (Дворецкий и Эрдёш, 1951):
+            </p>
+            <div class="formula">S(n) ~ <span class="pi">π</span> · n / ln n</div>
+            <h3>Откуда коэффициент π</h3>
+            <p>
+              Множитель π приходит из вероятности того, что блуждание долго не возвращается в
+              исходную точку. Она считается через ту же функцию Грина двумерной решётки, что и в
+              задаче о резисторах, и π снова вылезает при интегрировании по всем направлениям волн.
+            </p>
+            <p>
+              Отсюда π ≈ S·ln n / n. Честная оговорка: сходимость логарифмически медленная, а
+              поправки (порядка ln ln n / ln n) велики, поэтому оценка лишь грубо держится около 3,
+              не давая точных знаков. Это наглядный пример «неохотного» π: оно там есть, но
+              проступает крайне медленно.
+            </p>
+          </div>
+        </details>
+      </section>
+    </div>
+
+    <script>
+      "use strict";
+      (function () {
+        // ---------- Параметры физики ----------
+        const V0 = 1,
+          R1 = 0.25,
+          R2 = 1.0; // нач. скорость, радиусы (на счёт не влияют)
+        const WORLD_W = 14; // ширина мира
+        const X1_0 = 2.4,
+          X2_0 = 12.0; // нач. положения центров
+        const CAP = 4e7;
+        const PI_DIGITS = "31415926535897932384626433";
+
+        // n = 0..5  →  M/m = 100^n
+        const RATIOS = [0, 1, 2, 3, 4, 5].map((n) => ({
+          n,
+          m1: 1,
+          m2: Math.pow(100, n),
+          label: n === 0 ? "1" : "10<sup>" + 2 * n + "</sup>",
+        }));
+
+        // ---------- Состояние ----------
+        let cur = RATIOS[2]; // по умолчанию M/m = 10⁴ → 314
+        let ev = []; // события: {t,x1,x2,v1,v2,type,count}
+        let N = 0; // итоговое число соударений
+        let pnorm = []; // нормированные точки фазы {x,y} на единичном круге
+        let R = 1; // радиус окружности энергии
+        let theta = 0; // угол клина
+        let slopeL2 = 1; // наклон второго зеркала √(M/m)
+
+        let eIdx = 0; // непрерывный индекс события (анимация по соударениям)
+        let playing = false;
+        let lastTs = 0;
+        let evPerSec = 50; // соударений в секунду
+        let lastSoundCount = 0;
+        let soundOn = false;
+        let audioCtx = null;
+
+        // ---------- DOM ----------
+        const $ = (s) => document.querySelector(s);
+        const ratiosEl = $("#ratios"),
+          countEl = $("#count"),
+          targetEl = $("#target"),
+          piStringEl = $("#piString"),
+          piTagEl = $("#piTag"),
+          appSub = $("#apparatusSub"),
+          scSub = $("#scopeSub"),
+          playBtn = $("#playBtn"),
+          playIcon = $("#playIcon"),
+          playLabel = $("#playLabel"),
+          resetBtn = $("#resetBtn"),
+          speedEl = $("#speed"),
+          speedVal = $("#speedVal"),
+          soundEl = $("#sound");
+
+        const appCv = $("#apparatus"),
+          appCtx = appCv.getContext("2d");
+        const scCv = $("#scope"),
+          scCtx = scCv.getContext("2d");
+        // оффскрин для накопления траектории фазы
+        const traj = document.createElement("canvas"),
+          trajCtx = traj.getContext("2d");
+        let lastSeg = 0; // сколько хорд уже нарисовано на оффскрине
+        let DPR = Math.min(window.devicePixelRatio || 1, 2);
+
+        // ---------- Точная событийная физика ----------
+        function simulate(m1, m2) {
+          let x1 = X1_0,
+            x2 = X2_0,
+            v1 = 0,
+            v2 = -V0,
+            t = 0,
+            count = 0,
+            iter = 0;
+          const out = [{ t: 0, x1, x2, v1, v2, type: "start", count: 0 }];
+          while (iter++ < CAP) {
+            let tWall = Infinity;
+            if (v1 < -1e-15) tWall = (R1 - x1) / v1;
+            let tBall = Infinity;
+            const closing = v1 - v2;
+            if (closing > 1e-15) {
+              let gap = x2 - x1 - (R1 + R2);
+              if (gap < 0) gap = 0;
+              tBall = gap / closing;
+            }
+            const tNext = Math.min(tWall, tBall);
+            if (!isFinite(tNext)) break;
+            x1 += v1 * tNext;
+            x2 += v2 * tNext;
+            t += tNext;
+            let type;
+            if (tWall <= tBall) {
+              v1 = -v1;
+              type = "wall";
+            } else {
+              const nv1 = ((m1 - m2) * v1 + 2 * m2 * v2) / (m1 + m2);
+              const nv2 = ((m2 - m1) * v2 + 2 * m1 * v1) / (m1 + m2);
+              v1 = nv1;
+              v2 = nv2;
+              type = "ball";
+            }
+            count++;
+            out.push({ t, x1, x2, v1, v2, type, count });
+          }
+          return out;
+        }
+
+        function loadRatio(rt) {
+          cur = rt;
+          ev = simulate(rt.m1, rt.m2);
+          N = ev[ev.length - 1].count;
+          const a = Math.sqrt(rt.m1),
+            b = Math.sqrt(rt.m2);
+          R = Math.sqrt(rt.m1 * 0 + rt.m2 * V0 * V0); // = √M·V0  (v1=0 в начале)
+          slopeL2 = b / a;
+          theta = Math.atan(a / b);
+          // нормированные фазовые точки (на единичной окружности)
+          pnorm = ev.map((e) => ({ x: (a * e.v1) / R, y: (b * e.v2) / R, type: e.type }));
+          eIdx = 0;
+          lastSoundCount = 0;
+          resetTraj();
+          updateReadout();
+          updateSubs();
+        }
+
+        // ---------- Размеры canvas ----------
+        function fitCanvas(cv) {
+          const r = cv.getBoundingClientRect();
+          cv.width = Math.round(r.width * DPR);
+          cv.height = Math.round(r.height * DPR);
+          return r;
+        }
+        function resizeAll() {
+          DPR = Math.min(window.devicePixelRatio || 1, 2);
+          fitCanvas(appCv);
+          fitCanvas(scCv);
+          traj.width = scCv.width;
+          traj.height = scCv.height;
+          resetTraj(); // оффскрин очищается → перерисуем накопленное
+          redrawTrajUpTo(Math.floor(eIdx));
+          draw();
+        }
+        function resetTraj() {
+          trajCtx.setTransform(1, 0, 0, 1, 0, 0);
+          trajCtx.clearRect(0, 0, traj.width, traj.height);
+          lastSeg = 0;
+        }
+
+        // ---------- Геометрия фазы ----------
+        function scopeMap() {
+          const w = scCv.width,
+            h = scCv.height;
+          const Rpx = Math.min(w, h) * 0.4;
+          return { cx: w / 2, cy: h / 2, Rpx };
+        }
+        function phaseScreen(p, m) {
+          if (!p) return { x: m.cx, y: m.cy };
+          return { x: m.cx + p.x * m.Rpx, y: m.cy - p.y * m.Rpx };
+        }
+
+        function redrawTrajUpTo(seg) {
+          const m = scopeMap();
+          for (; lastSeg < seg && lastSeg < pnorm.length - 1; lastSeg++) {
+            const a = phaseScreen(pnorm[lastSeg], m),
+              b = phaseScreen(pnorm[lastSeg + 1], m);
+            trajCtx.strokeStyle = "rgba(255,122,138,0.55)";
+            trajCtx.lineWidth = Math.max(1, DPR * 0.8);
+            trajCtx.beginPath();
+            trajCtx.moveTo(a.x, a.y);
+            trajCtx.lineTo(b.x, b.y);
+            trajCtx.stroke();
+          }
+        }
+
+        // ---------- Отрисовка установки ----------
+        function statePos() {
+          // физика ещё не загружена
+          if (!ev.length) return { x1: X1_0, x2: X2_0, count: 0 };
+          // позиции по непрерывному индексу соударений (равномерный темп)
+          let seg = Math.floor(eIdx);
+          if (seg < 0) seg = 0;
+          if (seg >= N) {
+            const last = ev[N],
+              dt = (eIdx - N) * 0.9;
+            return { x1: last.x1 + last.v1 * dt, x2: last.x2 + last.v2 * dt, count: N };
+          }
+          const f = eIdx - seg,
+            A = ev[seg],
+            B = ev[seg + 1] || A;
+          return { x1: A.x1 + (B.x1 - A.x1) * f, x2: A.x2 + (B.x2 - A.x2) * f, count: seg };
+        }
+
+        function drawApparatus(st) {
+          const ctx = appCtx,
+            w = appCv.width,
+            h = appCv.height;
+          ctx.setTransform(1, 0, 0, 1, 0, 0);
+          ctx.clearRect(0, 0, w, h);
+          const padL = 18 * DPR,
+            padR = 14 * DPR;
+          const sx = (x) => padL + (x / WORLD_W) * (w - padL - padR);
+          const r1px = (R1 / WORLD_W) * (w - padL - padR);
+          const r2px = (R2 / WORLD_W) * (w - padL - padR);
+          const axis = h * 0.55; // ось движения: центры ОБОИХ шаров лежат здесь
+
+          // рельс (одномерная линия движения)
+          ctx.strokeStyle = "#2a364f";
+          ctx.lineWidth = DPR;
+          ctx.beginPath();
+          ctx.moveTo(0, axis);
+          ctx.lineTo(w, axis);
+          ctx.stroke();
+          for (let gx = 0; gx <= WORLD_W; gx++) {
+            const x = sx(gx);
+            ctx.strokeStyle = "rgba(42,54,79,0.5)";
+            ctx.beginPath();
+            ctx.moveTo(x, axis - 4 * DPR);
+            ctx.lineTo(x, axis + 4 * DPR);
+            ctx.stroke();
+          }
+          // стена — вертикаль, пересекающая ось
+          const wallX = sx(0),
+            wallH = Math.min(h * 0.82, (r2px + 34 * DPR) * 2);
+          ctx.fillStyle = "#cbd6ea";
+          ctx.fillRect(wallX - 7 * DPR, axis - wallH / 2, 7 * DPR, wallH);
+          ctx.fillStyle = "rgba(203,214,234,0.16)";
+          ctx.fillRect(wallX - 7 * DPR, axis - wallH / 2, 7 * DPR, wallH);
+
+          // большой шар (центр на оси)
+          const x2 = sx(st.x2);
+          const gB = ctx.createRadialGradient(
+            x2 - r2px * 0.3,
+            axis - r2px * 0.3,
+            r2px * 0.1,
+            x2,
+            axis,
+            r2px,
+          );
+          gB.addColorStop(0, "#9cc0ff");
+          gB.addColorStop(1, "#3f6fd6");
+          ctx.fillStyle = gB;
+          ctx.beginPath();
+          ctx.arc(x2, axis, r2px, 0, 7);
+          ctx.fill();
+          ctx.fillStyle = "rgba(231,237,248,0.92)";
+          ctx.textAlign = "center";
+          ctx.font = "600 " + 13 * DPR + "px 'JetBrains Mono',monospace";
+          ctx.fillText("M", x2, axis + 4.5 * DPR);
+
+          // малый шар (центр на оси)
+          const x1 = sx(st.x1);
+          const gS = ctx.createRadialGradient(
+            x1 - r1px * 0.3,
+            axis - r1px * 0.3,
+            r1px * 0.1,
+            x1,
+            axis,
+            r1px,
+          );
+          gS.addColorStop(0, "#ffd49a");
+          gS.addColorStop(1, "#e8942f");
+          ctx.fillStyle = gS;
+          ctx.beginPath();
+          ctx.arc(x1, axis, r1px, 0, 7);
+          ctx.fill();
+          if (r1px > 9 * DPR) {
+            ctx.fillStyle = "rgba(40,22,4,0.85)";
+            ctx.font = "700 " + 9 * DPR + "px 'JetBrains Mono',monospace";
+            ctx.fillText("m", x1, axis + 3.2 * DPR);
+          }
+
+          // вспышка ровно в точке касания (на оси)
+          const f = eIdx - Math.floor(eIdx);
+          if (Math.floor(eIdx) < N && f < 0.18) {
+            const e = ev[Math.floor(eIdx) + 1] || ev[Math.floor(eIdx)];
+            const fx = e.type === "wall" ? wallX : x1 + r1px;
+            ctx.fillStyle = "rgba(52,227,160," + 0.5 * (1 - f / 0.18) + ")";
+            ctx.beginPath();
+            ctx.arc(fx, axis, (10 + 18 * (1 - f / 0.18)) * DPR, 0, 7);
+            ctx.fill();
+          }
+        }
+
+        // ---------- Отрисовка осциллографа ----------
+        function drawScope(st) {
+          const ctx = scCtx,
+            w = scCv.width,
+            h = scCv.height,
+            m = scopeMap();
+          ctx.setTransform(1, 0, 0, 1, 0, 0);
+          ctx.clearRect(0, 0, w, h);
+
+          // оси
+          ctx.strokeStyle = "#1b2740";
+          ctx.lineWidth = DPR;
+          ctx.beginPath();
+          ctx.moveTo(0, m.cy);
+          ctx.lineTo(w, m.cy);
+          ctx.stroke();
+
+          // окружность энергии
+          ctx.strokeStyle = "rgba(52,227,160,0.55)";
+          ctx.lineWidth = 1.4 * DPR;
+          ctx.beginPath();
+          ctx.arc(m.cx, m.cy, m.Rpx, 0, 7);
+          ctx.stroke();
+
+          // зеркала: L1 (w1=0 → вертикаль) и L2 (наклон √(M/m))
+          const ext = m.Rpx * 1.18;
+          ctx.strokeStyle = "rgba(91,141,239,0.55)";
+          ctx.lineWidth = 1.2 * DPR;
+          ctx.beginPath();
+          ctx.moveTo(m.cx, m.cy - ext);
+          ctx.lineTo(m.cx, m.cy + ext);
+          ctx.stroke(); // L1
+          // L2: направление (1, slope) в w-простр., экран с инверсией y
+          const len = ext,
+            dx = 1 / Math.hypot(1, slopeL2),
+            dy = slopeL2 / Math.hypot(1, slopeL2);
+          ctx.strokeStyle = "rgba(244,169,72,0.6)";
+          ctx.beginPath();
+          ctx.moveTo(m.cx - dx * len, m.cy + dy * len);
+          ctx.lineTo(m.cx + dx * len, m.cy - dy * len);
+          ctx.stroke();
+
+          // накопленная траектория
+          redrawTrajUpTo(Math.floor(eIdx));
+          ctx.drawImage(traj, 0, 0);
+
+          // нет загруженной траектории — рисуем только статичную сцену
+          if (!pnorm.length) return;
+
+          // текущая хорда (частичная) + бегущая точка
+          const seg = Math.max(0, Math.min(Math.floor(eIdx), pnorm.length - 1));
+          const f = eIdx - seg;
+          let px, py;
+          if (seg < pnorm.length - 1 && pnorm[seg] && pnorm[seg + 1]) {
+            const A = phaseScreen(pnorm[seg], m),
+              B = phaseScreen(pnorm[seg + 1], m);
+            px = A.x + (B.x - A.x) * f;
+            py = A.y + (B.y - A.y) * f;
+            ctx.strokeStyle = "rgba(255,122,138,0.95)";
+            ctx.lineWidth = 1.6 * DPR;
+            ctx.beginPath();
+            ctx.moveTo(A.x, A.y);
+            ctx.lineTo(px, py);
+            ctx.stroke();
+          } else {
+            const P = phaseScreen(pnorm[seg], m);
+            px = P.x;
+            py = P.y;
+          }
+          ctx.fillStyle = "#fff";
+          ctx.shadowColor = "#ff7a8a";
+          ctx.shadowBlur = 12 * DPR;
+          ctx.beginPath();
+          ctx.arc(px, py, 3.4 * DPR, 0, 7);
+          ctx.fill();
+          ctx.shadowBlur = 0;
+        }
+
+        function draw() {
+          // холст скрыт/не измерен (например, вкладка неактивна) → ширина 0,
+          // тогда радиусы шаров стали бы отрицательными. Пропускаем кадр.
+          if (appCv.width < 60 || appCv.height < 30 || scCv.width < 60) return;
+          const st = statePos();
+          drawApparatus(st);
+          drawScope(st);
+        }
+
+        // ---------- Цикл анимации ----------
+        function tick(ts) {
+          if (!playing) {
+            lastTs = ts;
+            return;
+          }
+          const dt = Math.min((ts - lastTs) / 1000, 0.05);
+          lastTs = ts;
+          eIdx += evPerSec * dt;
+          const tail = N + 1.1;
+          if (eIdx >= tail) {
+            eIdx = tail;
+            playing = false;
+            setPlayUI();
+          }
+          const c = Math.min(Math.floor(eIdx), N);
+          if (c !== lastSoundCount) {
+            if (soundOn && c > 0) click(ev[Math.min(c, N)].type, N > 0 ? c / N : 0);
+            lastSoundCount = c;
+          }
+          updateReadout();
+          draw();
+          if (playing) requestAnimationFrame(tick);
+        }
+        function play() {
+          if (eIdx >= N + 1.05) {
+            eIdx = 0;
+            resetTraj();
+          } // авто-перезапуск с конца
+          playing = true;
+          setPlayUI();
+          lastTs = performance.now();
+          if (soundOn) ensureAudio();
+          requestAnimationFrame(tick);
+        }
+        function pause() {
+          playing = false;
+          setPlayUI();
+        }
+        function reset() {
+          playing = false;
+          eIdx = 0;
+          lastSoundCount = 0;
+          resetTraj();
+          setPlayUI();
+          updateReadout();
+          draw();
+        }
+
+        function setPlayUI() {
+          playLabel.textContent = playing ? "Пауза" : "Запуск";
+          playIcon.innerHTML = playing
+            ? '<rect x="2" y="1" width="3.5" height="12"/><rect x="8.5" y="1" width="3.5" height="12"/>'
+            : '<path d="M2 1l11 6L2 13z"/>';
+        }
+
+        // ---------- Табло ----------
+        function updateReadout() {
+          const c = Math.min(Math.floor(eIdx), N);
+          countEl.textContent = c;
+          targetEl.textContent = "/ " + N;
+          // подсветка цифр π
+          const targetLen = String(N).length;
+          let html = "",
+            digitsShown = 0;
+          let i = 0;
+          while (digitsShown < Math.max(targetLen, 1) + 2 && i < PI_DIGITS.length) {
+            if (i === 1) html += "<span style='opacity:.5'>.</span>"; // точка после первой цифры
+            const lit = digitsShown < String(c).length && c > 0;
+            html += lit
+              ? "<span class='lit'>" + PI_DIGITS[i] + "</span>"
+              : "<span>" + PI_DIGITS[i] + "</span>";
+            digitsShown++;
+            i++;
+          }
+          html += "<span style='opacity:.45'>…</span>";
+          piStringEl.innerHTML = html;
+          if (c === N && N > 0) {
+            piTagEl.textContent =
+              "✓ " + N + " соударений = " + String(N).split("").join(",") + " — цифры π";
+            piTagEl.classList.add("match");
+          } else {
+            piTagEl.classList.remove("match");
+            piTagEl.textContent = c > 0 ? "идёт счёт… " + c : "M / m = " + fmtRatio(cur.n);
+          }
+        }
+        function fmtRatio(n) {
+          return n === 0 ? "1" : "10^" + 2 * n;
+        }
+
+        function updateSubs() {
+          appSub.innerHTML = "M / m = " + cur.label + " &nbsp;·&nbsp; N = " + N;
+          const thetaDeg = (theta * 180) / Math.PI;
+          scSub.innerHTML =
+            "θ = " +
+            (thetaDeg < 0.01 ? thetaDeg.toExponential(2) : thetaDeg.toFixed(thetaDeg < 1 ? 3 : 1)) +
+            "° &nbsp;·&nbsp; ⌊π/θ⌋ = " +
+            N;
+        }
+
+        // ---------- Звук ----------
+        function ensureAudio() {
+          if (!audioCtx) {
+            try {
+              audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+            } catch (e) {}
+          }
+          if (audioCtx && audioCtx.state === "suspended") audioCtx.resume();
+        }
+        function click(type, progress) {
+          if (!audioCtx) return;
+          const t = audioCtx.currentTime;
+          const p = Math.max(0, Math.min(1, progress || 0));
+          // высота тона растёт по мере заполнения окружности — как звук воды
+          // в наполняющемся сосуде (укорачивается воздушный столб → выше резонанс)
+          const fill = 185 * Math.pow(2, 2.6 * p); // ~F#3 → ~D6
+          const freq = type === "wall" ? fill * 0.5 : fill; // удар о стену — октавой ниже
+          const o = audioCtx.createOscillator(),
+            g = audioCtx.createGain();
+          o.type = type === "wall" ? "sine" : "triangle";
+          o.frequency.value = freq;
+          const vol = type === "wall" ? 0.17 : 0.13;
+          g.gain.setValueAtTime(0.0001, t);
+          g.gain.exponentialRampToValueAtTime(vol, t + 0.002);
+          g.gain.exponentialRampToValueAtTime(0.0001, t + 0.06);
+          o.connect(g).connect(audioCtx.destination);
+          o.start(t);
+          o.stop(t + 0.07);
+        }
+
+        // ---------- UI: кнопки масс ----------
+        RATIOS.forEach((rt) => {
+          const b = document.createElement("button");
+          b.className = "ratio-btn";
+          b.innerHTML = rt.label;
+          b.setAttribute("aria-pressed", rt === cur ? "true" : "false");
+          b.addEventListener("click", () => {
+            [...ratiosEl.children].forEach((c) => c.setAttribute("aria-pressed", "false"));
+            b.setAttribute("aria-pressed", "true");
+            const wasPlaying = playing;
+            playing = false;
+            loadRatio(rt);
+            draw();
+            if (wasPlaying) play();
+          });
+          ratiosEl.appendChild(b);
+        });
+
+        // скорость: лог-шкала 2 … 600 соударений/с
+        function speedFromSlider(v) {
+          return Math.round(2 * Math.pow(300, v / 100));
+        }
+        function applySpeed() {
+          evPerSec = speedFromSlider(+speedEl.value);
+          speedVal.textContent = evPerSec + " /с";
+          speedEl.style.setProperty("--p", speedEl.value + "%");
+        }
+        speedEl.addEventListener("input", applySpeed);
+
+        playBtn.addEventListener("click", () => (playing ? pause() : play()));
+        resetBtn.addEventListener("click", reset);
+        soundEl.addEventListener("change", (e) => {
+          soundOn = e.target.checked;
+          if (soundOn) ensureAudio();
+        });
+
+        window.addEventListener("keydown", (e) => {
+          if (e.code === "Space") {
+            e.preventDefault();
+            playing ? pause() : play();
+          }
+          if (e.code === "KeyR") {
+            reset();
+          }
+        });
+
+        let rTimer;
+        window.addEventListener("resize", () => {
+          clearTimeout(rTimer);
+          rTimer = setTimeout(resizeAll, 120);
+        });
+
+        // ---------- Старт ----------
+        applySpeed();
+        loadRatio(cur); // физика синхронна и не зависит от размеров canvas
+        requestAnimationFrame(() => {
+          fitCanvas(appCv);
+          fitCanvas(scCv);
+          traj.width = scCv.width;
+          traj.height = scCv.height;
+          resetTraj();
+          draw();
+        });
+      })();
+    </script>
+
+    <script>
+      "use strict";
+      /* ===== контроллер вкладок + общие утилиты ===== */
+      (function () {
+        const DPRc = () => Math.min(window.devicePixelRatio || 1, 2);
+        window.__fitCanvas = function (cv) {
+          const r = cv.getBoundingClientRect();
+          if (r.width < 2) return 0;
+          const d = DPRc();
+          cv.width = Math.round(r.width * d);
+          cv.height = Math.round(r.height * d);
+          return d;
+        };
+        window.__gcd = function (a, b) {
+          a = a < 0 ? -a : a;
+          b = b < 0 ? -b : b;
+          while (b) {
+            const t = a % b;
+            a = b;
+            b = t;
+          }
+          return a;
+        };
+        const reg = {};
+        window.__regShow = (n, f) => {
+          reg[n] = f;
+        };
+        let activeName = (document.querySelector(".tab-panel.active") || {}).dataset
+          ? document.querySelector(".tab-panel.active").dataset.tab
+          : "billiard";
+        function show(name) {
+          if (name === "billiard") {
+            window.dispatchEvent(new Event("resize"));
+          } else if (reg[name]) reg[name]();
+        }
+        function activate(name) {
+          activeName = name;
+          document
+            .querySelectorAll(".tab-panel")
+            .forEach((p) => p.classList.toggle("active", p.dataset.tab === name));
+          document
+            .querySelectorAll(".tab-btn")
+            .forEach((b) => b.classList.toggle("active", b.dataset.tab === name));
+          show(name);
+          try {
+            history.replaceState(null, "", "#" + name);
+          } catch (e) {}
+        }
+        const tb = document.getElementById("tabbar");
+        if (tb)
+          tb.addEventListener("click", (e) => {
+            const b = e.target.closest(".tab-btn");
+            if (b) activate(b.dataset.tab);
+          });
+        window.addEventListener("resize", () => {
+          if (activeName !== "billiard" && reg[activeName]) reg[activeName]();
+        });
+        const h = (location.hash || "").slice(1);
+        if (h && document.querySelector('.tab-panel[data-tab="' + h + '"]')) activate(h);
+      })();
+
+      /* ===== 02 · Лапша Бюффона ===== */
+      (function () {
+        const root = document.querySelector('.tab-panel[data-tab="buffon"]');
+        if (!root) return;
+        const $ = (s) => root.querySelector(s);
+        const cv = $("[data-role=canvas]"),
+          ctx = cv.getContext("2d");
+        const off = document.createElement("canvas"),
+          octx = off.getContext("2d");
+        const estEl = $("[data-role=est]"),
+          statsEl = $("[data-role=stats]"),
+          subEl = $("[data-role=sub]"),
+          speedEl = $("[data-role=speed]"),
+          speedVal = $("[data-role=speedval]");
+        const LDR = 1.35;
+        let dpr = 1,
+          D = 46,
+          L = 62,
+          shape = "needle";
+        let trials = 0,
+          crossings = 0,
+          playing = false,
+          raf = 0,
+          started = false;
+        function setShape(s) {
+          shape = s;
+          root
+            .querySelectorAll("[data-shape]")
+            .forEach((b) => b.classList.toggle("active", b.dataset.shape === s));
+        }
+        function makeNoodle() {
+          const w = cv.width,
+            h = cv.height,
+            x0 = Math.random() * w,
+            y0 = Math.random() * h;
+          let ang = Math.random() * 6.2832;
+          const pts = [[x0, y0]];
+          let x = x0,
+            y = y0;
+          if (shape === "needle") {
+            pts.push([x0 + Math.cos(ang) * L, y0 + Math.sin(ang) * L]);
+          } else if (shape === "noodle") {
+            const k = 12,
+              seg = L / k;
+            for (let i = 0; i < k; i++) {
+              ang += (Math.random() - 0.5) * 0.9;
+              x += Math.cos(ang) * seg;
+              y += Math.sin(ang) * seg;
+              pts.push([x, y]);
+            }
+          } else {
+            const k = 24,
+              seg = L / k,
+              cu = (Math.random() - 0.5) * 0.16;
+            for (let i = 0; i < k; i++) {
+              ang += cu;
+              x += Math.cos(ang) * seg;
+              y += Math.sin(ang) * seg;
+              pts.push([x, y]);
+            }
+          }
+          return pts;
+        }
+        function countCross(pts) {
+          let c = 0;
+          for (let i = 0; i < pts.length - 1; i++) {
+            const ya = pts[i][1],
+              yb = pts[i + 1][1],
+              lo = Math.min(ya, yb),
+              hi = Math.max(ya, yb);
+            const kmin = Math.floor(lo / D) + 1,
+              kmax = Math.ceil(hi / D) - 1;
+            if (kmax >= kmin) c += kmax - kmin + 1;
+          }
+          return c;
+        }
+        function drop(draw) {
+          const pts = makeNoodle(),
+            c = countCross(pts);
+          trials++;
+          crossings += c;
+          if (draw) {
+            octx.strokeStyle = c > 0 ? "rgba(52,227,160,0.55)" : "rgba(120,134,160,0.30)";
+            octx.lineWidth = Math.max(1, dpr * 1.1);
+            octx.lineJoin = "round";
+            octx.beginPath();
+            octx.moveTo(pts[0][0], pts[0][1]);
+            for (let i = 1; i < pts.length; i++) octx.lineTo(pts[i][0], pts[i][1]);
+            octx.stroke();
+          }
+        }
+        function rate() {
+          return Math.round(2 + Math.pow(150, +speedEl.value / 100));
+        }
+        function piEst() {
+          return crossings > 0 ? (2 * LDR * trials) / crossings : NaN;
+        }
+        function draw() {
+          const w = cv.width,
+            h = cv.height;
+          ctx.setTransform(1, 0, 0, 1, 0, 0);
+          ctx.clearRect(0, 0, w, h);
+          ctx.strokeStyle = "rgba(120,140,175,0.22)";
+          ctx.lineWidth = dpr;
+          for (let y = D; y < h; y += D) {
+            ctx.beginPath();
+            ctx.moveTo(0, y + 0.5);
+            ctx.lineTo(w, y + 0.5);
+            ctx.stroke();
+          }
+          ctx.drawImage(off, 0, 0);
+          const p = piEst();
+          estEl.textContent = isFinite(p) ? p.toFixed(5) : "—";
+          statsEl.innerHTML =
+            "бросков: " +
+            trials.toLocaleString("ru") +
+            "<br>пересечений: " +
+            crossings.toLocaleString("ru") +
+            "<br>ошибка: " +
+            (isFinite(p) ? ((Math.abs(p - Math.PI) / Math.PI) * 100).toFixed(3) + " %" : "—");
+          subEl.textContent = "L/d = " + LDR.toFixed(2);
+        }
+        function loop() {
+          if (!root.classList.contains("active")) {
+            raf = 0;
+            return;
+          }
+          if (playing) for (let i = 0, n = rate(); i < n; i++) drop(true);
+          draw();
+          raf = playing ? requestAnimationFrame(loop) : 0;
+        }
+        function play() {
+          playing = !playing;
+          $("[data-role=play]").textContent = playing ? "Пауза" : "Запуск";
+          if (playing && !raf) raf = requestAnimationFrame(loop);
+        }
+        function reset() {
+          trials = 0;
+          crossings = 0;
+          octx.setTransform(1, 0, 0, 1, 0, 0);
+          octx.clearRect(0, 0, off.width, off.height);
+          draw();
+        }
+        function resize() {
+          const d = window.__fitCanvas(cv);
+          if (!d) return;
+          dpr = d;
+          D = Math.round(46 * dpr);
+          L = Math.round(D * LDR);
+          if (off.width !== cv.width || off.height !== cv.height) {
+            off.width = cv.width;
+            off.height = cv.height;
+            octx.setTransform(1, 0, 0, 1, 0, 0);
+            octx.clearRect(0, 0, off.width, off.height);
+          }
+          draw();
+        }
+        function start() {
+          root.querySelectorAll("[data-shape]").forEach((b) =>
+            b.addEventListener("click", () => {
+              setShape(b.dataset.shape);
+              reset();
+            }),
+          );
+          $("[data-role=play]").addEventListener("click", play);
+          $("[data-role=reset]").addEventListener("click", reset);
+          $("[data-role=burst]").addEventListener("click", () => {
+            for (let i = 0; i < 1000; i++) drop(i < 600);
+            draw();
+          });
+          speedEl.addEventListener("input", () => {
+            speedVal.textContent = rate() + "/кадр";
+            speedEl.style.setProperty("--p", speedEl.value + "%");
+          });
+          speedVal.textContent = rate() + "/кадр";
+          speedEl.style.setProperty("--p", speedEl.value + "%");
+        }
+        window.__regShow("buffon", () => {
+          if (!started) {
+            started = true;
+            start();
+          }
+          resize();
+          if (playing && !raf) raf = requestAnimationFrame(loop);
+        });
+      })();
+
+      /* ===== 03 · Видимые узлы решётки ===== */
+      (function () {
+        const root = document.querySelector('.tab-panel[data-tab="lattice"]');
+        if (!root) return;
+        const $ = (s) => root.querySelector(s);
+        const cv = $("[data-role=canvas]"),
+          ctx = cv.getContext("2d");
+        const estEl = $("[data-role=est]"),
+          statsEl = $("[data-role=stats]"),
+          subEl = $("[data-role=sub]"),
+          speedEl = $("[data-role=speed]"),
+          speedVal = $("[data-role=speedval]");
+        let dpr = 1,
+          cell = 9,
+          R = 20,
+          samples = 0,
+          coprime = 0,
+          playing = false,
+          raf = 0,
+          started = false;
+        function drawField() {
+          const w = cv.width,
+            h = cv.height,
+            cx = w / 2,
+            cy = h / 2;
+          ctx.setTransform(1, 0, 0, 1, 0, 0);
+          ctx.clearRect(0, 0, w, h);
+          for (let a = -R; a <= R; a++)
+            for (let b = -R; b <= R; b++) {
+              if (a === 0 && b === 0) continue;
+              const x = cx + a * cell,
+                y = cy - b * cell;
+              if (x < 0 || x > w || y < 0 || y > h) continue;
+              const vis = window.__gcd(a, b) === 1;
+              ctx.beginPath();
+              if (vis) {
+                ctx.fillStyle = "rgba(255,122,138,0.95)";
+                ctx.arc(x, y, 2.0 * dpr, 0, 7);
+              } else {
+                ctx.fillStyle = "rgba(90,104,130,0.42)";
+                ctx.arc(x, y, 1.25 * dpr, 0, 7);
+              }
+              ctx.fill();
+            }
+          ctx.fillStyle = "#fff";
+          ctx.beginPath();
+          ctx.arc(cx, cy, 3.2 * dpr, 0, 7);
+          ctx.fill();
+        }
+        function sampleBatch(n) {
+          const M = 1000000;
+          for (let i = 0; i < n; i++) {
+            const a = 1 + ((Math.random() * M) | 0),
+              b = 1 + ((Math.random() * M) | 0);
+            if (window.__gcd(a, b) === 1) coprime++;
+            samples++;
+          }
+        }
+        function piEst() {
+          const f = samples ? coprime / samples : 0;
+          return f > 0 ? Math.sqrt(6 / f) : NaN;
+        }
+        function rate() {
+          return Math.round(300 * Math.pow(70, +speedEl.value / 100));
+        }
+        function readout() {
+          const p = piEst(),
+            f = samples ? coprime / samples : 0;
+          estEl.textContent = isFinite(p) ? p.toFixed(5) : "—";
+          statsEl.innerHTML =
+            "пар: " +
+            samples.toLocaleString("ru") +
+            "<br>взаимно простых: " +
+            (f * 100).toFixed(3) +
+            " %<br>цель 6/π² = 60.7927 %<br>ошибка π: " +
+            (isFinite(p) ? ((Math.abs(p - Math.PI) / Math.PI) * 100).toFixed(3) + " %" : "—");
+          subEl.textContent = "узлы |a|,|b| ≤ " + R;
+        }
+        function loop() {
+          if (!root.classList.contains("active")) {
+            raf = 0;
+            return;
+          }
+          if (playing) sampleBatch(rate());
+          readout();
+          raf = playing ? requestAnimationFrame(loop) : 0;
+        }
+        function play() {
+          playing = !playing;
+          $("[data-role=play]").textContent = playing ? "Пауза" : "Запуск";
+          if (playing && !raf) raf = requestAnimationFrame(loop);
+        }
+        function reset() {
+          samples = 0;
+          coprime = 0;
+          readout();
+        }
+        function resize() {
+          const d = window.__fitCanvas(cv);
+          if (!d) return;
+          dpr = d;
+          cell = 9 * dpr;
+          R = Math.max(10, Math.floor(Math.min(cv.width, cv.height) / (2 * cell)) - 1);
+          drawField();
+          readout();
+        }
+        function start() {
+          $("[data-role=play]").addEventListener("click", play);
+          $("[data-role=reset]").addEventListener("click", reset);
+          speedEl.addEventListener("input", () => {
+            speedVal.textContent = rate().toLocaleString("ru") + "/кадр";
+            speedEl.style.setProperty("--p", speedEl.value + "%");
+          });
+          speedVal.textContent = rate().toLocaleString("ru") + "/кадр";
+          speedEl.style.setProperty("--p", speedEl.value + "%");
+        }
+        window.__regShow("lattice", () => {
+          if (!started) {
+            started = true;
+            start();
+          }
+          resize();
+          if (playing && !raf) raf = requestAnimationFrame(loop);
+        });
+      })();
+
+      /* ===== 04 · Мандельброт ===== */
+      (function () {
+        const root = document.querySelector('.tab-panel[data-tab="mandelbrot"]');
+        if (!root) return;
+        const $ = (s) => root.querySelector(s);
+        const ocv = $("[data-role=orbit]"),
+          octx = ocv.getContext("2d");
+        const ccv = $("[data-role=cplane]"),
+          cctx = ccv.getContext("2d");
+        const estEl = $("[data-role=est]"),
+          statsEl = $("[data-role=stats]"),
+          epsEl = $("[data-role=eps]"),
+          epsVal = $("[data-role=epsval]");
+        let dpr = 1,
+          started = false,
+          sweeping = false,
+          sweepExp = 1,
+          curEps = 0.01,
+          curN = 0,
+          orbit = [];
+        function compute(eps) {
+          const cr = -0.75,
+            ci = eps;
+          let zr = 0,
+            zi = 0,
+            n = 0;
+          const cap = Math.ceil(40 / eps) + 2000;
+          orbit = [];
+          const keep = 1500,
+            stride = Math.max(1, Math.floor(Math.PI / eps / keep));
+          while (n < cap) {
+            const nzr = zr * zr - zi * zi + cr,
+              nzi = 2 * zr * zi + ci;
+            zr = nzr;
+            zi = nzi;
+            n++;
+            if (n % stride === 0 && orbit.length < keep + 5) orbit.push([zr, zi]);
+            if (zr * zr + zi * zi > 4) break;
+          }
+          curEps = eps;
+          curN = n;
+        }
+        function fitView(pts) {
+          let mnx = 1e9,
+            mxx = -1e9,
+            mny = 1e9,
+            mxy = -1e9;
+          for (const p of pts) {
+            if (p[0] < mnx) mnx = p[0];
+            if (p[0] > mxx) mxx = p[0];
+            if (p[1] < mny) mny = p[1];
+            if (p[1] > mxy) mxy = p[1];
+          }
+          if (!isFinite(mnx)) {
+            mnx = -0.2;
+            mxx = 0.6;
+            mny = -1.4;
+            mxy = 1.4;
+          }
+          const px = (mxx - mnx) * 0.12 + 0.05,
+            py = (mxy - mny) * 0.12 + 0.05;
+          return [mnx - px, mxx + px, mny - py, mxy + py];
+        }
+        function drawOrbit() {
+          const w = ocv.width,
+            h = ocv.height;
+          octx.setTransform(1, 0, 0, 1, 0, 0);
+          octx.clearRect(0, 0, w, h);
+          const v = fitView(orbit),
+            minx = v[0],
+            maxx = v[1],
+            miny = v[2],
+            maxy = v[3];
+          const sx = (x) => ((x - minx) / (maxx - minx)) * w,
+            sy = (y) => h - ((y - miny) / (maxy - miny)) * h;
+          octx.strokeStyle = "rgba(40,54,79,0.7)";
+          octx.lineWidth = dpr;
+          octx.beginPath();
+          octx.moveTo(sx(0), 0);
+          octx.lineTo(sx(0), h);
+          octx.moveTo(0, sy(0));
+          octx.lineTo(w, sy(0));
+          octx.stroke();
+          if (orbit.length) {
+            octx.strokeStyle = "rgba(255,122,138,0.75)";
+            octx.lineWidth = 1.3 * dpr;
+            octx.beginPath();
+            for (let i = 0; i < orbit.length; i++) {
+              const X = sx(orbit[i][0]),
+                Y = sy(orbit[i][1]);
+              i ? octx.lineTo(X, Y) : octx.moveTo(X, Y);
+            }
+            octx.stroke();
+            octx.fillStyle = "rgba(52,227,160,0.9)";
+            for (const p of orbit) {
+              octx.beginPath();
+              octx.arc(sx(p[0]), sy(p[1]), 1.5 * dpr, 0, 7);
+              octx.fill();
+            }
+          }
+        }
+        function drawCPlane() {
+          const w = ccv.width,
+            h = ccv.height;
+          cctx.setTransform(1, 0, 0, 1, 0, 0);
+          cctx.clearRect(0, 0, w, h);
+          const minx = -2.2,
+            maxx = 0.75,
+            miny = -1.25,
+            maxy = 1.25;
+          const sx = (x) => ((x - minx) / (maxx - minx)) * w,
+            sy = (y) => h - ((y - miny) / (maxy - miny)) * h;
+          cctx.strokeStyle = "rgba(91,141,239,0.75)";
+          cctx.lineWidth = 1.4 * dpr;
+          cctx.beginPath();
+          for (let t = 0; t <= 6.2832; t += 0.02) {
+            const cr = 0.5 * Math.cos(t) - 0.25 * Math.cos(2 * t),
+              ci = 0.5 * Math.sin(t) - 0.25 * Math.sin(2 * t);
+            const X = sx(cr),
+              Y = sy(ci);
+            t ? cctx.lineTo(X, Y) : cctx.moveTo(X, Y);
+          }
+          cctx.stroke();
+          cctx.beginPath();
+          cctx.arc(sx(-1), sy(0), (0.25 / (maxx - minx)) * w, 0, 7);
+          cctx.stroke();
+          const mx = sx(-0.75),
+            my = sy(curEps > 1e-3 ? curEps : 0);
+          cctx.fillStyle = "#fff";
+          cctx.shadowColor = "#ff7a8a";
+          cctx.shadowBlur = 10 * dpr;
+          cctx.beginPath();
+          cctx.arc(mx, my, 3.4 * dpr, 0, 7);
+          cctx.fill();
+          cctx.shadowBlur = 0;
+        }
+        function readout() {
+          const est = curN * curEps;
+          estEl.textContent = curN ? est.toFixed(6) : "—";
+          statsEl.innerHTML =
+            "ε = " +
+            curEps.toExponential(3) +
+            "<br>итераций N = " +
+            curN.toLocaleString("ru") +
+            "<br>N·ε = " +
+            est.toFixed(6) +
+            "<br>π = 3.1415926…<br>ошибка: " +
+            (curN ? ((Math.abs(est - Math.PI) / Math.PI) * 100).toFixed(4) + " %" : "—");
+        }
+        function epsFromSlider(v) {
+          return Math.pow(10, -1 - (v / 100) * 5);
+        }
+        function runOnce() {
+          compute(epsFromSlider(+epsEl.value));
+          drawOrbit();
+          drawCPlane();
+          readout();
+        }
+        function sweep() {
+          sweeping = !sweeping;
+          $("[data-role=sweep]").textContent = sweeping ? "Стоп" : "Авторазвёртка";
+          if (sweeping) {
+            sweepExp = 1;
+            stepSweep();
+          }
+        }
+        function stepSweep() {
+          if (!sweeping || !root.classList.contains("active")) {
+            sweeping = false;
+            $("[data-role=sweep]").textContent = "Авторазвёртка";
+            return;
+          }
+          const eps = Math.pow(10, -sweepExp);
+          compute(eps);
+          drawOrbit();
+          drawCPlane();
+          readout();
+          epsEl.value = String(((-1 - Math.log10(eps)) / 5) * 100);
+          epsVal.textContent = eps.toExponential(2);
+          epsEl.style.setProperty("--p", epsEl.value + "%");
+          sweepExp += 0.5;
+          if (sweepExp > 6.0001) sweepExp = 1;
+          setTimeout(stepSweep, 950);
+        }
+        function resize() {
+          const a = window.__fitCanvas(ocv),
+            b = window.__fitCanvas(ccv);
+          dpr = a || b || dpr;
+          if (!a && !b) return;
+          drawOrbit();
+          drawCPlane();
+          readout();
+        }
+        function start() {
+          $("[data-role=run]").addEventListener("click", () => {
+            if (sweeping) sweep();
+            runOnce();
+          });
+          $("[data-role=sweep]").addEventListener("click", sweep);
+          epsEl.addEventListener("input", () => {
+            epsVal.textContent = epsFromSlider(+epsEl.value).toExponential(2);
+            epsEl.style.setProperty("--p", epsEl.value + "%");
+          });
+          epsVal.textContent = epsFromSlider(+epsEl.value).toExponential(2);
+          epsEl.style.setProperty("--p", epsEl.value + "%");
+          runOnce();
+        }
+        window.__regShow("mandelbrot", () => {
+          if (!started) {
+            started = true;
+            start();
+          }
+          resize();
+        });
+      })();
+
+      /* ===== 05 · Сопротивление бесконечной сетки ===== */
+      (function () {
+        const root = document.querySelector('.tab-panel[data-tab="resistor"]');
+        if (!root) return;
+        const $ = (s) => root.querySelector(s);
+        const cv = $("[data-role=canvas]"),
+          ctx = cv.getContext("2d");
+        const estEl = $("[data-role=est]"),
+          statsEl = $("[data-role=stats]"),
+          sizeEl = $("[data-role=size]"),
+          sizeVal = $("[data-role=sizeval]");
+        let dpr = 1,
+          started = false,
+          raf = 0,
+          playing = true;
+        let N = 71,
+          V = null,
+          A = 0,
+          B = 0,
+          Ai = 0,
+          Aj = 0,
+          Bi = 0,
+          Bj = 0,
+          sweeps = 0,
+          img = null,
+          buf = null,
+          tmp = null;
+        function alloc() {
+          N = +sizeEl.value | 0;
+          if (N % 2 === 0) N++;
+          V = new Float64Array(N * N);
+          Ai = N >> 1;
+          Aj = N >> 1;
+          Bi = Ai + 1;
+          Bj = Aj + 1;
+          A = Aj * N + Ai;
+          B = Bj * N + Bi;
+          sweeps = 0;
+          tmp = tmp || document.createElement("canvas");
+          tmp.width = N;
+          tmp.height = N;
+          img = tmp.getContext("2d").createImageData(N, N);
+          buf = img.data;
+        }
+        function sweep() {
+          const w = 1.92;
+          for (let j = 0; j < N; j++)
+            for (let i = 0; i < N; i++) {
+              const idx = j * N + i;
+              let s = 0,
+                d = 0;
+              if (i > 0) {
+                s += V[idx - 1];
+                d++;
+              }
+              if (i < N - 1) {
+                s += V[idx + 1];
+                d++;
+              }
+              if (j > 0) {
+                s += V[idx - N];
+                d++;
+              }
+              if (j < N - 1) {
+                s += V[idx + N];
+                d++;
+              }
+              let b = 0;
+              if (idx === A) b = 1;
+              else if (idx === B) b = -1;
+              const nv = (s + b) / d;
+              V[idx] += w * (nv - V[idx]);
+            }
+          let m = 0;
+          for (let k = 0; k < V.length; k++) m += V[k];
+          m /= V.length;
+          for (let k = 0; k < V.length; k++) V[k] -= m;
+          sweeps++;
+        }
+        function Rval() {
+          return V[A] - V[B];
+        }
+        function drawHeat() {
+          const w = cv.width,
+            h = cv.height;
+          let mx = 1e-9;
+          for (let k = 0; k < V.length; k++) {
+            const a = V[k] < 0 ? -V[k] : V[k];
+            if (a > mx) mx = a;
+          }
+          for (let k = 0; k < V.length; k++) {
+            const t = Math.max(-1, Math.min(1, V[k] / mx)),
+              o = k * 4,
+              pos = t > 0 ? t : 0,
+              neg = t < 0 ? -t : 0;
+            buf[o] = 10 + pos * 245 + neg * 42;
+            buf[o + 1] = 16 + pos * 112 + neg * 217;
+            buf[o + 2] = 26 + pos * 128 + neg * 160;
+            buf[o + 3] = 255;
+          }
+          tmp.getContext("2d").putImageData(img, 0, 0);
+          ctx.setTransform(1, 0, 0, 1, 0, 0);
+          ctx.imageSmoothingEnabled = false;
+          ctx.clearRect(0, 0, w, h);
+          const side = Math.min(w, h),
+            ox = (w - side) / 2,
+            oy = (h - side) / 2;
+          ctx.drawImage(tmp, 0, 0, N, N, ox, oy, side, side);
+          const cell = side / N;
+          ctx.lineWidth = 1.6 * dpr;
+          ctx.strokeStyle = "#fff";
+          ctx.strokeRect(ox + Ai * cell, oy + Aj * cell, cell, cell);
+          ctx.strokeRect(ox + Bi * cell, oy + Bj * cell, cell, cell);
+        }
+        function readout() {
+          const r = Rval(),
+            pe = r !== 0 ? 2 / r : NaN;
+          estEl.textContent = r ? r.toFixed(5) : "—";
+          statsEl.innerHTML =
+            "R = " +
+            r.toFixed(5) +
+            "<br>2/π = 0.63662<br>сетка: " +
+            N +
+            "×" +
+            N +
+            "<br>проходов: " +
+            sweeps.toLocaleString("ru") +
+            "<br>π = 2/R = " +
+            (isFinite(pe) ? pe.toFixed(5) : "—");
+        }
+        function loop() {
+          if (!root.classList.contains("active")) {
+            raf = 0;
+            return;
+          }
+          if (playing) for (let s = 0; s < 3; s++) sweep();
+          drawHeat();
+          readout();
+          raf = requestAnimationFrame(loop);
+        }
+        function resize() {
+          const d = window.__fitCanvas(cv);
+          if (!d) return;
+          dpr = d;
+          drawHeat();
+          readout();
+        }
+        function start() {
+          alloc();
+          $("[data-role=play]").addEventListener("click", () => {
+            playing = !playing;
+            $("[data-role=play]").textContent = playing ? "Пауза" : "Продолжить";
+          });
+          $("[data-role=reset]").addEventListener("click", () => {
+            alloc();
+          });
+          sizeEl.addEventListener("input", () => {
+            let n = +sizeEl.value | 0;
+            if (n % 2 === 0) n++;
+            sizeVal.textContent = n + "×" + n;
+            sizeEl.style.setProperty("--p", ((+sizeEl.value - 21) / 100) * 100 + "%");
+          });
+          sizeEl.addEventListener("change", () => {
+            alloc();
+          });
+          let n = +sizeEl.value | 0;
+          if (n % 2 === 0) n++;
+          sizeVal.textContent = n + "×" + n;
+          sizeEl.style.setProperty("--p", ((+sizeEl.value - 21) / 100) * 100 + "%");
+        }
+        window.__regShow("resistor", () => {
+          if (!started) {
+            started = true;
+            start();
+          }
+          resize();
+          if (!raf) raf = requestAnimationFrame(loop);
+        });
+      })();
+
+      /* ===== 06 · Диффузия и √π ===== */
+      (function () {
+        const root = document.querySelector('.tab-panel[data-tab="diffusion"]');
+        if (!root) return;
+        const $ = (s) => root.querySelector(s);
+        const cv = $("[data-role=canvas]"),
+          ctx = cv.getContext("2d");
+        const estEl = $("[data-role=est]"),
+          statsEl = $("[data-role=stats]"),
+          nEl = $("[data-role=n]"),
+          nVal = $("[data-role=nval]"),
+          speedEl = $("[data-role=speed]"),
+          speedVal = $("[data-role=speedval]");
+        let dpr = 1,
+          started = false,
+          raf = 0,
+          playing = false,
+          n = 200,
+          hist = null,
+          total = 0,
+          count0 = 0;
+        function pn() {
+          return ((+nEl.value - 20) / 380) * 100;
+        }
+        function allocHist() {
+          n = +nEl.value | 0;
+          if (n % 2) n++;
+          hist = new Float64Array(n + 1);
+          total = 0;
+          count0 = 0;
+        }
+        function oneWalk() {
+          let pos = 0;
+          for (let s = 0; s < n; s++) pos += Math.random() < 0.5 ? 1 : -1;
+          hist[(pos + n) >> 1]++;
+          total++;
+          if (pos === 0) count0++;
+        }
+        function rate() {
+          return Math.round(50 * Math.pow(70, +speedEl.value / 100));
+        }
+        function piEst() {
+          const p0 = total ? count0 / total : 0;
+          return p0 > 0 ? 2 / (n * p0 * p0) : NaN;
+        }
+        function draw() {
+          const w = cv.width,
+            h = cv.height,
+            pad = 10 * dpr;
+          ctx.setTransform(1, 0, 0, 1, 0, 0);
+          ctx.clearRect(0, 0, w, h);
+          const bw = (w - 2 * pad) / (n + 1);
+          let mx = 1;
+          for (let k = 0; k <= n; k++) if (hist[k] > mx) mx = hist[k];
+          ctx.fillStyle = "rgba(91,141,239,0.55)";
+          for (let k = 0; k <= n; k++) {
+            const ht = (hist[k] / mx) * (h - 2 * pad);
+            ctx.fillRect(pad + k * bw, h - pad - ht, Math.max(1, bw * 0.9), ht);
+          }
+          const sg = Math.sqrt(n);
+          ctx.strokeStyle = "rgba(52,227,160,0.95)";
+          ctx.lineWidth = 1.8 * dpr;
+          ctx.beginPath();
+          for (let k = 0; k <= n; k++) {
+            const pos = 2 * k - n,
+              pe = (2 / (sg * Math.sqrt(2 * Math.PI))) * Math.exp((-pos * pos) / (2 * n)),
+              ht = ((pe * total) / mx) * (h - 2 * pad),
+              X = pad + k * bw + bw / 2,
+              Y = h - pad - ht;
+            k ? ctx.lineTo(X, Y) : ctx.moveTo(X, Y);
+          }
+          ctx.stroke();
+        }
+        function readout() {
+          const p = piEst(),
+            p0 = total ? count0 / total : 0;
+          estEl.textContent = isFinite(p) ? p.toFixed(5) : "—";
+          statsEl.innerHTML =
+            "блужданий: " +
+            total.toLocaleString("ru") +
+            "<br>шагов n = " +
+            n +
+            "<br>P(конец=0) = " +
+            p0.toFixed(5) +
+            "<br>√(2/πn) = " +
+            Math.sqrt(2 / (Math.PI * n)).toFixed(5) +
+            "<br>ошибка: " +
+            (isFinite(p) ? ((Math.abs(p - Math.PI) / Math.PI) * 100).toFixed(3) + " %" : "—");
+        }
+        function loop() {
+          if (!root.classList.contains("active")) {
+            raf = 0;
+            return;
+          }
+          if (playing) for (let i = 0, r = rate(); i < r; i++) oneWalk();
+          draw();
+          readout();
+          raf = playing ? requestAnimationFrame(loop) : 0;
+        }
+        function play() {
+          playing = !playing;
+          $("[data-role=play]").textContent = playing ? "Пауза" : "Запуск";
+          if (playing && !raf) raf = requestAnimationFrame(loop);
+        }
+        function reset() {
+          allocHist();
+          draw();
+          readout();
+        }
+        function resize() {
+          const d = window.__fitCanvas(cv);
+          if (!d) return;
+          dpr = d;
+          draw();
+          readout();
+        }
+        function start() {
+          allocHist();
+          $("[data-role=play]").addEventListener("click", play);
+          $("[data-role=reset]").addEventListener("click", reset);
+          nEl.addEventListener("input", () => {
+            let v = +nEl.value | 0;
+            if (v % 2) v++;
+            nVal.textContent = v;
+            nEl.style.setProperty("--p", pn() + "%");
+          });
+          nEl.addEventListener("change", () => {
+            allocHist();
+            draw();
+            readout();
+          });
+          speedEl.addEventListener("input", () => {
+            speedVal.textContent = rate().toLocaleString("ru") + "/кадр";
+            speedEl.style.setProperty("--p", speedEl.value + "%");
+          });
+          let v = +nEl.value | 0;
+          if (v % 2) v++;
+          nVal.textContent = v;
+          nEl.style.setProperty("--p", pn() + "%");
+          speedVal.textContent = rate().toLocaleString("ru") + "/кадр";
+          speedEl.style.setProperty("--p", speedEl.value + "%");
+        }
+        window.__regShow("diffusion", () => {
+          if (!started) {
+            started = true;
+            start();
+          }
+          resize();
+          if (playing && !raf) raf = requestAnimationFrame(loop);
+        });
+      })();
+
+      /* ===== 07 · Территория двумерного блуждания ===== */
+      (function () {
+        const root = document.querySelector('.tab-panel[data-tab="walk"]');
+        if (!root) return;
+        const $ = (s) => root.querySelector(s);
+        const cv = $("[data-role=canvas]"),
+          ctx = cv.getContext("2d");
+        const off = document.createElement("canvas"),
+          octx = off.getContext("2d");
+        const estEl = $("[data-role=est]"),
+          statsEl = $("[data-role=stats]"),
+          nEl = $("[data-role=n]"),
+          nVal = $("[data-role=nval]"),
+          speedEl = $("[data-role=speed]"),
+          speedVal = $("[data-role=speedval]");
+        let dpr = 1,
+          started = false,
+          raf = 0,
+          playing = false;
+        let nTarget = 100000,
+          x = 0,
+          y = 0,
+          steps = 0,
+          visited = null,
+          S = 0,
+          scale = 1,
+          cx = 0,
+          cy = 0,
+          walks = 0,
+          sumPi = 0,
+          waiting = false;
+        function pn() {
+          return ((+nEl.value - 5000) / 295000) * 100;
+        }
+        function key(a, b) {
+          return (a + 1e7) * 2e7 + (b + 1e7);
+        }
+        function paint(a, b) {
+          const px = cx + a * scale,
+            py = cy - b * scale;
+          if (px < 0 || px > off.width || py < 0 || py > off.height) return;
+          const s = Math.max(1, scale);
+          octx.fillStyle = "rgba(52,227,160,0.5)";
+          octx.fillRect(px - s / 2, py - s / 2, s, s);
+        }
+        function newWalk() {
+          nTarget = +nEl.value | 0;
+          x = 0;
+          y = 0;
+          steps = 0;
+          S = 1;
+          visited = new Map();
+          visited.set(key(0, 0), 1);
+          waiting = false;
+          if (off.width !== cv.width || off.height !== cv.height) {
+            off.width = cv.width;
+            off.height = cv.height;
+          }
+          octx.setTransform(1, 0, 0, 1, 0, 0);
+          octx.clearRect(0, 0, off.width, off.height);
+          cx = cv.width / 2;
+          cy = cv.height / 2;
+          const ext = 3 * Math.sqrt(nTarget);
+          scale = Math.max(0.5, Math.min(cv.width, cv.height) / (2 * ext));
+          paint(0, 0);
+        }
+        function stepN(m) {
+          for (let i = 0; i < m && steps < nTarget; i++) {
+            const r = (Math.random() * 4) | 0;
+            if (r === 0) x++;
+            else if (r === 1) x--;
+            else if (r === 2) y++;
+            else y--;
+            steps++;
+            const k = key(x, y);
+            if (!visited.has(k)) {
+              visited.set(k, 1);
+              S++;
+              paint(x, y);
+            }
+          }
+          if (steps >= nTarget && !waiting) finishWalk();
+        }
+        function finishWalk() {
+          waiting = true;
+          const pe = (S * Math.log(nTarget)) / nTarget;
+          walks++;
+          sumPi += pe;
+          readout(pe);
+          setTimeout(() => {
+            if (root.classList.contains("active") && playing) {
+              newWalk();
+              if (!raf) raf = requestAnimationFrame(loop);
+            }
+          }, 650);
+        }
+        function rate() {
+          return Math.round(200 * Math.pow(150, +speedEl.value / 100));
+        }
+        function readout(pe) {
+          const cur = pe != null ? pe : steps > 1 ? (S * Math.log(steps)) / steps : 0,
+            avg = walks ? sumPi / walks : cur;
+          estEl.textContent = walks || cur ? avg.toFixed(4) : "—";
+          statsEl.innerHTML =
+            "шаг " +
+            steps.toLocaleString("ru") +
+            " / " +
+            nTarget.toLocaleString("ru") +
+            "<br>клеток S = " +
+            S.toLocaleString("ru") +
+            "<br>π текущей ≈ " +
+            (cur ? cur.toFixed(4) : "—") +
+            "<br>среднее по " +
+            walks +
+            ": " +
+            (walks ? (sumPi / walks).toFixed(4) : "—");
+        }
+        function draw() {
+          const w = cv.width,
+            h = cv.height;
+          ctx.setTransform(1, 0, 0, 1, 0, 0);
+          ctx.clearRect(0, 0, w, h);
+          ctx.drawImage(off, 0, 0);
+          ctx.fillStyle = "#fff";
+          ctx.beginPath();
+          ctx.arc(cx + x * scale, cy - y * scale, 2.6 * dpr, 0, 7);
+          ctx.fill();
+        }
+        function loop() {
+          if (!root.classList.contains("active")) {
+            raf = 0;
+            return;
+          }
+          if (playing && !waiting) stepN(rate());
+          draw();
+          readout(null);
+          raf = playing ? requestAnimationFrame(loop) : 0;
+        }
+        function play() {
+          playing = !playing;
+          $("[data-role=play]").textContent = playing ? "Пауза" : "Запуск";
+          if (playing) {
+            if (waiting) newWalk();
+            if (!raf) raf = requestAnimationFrame(loop);
+          }
+        }
+        function resetAvg() {
+          walks = 0;
+          sumPi = 0;
+          newWalk();
+          draw();
+          readout(null);
+        }
+        function resize() {
+          const d = window.__fitCanvas(cv);
+          if (!d) return;
+          dpr = d;
+          newWalk();
+          draw();
+          readout(null);
+        }
+        function start() {
+          off.width = cv.width || 300;
+          off.height = cv.height || 300;
+          $("[data-role=play]").addEventListener("click", play);
+          $("[data-role=new]").addEventListener("click", () => {
+            newWalk();
+            playing = true;
+            $("[data-role=play]").textContent = "Пауза";
+            if (!raf) raf = requestAnimationFrame(loop);
+          });
+          $("[data-role=reset]").addEventListener("click", resetAvg);
+          nEl.addEventListener("input", () => {
+            nVal.textContent = (+nEl.value | 0).toLocaleString("ru");
+            nEl.style.setProperty("--p", pn() + "%");
+          });
+          nEl.addEventListener("change", () => {
+            newWalk();
+            draw();
+            readout(null);
+          });
+          speedEl.addEventListener("input", () => {
+            speedVal.textContent = rate().toLocaleString("ru") + "/кадр";
+            speedEl.style.setProperty("--p", speedEl.value + "%");
+          });
+          nVal.textContent = (+nEl.value | 0).toLocaleString("ru");
+          nEl.style.setProperty("--p", pn() + "%");
+          speedVal.textContent = rate().toLocaleString("ru") + "/кадр";
+          speedEl.style.setProperty("--p", speedEl.value + "%");
+          newWalk();
+        }
+        window.__regShow("walk", () => {
+          if (!started) {
+            started = true;
+            start();
+          }
+          resize();
+          if (playing && !raf) raf = requestAnimationFrame(loop);
+        });
+      })();
+    </script>
+
+    <script>
+      "use strict";
+      (function () {
+        function gcd(a, b) {
+          a = a < 0 ? -a : a;
+          b = b < 0 ? -b : b;
+          while (b) {
+            const t = a % b;
+            a = b;
+            b = t;
+          }
+          return a;
+        }
+        function mk(panel) {
+          const q = (s) => panel.querySelector(s);
+          const cv = q("[data-demo-canvas]"),
+            ctx = cv.getContext("2d");
+          const sub = q("[data-demo-sub]"),
+            cap = q("[data-demo-caption]");
+          const bStep = q("[data-demo-step]"),
+            bPlay = q("[data-demo-play]"),
+            bReset = q("[data-demo-reset]");
+          let dpr = 1;
+          function fit() {
+            const r = cv.getBoundingClientRect();
+            if (r.width < 2) return 0;
+            dpr = Math.min(window.devicePixelRatio || 1, 2);
+            cv.width = Math.round(r.width * dpr);
+            cv.height = Math.round(r.height * dpr);
+            return dpr;
+          }
+          return { panel, cv, ctx, sub, cap, bStep, bPlay, bReset, fit, d: () => dpr };
+        }
+        const FAC = {};
+
+        /* ===== 01 Бильярд: отражения на круге энергии по одному удару ===== */
+        FAC.billiard = function (panel) {
+          const S = mk(panel),
+            { ctx, cv, cap, sub, bStep, bPlay, bReset } = S;
+          const m1 = 1,
+            m2 = 5,
+            a = 1,
+            b = Math.sqrt(5);
+          function sim() {
+            let x1 = 2,
+              x2 = 12,
+              v1 = 0,
+              v2 = -1;
+            const e = [[v1, v2, "старт"]];
+            let g = 0;
+            while (g++ < 200) {
+              let tW = Infinity;
+              if (v1 < -1e-12) tW = (0.25 - x1) / v1;
+              let tB = Infinity;
+              const cl = v1 - v2;
+              if (cl > 1e-12) {
+                let gg = x2 - x1 - 1.25;
+                if (gg < 0) gg = 0;
+                tB = gg / cl;
+              }
+              const tn = Math.min(tW, tB);
+              if (!isFinite(tn)) break;
+              x1 += v1 * tn;
+              x2 += v2 * tn;
+              let ty;
+              if (tW <= tB) {
+                v1 = -v1;
+                ty = "шар о стену";
+              } else {
+                const n1 = ((m1 - m2) * v1 + 2 * m2 * v2) / (m1 + m2),
+                  n2 = ((m2 - m1) * v2 + 2 * m1 * v1) / (m1 + m2);
+                v1 = n1;
+                v2 = n2;
+                ty = "шар о шар";
+              }
+              e.push([v1, v2, ty]);
+            }
+            return e;
+          }
+          const evs = sim(),
+            N = evs.length - 1,
+            R = Math.sqrt(m2);
+          const pts = evs.map((e) => [(a * e[0]) / R, (b * e[1]) / R]);
+          let k = 0,
+            timer = 0;
+          function draw() {
+            const w = cv.width,
+              h = cv.height,
+              cx = w * 0.5,
+              cy = h * 0.5,
+              Rp = Math.min(w, h) * 0.4,
+              dp = S.d();
+            ctx.setTransform(1, 0, 0, 1, 0, 0);
+            ctx.clearRect(0, 0, w, h);
+            ctx.strokeStyle = "rgba(40,54,79,0.7)";
+            ctx.lineWidth = dp;
+            ctx.beginPath();
+            ctx.moveTo(0, cy);
+            ctx.lineTo(w, cy);
+            ctx.stroke();
+            ctx.strokeStyle = "rgba(52,227,160,0.55)";
+            ctx.lineWidth = 1.4 * dp;
+            ctx.beginPath();
+            ctx.arc(cx, cy, Rp, 0, 7);
+            ctx.stroke();
+            const ext = Rp * 1.12;
+            ctx.strokeStyle = "rgba(91,141,239,0.6)";
+            ctx.lineWidth = 1.2 * dp;
+            ctx.beginPath();
+            ctx.moveTo(cx, cy - ext);
+            ctx.lineTo(cx, cy + ext);
+            ctx.stroke();
+            const sl = b / a,
+              dx = 1 / Math.hypot(1, sl),
+              dy = sl / Math.hypot(1, sl);
+            ctx.strokeStyle = "rgba(244,169,72,0.6)";
+            ctx.beginPath();
+            ctx.moveTo(cx - dx * ext, cy + dy * ext);
+            ctx.lineTo(cx + dx * ext, cy - dy * ext);
+            ctx.stroke();
+            const SX = (p) => cx + p[0] * Rp,
+              SY = (p) => cy - p[1] * Rp;
+            ctx.strokeStyle = "rgba(255,122,138,0.85)";
+            ctx.lineWidth = 1.6 * dp;
+            ctx.beginPath();
+            for (let i = 0; i <= k && i < pts.length; i++) {
+              const X = SX(pts[i]),
+                Y = SY(pts[i]);
+              i ? ctx.lineTo(X, Y) : ctx.moveTo(X, Y);
+            }
+            ctx.stroke();
+            for (let i = 0; i <= k && i < pts.length; i++) {
+              ctx.fillStyle = i === k ? "#fff" : "rgba(255,122,138,0.9)";
+              ctx.beginPath();
+              ctx.arc(SX(pts[i]), SY(pts[i]), (i === k ? 3.4 : 2.2) * dp, 0, 7);
+              ctx.fill();
+            }
+            sub.textContent = "M/m = 5 · отражений " + k + " из " + N;
+            if (k === 0)
+              cap.innerHTML =
+                "Точка состояния — на круге энергии. «Шаг» = один удар = отражение от зеркала.";
+            else if (k < N)
+              cap.innerHTML =
+                "Удар " +
+                k +
+                ": <b>" +
+                evs[k][2] +
+                "</b> — отражение от зеркала. Углы набираются к π.";
+            else
+              cap.innerHTML =
+                '<span class="ok">Всё: ' +
+                N +
+                " ударов</span> — следующий угол θ в π уже не влезает.";
+          }
+          function step() {
+            if (k < N) {
+              k++;
+              draw();
+            }
+          }
+          function stop() {
+            if (timer) {
+              clearInterval(timer);
+              timer = 0;
+              bPlay.textContent = "Авто";
+            }
+          }
+          function play() {
+            if (timer) {
+              stop();
+              return;
+            }
+            bPlay.textContent = "Стоп";
+            timer = setInterval(() => {
+              k < N ? step() : stop();
+            }, 650);
+          }
+          function reset() {
+            k = 0;
+            stop();
+            draw();
+          }
+          bStep.onclick = step;
+          bPlay.onclick = play;
+          bReset.onclick = reset;
+          return {
+            show() {
+              if (!S.fit()) return;
+              draw();
+            },
+            hide: stop,
+          };
+        };
+
+        /* ===== 02 Бюффон: одна игла за раз ===== */
+        FAC.buffon = function (panel) {
+          const S = mk(panel),
+            { ctx, cv, cap, sub, bStep, bPlay, bReset } = S;
+          const LDR = 1.2;
+          let D = 60,
+            L = 72,
+            cur = null,
+            tr = 0,
+            cr = 0,
+            timer = 0;
+          function needle() {
+            const w = cv.width,
+              h = cv.height,
+              x0 = w * 0.18 + Math.random() * w * 0.64,
+              y0 = h * 0.18 + Math.random() * h * 0.64,
+              an = Math.random() * 6.2832;
+            return { x0, y0, x1: x0 + Math.cos(an) * L, y1: y0 + Math.sin(an) * L };
+          }
+          function cross(nd) {
+            const lo = Math.min(nd.y0, nd.y1),
+              hi = Math.max(nd.y0, nd.y1),
+              out = [];
+            for (let y = D; y < cv.height; y += D) {
+              if (y > lo && y < hi) {
+                const t = (y - nd.y0) / (nd.y1 - nd.y0);
+                out.push([nd.x0 + (nd.x1 - nd.x0) * t, y]);
+              }
+            }
+            return out;
+          }
+          function draw() {
+            const w = cv.width,
+              h = cv.height,
+              dp = S.d();
+            ctx.setTransform(1, 0, 0, 1, 0, 0);
+            ctx.clearRect(0, 0, w, h);
+            ctx.strokeStyle = "rgba(120,140,175,0.3)";
+            ctx.lineWidth = dp;
+            for (let y = D; y < h; y += D) {
+              ctx.beginPath();
+              ctx.moveTo(0, y);
+              ctx.lineTo(w, y);
+              ctx.stroke();
+            }
+            let nc = 0;
+            if (cur) {
+              const cs = cross(cur);
+              nc = cs.length;
+              ctx.strokeStyle = nc > 0 ? "rgba(52,227,160,0.95)" : "rgba(150,164,190,0.7)";
+              ctx.lineWidth = 3 * dp;
+              ctx.lineCap = "round";
+              ctx.beginPath();
+              ctx.moveTo(cur.x0, cur.y0);
+              ctx.lineTo(cur.x1, cur.y1);
+              ctx.stroke();
+              ctx.fillStyle = "#fff";
+              for (const c of cs) {
+                ctx.beginPath();
+                ctx.arc(c[0], c[1], 4 * dp, 0, 7);
+                ctx.fill();
+              }
+            }
+            const est = cr > 0 ? (2 * LDR * tr) / cr : NaN;
+            sub.textContent = "L/d = " + LDR.toFixed(2);
+            cap.innerHTML = cur
+              ? "Игла пересекла <b>" +
+                nc +
+                "</b> · бросков " +
+                tr +
+                ", пересечений " +
+                cr +
+                " → π ≈ <b>" +
+                (isFinite(est) ? est.toFixed(3) : "—") +
+                "</b>"
+              : "Жмите «Шаг» — уроним одну иглу.";
+          }
+          function step() {
+            cur = needle();
+            tr++;
+            cr += cross(cur).length;
+            draw();
+          }
+          function stop() {
+            if (timer) {
+              clearInterval(timer);
+              timer = 0;
+              bPlay.textContent = "Авто";
+            }
+          }
+          function play() {
+            if (timer) {
+              stop();
+              return;
+            }
+            bPlay.textContent = "Стоп";
+            timer = setInterval(step, 800);
+          }
+          function reset() {
+            cur = null;
+            tr = 0;
+            cr = 0;
+            stop();
+            draw();
+          }
+          bStep.onclick = step;
+          bPlay.onclick = play;
+          bReset.onclick = reset;
+          return {
+            show() {
+              if (!S.fit()) return;
+              D = Math.max(48, (cv.height / 4) | 0);
+              L = Math.round(D * LDR);
+              draw();
+            },
+            hide: stop,
+          };
+        };
+
+        /* ===== 03 Решётка: один узел — виден или заслонён ===== */
+        FAC.lattice = function (panel) {
+          const S = mk(panel),
+            { ctx, cv, cap, sub, bStep, bPlay, bReset } = S;
+          let idx = 0,
+            timer = 0,
+            seq = [];
+          function build() {
+            seq = [];
+            for (let s = 2; s <= 9; s++) for (let a = 1; a < s; a++) seq.push([a, s - a]);
+          }
+          function draw() {
+            const w = cv.width,
+              h = cv.height,
+              dp = S.d(),
+              ox = w * 0.14,
+              oy = h * 0.86;
+            ctx.setTransform(1, 0, 0, 1, 0, 0);
+            ctx.clearRect(0, 0, w, h);
+            const cell = Math.min((w - ox - 12 * dp) / 9, (oy - 12 * dp) / 9);
+            const nd = seq[idx % seq.length],
+              a = nd[0],
+              b = nd[1],
+              g = gcd(a, b);
+            for (let i = 0; i <= 9; i++)
+              for (let j = 0; j <= 9; j++) {
+                if (i === 0 && j === 0) continue;
+                const x = ox + i * cell,
+                  y = oy - j * cell;
+                if (x > w || y < 0) continue;
+                const vis = gcd(i, j) === 1;
+                ctx.fillStyle = vis ? "rgba(255,122,138,0.5)" : "rgba(90,104,130,0.4)";
+                ctx.beginPath();
+                ctx.arc(x, y, (vis ? 2 : 1.4) * dp, 0, 7);
+                ctx.fill();
+              }
+            ctx.fillStyle = "#fff";
+            ctx.beginPath();
+            ctx.arc(ox, oy, 3.4 * dp, 0, 7);
+            ctx.fill();
+            const nx = ox + a * cell,
+              ny = oy - b * cell;
+            ctx.strokeStyle = "rgba(244,169,72,0.9)";
+            ctx.lineWidth = 1.6 * dp;
+            ctx.beginPath();
+            ctx.moveTo(ox, oy);
+            ctx.lineTo(nx, ny);
+            ctx.stroke();
+            ctx.fillStyle = g === 1 ? "rgba(255,122,138,1)" : "rgba(190,158,96,1)";
+            ctx.beginPath();
+            ctx.arc(nx, ny, 5 * dp, 0, 7);
+            ctx.fill();
+            if (g > 1) {
+              const bx = ox + (a / g) * cell,
+                by = oy - (b / g) * cell;
+              ctx.strokeStyle = "#fff";
+              ctx.lineWidth = 2 * dp;
+              ctx.beginPath();
+              ctx.arc(bx, by, 6.5 * dp, 0, 7);
+              ctx.stroke();
+            }
+            sub.textContent = "узел (" + a + ", " + b + ")";
+            cap.innerHTML =
+              g === 1
+                ? "(" + a + ", " + b + '): НОД = 1 → <span class="ok">виден</span>'
+                : "(" +
+                  a +
+                  ", " +
+                  b +
+                  "): НОД = " +
+                  g +
+                  " → <b>заслонён</b> узлом (" +
+                  a / g +
+                  ", " +
+                  b / g +
+                  ")";
+          }
+          function step() {
+            idx = (idx + 1) % seq.length;
+            draw();
+          }
+          function stop() {
+            if (timer) {
+              clearInterval(timer);
+              timer = 0;
+              bPlay.textContent = "Авто";
+            }
+          }
+          function play() {
+            if (timer) {
+              stop();
+              return;
+            }
+            bPlay.textContent = "Стоп";
+            timer = setInterval(step, 1100);
+          }
+          function reset() {
+            idx = 0;
+            stop();
+            draw();
+          }
+          bStep.onclick = step;
+          bPlay.onclick = play;
+          bReset.onclick = reset;
+          return {
+            show() {
+              if (!S.fit()) return;
+              if (!seq.length) build();
+              draw();
+            },
+            hide: stop,
+          };
+        };
+
+        /* ===== 04 Мандельброт: орбита по одной итерации ===== */
+        FAC.mandelbrot = function (panel) {
+          const S = mk(panel),
+            { ctx, cv, cap, sub, bStep, bPlay, bReset } = S;
+          const eps = 0.06,
+            cr = -0.75,
+            ci = eps;
+          let zr = 0,
+            zi = 0,
+            n = 0,
+            orbit = [[0, 0]],
+            timer = 0,
+            esc = false;
+          function draw() {
+            const w = cv.width,
+              h = cv.height,
+              dp = S.d();
+            ctx.setTransform(1, 0, 0, 1, 0, 0);
+            ctx.clearRect(0, 0, w, h);
+            const mnx = -0.4,
+              mxx = 0.7,
+              mny = -1.5,
+              mxy = 1.5,
+              sx = (x) => ((x - mnx) / (mxx - mnx)) * w,
+              sy = (y) => h - ((y - mny) / (mxy - mny)) * h;
+            ctx.strokeStyle = "rgba(40,54,79,0.7)";
+            ctx.lineWidth = dp;
+            ctx.beginPath();
+            ctx.moveTo(sx(0), 0);
+            ctx.lineTo(sx(0), h);
+            ctx.moveTo(0, sy(0));
+            ctx.lineTo(w, sy(0));
+            ctx.stroke();
+            ctx.strokeStyle = "rgba(255,122,138,0.7)";
+            ctx.lineWidth = 1.3 * dp;
+            ctx.beginPath();
+            for (let i = 0; i < orbit.length; i++) {
+              const X = sx(orbit[i][0]),
+                Y = sy(orbit[i][1]);
+              i ? ctx.lineTo(X, Y) : ctx.moveTo(X, Y);
+            }
+            ctx.stroke();
+            ctx.fillStyle = "rgba(52,227,160,0.85)";
+            for (const p of orbit) {
+              ctx.beginPath();
+              ctx.arc(sx(p[0]), sy(p[1]), 1.8 * dp, 0, 7);
+              ctx.fill();
+            }
+            const last = orbit[orbit.length - 1];
+            ctx.fillStyle = "#fff";
+            ctx.beginPath();
+            ctx.arc(sx(last[0]), sy(last[1]), 3.4 * dp, 0, 7);
+            ctx.fill();
+            sub.textContent = "ε = 0.06 · шаг n = " + n;
+            const mod = Math.hypot(last[0], last[1]);
+            if (!esc)
+              cap.innerHTML =
+                "Шаг " +
+                n +
+                ": |z| = " +
+                mod.toFixed(2) +
+                " — орбита ползёт по коридору (π/ε ≈ " +
+                (Math.PI / eps).toFixed(0) +
+                ").";
+            else
+              cap.innerHTML =
+                '<span class="ok">Вылет на N = ' +
+                n +
+                "</span> · N·ε = <b>" +
+                (n * eps).toFixed(3) +
+                "</b> ≈ π";
+          }
+          function step() {
+            if (esc) return;
+            const nr = zr * zr - zi * zi + cr,
+              ni = 2 * zr * zi + ci;
+            zr = nr;
+            zi = ni;
+            n++;
+            orbit.push([zr, zi]);
+            if (zr * zr + zi * zi > 4) esc = true;
+            draw();
+            if (esc) stop();
+          }
+          function stop() {
+            if (timer) {
+              clearInterval(timer);
+              timer = 0;
+              bPlay.textContent = "Авто";
+            }
+          }
+          function play() {
+            if (timer) {
+              stop();
+              return;
+            }
+            bPlay.textContent = "Стоп";
+            timer = setInterval(step, 90);
+          }
+          function reset() {
+            zr = 0;
+            zi = 0;
+            n = 0;
+            orbit = [[0, 0]];
+            esc = false;
+            stop();
+            draw();
+          }
+          bStep.onclick = step;
+          bPlay.onclick = play;
+          bReset.onclick = reset;
+          return {
+            show() {
+              if (!S.fit()) return;
+              draw();
+            },
+            hide: stop,
+          };
+        };
+
+        /* ===== 05 Резисторы: релаксация по одному проходу ===== */
+        FAC.resistor = function (panel) {
+          const S = mk(panel),
+            { ctx, cv, cap, sub, bStep, bPlay, bReset } = S;
+          const N = 11,
+            Ai = N >> 1,
+            Aj = N >> 1,
+            Bi = Ai + 1,
+            Bj = Aj + 1,
+            A = Aj * N + Ai,
+            B = Bj * N + Bi;
+          let V = new Float64Array(N * N),
+            sweeps = 0,
+            timer = 0;
+          function sweep() {
+            const wg = 1.9;
+            for (let j = 0; j < N; j++)
+              for (let i = 0; i < N; i++) {
+                const idx = j * N + i;
+                let s = 0,
+                  d = 0;
+                if (i > 0) {
+                  s += V[idx - 1];
+                  d++;
+                }
+                if (i < N - 1) {
+                  s += V[idx + 1];
+                  d++;
+                }
+                if (j > 0) {
+                  s += V[idx - N];
+                  d++;
+                }
+                if (j < N - 1) {
+                  s += V[idx + N];
+                  d++;
+                }
+                let bb = 0;
+                if (idx === A) bb = 1;
+                else if (idx === B) bb = -1;
+                V[idx] += wg * ((s + bb) / d - V[idx]);
+              }
+            let m = 0;
+            for (let k = 0; k < V.length; k++) m += V[k];
+            m /= V.length;
+            for (let k = 0; k < V.length; k++) V[k] -= m;
+            sweeps++;
+          }
+          function draw() {
+            const w = cv.width,
+              h = cv.height,
+              dp = S.d();
+            ctx.setTransform(1, 0, 0, 1, 0, 0);
+            ctx.clearRect(0, 0, w, h);
+            let mx = 1e-9;
+            for (let k = 0; k < V.length; k++) {
+              const av = V[k] < 0 ? -V[k] : V[k];
+              if (av > mx) mx = av;
+            }
+            const side = Math.min(w, h) * 0.92,
+              ox = (w - side) / 2,
+              oy = (h - side) / 2,
+              cell = side / N;
+            for (let j = 0; j < N; j++)
+              for (let i = 0; i < N; i++) {
+                const t = Math.max(-1, Math.min(1, V[j * N + i] / mx)),
+                  pos = t > 0 ? t : 0,
+                  neg = t < 0 ? -t : 0;
+                ctx.fillStyle =
+                  "rgb(" +
+                  ((10 + pos * 245 + neg * 42) | 0) +
+                  "," +
+                  ((16 + pos * 112 + neg * 217) | 0) +
+                  "," +
+                  ((26 + pos * 128 + neg * 160) | 0) +
+                  ")";
+                ctx.fillRect(ox + i * cell, oy + j * cell, cell + 1, cell + 1);
+              }
+            ctx.strokeStyle = "#fff";
+            ctx.lineWidth = 2 * dp;
+            ctx.strokeRect(ox + Ai * cell, oy + Aj * cell, cell, cell);
+            ctx.strokeRect(ox + Bi * cell, oy + Bj * cell, cell, cell);
+            const R = V[A] - V[B];
+            sub.textContent = "сетка 11×11 · проходов " + sweeps;
+            cap.innerHTML = sweeps
+              ? "Проход " +
+                sweeps +
+                ": R = <b>" +
+                R.toFixed(4) +
+                "</b> → 2/π = 0.6366 · π = 2/R = " +
+                (R ? (2 / R).toFixed(4) : "—")
+              : "Жмите «Шаг» — один проход релаксации поля.";
+          }
+          function step() {
+            sweep();
+            draw();
+          }
+          function stop() {
+            if (timer) {
+              clearInterval(timer);
+              timer = 0;
+              bPlay.textContent = "Авто";
+            }
+          }
+          function play() {
+            if (timer) {
+              stop();
+              return;
+            }
+            bPlay.textContent = "Стоп";
+            timer = setInterval(step, 110);
+          }
+          function reset() {
+            V = new Float64Array(N * N);
+            sweeps = 0;
+            stop();
+            draw();
+          }
+          bStep.onclick = step;
+          bPlay.onclick = play;
+          bReset.onclick = reset;
+          return {
+            show() {
+              if (!S.fit()) return;
+              draw();
+            },
+            hide: stop,
+          };
+        };
+
+        /* ===== 06 Диффузия: одно блуждание строит гистограмму ===== */
+        FAC.diffusion = function (panel) {
+          const S = mk(panel),
+            { ctx, cv, cap, sub, bStep, bPlay, bReset } = S;
+          const n = 24;
+          let pos = 0,
+            s = 0,
+            hist = {},
+            walks = 0,
+            timer = 0;
+          function hop() {
+            if (s >= n) {
+              hist[pos] = (hist[pos] || 0) + 1;
+              walks++;
+              pos = 0;
+              s = 0;
+              draw();
+              return;
+            }
+            pos += Math.random() < 0.5 ? 1 : -1;
+            s++;
+            draw();
+          }
+          function draw() {
+            const w = cv.width,
+              h = cv.height,
+              dp = S.d();
+            ctx.setTransform(1, 0, 0, 1, 0, 0);
+            ctx.clearRect(0, 0, w, h);
+            const cx = w / 2,
+              axisY = h * 0.36,
+              unit = Math.min((w * 0.44) / n, 10 * dp),
+              baseY = h * 0.95;
+            ctx.strokeStyle = "rgba(60,74,99,0.85)";
+            ctx.lineWidth = dp;
+            ctx.beginPath();
+            ctx.moveTo(cx - n * unit, axisY);
+            ctx.lineTo(cx + n * unit, axisY);
+            ctx.stroke();
+            ctx.fillStyle = "rgba(120,134,160,0.8)";
+            ctx.beginPath();
+            ctx.arc(cx, axisY, 2.2 * dp, 0, 7);
+            ctx.fill();
+            let mx = 1;
+            for (const k in hist) if (hist[k] > mx) mx = hist[k];
+            ctx.fillStyle = "rgba(91,141,239,0.6)";
+            for (const k in hist) {
+              const x = cx + +k * unit,
+                ht = (hist[k] / mx) * (h * 0.42);
+              ctx.fillRect(x - unit * 0.42, baseY - ht, unit * 0.84, ht);
+            }
+            const sg = Math.sqrt(n);
+            ctx.strokeStyle = "rgba(52,227,160,0.9)";
+            ctx.lineWidth = 1.6 * dp;
+            ctx.beginPath();
+            for (let xp = -n; xp <= n; xp += 2) {
+              const pe = (2 / (sg * Math.sqrt(2 * Math.PI))) * Math.exp((-xp * xp) / (2 * n)),
+                ht = ((pe * walks) / mx) * (h * 0.42),
+                X = cx + xp * unit,
+                Y = baseY - ht;
+              xp === -n ? ctx.moveTo(X, Y) : ctx.lineTo(X, Y);
+            }
+            if (walks) ctx.stroke();
+            ctx.fillStyle = "#fff";
+            ctx.beginPath();
+            ctx.arc(cx + pos * unit, axisY, 5 * dp, 0, 7);
+            ctx.fill();
+            sub.textContent = "n = " + n + " · блужданий " + walks;
+            const p0 = walks ? (hist[0] || 0) / walks : 0,
+              pe = p0 > 0 ? 2 / (n * p0 * p0) : NaN;
+            if (s > 0 && s < n) cap.innerHTML = "Шаг " + s + "/" + n + ": позиция x = " + pos;
+            else
+              cap.innerHTML =
+                "Блужданий " +
+                walks +
+                " · P(0) = " +
+                p0.toFixed(3) +
+                " → π ≈ <b>" +
+                (isFinite(pe) ? pe.toFixed(3) : "—") +
+                "</b>";
+          }
+          function stop() {
+            if (timer) {
+              clearInterval(timer);
+              timer = 0;
+              bPlay.textContent = "Авто";
+            }
+          }
+          function play() {
+            if (timer) {
+              stop();
+              return;
+            }
+            bPlay.textContent = "Стоп";
+            timer = setInterval(hop, 80);
+          }
+          function reset() {
+            pos = 0;
+            s = 0;
+            hist = {};
+            walks = 0;
+            stop();
+            draw();
+          }
+          bStep.onclick = hop;
+          bPlay.onclick = play;
+          bReset.onclick = reset;
+          return {
+            show() {
+              if (!S.fit()) return;
+              draw();
+            },
+            hide: stop,
+          };
+        };
+
+        /* ===== 07 Блуждание: один ход, подсветка повторов ===== */
+        FAC.walk = function (panel) {
+          const S = mk(panel),
+            { ctx, cv, cap, sub, bStep, bPlay, bReset } = S;
+          const RANGE = 14;
+          let x = 0,
+            y = 0,
+            steps = 0,
+            vis = new Set(["0,0"]),
+            flash = null,
+            timer = 0;
+          function move() {
+            const r = (Math.random() * 4) | 0;
+            if (r === 0) x++;
+            else if (r === 1) x--;
+            else if (r === 2) y++;
+            else y--;
+            steps++;
+            const k = x + "," + y;
+            if (vis.has(k)) flash = [x, y];
+            else {
+              vis.add(k);
+              flash = null;
+            }
+            draw();
+          }
+          function draw() {
+            const w = cv.width,
+              h = cv.height,
+              dp = S.d();
+            ctx.setTransform(1, 0, 0, 1, 0, 0);
+            ctx.clearRect(0, 0, w, h);
+            const cell = Math.min(w, h) / (2 * RANGE + 1),
+              cx = w / 2,
+              cy = h / 2;
+            for (const k of vis) {
+              const p = k.split(",").map(Number),
+                px = cx + p[0] * cell,
+                py = cy - p[1] * cell;
+              if (px < -cell || px > w + cell || py < -cell || py > h + cell) continue;
+              ctx.fillStyle = "rgba(52,227,160,0.45)";
+              ctx.fillRect(px - cell / 2, py - cell / 2, cell - 1, cell - 1);
+            }
+            if (flash) {
+              const px = cx + flash[0] * cell,
+                py = cy - flash[1] * cell;
+              ctx.fillStyle = "rgba(255,122,138,0.85)";
+              ctx.fillRect(px - cell / 2, py - cell / 2, cell - 1, cell - 1);
+            }
+            const wx = cx + x * cell,
+              wy = cy - y * cell;
+            ctx.fillStyle = "#fff";
+            ctx.beginPath();
+            ctx.arc(wx, wy, cell * 0.34, 0, 7);
+            ctx.fill();
+            sub.textContent = "шагов " + steps + " · клеток " + vis.size;
+            const pe = steps > 1 ? (vis.size * Math.log(steps)) / steps : 0;
+            if (flash)
+              cap.innerHTML =
+                "Шаг " + steps + ": <b>повтор</b> — клетка уже была, территория не растёт.";
+            else
+              cap.innerHTML =
+                "Шаг " +
+                steps +
+                ": новая клетка · S = " +
+                vis.size +
+                " · π ≈ S·ln n/n = <b>" +
+                (pe ? pe.toFixed(2) : "—") +
+                "</b>";
+          }
+          function stop() {
+            if (timer) {
+              clearInterval(timer);
+              timer = 0;
+              bPlay.textContent = "Авто";
+            }
+          }
+          function play() {
+            if (timer) {
+              stop();
+              return;
+            }
+            bPlay.textContent = "Стоп";
+            timer = setInterval(move, 140);
+          }
+          function reset() {
+            x = 0;
+            y = 0;
+            steps = 0;
+            vis = new Set(["0,0"]);
+            flash = null;
+            stop();
+            draw();
+          }
+          bStep.onclick = move;
+          bPlay.onclick = play;
+          bReset.onclick = reset;
+          return {
+            show() {
+              if (!S.fit()) return;
+              draw();
+            },
+            hide: stop,
+          };
+        };
+
+        /* ===== подключение демо к вкладкам ===== */
+        const apis = {};
+        document.querySelectorAll(".tab-panel").forEach(function (panel) {
+          const make = FAC[panel.dataset.tab];
+          if (!make) return;
+          if (!panel.querySelector("[data-demo-canvas]")) return;
+          const api = make(panel);
+          apis[panel.dataset.tab] = api;
+          const obs = new MutationObserver(function () {
+            panel.classList.contains("active") ? api.show() : api.hide();
+          });
+          obs.observe(panel, { attributes: true, attributeFilter: ["class"] });
+          if (panel.classList.contains("active"))
+            requestAnimationFrame(function () {
+              api.show();
+            });
+        });
+        window.addEventListener("resize", function () {
+          document.querySelectorAll(".tab-panel.active").forEach(function (p) {
+            const api = apis[p.dataset.tab];
+            if (api) api.show();
+          });
+        });
+      })();
+    </script>
+  </body>
+</html>
