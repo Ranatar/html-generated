@@ -433,6 +433,12 @@
         <button class="tab" role="tab" data-mode="sphere" aria-selected="false">
           сфера Римана
         </button>
+        <button class="tab" role="tab" data-mode="surface" aria-selected="false">
+          поверхность
+        </button>
+        <button class="tab" role="tab" data-mode="compare" aria-selected="false">
+          сравнение
+        </button>
         <button
           class="tab"
           role="tab"
@@ -471,6 +477,13 @@
         </div>
         <div class="pane" data-pane="fractal"><canvas class="field" id="cv-fractal"></canvas></div>
         <div class="pane" data-pane="sphere"><canvas class="field" id="cv-sphere"></canvas></div>
+        <div class="pane" data-pane="surface"><canvas class="field" id="cv-surface"></canvas></div>
+        <div class="pane" data-pane="compare">
+          <div class="duo">
+            <div class="half"><div class="cap" id="cmp-capL">f(z)</div><canvas id="cv-cmpL"></canvas></div>
+            <div class="half"><div class="cap" id="cmp-capR">g(z)</div><canvas id="cv-cmpR"></canvas></div>
+          </div>
+        </div>
       </div>
     </main>
     <div class="readout">
@@ -950,6 +963,51 @@
         const f = (n) => l - s * Math.min(l, 1 - l) * Math.max(-1, Math.min(k(n) - 3, 9 - k(n), 1));
         return { r: Math.round(255 * f(0)), g: Math.round(255 * f(8)), b: Math.round(255 * f(4)) };
       };
+      // C2: альтернативные палитры фазы. oklab→sRGB для перцептивно равномерных циклических карт.
+      const _oklabToRGB = (L, A, B) => {
+        const l_ = L + 0.3963377774 * A + 0.2158037573 * B,
+          m_ = L - 0.1055613458 * A - 0.0638541728 * B,
+          s_ = L - 0.0894841775 * A - 1.291485548 * B;
+        const l = l_ * l_ * l_,
+          m = m_ * m_ * m_,
+          s = s_ * s_ * s_;
+        let r = 4.0767416621 * l - 3.3077115913 * m + 0.2309699292 * s,
+          g = -1.2684380046 * l + 2.6097574011 * m - 0.3413193965 * s,
+          b = -0.0041960863 * l - 0.7034186147 * m + 1.707614701 * s;
+        const enc = (u) => {
+          u = u <= 0 ? 0 : u >= 1 ? 1 : u;
+          return u <= 0.0031308 ? 12.92 * u : 1.055 * Math.pow(u, 1 / 2.4) - 0.055;
+        };
+        return [enc(r), enc(g), enc(b)];
+      };
+      // hue(0..360), sat, light → RGB. palette: "hsl" | "iso" (равноярк.) | "cb" (для дальтоников).
+      const paletteRGB = (hue, sat, light, palette) => {
+        if (palette === "iso" || palette === "cb") {
+          const ph = (hue / 360) * 2 * Math.PI;
+          const base =
+            palette === "iso"
+              ? _oklabToRGB(0.74, 0.11 * Math.cos(ph), 0.11 * Math.sin(ph))
+              : _oklabToRGB(0.66 + 0.11 * Math.cos(ph), 0.04 * Math.cos(ph), 0.12 * Math.sin(ph));
+          const lum = 0.2126 * base[0] + 0.7152 * base[1] + 0.0722 * base[2];
+          let r = lum + sat * (base[0] - lum),
+            g = lum + sat * (base[1] - lum),
+            b = lum + sat * (base[2] - lum);
+          if (light < 0.5) {
+            const f = light / 0.5;
+            r *= f;
+            g *= f;
+            b *= f;
+          } else {
+            const f = (light - 0.5) / 0.5;
+            r += (1 - r) * f;
+            g += (1 - g) * f;
+            b += (1 - b) * f;
+          }
+          const q = (u) => Math.round(255 * (u <= 0 ? 0 : u >= 1 ? 1 : u));
+          return { r: q(r), g: q(g), b: q(b) };
+        }
+        return hsl2rgb(hue, sat, light);
+      };
 
       // Доменная раскраска: оттенок ← arg, светлота ← |z|. Схемы (scheme):
       //   'classic'  — фаза + логарифмическая яркость по модулю (по умолчанию)
@@ -970,6 +1028,9 @@
           falloff = 0.4,
           lnorm = 2,
           mono = false,
+          palette = "hsl",
+          hueShift = 0,
+          overlay = "off",
         } = {},
       ) => {
         z = toC(z);
@@ -1037,7 +1098,27 @@
           sat = 0; // без фазы — чистая чёрно-белая шахматка
           light = light >= 0.5 ? 0.92 : 0.1;
         }
-        const c = hsl2rgb(hue, sat, light);
+        if (hueShift) hue = (((hue + hueShift) % 360) + 360) % 360;
+        const c = paletteRGB(hue, sat, light, palette);
+        // C1: переключаемый оверлей контуров |f| и/или arg f поверх любой схемы.
+        if (overlay !== "off") {
+          const dens = density || 4;
+          let dist = 0.5;
+          if (overlay === "mod" || overlay === "both") {
+            const lg = dens * Math.log(m || 1e-300),
+              fa = lg - Math.floor(lg);
+            dist = Math.min(dist, fa, 1 - fa);
+          }
+          if (overlay === "arg" || overlay === "both") dist = Math.min(dist, fb, 1 - fb);
+          const wdt = 0.055,
+            t = dist < wdt ? 1 - dist / wdt : 0;
+          if (t > 0) {
+            const k = 1 - 0.7 * t;
+            c.r = Math.round(c.r * k);
+            c.g = Math.round(c.g * k);
+            c.b = Math.round(c.b * k);
+          }
+        }
         c.css = `rgb(${c.r},${c.g},${c.b})`;
         return c;
       };
@@ -1559,6 +1640,161 @@
           zp = mul(zp, z2);
         }
         return sum;
+      };
+
+      // ── спецфункции (Запрос 1: L1–L5) ─────────────────────────────────────────
+      const _factN = (n) => {
+        let f = 1;
+        for (let k = 2; k <= n; k++) f *= k;
+        return f;
+      };
+      // L1: дигамма ψ(z)=Γ'/Γ — сдвиг рекуррентой ψ(z)=ψ(z+1)−1/z до Re≥10, затем асимптотика.
+      const digamma = (z) => {
+        z = toC(z);
+        let res = ZERO;
+        while (z.re < 10) {
+          res = sub(res, recip(z));
+          z = add(z, ONE);
+        }
+        const zi = recip(z),
+          zi2 = mul(zi, zi);
+        let s = sub(log(z), _mulr(zi, 0.5));
+        const B = [1 / 12, -1 / 120, 1 / 252, -1 / 240, 1 / 132, -691 / 32760];
+        let zp = zi2;
+        for (let k = 0; k < B.length; k++) {
+          s = sub(s, _mulr(zp, B[k]));
+          zp = mul(zp, zi2);
+        }
+        return add(res, s);
+      };
+      // полигамма ψ⁽ⁿ⁾(z), n≥1 (n≤0 → digamma): рекуррентный сдвиг + асимптотика.
+      const polygamma = (n, z) => {
+        n = Math.round(n);
+        if (n <= 0) return digamma(z);
+        z = toC(z);
+        const sgn = n % 2 === 0 ? -1 : 1,
+          nf = _factN(n);
+        let acc = ZERO;
+        while (z.re < 10) {
+          acc = add(acc, _mulr(pow(recip(z), _Cr(n + 1)), sgn * nf));
+          z = add(z, ONE);
+        }
+        let series = add(
+          _mulr(pow(recip(z), _Cr(n)), _factN(n - 1)),
+          _mulr(pow(recip(z), _Cr(n + 1)), nf / 2),
+        );
+        const B2 = [1 / 6, -1 / 30, 1 / 42, -1 / 30, 5 / 66, -691 / 2730];
+        for (let k = 1; k <= B2.length; k++) {
+          const coef = (B2[k - 1] * _factN(2 * k + n - 1)) / _factN(2 * k);
+          series = add(series, _mulr(pow(recip(z), _Cr(2 * k + n)), coef));
+        }
+        return add(acc, _mulr(series, sgn));
+      };
+      const trigamma = (z) => polygamma(1, z);
+      // L2: бета-функция B(a,b)=Γ(a)Γ(b)/Γ(a+b).
+      const beta = (a, b) => div(mul(gamma(a), gamma(b)), gamma(add(a, b)));
+      // L3: неполные Γ и B. Нижняя γ(s,z)=z^s e^{-z} Σ z^n/(s(s+1)…(s+n)); верхняя Γ(s,z)=Γ(s)−γ;
+      //     неполная бета B(z;a,b)=z^a/a · ₂F₁(a,1−b;a+1;z).
+      const lowerGamma = (s, z) => {
+        s = toC(s);
+        z = toC(z);
+        let term = recip(s),
+          sum = term;
+        for (let n = 1; n < 300; n++) {
+          term = mul(term, div(z, add(s, _Cr(n))));
+          sum = add(sum, term);
+          if (abs(term) < 1e-18 * (1 + abs(sum)) && n > 3) break;
+        }
+        return mul(mul(pow(z, s), exp(neg(z))), sum);
+      };
+      const upperGamma = (s, z) => sub(gamma(s), lowerGamma(s, z));
+      const betaInc = (z, a, b) =>
+        mul(div(pow(z, a), a), hyp2f1(a, sub(ONE, b), add(a, ONE), z));
+      // L4: η Дедекинда, ряды Эйзенштейна, j-инвариант. Аргумент — τ (Im τ>0; клампим как thetaGen).
+      const dedekindEta = (tau) => {
+        tau = toC(tau);
+        if (tau.im <= 1e-6) tau = C(tau.re, Math.max(1e-3, tau.im));
+        const q = exp(mul(C(0, 2 * Math.PI), tau));
+        let prod = ONE;
+        for (let n = 1; n <= 120; n++) {
+          const qn = pow(q, _Cr(n));
+          prod = mul(prod, sub(ONE, qn));
+          if (abs(qn) < 1e-20) break;
+        }
+        return mul(exp(mul(C(0, Math.PI / 12), tau)), prod);
+      };
+      const eisensteinE = (k, tau) => {
+        k = Math.round(k);
+        tau = toC(tau);
+        if (tau.im <= 1e-6) tau = C(tau.re, Math.max(1e-3, tau.im));
+        const q = exp(mul(C(0, 2 * Math.PI), tau));
+        const coef =
+          k === 2 ? -24 : k === 4 ? 240 : k === 6 ? -504 : k === 8 ? 480 : k === 10 ? -264 : 0;
+        const p = k - 1;
+        let sum = ZERO,
+          qn = q;
+        for (let n = 1; n <= 80; n++) {
+          let sig = 0;
+          for (let d = 1; d * d <= n; d++)
+            if (n % d === 0) {
+              sig += Math.pow(d, p);
+              const d2 = n / d;
+              if (d2 !== d) sig += Math.pow(d2, p);
+            }
+          sum = add(sum, _mulr(qn, sig));
+          qn = mul(qn, q);
+          if (abs(qn) < 1e-20) break;
+        }
+        return add(ONE, _mulr(sum, coef));
+      };
+      const jInvariant = (tau) => {
+        const e4 = eisensteinE(4, tau),
+          e6 = eisensteinE(6, tau);
+        const e43 = mul(mul(e4, e4), e4),
+          e62 = mul(e6, e6);
+        return _mulr(div(e43, sub(e43, e62)), 1728);
+      };
+      // L5: σ и ζ Вейерштрасса — первообразные ℘ через тот же ряд c_k (ζ'=−℘, σ'/σ=ζ).
+      const _wpCoeffs = (g2, g3, N) => {
+        const c = new Array(N + 1);
+        c[1] = _mulr(g2, 1 / 20);
+        c[2] = _mulr(g3, 1 / 28);
+        for (let k = 3; k <= N; k++) {
+          let s = ZERO;
+          for (let j = 1; j <= k - 2; j++) s = add(s, mul(c[j], c[k - 1 - j]));
+          c[k] = _mulr(s, 3 / ((2 * k + 3) * (k - 2)));
+        }
+        return c;
+      };
+      const weierstrassZeta = (z, g2, g3) => {
+        z = toC(z);
+        g2 = toC(g2);
+        g3 = toC(g3);
+        const N = 26,
+          c = _wpCoeffs(g2, g3, N),
+          z2 = mul(z, z);
+        let sum = recip(z),
+          zp = mul(z2, z);
+        for (let k = 1; k <= N; k++) {
+          sum = sub(sum, div(mul(c[k], zp), _Cr(2 * k + 1)));
+          zp = mul(zp, z2);
+        }
+        return sum;
+      };
+      const weierstrassSigma = (z, g2, g3) => {
+        z = toC(z);
+        g2 = toC(g2);
+        g3 = toC(g3);
+        const N = 26,
+          c = _wpCoeffs(g2, g3, N),
+          z2 = mul(z, z);
+        let e = ZERO,
+          zp = mul(z2, z2);
+        for (let k = 1; k <= N; k++) {
+          e = add(e, div(mul(c[k], zp), _Cr((2 * k + 1) * (2 * k + 2))));
+          zp = mul(zp, z2);
+        }
+        return mul(z, exp(neg(e)));
       };
 
       // ── дополнительные аналитические функции ──────────────────────────────────
@@ -2234,6 +2470,18 @@
           jacobiCN,
           jacobiDN,
           weierstrassP,
+          digamma,
+          polygamma,
+          trigamma,
+          beta,
+          lowerGamma,
+          upperGamma,
+          betaInc,
+          dedekindEta,
+          eisensteinE,
+          jInvariant,
+          weierstrassZeta,
+          weierstrassSigma,
           lorentz,
           dirichletKernel,
           gumbel,
@@ -2325,6 +2573,11 @@
             const m = abs(z);
             return m === 0 ? C(0, 0) : C(z.re / m, z.im / m);
           },
+          digamma,
+          psi: digamma,
+          trigamma,
+          eta: dedekindEta,
+          jinv: jInvariant,
         };
         // многоаргументные спецфункции (настоящий второй/третий параметр, без подделки)
         const FNMULTI = {
@@ -2351,6 +2604,14 @@
           hyp2f1: (a) => hyp2f1(a[0], a[1], a[2], a[3]),
           hyp1f1: (a) => hyp1f1(a[0], a[1], a[2]),
           hyp0f1: (a) => hyp0f1(a[0], a[1]),
+          polygamma: (a) => polygamma(a[0].re, a[1]),
+          beta: (a) => beta(a[0], a[1]),
+          gammainc: (a) => lowerGamma(a[0], a[1]),
+          gammaincc: (a) => upperGamma(a[0], a[1]),
+          betainc: (a) => betaInc(a[0], a[1], a[2]),
+          eisenstein: (a) => eisensteinE(a[0].re, a[1]),
+          wzeta: (a) => weierstrassZeta(a[0], a[1], a[2]),
+          wsigma: (a) => weierstrassSigma(a[0], a[1], a[2]),
         };
         const CONST = {
           i: I,
@@ -2599,6 +2860,144 @@
           }
         }
         const _EMPTY = new Set();
+        // Ветвенно-зависимый вычислитель: (z,k)→Complex, где k — индекс листа.
+        // Многозначность проводится через logBranch в log/√/дробных степенях и
+        // обратных тригонометрических/гиперболических (все выражены через log/√).
+        function buildBranched(ast) {
+          const NEG_I = C(0, -1),
+            HALF = C(0.5, 0),
+            THIRD = C(1 / 3, 0),
+            HALFPI = C(Math.PI / 2, 0),
+            LN10 = C(Math.log(10), 0);
+          const sqrtB = (u, k) => exp(mul(HALF, logBranch(u, k)));
+          const asinB = (u, k) =>
+            mul(NEG_I, logBranch(add(mul(I, u), sqrtB(sub(ONE, mul(u, u)), k)), k));
+          const atanB = (u, k) =>
+            mul(C(0, 0.5), sub(logBranch(sub(ONE, mul(I, u)), k), logBranch(add(ONE, mul(I, u)), k)));
+          const asinhB = (u, k) => logBranch(add(u, sqrtB(add(mul(u, u), ONE), k)), k);
+          const acoshB = (u, k) =>
+            logBranch(add(u, mul(sqrtB(sub(u, ONE), k), sqrtB(add(u, ONE), k))), k);
+          const atanhB = (u, k) =>
+            mul(HALF, sub(logBranch(add(ONE, u), k), logBranch(sub(ONE, u), k)));
+          const recipC = (u) => div(ONE, u);
+          const isIntPow = (e) => e.t === "num" && Number.isInteger(e.v);
+          function fn1(name, a) {
+            switch (name) {
+              case "log":
+              case "ln":
+                return (z, k) => logBranch(a(z, k), k);
+              case "log10":
+                return (z, k) => div(logBranch(a(z, k), k), LN10);
+              case "sqrt":
+                return (z, k) => sqrtB(a(z, k), k);
+              case "cbrt":
+                return (z, k) => exp(mul(THIRD, logBranch(a(z, k), k)));
+              case "asin":
+                return (z, k) => asinB(a(z, k), k);
+              case "acos":
+                return (z, k) => sub(HALFPI, asinB(a(z, k), k));
+              case "atan":
+                return (z, k) => atanB(a(z, k), k);
+              case "asinh":
+                return (z, k) => asinhB(a(z, k), k);
+              case "acosh":
+                return (z, k) => acoshB(a(z, k), k);
+              case "atanh":
+                return (z, k) => atanhB(a(z, k), k);
+              case "asec":
+                return (z, k) => sub(HALFPI, asinB(recipC(a(z, k)), k));
+              case "acsc":
+                return (z, k) => asinB(recipC(a(z, k)), k);
+              case "acot":
+                return (z, k) => atanB(recipC(a(z, k)), k);
+              case "asech":
+                return (z, k) => acoshB(recipC(a(z, k)), k);
+              case "acsch":
+                return (z, k) => asinhB(recipC(a(z, k)), k);
+              case "acoth":
+                return (z, k) => atanhB(recipC(a(z, k)), k);
+              default: {
+                const f = FN[name];
+                if (!f) throw Error("ветви: функция " + name + " не поддерживается");
+                return (z, k) => f(a(z, k)); // однозначная — лист не влияет
+              }
+            }
+          }
+          function bb(node) {
+            switch (node.t) {
+              case "num": {
+                const c = C(node.v, 0);
+                return () => c;
+              }
+              case "id": {
+                const n = node.name;
+                if (n === "z") return (z) => z;
+                if (n === "x") return (z) => C(z.re, 0);
+                if (n === "y") return (z) => C(z.im, 0);
+                if (n in CONST) {
+                  const c = CONST[n];
+                  return () => c;
+                }
+                throw Error("ветви: переменная " + n + " не поддерживается");
+              }
+              case "un": {
+                const a = bb(node.a);
+                return node.o === "-" ? (z, k) => neg(a(z, k)) : a;
+              }
+              case "bin": {
+                const a = bb(node.a),
+                  b = bb(node.b);
+                return node.o === "+"
+                  ? (z, k) => add(a(z, k), b(z, k))
+                  : node.o === "-"
+                    ? (z, k) => sub(a(z, k), b(z, k))
+                    : node.o === "*"
+                      ? (z, k) => mul(a(z, k), b(z, k))
+                      : (z, k) => div(a(z, k), b(z, k));
+              }
+              case "pow": {
+                const b = bb(node.b);
+                if (isIntPow(node.e)) {
+                  const e = bb(node.e);
+                  return (z, k) => pow(b(z, k), e(z, k)); // целая степень — однозначна
+                }
+                const e = bb(node.e);
+                return (z, k) => exp(mul(e(z, k), logBranch(b(z, k), k)));
+              }
+              case "call":
+                return fn1(node.name, bb(node.a));
+              case "calln": {
+                const A = node.args.map(bb);
+                if (A.length === 1) return fn1(node.name, A[0]);
+                if (node.name === "log" && A.length >= 2)
+                  return (z, k) => div(logBranch(A[1](z, k), k), logBranch(A[0](z, k), k));
+                const f = FNMULTI[node.name];
+                if (!f) throw Error("ветви: функция " + node.name + " не поддерживается");
+                return (z, k) => f(A.map((g) => g(z, k)));
+              }
+              default:
+                throw Error("ветви: конструкция не поддерживается");
+            }
+          }
+          return bb(ast);
+        }
+        // Парсинг + ветвенная компиляция. Возвращает { f:(z,k)→Complex } или { error }.
+        function compileBranched(str) {
+          let ast;
+          try {
+            ast = parse(str);
+          } catch (e) {
+            return { error: e.message };
+          }
+          let f;
+          try {
+            f = buildBranched(ast);
+            f(C(0.3, 0.4), 0);
+          } catch (e) {
+            return { error: e.message };
+          }
+          return { f };
+        }
         // AST → коэффициенты многочлена (старший первым) или null
         function polyOf(ast) {
           const lo2hi = (p) => p; // храним младшим-первым
@@ -2681,7 +3080,7 @@
             return { error: e.message };
           }
           const coeffs = polyOf(ast);
-          return { f, coeffs: coeffs && coeffs.length > 1 ? coeffs : null };
+          return { f, ast, coeffs: coeffs && coeffs.length > 1 ? coeffs : null };
         }
         // Режим (x,y): две вещественные функции u(x,y), v(x,y) → f(z)=u+iv. Неголоморфно (анализ/конформность отключаются).
         function compileXY(reStr, imStr) {
@@ -2750,8 +3149,17 @@
             poles: findZeros((z) => recip(f(z)), xmin, xmax, ymin, ymax),
           };
         }
+        // A1: критические точки f′(z)=0 — нули производной (сёдла |f|),
+        // отсеиваем совпадающие с нулями/полюсами f (где |f|≈0 или |f|→∞).
+        function findCritical(f, xmin, xmax, ymin, ymax) {
+          const fp = (z) => derivative(f, z);
+          return findZeros(fp, xmin, xmax, ymin, ymax).filter((z) => {
+            const w = f(z);
+            return w && isFiniteC(w) && abs(w) > 1e-6 && abs(w) < 1e6;
+          });
+        }
 
-        return { compile, compileXY, findZeros, findZerosPoles };
+        return { compile, compileXY, compileBranched, findZeros, findZerosPoles, findCritical };
       }
 
       const M = {
@@ -2881,6 +3289,18 @@
         jacobiCN,
         jacobiDN,
         weierstrassP,
+        digamma,
+        polygamma,
+        trigamma,
+        beta,
+        lowerGamma,
+        upperGamma,
+        betaInc,
+        dedekindEta,
+        eisensteinE,
+        jInvariant,
+        weierstrassZeta,
+        weierstrassSigma,
       };
       const AC = makeAtlasCore(M);
 
@@ -2931,6 +3351,12 @@
         ["Li₂(z) полилог", "li2(z)"],
         ["θ₃(z) Якоби", "theta3(z)"],
         ["θ₁(z) Якоби", "theta1(z)"],
+        ["ψ(z) дигамма", "digamma(z)"],
+        ["ψ′(z) тригамма", "trigamma(z)"],
+        ["η(τ) Дедекинда", "eta(z)"],
+        ["j(τ) инвариант", "jinv(z)"],
+        ["ζ Вейерштрасса", "wzeta(z, 1, 0)"],
+        ["σ Вейерштрасса", "wsigma(z, 1, 0)"],
       ];
       // быстрые ядра (x,y,out) — ключ: выражение без пробелов. Совпадают с объектным путём.
       const cdiv = (ar, ai, br, bi, o) => {
@@ -3206,6 +3632,30 @@
           ],
         ],
         [
+          "Γ·полигамма·B",
+          [
+            ["ψ дигамма", "digamma(z)"],
+            ["ψ′ тригамма", "trigamma(z)"],
+            ["ψ⁽ⁿ⁾ полигамма", "polygamma(2, z)"],
+            ["B(a,b) бета", "beta(z, 2)"],
+            ["γ(s,z) неполн.", "gammainc(2, z)"],
+            ["Γ(s,z) неполн.", "gammaincc(2, z)"],
+            ["B(z;a,b)", "betainc(z, 2, 3)"],
+          ],
+        ],
+        [
+          "модулярные·эллиптич.",
+          [
+            ["η Дедекинда", "eta(z)"],
+            ["j(τ) инвариант", "jinv(z)"],
+            ["E₄ Эйзенштейн", "eisenstein(4, z)"],
+            ["E₆ Эйзенштейн", "eisenstein(6, z)"],
+            ["ζ Вейерштрасса", "wzeta(z, 1, 0)"],
+            ["σ Вейерштрасса", "wsigma(z, 1, 0)"],
+            ["℘ Вейерштрасса", "wp(z, 1, 0)"],
+          ],
+        ],
+        [
           "производные",
           [
             ["f′ = d/dz", "diff(z, z)"],
@@ -3297,6 +3747,9 @@
         colorSpokes: 12,
         colorContrast: 2,
         colorMono: false,
+        colorPalette: "hsl",
+        colorHueShift: 0,
+        contourOverlay: "off",
         confMap: "formula",
         confView: "lines",
         confShowSource: true,
@@ -3312,14 +3765,44 @@
         juliaC: { re: -0.8, im: 0.156 },
         mbPower: 3,
         juliaPower: 2,
+        fracOrbit: false,
+        orbitPt: null,
+        orbit: null,
+        juliaPreview: true,
+        fracExterior: "smooth",
+        fracInterior: "flat",
         newtonMethod: "newton",
         portraitSource: "f",
+        polya: false,
+        branchCuts: false,
+        ssaa: 1,
+        useGL: true,
+        useWorkers: true,
+        showAxes: true,
+        sphereSrc: "image",
+        sphereRot: { on: false, theta: 0, ax: 0, ay: 0, anim: false },
+        cmpExpr: "z^2 - 1",
+        cmpCompiled: null,
         dispOrder: 1,
         dispArrows: false,
         dispNorm: true,
         dispScale: 1,
         dispFixed: null,
-        ana: { tool: "point", point: null, contour: null, radius: 0.6, markers: null, out: null },
+        ana: {
+          tool: "point",
+          point: null,
+          contour: null,
+          radius: 0.6,
+          markers: null,
+          out: null,
+          shape: "circle",
+          poly: [],
+          drawn: null,
+          convR: null,
+          errMap: false,
+          errN: 8,
+          seriesData: null,
+        },
         inputMode: "z",
         reExpr: "x",
         imExpr: "y",
@@ -3335,12 +3818,19 @@
         phaseLoop: "ping",
         phaseSpeed: 0.5,
         phaseRes: 360,
+        surface: { kind: "landscape", heightScale: 1, span: 6, density: 110, zoom: 1, ss: 1.5, sheets: 3 },
+        gif: { size: 480, dither: false },
+        exprHistory: [],
+        exprHistIdx: -1,
+        favorites: [],
       };
       const views = {
         phase: { cx: 0, cy: 0, scale: 5 / 600 },
         analysis: { cx: 0, cy: 0, scale: 5 / 600 },
         fractal: { cx: -0.5, cy: 0, scale: 3 / 600 },
         sphere: { yaw: 0.6, pitch: 0.5 },
+        surface: { yaw: 0.7, pitch: 0.95 },
+        compare: { cx: 0, cy: 0, scale: 5 / 600 },
       };
 
       /* ---------- функция f(z): компиляция, ветви, быстрый путь ---------- */
@@ -3456,7 +3946,13 @@
         spokes: state.colorSpokes,
         lnorm: state.colorContrast,
         mono: state.colorMono,
+        palette: state.colorPalette,
+        hueShift: state.colorHueShift,
+        overlay: state.contourOverlay,
       });
+      // Быстрый HSL-путь применим только для палитры по умолчанию без сдвига и без оверлея.
+      const colorFastOK = () =>
+        state.colorPalette === "hsl" && !state.colorHueShift && state.contourOverlay === "off";
 
       /* ---------- общие помощники ---------- */
       const off = document.createElement("canvas"),
@@ -3471,8 +3967,15 @@
         }
         if (cv.classList.contains("field")) cv.style.cssText = "";
         const r = cv.getBoundingClientRect();
-        cv.width = Math.max(1, r.width | 0);
-        cv.height = Math.max(1, r.height | 0);
+        // T1: в авто-режиме множим буфер на devicePixelRatio (резкость на retina),
+        // при этом CSS-размер фиксируем — отображение не меняется, указатель маппится по rect.
+        const dpr = Math.min(2, window.devicePixelRatio || 1);
+        const cw = Math.max(1, r.width | 0),
+          ch = Math.max(1, r.height | 0);
+        cv.style.width = cw + "px";
+        cv.style.height = ch + "px";
+        cv.width = Math.max(1, Math.round(cw * dpr));
+        cv.height = Math.max(1, Math.round(ch * dpr));
         return cv;
       }
       const pxToZ = (v, W, H, px, py) =>
@@ -3529,13 +4032,278 @@
         if (onDone) onDone(ctx);
       }
 
+      // T4: на полном качестве (q≥1) множим разрешение рендера на ssaa; буфер затем уменьшается drawImage (сглаживание).
+      const ssQ = (q) => (q >= 1 ? q * state.ssaa : q);
+
+      /* ========================== T2: WEBGL-РЕНДЕР ПОРТРЕТА ========================== */
+      // Доменная раскраска f(z) на GPU: воспроизводит классическую схему + палитры C2 (hsl/iso/cb)
+      // + сдвиг оттенка + оверлей контуров C1. Транспайлер AST→GLSL покрывает арифметику, целые степени,
+      // exp/log/ln/log10/sin/cos/tan/sinh/cosh/tanh/sqrt/conj/abs/re/im/arg/sinc/cbrt и константы;
+      // на всём прочем (gamma, zeta, суммы, производные, x/y-режим, ветви, поворот/смещение) — CPU-фолбэк.
+      const _GLSL_PRELUDE = [
+        "precision highp float;",
+        "uniform vec2 uCenter; uniform float uScale; uniform vec2 uRes;",
+        "uniform int uPalette; uniform float uHueShift; uniform int uOverlay; uniform float uDensity;",
+        "float sinh_(float x){ return (exp(x)-exp(-x))*0.5; }",
+        "float cosh_(float x){ return (exp(x)+exp(-x))*0.5; }",
+        "vec2 cmul(vec2 a, vec2 b){ return vec2(a.x*b.x-a.y*b.y, a.x*b.y+a.y*b.x); }",
+        "vec2 cdiv(vec2 a, vec2 b){ float d=dot(b,b); return vec2(a.x*b.x+a.y*b.y, a.y*b.x-a.x*b.y)/d; }",
+        "vec2 cexp(vec2 a){ float e=exp(a.x); return vec2(e*cos(a.y), e*sin(a.y)); }",
+        "vec2 clog(vec2 a){ return vec2(0.5*log(dot(a,a)), atan(a.y,a.x)); }",
+        "vec2 csqrt(vec2 a){ float r=length(a); float t=atan(a.y,a.x)*0.5; float s=sqrt(r); return vec2(s*cos(t), s*sin(t)); }",
+        "vec2 cpow(vec2 a, vec2 b){ if(dot(a,a)<1e-30) return vec2(0.0); return cexp(cmul(b, clog(a))); }",
+        "vec2 csin(vec2 a){ return vec2(sin(a.x)*cosh_(a.y), cos(a.x)*sinh_(a.y)); }",
+        "vec2 ccos(vec2 a){ return vec2(cos(a.x)*cosh_(a.y), -sin(a.x)*sinh_(a.y)); }",
+        "vec2 ctan(vec2 a){ return cdiv(csin(a), ccos(a)); }",
+        "vec2 csinh(vec2 a){ return vec2(sinh_(a.x)*cos(a.y), cosh_(a.x)*sin(a.y)); }",
+        "vec2 ccosh(vec2 a){ return vec2(cosh_(a.x)*cos(a.y), sinh_(a.x)*sin(a.y)); }",
+        "vec2 ctanh(vec2 a){ return cdiv(csinh(a), ccosh(a)); }",
+        "vec2 cconj(vec2 a){ return vec2(a.x, -a.y); }",
+        "vec2 clog10(vec2 a){ return cdiv(clog(a), vec2(2.302585092994046,0.0)); }",
+        "vec2 csinc(vec2 a){ if(dot(a,a)<1e-20) return vec2(1.0,0.0); return cdiv(csin(a), a); }",
+        "vec2 ccbrt(vec2 a){ float r=pow(length(a),1.0/3.0); float t=atan(a.y,a.x)/3.0; return vec2(r*cos(t), r*sin(t)); }",
+        "float hslf(float n, float h, float s, float l){ float k=mod(n+h*12.0,12.0); return l - s*min(l,1.0-l)*clamp(min(min(k-3.0,9.0-k),1.0),-1.0,1.0); }",
+        "vec3 hsl2rgb(float h, float s, float l){ return vec3(hslf(0.0,h,s,l), hslf(8.0,h,s,l), hslf(4.0,h,s,l)); }",
+        "vec3 oklab2rgb(float L, float A, float B){ float l_=L+0.3963377774*A+0.2158037573*B; float m_=L-0.1055613458*A-0.0638541728*B; float s_=L-0.0894841775*A-1.291485548*B; float l=l_*l_*l_, m=m_*m_*m_, s=s_*s_*s_; vec3 c=vec3(4.0767416621*l-3.3077115913*m+0.2309699292*s, -1.2684380046*l+2.6097574011*m-0.3413193965*s, -0.0041960863*l-0.7034186147*m+1.707614701*s); c=clamp(c,0.0,1.0); return mix(12.92*c, 1.055*pow(c,vec3(1.0/2.4))-0.055, step(vec3(0.0031308),c)); }",
+        "vec3 palette(float hue01, float sat, float light){ if(uPalette==0) return hsl2rgb(hue01, sat, light); float ph=hue01*6.28318530718; vec3 base = (uPalette==1) ? oklab2rgb(0.74, 0.11*cos(ph), 0.11*sin(ph)) : oklab2rgb(0.66+0.11*cos(ph), 0.04*cos(ph), 0.12*sin(ph)); float lum=dot(base, vec3(0.2126,0.7152,0.0722)); vec3 c=mix(vec3(lum), base, sat); if(light<0.5) c*=light/0.5; else c+=(1.0-c)*((light-0.5)/0.5); return clamp(c,0.0,1.0); }",
+      ].join("\n");
+      const _GLSL_MAIN = [
+        "void main(){",
+        "  vec2 z = vec2(uCenter.x + (gl_FragCoord.x - uRes.x*0.5)*uScale, uCenter.y + (gl_FragCoord.y - uRes.y*0.5)*uScale);",
+        "  vec2 w = F(z);",
+        "  float m = length(w);",
+        "  if(m != m){ gl_FragColor = vec4(1.0); return; }",
+        "  float a = atan(w.y, w.x);",
+        "  float aPos = a < 0.0 ? a + 6.28318530718 : a;",
+        "  float hue01 = fract(aPos/6.28318530718 + uHueShift/360.0);",
+        "  float light = m/(m+1.0);",
+        "  vec3 c = palette(hue01, 1.0, light);",
+        "  if(uOverlay > 0){",
+        "    float dist = 0.5;",
+        "    if(uOverlay==1 || uOverlay==3){ float lg=uDensity*log(max(m,1e-30)); float fa=fract(lg); dist=min(dist, min(fa,1.0-fa)); }",
+        "    if(uOverlay==2 || uOverlay==3){ float sct=uDensity*6.0; float fb=fract(aPos/6.28318530718*sct); dist=min(dist, min(fb,1.0-fb)); }",
+        "    float wdt=0.055; float t = dist<wdt ? 1.0-dist/wdt : 0.0;",
+        "    c *= (1.0 - 0.7*t);",
+        "  }",
+        "  gl_FragColor = vec4(c, 1.0);",
+        "}",
+      ].join("\n");
+      const _glFloat = (x) => { let s = (+x).toString(); if (!/[.eE]/.test(s)) s += ".0"; return s; };
+      const _GL_FN1 = { sin:"csin", cos:"ccos", tan:"ctan", sinh:"csinh", cosh:"ccosh", tanh:"ctanh", exp:"cexp", ln:"clog", log:"clog", log10:"clog10", sqrt:"csqrt", conj:"cconj", sinc:"csinc", cbrt:"ccbrt" };
+      const _GL_CONST = { i:"vec2(0.0,1.0)", pi:"vec2(3.14159265358979,0.0)", e:"vec2(2.71828182845905,0.0)", tau:"vec2(6.28318530717959,0.0)", phi:"vec2(1.61803398874989,0.0)" };
+      function astToGLSL(ast) {
+        const g = (a) => {
+          switch (a.t) {
+            case "num":
+              return "vec2(" + _glFloat(a.v) + ",0.0)";
+            case "id": {
+              const n = a.name;
+              if (n === "z") return "z";
+              if (n === "x") return "vec2(z.x,0.0)";
+              if (n === "y") return "vec2(z.y,0.0)";
+              if (n in _GL_CONST) return _GL_CONST[n];
+              throw 0;
+            }
+            case "un":
+              return a.o === "-" ? "(-(" + g(a.a) + "))" : g(a.a);
+            case "bin": {
+              const A = g(a.a), B = g(a.b);
+              if (a.o === "+") return "(" + A + "+" + B + ")";
+              if (a.o === "-") return "(" + A + "-" + B + ")";
+              if (a.o === "*") return "cmul(" + A + "," + B + ")";
+              return "cdiv(" + A + "," + B + ")";
+            }
+            case "pow": {
+              const ei = a.e;
+              const intPow = (base, n) => { let s = base; for (let k = 1; k < n; k++) s = "cmul(" + s + "," + base + ")"; return s; };
+              if (ei.t === "num" && Number.isInteger(ei.v) && ei.v >= 0 && ei.v <= 16) {
+                if (ei.v === 0) return "vec2(1.0,0.0)";
+                return intPow(g(a.b), ei.v);
+              }
+              if (ei.t === "un" && ei.o === "-" && ei.a.t === "num" && Number.isInteger(ei.a.v) && ei.a.v >= 1 && ei.a.v <= 16)
+                return "cdiv(vec2(1.0,0.0)," + intPow(g(a.b), ei.a.v) + ")";
+              return "cpow(" + g(a.b) + "," + g(a.e) + ")";
+            }
+            case "call":
+            case "calln": {
+              const args = a.t === "call" ? [a.a] : a.args;
+              if (args.length !== 1) throw 0;
+              const inner = g(args[0]);
+              if (a.name === "abs") return "vec2(length(" + inner + "),0.0)";
+              if (a.name === "re") return "vec2((" + inner + ").x,0.0)";
+              if (a.name === "im") return "vec2((" + inner + ").y,0.0)";
+              if (a.name === "arg") return "vec2(atan((" + inner + ").y,(" + inner + ").x),0.0)";
+              const fn = _GL_FN1[a.name];
+              if (!fn) throw 0;
+              return fn + "(" + inner + ")";
+            }
+            default:
+              throw 0;
+          }
+        };
+        return g(ast);
+      }
+      let _gl = null, _glCv = null, _glBuf = null, _glFail = false, _glProg = {}, _glActive = false;
+      function glInit() {
+        if (_glFail) return null;
+        if (_gl) return _gl;
+        try {
+          _glCv = document.createElement("canvas");
+          const o = { preserveDrawingBuffer: true, antialias: false, depth: false };
+          const gl = _glCv.getContext("webgl", o) || _glCv.getContext("experimental-webgl", o);
+          if (!gl) { _glFail = true; return null; }
+          _gl = gl;
+          const test = gl.createShader(gl.VERTEX_SHADER);
+          if (!test) { _glFail = true; _gl = null; return null; }
+          gl.deleteShader(test);
+          _glBuf = gl.createBuffer();
+          gl.bindBuffer(gl.ARRAY_BUFFER, _glBuf);
+          gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1, -1, 3, -1, -1, 3]), gl.STATIC_DRAW);
+          return gl;
+        } catch (e) { _glFail = true; return null; }
+      }
+      function _glCompile(gl, type, src) {
+        const sh = gl.createShader(type);
+        if (!sh) return null;
+        gl.shaderSource(sh, src);
+        gl.compileShader(sh);
+        if (!gl.getShaderParameter(sh, gl.COMPILE_STATUS)) { gl.deleteShader(sh); return null; }
+        return sh;
+      }
+      function glProgramFor(body) {
+        if (body in _glProg) return _glProg[body];
+        try {
+          const gl = _gl;
+          const vs = "attribute vec2 p; void main(){ gl_Position=vec4(p,0.0,1.0); }";
+          const fs = _GLSL_PRELUDE + "\nvec2 F(vec2 z){ return " + body + "; }\n" + _GLSL_MAIN;
+          const v = _glCompile(gl, gl.VERTEX_SHADER, vs), f = _glCompile(gl, gl.FRAGMENT_SHADER, fs);
+          if (!v || !f) { _glProg[body] = null; return null; }
+          const prog = gl.createProgram();
+          gl.attachShader(prog, v);
+          gl.attachShader(prog, f);
+          gl.linkProgram(prog);
+          if (!gl.getProgramParameter(prog, gl.LINK_STATUS)) { _glProg[body] = null; return null; }
+          const u = (n) => gl.getUniformLocation(prog, n);
+          const rec = { prog, p: gl.getAttribLocation(prog, "p"), uCenter: u("uCenter"), uScale: u("uScale"), uRes: u("uRes"), uPalette: u("uPalette"), uHueShift: u("uHueShift"), uOverlay: u("uOverlay"), uDensity: u("uDensity") };
+          _glProg[body] = rec;
+          return rec;
+        } catch (e) { _glProg[body] = null; return null; }
+      }
+      function glPortraitOK() {
+        return (
+          state.useGL && state.scheme === "classic" && state.inputMode !== "xy" &&
+          !rotActive() && !dispActive() && !(state.branchActive && state.branchK !== 0) &&
+          state.compiled && state.compiled.ast
+        );
+      }
+      // Рисует портрет f(z) на 2D-холст cv через GPU. true — успех; false — нужен CPU-фолбэк.
+      function glRenderPortrait(cv) {
+        const gl = glInit();
+        if (!gl) return false;
+        let body;
+        try { body = astToGLSL(state.compiled.ast); } catch (e) { return false; }
+        try {
+          const rec = glProgramFor(body);
+          if (!rec) return false;
+          sizeCanvas(cv);
+          const ss = state.ssaa, rw = Math.max(1, cv.width * ss), rh = Math.max(1, cv.height * ss);
+          _glCv.width = rw;
+          _glCv.height = rh;
+          const v = views.phase;
+          gl.viewport(0, 0, rw, rh);
+          gl.useProgram(rec.prog);
+          gl.bindBuffer(gl.ARRAY_BUFFER, _glBuf);
+          gl.enableVertexAttribArray(rec.p);
+          gl.vertexAttribPointer(rec.p, 2, gl.FLOAT, false, 0, 0);
+          gl.uniform2f(rec.uCenter, v.cx, v.cy);
+          gl.uniform1f(rec.uScale, v.scale / ss);
+          gl.uniform2f(rec.uRes, rw, rh);
+          gl.uniform1i(rec.uPalette, { hsl: 0, iso: 1, cb: 2 }[state.colorPalette] || 0);
+          gl.uniform1f(rec.uHueShift, state.colorHueShift || 0);
+          gl.uniform1i(rec.uOverlay, { off: 0, mod: 1, arg: 2, both: 3 }[state.contourOverlay] || 0);
+          gl.uniform1f(rec.uDensity, state.colorDensity || 4);
+          gl.drawArrays(gl.TRIANGLES, 0, 3);
+          if (gl.getError() !== gl.NO_ERROR) return false;
+          const ctx = cv.getContext("2d");
+          ctx.imageSmoothingEnabled = ss > 1;
+          ctx.clearRect(0, 0, cv.width, cv.height);
+          ctx.drawImage(_glCv, 0, 0, rw, rh, 0, 0, cv.width, cv.height);
+          _glActive = true;
+          return true;
+        } catch (e) { return false; }
+      }
+
+      /* ========================== T3: ВОРКЕРЫ ДЛЯ ФРАКТАЛОВ ========================== */
+      const _WORKER_SRC = [
+        "function mandelbrot(cx,cy,mi){var zx=0,zy=0,i=0,x2=0,y2=0;for(;i<mi;i++){x2=zx*zx;y2=zy*zy;if(x2+y2>256)break;zy=2*zx*zy+cy;zx=x2-y2+cx;}return i===mi?mi:i+1-Math.log(Math.log(Math.sqrt(x2+y2)))/Math.LN2;}",
+        "function multibrot(cx,cy,d,mi){var zx=0,zy=0,i=0;for(;i<mi;i++){if(zx*zx+zy*zy>1e4)break;var ax=zx,ay=zy;for(var k=1;k<d;k++){var nx=ax*zx-ay*zy,ny=ax*zy+ay*zx;ax=nx;ay=ny;}zx=ax+cx;zy=ay+cy;}return i===mi?mi:i+1-Math.log(Math.log(Math.sqrt(zx*zx+zy*zy)))/Math.log(d);}",
+        "function juliaPow(zx,zy,cx,cy,d,mi){var i=0;for(;i<mi;i++){if(zx*zx+zy*zy>1e4)break;var ax=zx,ay=zy;for(var k=1;k<d;k++){var nx=ax*zx-ay*zy,ny=ax*zy+ay*zx;ax=nx;ay=ny;}zx=ax+cx;zy=ay+cy;}return i===mi?mi:i+1-Math.log(Math.log(Math.sqrt(zx*zx+zy*zy)))/Math.log(d);}",
+        "function tricorn(cx,cy,mi){var zx=0,zy=0,i=0,x2=0,y2=0;for(;i<mi;i++){x2=zx*zx;y2=zy*zy;if(x2+y2>256)break;var nzy=-2*zx*zy+cy;zx=x2-y2+cx;zy=nzy;}return i===mi?mi:i+1-Math.log(Math.log(Math.sqrt(x2+y2)))/Math.LN2;}",
+        "function burningShip(cx,cy,mi){var zx=0,zy=0,i=0,x2=0,y2=0;for(;i<mi;i++){x2=zx*zx;y2=zy*zy;if(x2+y2>256)break;zy=2*Math.abs(zx)*Math.abs(zy)+cy;zx=x2-y2+cx;}return i===mi?mi:i+1-Math.log(Math.log(Math.sqrt(x2+y2)))/Math.LN2;}",
+        "function juliaTrans(zx,zy,lre,lim,kind,mi){var b2=2500,i=0;for(;i<mi;i++){if(zx*zx+zy*zy>b2||!isFinite(zx)||!isFinite(zy))break;var gx,gy;if(kind===0){var e=Math.exp(zx);gx=e*Math.cos(zy);gy=e*Math.sin(zy);}else if(kind===1){gx=Math.sin(zx)*Math.cosh(zy);gy=Math.cos(zx)*Math.sinh(zy);}else{gx=Math.cos(zx)*Math.cosh(zy);gy=-Math.sin(zx)*Math.sinh(zy);}var nx=lre*gx-lim*gy,ny=lre*gy+lim*gx;zx=nx;zy=ny;}return i;}",
+        "onmessage=function(ev){var d=ev.data,rw=d.rw,rh=d.rh,j0=d.j0,j1=d.j1,sx=d.sx,sy=d.sy,cx0=d.cx,cy0=d.cy,mi=d.mi,type=d.type,jr=d.jr,ji=d.ji,mb=d.mb,jp=d.jp,tk=d.tk;",
+        "var out=new Float32Array(rw*(j1-j0));",
+        "for(var j=j0;j<j1;j++){var y=cy0+(rh/2-(j+0.5))*sy;for(var i=0;i<rw;i++){var x=cx0+(i+0.5-rw/2)*sx,it;",
+        "if(type==='multibrot')it=multibrot(x,y,mb,mi);else if(type==='julia')it=juliaPow(x,y,jr,ji,jp,mi);else if(type==='tricorn')it=tricorn(x,y,mi);else if(type==='burningship')it=burningShip(x,y,mi);else if(tk>=0)it=juliaTrans(x,y,jr,ji,tk,mi);else it=mandelbrot(x,y,mi);",
+        "out[(j-j0)*rw+i]=it;}}postMessage({j0:j0,j1:j1,out:out},[out.buffer]);};",
+      ].join("\n");
+      let _wpool = null, _wfail = false;
+      function workerPool() {
+        if (_wfail) return null;
+        if (_wpool) return _wpool;
+        try {
+          const url = URL.createObjectURL(new Blob([_WORKER_SRC], { type: "application/javascript" }));
+          const n = Math.max(1, Math.min(4, navigator.hardwareConcurrency || 2));
+          _wpool = [];
+          for (let i = 0; i < n; i++) _wpool.push(new Worker(url));
+          return _wpool;
+        } catch (e) { _wfail = true; return null; }
+      }
+      // Параллельный полный рендер базовых фракталов. true — запущено; false — нужен CPU-путь.
+      function renderFractalWorkers(cv, rw, rh, W, H, v, params, myGen, onDone) {
+        const pool = workerPool();
+        if (!pool) return false;
+        const ctx = cv.getContext("2d");
+        off.width = rw;
+        off.height = rh;
+        const n = pool.length, bandH = Math.ceil(rh / n), sx = (v.scale * W) / rw, sy = (v.scale * H) / rh;
+        let done = 0, expected = 0;
+        for (let w = 0; w < n; w++) { if (w * bandH < Math.min(rh, (w + 1) * bandH)) expected++; }
+        for (let w = 0; w < n; w++) {
+          const j0 = w * bandH, j1 = Math.min(rh, (w + 1) * bandH);
+          if (j0 >= j1) continue;
+          const wk = pool[w];
+          wk.onmessage = (ev) => {
+            if (myGen !== renderGen) return;
+            const dd = ev.data, it = dd.out, data = new Uint8ClampedArray(rw * (dd.j1 - dd.j0) * 4);
+            for (let k = 0; k < it.length; k++) {
+              const p = k * 4, val = it[k];
+              if (val >= params.mi) { data[p] = 8; data[p + 1] = 9; data[p + 2] = 16; data[p + 3] = 255; }
+              else fracColor(val, data, p);
+            }
+            offc.putImageData(new ImageData(data, rw, dd.j1 - dd.j0), 0, dd.j0);
+            if (++done === expected) {
+              ctx.imageSmoothingEnabled = state.ssaa > 1;
+              ctx.clearRect(0, 0, W, H);
+              ctx.drawImage(off, 0, 0, rw, rh, 0, 0, W, H);
+              hideProgress();
+              if (onDone) onDone(ctx);
+            }
+          };
+          wk.postMessage({ rw, rh, j0, j1, sx, sy, cx: v.cx, cy: v.cy, mi: params.mi, type: params.type, jr: params.jr, ji: params.ji, mb: params.mb, jp: params.jp, tk: params.tk });
+        }
+        return expected > 0;
+      }
+
       /* ---------- рендер поля (быстрый путь, если доступен) ---------- */
-      function renderField(cv, v, q, onDone) {
+      function renderField(cv, v, q, onDone, opts) {
+        opts = opts || {};
+        const Q = ssQ(q);
         const myGen = renderGen,
           W = sizeCanvas(cv).width,
           H = cv.height,
-          rw = Math.max(40, (W * q) | 0),
-          rh = Math.max(40, (H * q) | 0);
+          rw = Math.max(40, (W * Q) | 0),
+          rh = Math.max(40, (H * Q) | 0);
         const hw = (v.scale * W) / 2,
           hh = (v.scale * H) / 2;
         const region = {
@@ -3547,21 +4315,22 @@
           height: rh,
         };
         const ctx = cv.getContext("2d"),
-          fast = displayFast();
+          fast = "fast" in opts ? opts.fast : displayFast();
         const finish = () => {
           drawAxes(ctx, W, H, v);
           if (onDone) onDone(ctx);
         };
         // быстрый путь и интерактивное низкое качество — синхронно (они дёшевы)
-        if ((fast && state.scheme === "classic") || q < 1) {
+        const cFast = colorFastOK();
+        if ((fast && state.scheme === "classic" && cFast) || q < 1) {
           let img;
-          if (fast && state.scheme === "classic")
+          if (fast && state.scheme === "classic" && cFast)
             img = renderToImageDataFast(fast, region, phaseColorRaw);
-          else img = renderToImageData(displayF(), region, { colorOpts: colorOpts() });
+          else img = renderToImageData(opts.f || displayF(), region, { colorOpts: opts.colorOpts || colorOpts() });
           off.width = rw;
           off.height = rh;
           offc.putImageData(new ImageData(img.data, rw, rh), 0, 0);
-          ctx.imageSmoothingEnabled = q < 1;
+          ctx.imageSmoothingEnabled = q < 1 || state.ssaa > 1;
           ctx.clearRect(0, 0, W, H);
           ctx.drawImage(off, 0, 0, rw, rh, 0, 0, W, H);
           hideProgress();
@@ -3569,7 +4338,7 @@
           return ctx;
         }
         // полное качество тяжёлой функции — порционно, с прогрессом
-        const f = displayF(),
+        const f = opts.f || displayF(),
           dy = (region.ymax - region.ymin) / rh;
         const fillBand = (j0, j1) =>
           renderToImageData(
@@ -3582,12 +4351,73 @@
               width: rw,
               height: j1 - j0,
             },
-            { colorOpts: colorOpts() },
+            { colorOpts: opts.colorOpts || colorOpts() },
           ).data;
         chunkedPaint(cv, rw, rh, W, H, fillBand, myGen, finish);
         return ctx;
       }
+      // U1: «приятный» шаг делений (1·2·5)×10^k и числовые подписи осей и тиков.
+      function _niceStep(span, target) {
+        if (!(span > 0) || !isFinite(span)) return 1;
+        const raw = span / target,
+          p = Math.pow(10, Math.floor(Math.log10(raw))),
+          m = raw / p;
+        return (m < 1.5 ? 1 : m < 3.5 ? 2 : m < 7.5 ? 5 : 10) * p;
+      }
+      function _fmtTick(x, step) {
+        if (Math.abs(x) < step * 1e-6) return "0";
+        const a = Math.abs(x);
+        if (a >= 1e4 || a < 1e-3) return x.toExponential(0);
+        return String(+x.toPrecision(8));
+      }
+      function drawAxisTicks(ctx, W, H, v) {
+        const step = _niceStep(v.scale * W, 8);
+        if (!(step > 0) || !isFinite(step)) return;
+        const xmin = v.cx - (v.scale * W) / 2,
+          xmax = v.cx + (v.scale * W) / 2,
+          ymin = v.cy - (v.scale * H) / 2,
+          ymax = v.cy + (v.scale * H) / 2;
+        const x0 = Math.min(W - 1, Math.max(0, W / 2 - v.cx / v.scale)),
+          y0 = Math.min(H - 1, Math.max(0, H / 2 + v.cy / v.scale));
+        ctx.save();
+        ctx.lineWidth = 1;
+        ctx.strokeStyle = "rgba(255,255,255,.28)";
+        ctx.font = "11px ui-monospace, SFMono-Regular, Menlo, monospace";
+        const label = (txt, px, py, ax, ab) => {
+          ctx.textAlign = ax;
+          ctx.textBaseline = ab;
+          ctx.lineWidth = 3;
+          ctx.strokeStyle = "rgba(0,0,0,.55)";
+          ctx.strokeText(txt, px, py);
+          ctx.fillStyle = "rgba(255,255,255,.82)";
+          ctx.fillText(txt, px, py);
+          ctx.lineWidth = 1;
+          ctx.strokeStyle = "rgba(255,255,255,.28)";
+        };
+        const ty = Math.min(H - 2, y0 + 14);
+        for (let xt = Math.ceil(xmin / step) * step; xt <= xmax + step * 0.5; xt += step) {
+          if (Math.abs(xt) < step * 1e-6) continue;
+          const px = W / 2 + (xt - v.cx) / v.scale;
+          ctx.beginPath();
+          ctx.moveTo(px, y0 - 3);
+          ctx.lineTo(px, y0 + 3);
+          ctx.stroke();
+          label(_fmtTick(xt, step), px, ty, "center", "top");
+        }
+        const tx = Math.min(W - 2, x0 + 6);
+        for (let yt = Math.ceil(ymin / step) * step; yt <= ymax + step * 0.5; yt += step) {
+          if (Math.abs(yt) < step * 1e-6) continue;
+          const py = H / 2 - (yt - v.cy) / v.scale;
+          ctx.beginPath();
+          ctx.moveTo(x0 - 3, py);
+          ctx.lineTo(x0 + 3, py);
+          ctx.stroke();
+          label(_fmtTick(yt, step) + "i", tx, py, "left", "middle");
+        }
+        ctx.restore();
+      }
       function drawAxes(ctx, W, H, v) {
+        if (!state.showAxes) return;
         ctx.save();
         ctx.strokeStyle = "rgba(255,255,255,.14)";
         ctx.lineWidth = 1;
@@ -3600,6 +4430,7 @@
         ctx.lineTo(x0, H);
         ctx.stroke();
         ctx.restore();
+        drawAxisTicks(ctx, W, H, v);
       }
 
       /* ---------- анимация портрета: H_t(z)=(1−t)·z+t·f(z), перекраска по фазе ---------- */
@@ -3843,7 +4674,7 @@
         q = q || 1;
         const cv = $("#cv-analysis"),
           v = views.analysis;
-        renderField(cv, v, q, (ctx) => {
+        const drawOverlay = (ctx) => {
           const W = cv.width,
             H = cv.height,
             toPx = (z) => [W / 2 + (z.re - v.cx) / v.scale, H / 2 - (z.im - v.cy) / v.scale];
@@ -3875,6 +4706,47 @@
               cross(ctx, x, y, 6);
               ctx.stroke();
             }
+            if (a.markers.critical)
+              for (const z of a.markers.critical) {
+                const [x, y] = toPx(z);
+                diamond(ctx, x, y, 7);
+                ctx.strokeStyle = "#0c0f15";
+                ctx.lineWidth = 3;
+                ctx.stroke();
+                diamond(ctx, x, y, 7);
+                ctx.strokeStyle = "#c79bff";
+                ctx.lineWidth = 2;
+                ctx.stroke();
+              }
+            if (a.markers.zeta)
+              for (const z of a.markers.zeta) {
+                const [x, y] = toPx(z);
+                diamond(ctx, x, y, 5);
+                ctx.fillStyle = "#ff6ec7";
+                ctx.fill();
+                diamond(ctx, x, y, 5);
+                ctx.strokeStyle = "#0c0f15";
+                ctx.lineWidth = 1;
+                ctx.stroke();
+              }
+          }
+          if (a.drawn && a.drawn.kind === "poly" && a.drawn.pts.length) {
+            ctx.strokeStyle = getCss("--teal");
+            ctx.lineWidth = 1.6;
+            ctx.beginPath();
+            a.drawn.pts.forEach((z, i) => {
+              const [x, y] = toPx(z);
+              i ? ctx.lineTo(x, y) : ctx.moveTo(x, y);
+            });
+            if (a.drawn.closed) ctx.closePath();
+            ctx.stroke();
+            ctx.fillStyle = "#fff";
+            a.drawn.pts.forEach((z) => {
+              const [x, y] = toPx(z);
+              ctx.beginPath();
+              ctx.arc(x, y, 2.5, 0, 7);
+              ctx.fill();
+            });
           }
           if (a.contour) {
             const [x, y] = toPx(a.contour);
@@ -3886,6 +4758,16 @@
             ctx.stroke();
             ctx.setLineDash([]);
           }
+          if (a.convR && a.point) {
+            const [x, y] = toPx(a.point);
+            ctx.strokeStyle = "#7fd1ff";
+            ctx.lineWidth = 1.5;
+            ctx.setLineDash([6, 4]);
+            ctx.beginPath();
+            ctx.arc(x, y, a.convR / v.scale, 0, 7);
+            ctx.stroke();
+            ctx.setLineDash([]);
+          }
           if (a.point) {
             const [x, y] = toPx(a.point);
             ctx.fillStyle = "#fff";
@@ -3893,13 +4775,83 @@
             ctx.arc(x, y, 4, 0, 7);
             ctx.fill();
           }
-        });
+        };
+        if (state.ana.errMap && state.ana.seriesData)
+          return renderErrorMap(cv, v, q, drawOverlay);
+        renderField(cv, v, q, drawOverlay);
+      }
+      // A6: тепловая карта по log|f − Σₙ| (тёмно-синее — точно, красное — расходится).
+      function _heat(t) {
+        const stops = [
+          [10, 20, 60],
+          [30, 90, 200],
+          [40, 200, 180],
+          [240, 220, 60],
+          [230, 60, 40],
+        ];
+        const s = t * (stops.length - 1),
+          i = Math.min(stops.length - 2, Math.floor(s)),
+          f = s - i,
+          a = stops[i],
+          b = stops[i + 1];
+        return [(a[0] + (b[0] - a[0]) * f) | 0, (a[1] + (b[1] - a[1]) * f) | 0, (a[2] + (b[2] - a[2]) * f) | 0];
+      }
+      function renderErrorMap(cv, v, q, onDone) {
+        const myGen = renderGen,
+          W = sizeCanvas(cv).width,
+          H = cv.height,
+          rw = Math.max(40, (W * q) | 0),
+          rh = Math.max(40, (H * q) | 0);
+        const sd = state.ana.seriesData,
+          f = curF();
+        const N = Math.min(sd.a.length, state.ana.errN || sd.a.length),
+          coeffs = sd.a.slice(0, N),
+          z0 = sd.z0;
+        const hw = (v.scale * W) / 2,
+          hh = (v.scale * H) / 2,
+          xmin = v.cx - hw,
+          xmax = v.cx + hw,
+          ymin = v.cy - hh,
+          ymax = v.cy + hh,
+          dxp = (xmax - xmin) / rw,
+          dyp = (ymax - ymin) / rh;
+        const fillBand = (j0, j1) => {
+          const data = new Uint8ClampedArray(rw * (j1 - j0) * 4);
+          for (let j = j0; j < j1; j++) {
+            const y = ymax - (j + 0.5) * dyp;
+            for (let i = 0; i < rw; i++) {
+              const z = C(xmin + (i + 0.5) * dxp, y);
+              const fz = safe(f, z),
+                pz = evalSeries(coeffs, z0, z);
+              let err;
+              if (!fz || !isFiniteC(fz) || !isFiniteC(pz)) err = 1e9;
+              else err = abs(sub(fz, pz));
+              const t = Math.max(0, Math.min(1, (Math.log10(err + 1e-12) + 6) / 8)),
+                c = _heat(t),
+                p = ((j - j0) * rw + i) * 4;
+              data[p] = c[0];
+              data[p + 1] = c[1];
+              data[p + 2] = c[2];
+              data[p + 3] = 255;
+            }
+          }
+          return data;
+        };
+        chunkedPaint(cv, rw, rh, W, H, fillBand, myGen, onDone);
       }
       const cross = (ctx, x, y, r) => {
         ctx.moveTo(x - r, y - r);
         ctx.lineTo(x + r, y + r);
         ctx.moveTo(x + r, y - r);
         ctx.lineTo(x - r, y + r);
+      };
+      const diamond = (ctx, x, y, r) => {
+        ctx.beginPath();
+        ctx.moveTo(x, y - r);
+        ctx.lineTo(x + r, y);
+        ctx.lineTo(x, y + r);
+        ctx.lineTo(x - r, y);
+        ctx.closePath();
       };
       const getCss = (v) => getComputedStyle(document.documentElement).getPropertyValue(v).trim();
       function arrowHead(ctx, x0, y0, x1, y1, head) {
@@ -3962,6 +4914,74 @@
             ctx.arc(x, y, 2.2, 0, 7);
             ctx.fill();
           }
+      }
+      // V1: поле Полиа — векторное поле сопряжённого conj(f)=(Re f, −Im f).
+      // ∮ f dz = циркуляция + i·поток этого поля; направление нормировано.
+      function polyaOverlay(ctx, cv, v) {
+        if (!state.polya) return;
+        const f = curF(),
+          W = cv.width,
+          H = cv.height;
+        ctx.save();
+        ctx.strokeStyle = "rgba(125,209,255,.72)";
+        ctx.fillStyle = "rgba(125,209,255,.72)";
+        ctx.lineWidth = 1;
+        const step = Math.max(28, Math.min(W, H) / 18),
+          L = step * 0.46;
+        for (let py = step / 2; py < H; py += step)
+          for (let px = step / 2; px < W; px += step) {
+            const z = C(v.cx + (px - W / 2) * v.scale, v.cy - (py - H / 2) * v.scale),
+              w = safe(f, z);
+            if (!w || !isFiniteC(w)) continue;
+            let ux = w.re,
+              uy = -w.im; // плоскостной вектор conj(f)
+            const m = Math.hypot(ux, uy);
+            if (m < 1e-12) continue;
+            ux /= m;
+            uy /= m;
+            const sx = ux * L,
+              sy = -uy * L; // в экранные пиксели (y вниз)
+            arrowHead(ctx, px - sx / 2, py - sy / 2, px + sx / 2, py + sy / 2, 3.5);
+          }
+        ctx.restore();
+      }
+      // A7: оверлей линий разреза. Численно ищем точки, где ГЛАВНАЯ ветвь f(z) разрывна:
+      // на разрезе односторонний скачок асимметричен (с одной стороны — резкий прыжок, с другой — гладко),
+      // что отличает разрез от полюса (симметричный рост) и от крутого, но непрерывного градиента.
+      function branchCutOverlay(ctx, cv, v) {
+        if (!state.branchCuts) return;
+        const f = curF(),
+          W = cv.width,
+          H = cv.height,
+          step = 2,
+          h = v.scale;
+        ctx.save();
+        for (let py = 0; py < H; py += step)
+          for (let px = 0; px < W; px += step) {
+            const x = v.cx + (px - W / 2) * v.scale,
+              y = v.cy - (py - H / 2) * v.scale;
+            const f0 = safe(f, C(x, y));
+            if (!f0 || !isFiniteC(f0)) continue;
+            let hit = false;
+            for (let a = 0; a < 2 && !hit; a++) {
+              const fp = safe(f, a ? C(x, y + h) : C(x + h, y)),
+                fm = safe(f, a ? C(x, y - h) : C(x - h, y));
+              if (!fp || !fm || !isFiniteC(fp) || !isFiniteC(fm)) continue;
+              const d1 = Math.hypot(fp.re - f0.re, fp.im - f0.im),
+                d2 = Math.hypot(f0.re - fm.re, f0.im - fm.im),
+                big = Math.max(d1, d2),
+                small = Math.min(d1, d2),
+                mag = Math.max(abs(f0), abs(fp), abs(fm));
+              if (big > 0.5 && small < 0.34 * big && mag < 1e4) hit = true;
+            }
+            if (hit) {
+              ctx.fillStyle = "rgba(10,12,18,.85)";
+              ctx.fillRect(px - 1, py - 1, 3, 3);
+              ctx.fillStyle = "rgba(255,238,130,.95)";
+              ctx.fillRect(px - 1, py - 1, 2, 2);
+            }
+          }
+        ctx.restore();
       }
       function findFixedPoints() {
         const v = views.phase,
@@ -4063,7 +5083,80 @@
         if (zp != null) out.push(["нулей−полюсов", String(zp), "warm"]);
         state.ana.contour = c;
         state.ana.radius = r;
+        state.ana.drawn = null;
         showResults("контур |z−c|=r", out);
+        renderAnalysis();
+      }
+      // A4: интеграл по произвольному контуру (прямоугольник / ломаная).
+      function analyzePolyContour(pts, closed, label) {
+        if (!pts || pts.length < (closed ? 3 : 2)) return;
+        const f = curF(),
+          path = polyline(pts, closed);
+        const I = tryc(() => integrateAdaptive(f, path, { tol: 1e-9 }));
+        const out = [["контур", label + " · " + pts.length + " верш." + (closed ? " (замкн.)" : ""), ""]];
+        if (I) {
+          out.push(["∮ f dz", fmt(I.value), "teal"]);
+          if (closed) out.push(["Σ вычетов", fmt(div(I.value, C(0, 2 * Math.PI))), "teal"]);
+        }
+        if (closed) {
+          const zp = tryc(() => argumentPrinciple(f, path));
+          if (zp != null) out.push(["нулей−полюсов", String(zp), "warm"]);
+        }
+        state.ana.contour = null;
+        state.ana.drawn = { kind: "poly", pts: pts.map((p) => C(p.re, p.im)), closed };
+        showResults(closed ? "замкнутый контур" : "путь", out);
+        renderAnalysis();
+      }
+      // A5: оценка радиуса сходимости ряда Тейлора по отношению коэффициентов (медиана) и по ближайшей особенности.
+      function _convRadius(a) {
+        const ratios = [];
+        for (let k = a.length - 1; k >= 2; k--) {
+          const ak = a[k],
+            ak1 = a[k - 1];
+          if (!ak || !ak1) continue;
+          const den = abs(ak),
+            num = abs(ak1);
+          if (den > 1e-280 && num > 1e-280) ratios.push(num / den);
+          if (ratios.length >= 5) break;
+        }
+        if (!ratios.length) return Infinity;
+        ratios.sort((x, y) => x - y);
+        return ratios[ratios.length >> 1];
+      }
+      function analyzeSeries(z0) {
+        const f = curF();
+        let nearest = Infinity;
+        try {
+          const win = 3,
+            ps = AC.findZerosPoles(f, z0.re - win, z0.re + win, z0.im - win, z0.im + win).poles;
+          for (const p of ps) {
+            const d = abs(sub(p, z0));
+            if (d > 1e-6 && d < nearest) nearest = d;
+          }
+        } catch (e) {}
+        const r0 = isFinite(nearest) ? Math.max(0.02, Math.min(0.3, nearest * 0.5)) : 0.3;
+        const a = tryc(() => taylor(f, z0, { terms: 12, radius: r0, N: 256 })) || [];
+        const Rc = _convRadius(a);
+        let R = Rc;
+        if (isFinite(nearest)) R = Math.min(nearest, Rc);
+        state.ana.point = z0;
+        state.ana.seriesData = { z0: C(z0.re, z0.im), a };
+        state.ana.convR = isFinite(R) && R < 1e6 ? R : null;
+        state.ana.drawn = null;
+        state.ana.contour = null;
+        const sd = "₀₁₂₃₄₅₆₇₈₉",
+          subk = (k) => String(k).split("").map((d) => sd[+d]).join("");
+        const out = [["z₀", fmt(z0), ""]];
+        out.push([
+          "радиус сходимости",
+          state.ana.convR != null ? state.ana.convR.toFixed(4) : "∞ (целая?)",
+          "teal",
+        ]);
+        if (isFinite(nearest)) out.push(["ближайшая особ.", "d = " + nearest.toFixed(4), "warm"]);
+        a.forEach((ak, k) => {
+          if (ak && isFiniteC(ak)) out.push(["a" + subk(k), fmtShort(ak), ""]);
+        });
+        showResults("ряд Тейлора в z₀", out);
         renderAnalysis();
       }
       function findZP() {
@@ -4088,11 +5181,72 @@
           poles = zp.poles;
           note = "численно (Ньютон)";
         }
-        state.ana.markers = { zeros, poles };
+        let critical = [];
+        try {
+          critical = AC.findCritical(curF(), xmin, xmax, ymin, ymax);
+        } catch (e) {}
+        state.ana.markers = { zeros, poles, critical };
         const out = [["метод", note, ""]];
         zeros.forEach((z, i) => out.push(["нуль " + (i + 1), fmt(z), "teal"]));
         poles.forEach((z, i) => out.push(["полюс " + (i + 1), fmt(z), "warm"]));
-        showResults("нули (○) и полюсы (×) в окне", out);
+        critical.forEach((z, i) => out.push(["крит. f′=0 · " + (i + 1), fmt(z), ""]));
+        showResults("нули (○), полюсы (×), крит. точки (◇)", out);
+        renderAnalysis();
+      }
+      // A2: поведение и вычет в бесконечности через g(w)=f(1/w) при w→0.
+      function analyzeInfinity() {
+        const f = curF();
+        const g = (w) => f(recip(w));
+        const out = [["точка", "z → ∞", ""]];
+        let cls = tryc(() => classifySingularity(g, ZERO, { radius: 0.04, terms: 10 }));
+        if (cls) {
+          if (cls.type === "regular") {
+            out.push(["в ∞", "регулярна (конечный предел)", "teal"]);
+            const lim = safe(g, C(1e-6, 0));
+            if (isFiniteC(lim)) out.push(["lim_{z→∞} f", fmt(lim), ""]);
+          } else if (cls.type === "pole") {
+            out.push(["в ∞", "полюс порядка " + cls.order + " (рост)", "warm"]);
+          } else out.push(["в ∞", "существенная особенность", "warm"]);
+        }
+        // вычет в ∞ = −res_{w=0}[ f(1/w)/w² ]
+        const h = (w) => neg(div(g(w), mul(w, w)));
+        const rinf = tryc(() => residue(h, ZERO, { radius: 0.04 }));
+        if (rinf && isFiniteC(rinf)) out.push(["вычет в ∞", fmt(rinf), "teal"]);
+        state.ana.point = null;
+        state.ana.out = out;
+        showResults("поведение в ∞ (через 1/f(1/w))", out);
+        renderAnalysis();
+      }
+      // A3: нетривиальные нули ζ на критической прямой Re=1/2 (мнимые части первых нулей).
+      const _ZETA_IM = [
+        14.134725, 21.022040, 25.010858, 30.424876, 32.935062, 37.586178, 40.918719, 43.327073,
+        48.005151, 49.773832, 52.970321, 56.446248, 59.347044, 60.831779, 65.112544, 67.079811,
+        69.546402, 72.067158, 75.704691, 77.144840, 79.337375, 82.910381, 84.735493, 87.425275,
+        88.809111, 92.491899, 94.651344, 95.870634, 98.831194, 101.317851,
+      ];
+      function analyzeZetaZeros() {
+        const v = views.analysis,
+          cv = $("#cv-analysis"),
+          W = cv.width || 800,
+          H = cv.height || 600;
+        const xmin = v.cx - (v.scale * W) / 2,
+          xmax = v.cx + (v.scale * W) / 2,
+          ymin = v.cy - (v.scale * H) / 2,
+          ymax = v.cy + (v.scale * H) / 2;
+        const pts = [];
+        if (0.5 >= xmin && 0.5 <= xmax)
+          for (const t of _ZETA_IM)
+            for (const s of [t, -t]) if (s >= ymin && s <= ymax) pts.push(C(0.5, s));
+        const m = state.ana.markers || { zeros: [], poles: [], critical: [] };
+        m.zeta = pts;
+        state.ana.markers = m;
+        const out = [
+          ["функция", state.expr, ""],
+          ["крит. прямая", "Re = 1/2", "teal"],
+          ["нетрив. нулей в окне", String(pts.length), "warm"],
+        ];
+        pts.slice(0, 14).forEach((z, i) => out.push(["ζ-нуль " + (i + 1), fmt(z), ""]));
+        showResults("нетривиальные нули ζ (◆ на Re=½)", out);
         renderAnalysis();
       }
       const safe = (f, z) => {
@@ -4262,6 +5416,7 @@
         ctx.lineTo(x0, H);
         ctx.stroke();
         ctx.restore();
+        drawAxisTicks(ctx, W, H, v);
         for (const p of paths) {
           ctx.strokeStyle = p.hue === 0 ? "rgba(90,209,196,.62)" : "rgba(232,160,90,.55)";
           ctx.lineWidth = 1;
@@ -4581,16 +5736,21 @@
         const colA = "#5ad1c4",
           colB = "#1a2230",
           BL = 3; // две клетки; BL — узлов сетки на клетку (крупнее = нагляднее)
-        const quad = (ctx, pts, W, H, v, col) => {
+        const cellsL = [],
+          cellsR = [];
+        const quad = (ctx, pts, W, H, v, col, store) => {
           ctx.fillStyle = col;
           ctx.beginPath();
+          const flat = [];
           pts.forEach((p, k) => {
             const px = W / 2 + (p.re - v.cx) / v.scale,
               py = H / 2 - (p.im - v.cy) / v.scale;
+            flat.push(px, py);
             k ? ctx.lineTo(px, py) : ctx.moveTo(px, py);
           });
           ctx.closePath();
           ctx.fill();
+          if (store) store.push({ pts: flat, col });
         };
         for (let i = 0; i < N; i++)
           for (let j = 0; j < N; j++) {
@@ -4603,9 +5763,10 @@
                 L.height,
                 domView,
                 col,
+                cellsL,
               );
             const q = [ws[i][j], ws[i + 1][j], ws[i + 1][j + 1], ws[i][j + 1]];
-            if (q[0] && q[1] && q[2] && q[3]) quad(ctxR, q, R.width, R.height, imgView, col);
+            if (q[0] && q[1] && q[2] && q[3]) quad(ctxR, q, R.width, R.height, imgView, col, cellsR);
           }
         // оси
         const axis = (ctx, W, H, v) => {
@@ -4620,9 +5781,13 @@
           ctx.lineTo(x0, H);
           ctx.stroke();
         };
-        if (showL) axis(ctxL, L.width, L.height, domView);
+        if (showL) {
+          axis(ctxL, L.width, L.height, domView);
+          drawAxisTicks(ctxL, L.width, L.height, domView);
+        }
         axis(ctxR, R.width, R.height, imgView);
-        _conf = { L, R, domView, imgView, mf };
+        drawAxisTicks(ctxR, R.width, R.height, imgView);
+        _conf = { L, R, domView, imgView, mf, cellsL, cellsR };
         drawConfSelection();
         snapshotConf();
       }
@@ -4908,6 +6073,7 @@
       function resetFractalView() {
         const t = state.fractal;
         if (t === "mandelbrot") views.fractal = { cx: -0.5, cy: 0, scale: 3 / 600 };
+        else if (t === "buddhabrot") views.fractal = { cx: -0.4, cy: 0, scale: 3.4 / 600 };
         else if (t === "multibrot") views.fractal = { cx: 0, cy: 0, scale: 3.6 / 600 };
         else if (t === "tricorn") views.fractal = { cx: 0, cy: 0, scale: 3 / 600 };
         else if (t === "burningship") views.fractal = { cx: -0.4, cy: -0.5, scale: 3 / 600 };
@@ -4994,14 +6160,199 @@
           return { z, k, conv: k < mi };
         };
       }
+      // F3/F4: детальная итерация полиномиальных множеств — escape + оценка расстояния (DE).
+      function polyDetail(x, y) {
+        const type = state.fractal,
+          mi = state.maxIter,
+          jc = state.juliaC,
+          isJ = type === "julia",
+          d = type === "multibrot" ? state.mbPower : type === "julia" ? state.juliaPower : 2;
+        let zx, zy, cx, cy, dzx, dzy;
+        if (isJ) { zx = x; zy = y; cx = jc.re; cy = jc.im; dzx = 1; dzy = 0; }
+        else { zx = 0; zy = 0; cx = x; cy = y; dzx = 0; dzy = 0; }
+        let i = 0;
+        for (; i < mi; i++) {
+          if (zx * zx + zy * zy > 1e6) break;
+          let px = 1, py = 0;
+          for (let k = 0; k < d - 1; k++) { const nx = px * zx - py * zy, ny = px * zy + py * zx; px = nx; py = ny; }
+          const ddx = d * (px * dzx - py * dzy) + (isJ ? 0 : 1),
+            ddy = d * (px * dzy + py * dzx);
+          dzx = ddx; dzy = ddy;
+          const zdx = px * zx - py * zy, zdy = px * zy + py * zx;
+          zx = zdx + cx; zy = zdy + cy;
+        }
+        const esc = i < mi;
+        let it = mi, de = -1;
+        if (esc) {
+          const m = Math.sqrt(zx * zx + zy * zy), dm = Math.sqrt(dzx * dzx + dzy * dzy);
+          it = i + 1 - Math.log(Math.log(m)) / Math.log(d);
+          de = dm > 1e-12 ? (m * Math.log(m)) / dm : 0;
+        }
+        return { esc, it, de };
+      }
+      // F4/F5: период притягивающего цикла внутренней точки (0 — не определён/убежала).
+      function interiorPeriod(x, y) {
+        const type = state.fractal,
+          jc = state.juliaC,
+          isJ = type === "julia",
+          d = type === "multibrot" ? state.mbPower : type === "julia" ? state.juliaPower : 2;
+        let zx, zy, cx, cy;
+        if (isJ) { zx = x; zy = y; cx = jc.re; cy = jc.im; }
+        else { zx = 0; zy = 0; cx = x; cy = y; }
+        const step = () => {
+          let px = 1, py = 0;
+          for (let k = 0; k < d - 1; k++) { const nx = px * zx - py * zy, ny = px * zy + py * zx; px = nx; py = ny; }
+          zx = px * zx - py * zy + cx; zy = px * zy + py * zx + cy;
+        };
+        for (let i = 0; i < 160; i++) { step(); if (zx * zx + zy * zy > 1e6) return 0; }
+        const z0x = zx, z0y = zy, eps2 = 1e-8;
+        for (let p = 1; p <= 48; p++) { step(); if ((zx - z0x) * (zx - z0x) + (zy - z0y) * (zy - z0y) < eps2) return p; }
+        return 0;
+      }
+      function deColor(de, scale, data, p) {
+        const px = de / scale,
+          t = Math.max(0, Math.min(1, Math.pow(px * 0.6, 0.42))),
+          c = hsl2rgb(205 - 70 * t, 0.55, 0.05 + 0.85 * t);
+        data[p] = c.r; data[p + 1] = c.g; data[p + 2] = c.b; data[p + 3] = 255;
+      }
+      function periodColor(per, data, p) {
+        if (per <= 0) { data[p] = 12; data[p + 1] = 14; data[p + 2] = 22; data[p + 3] = 255; return; }
+        const c = hsl2rgb((per * 47) % 360, 0.5, 0.45);
+        data[p] = c.r; data[p + 1] = c.g; data[p + 2] = c.b; data[p + 3] = 255;
+      }
+      // F1: орбита z→f(z)→f²(z)… для текущего типа.
+      function orbitPath(z0) {
+        const type = state.fractal, jc = state.juliaC, pts = [];
+        if (type === "newton") {
+          const f = curF();
+          let z = C(z0.re, z0.im);
+          pts.push(z);
+          for (let k = 0; k < 60; k++) {
+            const fp = derivative(f, z), fv = f(z);
+            if (abs(fp) < 1e-14) break;
+            const nz = sub(z, div(fv, fp));
+            if (!isFiniteC(nz)) break;
+            pts.push(nz);
+            if (abs(sub(nz, z)) < 1e-7) break;
+            z = nz;
+          }
+          return pts;
+        }
+        let zx, zy, cx, cy, d = 2, kind = -1, tri = false, ship = false;
+        if (type === "julia") { zx = z0.re; zy = z0.im; cx = jc.re; cy = jc.im; d = state.juliaPower; }
+        else if (type === "multibrot") { zx = 0; zy = 0; cx = z0.re; cy = z0.im; d = state.mbPower; }
+        else if (type === "tricorn") { zx = 0; zy = 0; cx = z0.re; cy = z0.im; tri = true; }
+        else if (type === "burningship") { zx = 0; zy = 0; cx = z0.re; cy = z0.im; ship = true; }
+        else if (type === "julia-exp") { zx = z0.re; zy = z0.im; cx = jc.re; cy = jc.im; kind = 0; }
+        else if (type === "julia-sin") { zx = z0.re; zy = z0.im; cx = jc.re; cy = jc.im; kind = 1; }
+        else if (type === "julia-cos") { zx = z0.re; zy = z0.im; cx = jc.re; cy = jc.im; kind = 2; }
+        else { zx = 0; zy = 0; cx = z0.re; cy = z0.im; }
+        pts.push(C(zx, zy));
+        const lim = Math.min(state.maxIter, 200);
+        for (let k = 0; k < lim; k++) {
+          if (!isFinite(zx) || !isFinite(zy) || zx * zx + zy * zy > 1e8) break;
+          if (kind >= 0) {
+            let gx, gy;
+            if (kind === 0) { const e = Math.exp(zx); gx = e * Math.cos(zy); gy = e * Math.sin(zy); }
+            else if (kind === 1) { gx = Math.sin(zx) * Math.cosh(zy); gy = Math.cos(zx) * Math.sinh(zy); }
+            else { gx = Math.cos(zx) * Math.cosh(zy); gy = -Math.sin(zx) * Math.sinh(zy); }
+            const nx = cx * gx - cy * gy, ny = cx * gy + cy * gx; zx = nx; zy = ny;
+          } else if (tri) { const x2 = zx * zx, y2 = zy * zy, nzy = -2 * zx * zy + cy; zx = x2 - y2 + cx; zy = nzy; }
+          else if (ship) { const x2 = zx * zx, y2 = zy * zy; zy = 2 * Math.abs(zx) * Math.abs(zy) + cy; zx = x2 - y2 + cx; }
+          else { let px = 1, py = 0; for (let q = 0; q < d - 1; q++) { const nx = px * zx - py * zy, ny = px * zy + py * zx; px = nx; py = ny; } const nzx = px * zx - py * zy + cx, nzy = px * zy + py * zx + cy; zx = nzx; zy = nzy; }
+          pts.push(C(zx, zy));
+          if (kind < 0 && zx * zx + zy * zy > 1e4) break;
+        }
+        return pts;
+      }
+      let _orbitRAF = 0;
+      function drawOrbit(ctx, W, H, v, pts, n) {
+        if (!pts || !pts.length) return;
+        const toPx = (z) => [W / 2 + (z.re - v.cx) / v.scale, H / 2 - (z.im - v.cy) / v.scale],
+          m = Math.min(n, pts.length);
+        ctx.save();
+        ctx.lineWidth = 1.4;
+        ctx.strokeStyle = "rgba(255,255,255,.8)";
+        ctx.beginPath();
+        for (let i = 0; i < m; i++) { const [x, y] = toPx(pts[i]); i ? ctx.lineTo(x, y) : ctx.moveTo(x, y); }
+        ctx.stroke();
+        for (let i = 0; i < m; i++) {
+          const [x, y] = toPx(pts[i]);
+          ctx.fillStyle = i === 0 ? "#34d399" : "rgba(125,225,255,.95)";
+          ctx.beginPath();
+          ctx.arc(x, y, i === 0 ? 4 : 2.3, 0, 7);
+          ctx.fill();
+        }
+        ctx.restore();
+      }
+      function animateOrbit() {
+        cancelAnimationFrame(_orbitRAF);
+        const pts = state.orbit;
+        if (!pts || !pts.length) return;
+        const cv = $("#cv-fractal"), ctx = cv.getContext("2d"), W = cv.width, H = cv.height, v = views.fractal;
+        let base = null;
+        try { base = ctx.getImageData(0, 0, W, H); } catch (e) {}
+        let shown = 1;
+        const stepN = Math.max(1, (pts.length / 70) | 0);
+        const frame = () => {
+          if (state.mode !== "fractal" || !state.orbitPt || state.orbit !== pts) return;
+          if (base) ctx.putImageData(base, 0, 0);
+          drawOrbit(ctx, W, H, v, pts, shown);
+          if (shown < pts.length) { shown += stepN; _orbitRAF = requestAnimationFrame(frame); }
+        };
+        frame();
+      }
+      // F2: живое превью множества Жюлиа для c под курсором (на параметрических плоскостях).
+      let _jpv = null, _jpvPending = null, _jpvRAF = 0;
+      function hideJuliaPreview() { if (_jpv) _jpv.style.display = "none"; }
+      function juliaPreviewShow(clientX, clientY, c) {
+        _jpvPending = { clientX, clientY, re: c.re, im: c.im };
+        if (_jpvRAF) return;
+        _jpvRAF = requestAnimationFrame(() => {
+          _jpvRAF = 0;
+          const d = _jpvPending;
+          if (!d) return;
+          if (!_jpv) {
+            _jpv = document.createElement("canvas");
+            _jpv.width = 120; _jpv.height = 120;
+            _jpv.style.cssText = "position:fixed;width:128px;height:128px;border:1px solid rgba(255,255,255,.35);border-radius:8px;pointer-events:none;z-index:60;box-shadow:0 6px 22px rgba(0,0,0,.55);background:#0b0e13";
+            document.body.appendChild(_jpv);
+          }
+          _jpv.style.display = "block";
+          _jpv.style.left = Math.min(window.innerWidth - 140, d.clientX + 20) + "px";
+          _jpv.style.top = Math.min(window.innerHeight - 140, d.clientY + 20) + "px";
+          const N = 120, ctx = _jpv.getContext("2d"), img = ctx.createImageData(N, N);
+          const sc = 3.0 / N, mi = 90,
+            d2 = state.fractal === "multibrot" ? state.mbPower : 2,
+            tri = state.fractal === "tricorn", ship = state.fractal === "burningship",
+            cr = d.re, ci = d.im;
+          for (let j = 0; j < N; j++) for (let i = 0; i < N; i++) {
+            let zx = (i - N / 2) * sc, zy = (N / 2 - j) * sc, k = 0;
+            for (; k < mi; k++) {
+              const x2 = zx * zx, y2 = zy * zy;
+              if (x2 + y2 > 16) break;
+              if (tri) { const nzy = -2 * zx * zy + ci; zx = x2 - y2 + cr; zy = nzy; }
+              else if (ship) { const nzy = 2 * Math.abs(zx) * Math.abs(zy) + ci; zx = x2 - y2 + cr; zy = nzy; }
+              else if (d2 === 2) { const nzy = 2 * zx * zy + ci; zx = x2 - y2 + cr; zy = nzy; }
+              else { let px = 1, py = 0; for (let q = 0; q < d2 - 1; q++) { const nx = px * zx - py * zy, ny = px * zy + py * zx; px = nx; py = ny; } const nzx = px * zx - py * zy + cr, nzy = px * zy + py * zx + ci; zx = nzx; zy = nzy; }
+            }
+            const p = (j * N + i) * 4;
+            if (k >= mi) { img.data[p] = 10; img.data[p + 1] = 12; img.data[p + 2] = 20; }
+            else { const t = Math.log(1 + k) / Math.log(1 + mi), col = hsl2rgb(((0.58 + t * 0.24) % 1) * 360, 0.72, 0.1 + 0.62 * t); img.data[p] = col.r; img.data[p + 1] = col.g; img.data[p + 2] = col.b; }
+            img.data[p + 3] = 255;
+          }
+          ctx.putImageData(img, 0, 0);
+        });
+      }
       function renderFractal(q) {
         const myGen = renderGen,
           cv = sizeCanvas($("#cv-fractal")),
           W = cv.width,
           H = cv.height,
           v = views.fractal;
-        const rw = Math.max(40, (W * q) | 0),
-          rh = Math.max(40, (H * q) | 0);
+        const Q = ssQ(q);
+        const rw = Math.max(40, (W * Q) | 0),
+          rh = Math.max(40, (H * Q) | 0);
         const sx = (v.scale * W) / rw,
           sy = (v.scale * H) / rh,
           mi = state.maxIter,
@@ -5009,6 +6360,14 @@
           type = state.fractal;
         const tKind =
           type === "julia-exp" ? 0 : type === "julia-sin" ? 1 : type === "julia-cos" ? 2 : -1;
+        const polyType = type === "mandelbrot" || type === "multibrot" || type === "julia",
+          deOn = polyType && state.fracExterior === "de",
+          periodOn = polyType && state.fracInterior === "period";
+        const basicType =
+          type === "mandelbrot" || type === "multibrot" || type === "julia" ||
+          type === "tricorn" || type === "burningship" || tKind >= 0;
+        const workerOK = state.useWorkers && basicType && !deOn && !periodOn && q >= 1;
+        state.orbitPt = null;
         const newtonIter = type === "newton" ? makeNewtonIterator() : null;
         const nroots = [],
           rootIndex = (z) => {
@@ -5026,6 +6385,15 @@
               if (type === "newton") {
                 const r = newtonIter(x, y);
                 newtonColor(r.conv ? rootIndex(r.z) : 0, r.k, r.conv, data, p);
+                continue;
+              }
+              if (polyType && (deOn || periodOn)) {
+                const r = polyDetail(x, y);
+                if (!r.esc) {
+                  if (periodOn) periodColor(interiorPeriod(x, y), data, p);
+                  else { data[p] = 8; data[p + 1] = 9; data[p + 2] = 16; data[p + 3] = 255; }
+                } else if (deOn) deColor(r.de, v.scale, data, p);
+                else fracColor(r.it, data, p);
                 continue;
               }
               let it;
@@ -5054,9 +6422,55 @@
           ctx.clearRect(0, 0, W, H);
           ctx.drawImage(off, 0, 0, rw, rh, 0, 0, W, H);
           hideProgress();
+          drawAxes(ctx, W, H, v);
           return;
         }
-        chunkedPaint(cv, rw, rh, W, H, fillBand, myGen);
+        if (
+          workerOK &&
+          renderFractalWorkers(cv, rw, rh, W, H, v,
+            { mi, type, jr: jc.re, ji: jc.im, mb: state.mbPower, jp: state.juliaPower, tk: tKind },
+            myGen, (c) => drawAxes(c, W, H, v))
+        )
+          return;
+        chunkedPaint(cv, rw, rh, W, H, fillBand, myGen, (c) => drawAxes(c, W, H, v));
+      }
+      // F6: Buddhabrot — накопление плотности орбит убегающих точек (прогрессивно).
+      let _buddhaT = 0;
+      function renderBuddhabrot() {
+        clearTimeout(_buddhaT);
+        const cv = sizeCanvas($("#cv-fractal")), W = cv.width, H = cv.height, v = views.fractal,
+          mi = state.maxIter, ctx = cv.getContext("2d"), myGen = renderGen;
+        const grid = new Float32Array(W * H), reg = { x0: -2.2, x1: 1.1, y0: -1.4, y1: 1.4 },
+          orbit = new Float64Array(2 * mi);
+        let maxD = 1, samples = 0;
+        const batch = () => {
+          if (myGen !== renderGen || state.mode !== "fractal" || state.fractal !== "buddhabrot") return;
+          for (let s = 0; s < 24000; s++) {
+            const cx = reg.x0 + Math.random() * (reg.x1 - reg.x0),
+              cy = reg.y0 + Math.random() * (reg.y1 - reg.y0);
+            let zx = 0, zy = 0, n = 0, esc = false;
+            for (; n < mi; n++) { const x2 = zx * zx, y2 = zy * zy; if (x2 + y2 > 4) { esc = true; break; } orbit[2 * n] = zx; orbit[2 * n + 1] = zy; zy = 2 * zx * zy + cy; zx = x2 - y2 + cx; }
+            if (!esc) continue;
+            for (let k = 0; k < n; k++) {
+              const ox = orbit[2 * k], oy = orbit[2 * k + 1],
+                px = (((ox - v.cx) / v.scale + W / 2) | 0);
+              let py = ((H / 2 - (oy - v.cy) / v.scale) | 0);
+              if (px >= 0 && px < W && py >= 0 && py < H) { const d = ++grid[py * W + px]; if (d > maxD) maxD = d; }
+              py = ((H / 2 - (-oy - v.cy) / v.scale) | 0);
+              if (px >= 0 && px < W && py >= 0 && py < H) { const d = ++grid[py * W + px]; if (d > maxD) maxD = d; }
+            }
+          }
+          samples += 24000;
+          const img = new Uint8ClampedArray(W * H * 4), inv = 1 / Math.log(1 + maxD);
+          for (let idx = 0; idx < W * H; idx++) {
+            const t = Math.log(1 + grid[idx]) * inv, c = hsl2rgb((34 - 26 * t + 360) % 360, 0.62, t * 0.96), p = idx * 4;
+            img[p] = c.r; img[p + 1] = c.g; img[p + 2] = c.b; img[p + 3] = 255;
+          }
+          ctx.putImageData(new ImageData(img, W, H), 0, 0);
+          if (samples < 5e6) { showProgress(Math.min(0.99, samples / 5e6)); _buddhaT = setTimeout(batch, 0); }
+          else hideProgress();
+        };
+        batch();
       }
 
       /* ---------- сфера Римана (быстрый путь) ---------- */
@@ -5090,7 +6504,7 @@
               zy = Y / d;
             }
             let cr, cg, cb;
-            if (fast && state.scheme === "classic") {
+            if (fast && state.scheme === "classic" && colorFastOK()) {
               fast(zx, zy, o);
               const tmp = new Uint8ClampedArray(4);
               phaseColorRaw(o[0], o[1], tmp, 0);
@@ -5111,16 +6525,41 @@
           }
         return data;
       }
+      // S2: дробно-линейное (элемент SU(2)) как жёсткое вращение сферы вокруг оси через a и антипод.
+      function buildSphereRot() {
+        const r = state.sphereRot, p = C(r.ax, r.ay), cp = conj(p);
+        const Mp = Mobius(ONE, neg(p), cp, ONE);
+        const D = Mobius(fromPolar(1, r.theta / 2), ZERO, ZERO, fromPolar(1, -r.theta / 2));
+        return Mp.inverse().compose(D).compose(Mp);
+      }
+      let _sphereRotRAF = 0;
+      function sphereRotTick() {
+        if (!(state.mode === "sphere" && state.sphereRot.on && state.sphereRot.anim)) return;
+        state.sphereRot.theta = (state.sphereRot.theta + 0.03) % 6.283185307;
+        render(0.6);
+        _sphereRotRAF = requestAnimationFrame(sphereRotTick);
+      }
       function renderSphere(q) {
         const myGen = renderGen,
           cv = sizeCanvas($("#cv-sphere")),
           W = cv.width,
           H = cv.height,
           v = views.sphere;
-        const rw = (W * q) | 0,
-          rh = (H * q) | 0,
-          fast = displayFast(),
+        const Q = ssQ(q);
+        const rw = (W * Q) | 0,
+          rh = (H * Q) | 0;
+        let fast, f;
+        if (state.sphereRot.on) {
+          const R = buildSphereRot();
+          f = (z) => R.apply(z);
+          fast = null;
+        } else if (state.sphereSrc === "domain") {
+          f = (z) => z;
+          fast = null;
+        } else {
           f = displayF();
+          fast = displayFast();
+        }
         const P = {
           cyw: Math.cos(v.yaw),
           syw: Math.sin(v.yaw),
@@ -5141,6 +6580,24 @@
         ctx.clearRect(0, 0, W, H); // сфера прозрачна — очистим фон один раз
         chunkedPaint(cv, rw, rh, W, H, (j0, j1) => sphereBand(j0, j1, rw, rh, fast, f, P), myGen);
       }
+      // W3: вторая функция g(z) — ленивая компиляция.
+      function cmpG() {
+        if (!state.cmpCompiled || state.cmpCompiled._src !== state.cmpExpr) {
+          const r = AC.compile(state.cmpExpr);
+          if (!r.error) { r._src = state.cmpExpr; state.cmpCompiled = r; }
+        }
+        return state.cmpCompiled && !state.cmpCompiled.error ? state.cmpCompiled.f : (z) => z;
+      }
+      // W3: два портрета бок о бок (общий вид) — через параметризованный renderField.
+      function renderCompare(q) {
+        const v = views.compare, co = colorOpts();
+        renderField($("#cv-cmpL"), v, q, null, { f: curF(), fast: curFast(), colorOpts: co });
+        const gx = state.cmpExpr.replace(/\s+/g, "");
+        renderField($("#cv-cmpR"), v, q, null, { f: cmpG(), fast: FAST[gx] || null, colorOpts: co });
+        const cl = $("#cmp-capL"), cr = $("#cmp-capR");
+        if (cl) cl.textContent = "f(z) = " + state.expr;
+        if (cr) cr.textContent = "g(z) = " + state.cmpExpr;
+      }
 
       /* ---------- диспетчер ---------- */
       let idleTimer = null;
@@ -5154,22 +6611,870 @@
             drawPhaseFrame(state.phaseT);
           } else {
             if (dispActive() && q >= 1) computeDispScale(views.phase);
-            renderField($("#cv-phase"), views.phase, q, (ctx) =>
-              phaseOverlay(ctx, $("#cv-phase"), views.phase),
-            );
+            const _cvp = $("#cv-phase");
+            if (glPortraitOK() && glRenderPortrait(_cvp)) {
+              const gctx = _cvp.getContext("2d");
+              drawAxes(gctx, _cvp.width, _cvp.height, views.phase);
+              phaseOverlay(gctx, _cvp, views.phase);
+              polyaOverlay(gctx, _cvp, views.phase);
+              if (q >= 1) branchCutOverlay(gctx, _cvp, views.phase);
+              hideProgress();
+            } else {
+              renderField($("#cv-phase"), views.phase, q, (ctx) => {
+                phaseOverlay(ctx, $("#cv-phase"), views.phase);
+                polyaOverlay(ctx, $("#cv-phase"), views.phase);
+                if (q >= 1) branchCutOverlay(ctx, $("#cv-phase"), views.phase);
+              });
+            }
           }
         } else if (state.mode === "analysis") renderAnalysis(q);
         else if (state.mode === "conformal") {
           hideProgress();
           renderConformal();
-        } else if (state.mode === "fractal") renderFractal(q);
+        } else if (state.mode === "fractal") {
+          if (state.fractal === "buddhabrot") renderBuddhabrot();
+          else renderFractal(q);
+        }
         else if (state.mode === "sphere") renderSphere(q);
+        else if (state.mode === "surface") renderSurface3D(q);
+        else if (state.mode === "compare") renderCompare(q);
       }
       function interactRender() {
-        const lowQ = state.mode === "sphere" ? 0.4 : 0.34;
+        const lowQ = state.mode === "sphere" || state.mode === "surface" ? 0.45 : 0.34;
         render(lowQ);
         clearTimeout(idleTimer);
         idleTimer = setTimeout(() => render(1), 140);
+      }
+
+      /* =====================================================================
+       *  GIF89a энкодер (модуль gif-encoder, инлайн без обёртки).
+       *  Медианное сечение → палитра ≤256, ближайший цвет через 5-битный LUT,
+       *  опц. дизеринг Флойда–Стейнберга, LZW переменной ширины, сборка потока.
+       * ===================================================================== */
+      function gifBuildPalette(frames, maxColors = 256, sampleStep = 4) {
+        const px = [];
+        for (const fr of frames)
+          for (let p = 0; p < fr.length; p += 4 * sampleStep)
+            px.push([fr[p], fr[p + 1], fr[p + 2]]);
+        if (!px.length) return [[0, 0, 0]];
+        const boxes = [px];
+        const rangeOf = (box) => {
+          let lo = [255, 255, 255],
+            hi = [0, 0, 0];
+          for (const c of box)
+            for (let k = 0; k < 3; k++) {
+              if (c[k] < lo[k]) lo[k] = c[k];
+              if (c[k] > hi[k]) hi[k] = c[k];
+            }
+          return [hi[0] - lo[0], hi[1] - lo[1], hi[2] - lo[2]];
+        };
+        while (boxes.length < maxColors) {
+          let bi = -1,
+            best = -1;
+          for (let i = 0; i < boxes.length; i++) {
+            if (boxes[i].length < 2) continue;
+            const r = rangeOf(boxes[i]),
+              m = Math.max(r[0], r[1], r[2]);
+            if (m > best) {
+              best = m;
+              bi = i;
+            }
+          }
+          if (bi < 0) break;
+          const box = boxes[bi],
+            r = rangeOf(box),
+            ch = r[0] >= r[1] && r[0] >= r[2] ? 0 : r[1] >= r[2] ? 1 : 2;
+          box.sort((a, b) => a[ch] - b[ch]);
+          const mid = box.length >> 1;
+          boxes.splice(bi, 1, box.slice(0, mid), box.slice(mid));
+        }
+        return boxes.map((box) => {
+          let s = [0, 0, 0];
+          for (const c of box) {
+            s[0] += c[0];
+            s[1] += c[1];
+            s[2] += c[2];
+          }
+          const n = box.length || 1;
+          return [Math.round(s[0] / n), Math.round(s[1] / n), Math.round(s[2] / n)];
+        });
+      }
+      function gifBuildLUT(pal) {
+        const lut = new Uint8Array(32768);
+        for (let R = 0; R < 32; R++)
+          for (let G = 0; G < 32; G++)
+            for (let B = 0; B < 32; B++) {
+              const r = R * 8 + 4,
+                g = G * 8 + 4,
+                b = B * 8 + 4;
+              let bi = 0,
+                bd = Infinity;
+              for (let i = 0; i < pal.length; i++) {
+                const dr = r - pal[i][0],
+                  dg = g - pal[i][1],
+                  db = b - pal[i][2],
+                  d = dr * dr + dg * dg + db * db;
+                if (d < bd) {
+                  bd = d;
+                  bi = i;
+                }
+              }
+              lut[(R << 10) | (G << 5) | B] = bi;
+            }
+        return lut;
+      }
+      const gifLutIndex = (lut, r, g, b) =>
+        lut[((r >> 3) << 10) | ((g >> 3) << 5) | (b >> 3)];
+      function gifQuantize(rgba, w, h, pal, lut, dither) {
+        const out = new Uint8Array(w * h);
+        if (!dither) {
+          for (let i = 0, p = 0; i < out.length; i++, p += 4)
+            out[i] = gifLutIndex(lut, rgba[p], rgba[p + 1], rgba[p + 2]);
+          return out;
+        }
+        const buf = new Float32Array(w * h * 3);
+        for (let i = 0, p = 0; i < w * h; i++, p += 4) {
+          buf[i * 3] = rgba[p];
+          buf[i * 3 + 1] = rgba[p + 1];
+          buf[i * 3 + 2] = rgba[p + 2];
+        }
+        const clamp = (x) => (x < 0 ? 0 : x > 255 ? 255 : x);
+        for (let y = 0; y < h; y++)
+          for (let x = 0; x < w; x++) {
+            const i = y * w + x,
+              b3 = i * 3;
+            const r = clamp(buf[b3]),
+              g = clamp(buf[b3 + 1]),
+              b = clamp(buf[b3 + 2]);
+            const idx = gifLutIndex(lut, r, g, b);
+            out[i] = idx;
+            const er = r - pal[idx][0],
+              eg = g - pal[idx][1],
+              eb = b - pal[idx][2];
+            const spread = (xx, yy, k) => {
+              if (xx < 0 || xx >= w || yy < 0 || yy >= h) return;
+              const j = (yy * w + xx) * 3;
+              buf[j] += er * k;
+              buf[j + 1] += eg * k;
+              buf[j + 2] += eb * k;
+            };
+            spread(x + 1, y, 7 / 16);
+            spread(x - 1, y + 1, 3 / 16);
+            spread(x, y + 1, 5 / 16);
+            spread(x + 1, y + 1, 1 / 16);
+          }
+        return out;
+      }
+      function gifLZW(indices, minCodeSize) {
+        const CLEAR = 1 << minCodeSize,
+          EOI = CLEAR + 1;
+        const table = new Int32Array(4096 * 256);
+        let codeSize, dictNext;
+        const reset = () => {
+          table.fill(-1);
+          codeSize = minCodeSize + 1;
+          dictNext = EOI + 1;
+        };
+        const out = [];
+        let acc = 0,
+          nbits = 0;
+        const emit = (code) => {
+          acc |= code << nbits;
+          nbits += codeSize;
+          while (nbits >= 8) {
+            out.push(acc & 0xff);
+            acc >>= 8;
+            nbits -= 8;
+          }
+        };
+        reset();
+        emit(CLEAR);
+        let prefix = indices[0];
+        for (let i = 1; i < indices.length; i++) {
+          const k = indices[i],
+            key = prefix * 256 + k,
+            found = table[key];
+          if (found >= 0) {
+            prefix = found;
+            continue;
+          }
+          emit(prefix);
+          // ширину кода увеличиваем ДО добавления записи, по старому значению dictNext
+          // (иначе кодер обгоняет декодер на один код → «broken data stream» после 1-го сброса);
+          // при полном словаре запись не добавляем, а сбрасываем — кодер и декодер в лок-степе.
+          if (dictNext === (1 << codeSize) && codeSize < 12) codeSize++;
+          if (dictNext < 4096) {
+            table[key] = dictNext++;
+          } else {
+            emit(CLEAR);
+            reset();
+          }
+          prefix = k;
+        }
+        emit(prefix);
+        emit(EOI);
+        if (nbits > 0) out.push(acc & 0xff);
+        return out;
+      }
+      const gifPush16 = (a, v) => {
+        a.push(v & 0xff, (v >> 8) & 0xff);
+      };
+      function gifPadPalette(pal) {
+        let size = 2;
+        while (size < pal.length) size <<= 1;
+        const p = pal.slice();
+        while (p.length < size) p.push([0, 0, 0]);
+        const bits = Math.max(2, Math.round(Math.log2(size)));
+        return { pal: p, bits, gctSize: Math.log2(p.length) - 1 };
+      }
+
+      // Асинхронная сборка GIF на главном потоке: палитра/LUT, затем покадрово
+      // квантование + LZW с уступкой потока после каждого кадра (UI не виснет, идёт прогресс).
+      // Без Web Worker — это надёжнее на всех платформах (включая Android при открытии
+      // через content://, где blob-воркеры бывают недоступны и не сигналят об ошибке).
+      async function encodeGIFOffThread(frameDatas, opts, onProgress) {
+        const { width, height, delay, loop, dither } = opts;
+        const yield_ = () => new Promise((r) => setTimeout(r, 0));
+        // выборка для палитры ограничена ~24k пикселей, чтобы медианное сечение не тормозило
+        const totalPx = frameDatas.length * width * height;
+        const step = Math.max(1, Math.round(totalPx / 24000));
+        const pal = gifBuildPalette(frameDatas, 256, step);
+        const { pal: pp, bits, gctSize } = gifPadPalette(pal);
+        await yield_();
+        const lut = gifBuildLUT(pp);
+        await yield_();
+        const head = [];
+        for (const c of "GIF89a") head.push(c.charCodeAt(0));
+        gifPush16(head, width);
+        gifPush16(head, height);
+        head.push(0x80 | ((bits - 1) << 4) | gctSize, 0, 0);
+        for (const c of pp) head.push(c[0], c[1], c[2]);
+        head.push(0x21, 0xff, 0x0b);
+        for (const c of "NETSCAPE2.0") head.push(c.charCodeAt(0));
+        head.push(0x03, 0x01);
+        gifPush16(head, loop);
+        head.push(0x00);
+        const chunks = [Uint8Array.from(head)];
+        let total = chunks[0].length;
+        const W16 = (v) => [v & 0xff, (v >> 8) & 0xff];
+        for (let fi = 0; fi < frameDatas.length; fi++) {
+          const fh = [
+            0x21, 0xf9, 0x04, 0x00, ...W16(delay), 0x00, 0x00, 0x2c, 0x00, 0x00, 0x00,
+            0x00, ...W16(width), ...W16(height), 0x00, bits,
+          ];
+          const idx = gifQuantize(frameDatas[fi], width, height, pp, lut, dither);
+          const lzw = gifLZW(idx, bits);
+          const nsub = Math.ceil(lzw.length / 255) || 0;
+          const body = new Uint8Array(lzw.length + nsub + 1);
+          let o = 0;
+          for (let i = 0; i < lzw.length; ) {
+            const n = Math.min(255, lzw.length - i);
+            body[o++] = n;
+            for (let j = 0; j < n; j++) body[o++] = lzw[i + j];
+            i += n;
+          }
+          body[o++] = 0x00;
+          const fhu = Uint8Array.from(fh);
+          chunks.push(fhu, body);
+          total += fhu.length + body.length;
+          onProgress && onProgress((fi + 1) / frameDatas.length);
+          await yield_(); // уступаем поток между кадрами — UI остаётся отзывчивым
+        }
+        chunks.push(Uint8Array.of(0x3b));
+        total += 1;
+        const out = new Uint8Array(total);
+        let p = 0;
+        for (const c of chunks) {
+          out.set(c, p);
+          p += c.length;
+        }
+        return out;
+      }
+      // Скачать собранные байты как файл.
+      function downloadBytes(bytes, fname, mime) {
+        const blob = new Blob([bytes], { type: mime || "application/octet-stream" }),
+          url = URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = fname;
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        setTimeout(() => URL.revokeObjectURL(url), 4000);
+      }
+
+      /* ---------- захват кадров canvas → GIF ---------- */
+      // Уменьшает кадр до capPx по большей стороне (вес GIF под контролем).
+      function grabFrameScaled(cv, capPx) {
+        const W = cv.width,
+          H = cv.height,
+          s = Math.min(1, capPx / Math.max(W, H));
+        const gw = Math.max(1, Math.round(W * s)),
+          gh = Math.max(1, Math.round(H * s));
+        const t = document.createElement("canvas");
+        t.width = gw;
+        t.height = gh;
+        const c = t.getContext("2d");
+        c.imageSmoothingEnabled = true;
+        c.drawImage(cv, 0, 0, gw, gh);
+        return { data: c.getImageData(0, 0, gw, gh).data, w: gw, h: gh };
+      }
+      // Записывает один проход анимации (drawFrame(t), t∈[0,1]) в GIF и скачивает.
+      // Захват кадров и сборка идут асинхронно с индикатором; UI не блокируется.
+      async function exportFramesGIF(cv, fname, drawFrame, loop, speed, btnEl, capPx) {
+        if (animRecording) return;
+        capPx = capPx || state.gif.size;
+        animRecording = true;
+        const ot = btnEl ? btnEl.textContent : "";
+        if (btnEl) btnEl.disabled = true;
+        const setBtn = (s) => {
+          if (btnEl) btnEl.textContent = s;
+        };
+        setBtn("● захват…");
+        await new Promise((r) => setTimeout(r, 0));
+        const stepsPer = Math.max(12, Math.min(48, Math.round(28 / Math.max(0.25, speed))));
+        const seqs = loop === "ping" ? [[0, 1], [1, 0]] : [[0, 1]];
+        const frames = [];
+        let gw = 0,
+          gh = 0;
+        try {
+          const totalCap = seqs.length * (stepsPer + 1);
+          let done = 0;
+          for (const [a, bb] of seqs) {
+            const last = loop === "ping" ? stepsPer - 1 : stepsPer;
+            for (let k = 0; k <= last; k++) {
+              const t = a + ((bb - a) * k) / stepsPer;
+              drawFrame(t);
+              const fr = grabFrameScaled(cv, capPx);
+              gw = fr.w;
+              gh = fr.h;
+              frames.push(fr.data);
+              done++;
+              showProgress(0.5 * (done / totalCap));
+              await new Promise((r) => setTimeout(r, 0));
+            }
+          }
+          const perPass = 1 / Math.max(0.1, speed);
+          const delay = Math.max(2, Math.round((perPass / stepsPer) * 100));
+          setBtn("● сборка…");
+          const bytes = await encodeGIFOffThread(
+            frames,
+            { width: gw, height: gh, delay, loop: loop === "once" ? 1 : 0, dither: state.gif.dither },
+            (p) => showProgress(0.5 + 0.5 * p),
+          );
+          hideProgress();
+          downloadBytes(bytes, fname, "image/gif");
+        } catch (e) {
+          hideProgress();
+          alert("Не удалось собрать GIF: " + (e && e.message ? e.message : e));
+        }
+        animRecording = false;
+        if (btnEl) {
+          btnEl.disabled = false;
+          btnEl.textContent = ot;
+        }
+      }
+
+      /* =====================================================================
+       *  Программный 3D-растеризатор (модуль surface3d, инлайн).
+       *  Честный z-буфер (римановы листы самопересекаются); камера —
+       *  «поворотный стол» (yaw вокруг высоты, pitch — наклон). Цвет грани
+       *  берётся из той же phaseColor, что и портрет (учитывает схему раскраски).
+       * ===================================================================== */
+      // Растеризация грани с z-буфером и ПОПИКСЕЛЬНОЙ раскраской: интерполируем
+      // комплексное значение (att) по треугольнику и применяем colorAt к каждому пикселю —
+      // тогда схемы с тонкой деталью (сетки, контуры, шахматки) выходят резкими, а не
+      // усреднёнными до плотности сетки. shade — ламбертово затенение грани (плоское).
+      function surfRasterTri(data, zbuf, W, H, v0, v1, v2, a0, a1, a2, shade, colorAt) {
+        const minX = Math.max(0, Math.floor(Math.min(v0.x, v1.x, v2.x))),
+          maxX = Math.min(W - 1, Math.ceil(Math.max(v0.x, v1.x, v2.x))),
+          minY = Math.max(0, Math.floor(Math.min(v0.y, v1.y, v2.y))),
+          maxY = Math.min(H - 1, Math.ceil(Math.max(v0.y, v1.y, v2.y)));
+        if (minX > maxX || minY > maxY) return;
+        const edge = (ax, ay, bx, by, px, py) =>
+          (bx - ax) * (py - ay) - (by - ay) * (px - ax);
+        const area = edge(v0.x, v0.y, v1.x, v1.y, v2.x, v2.y);
+        if (area === 0) return;
+        const inv = 1 / area;
+        for (let y = minY; y <= maxY; y++) {
+          const py = y + 0.5;
+          for (let x = minX; x <= maxX; x++) {
+            const px = x + 0.5;
+            const b0 = edge(v1.x, v1.y, v2.x, v2.y, px, py),
+              b1 = edge(v2.x, v2.y, v0.x, v0.y, px, py),
+              b2 = edge(v0.x, v0.y, v1.x, v1.y, px, py);
+            if (!((b0 <= 0 && b1 <= 0 && b2 <= 0) || (b0 >= 0 && b1 >= 0 && b2 >= 0)))
+              continue;
+            const depth = (b0 * v0.z + b1 * v1.z + b2 * v2.z) * inv;
+            const idx = y * W + x;
+            if (depth > zbuf[idx]) {
+              zbuf[idx] = depth;
+              const w0 = b0 * inv,
+                w1 = b1 * inv,
+                w2 = b2 * inv;
+              const re = w0 * a0[0] + w1 * a1[0] + w2 * a2[0],
+                im = w0 * a0[1] + w1 * a1[1] + w2 * a2[1];
+              const c = colorAt(re, im),
+                p = idx * 4;
+              data[p] = c.r * shade;
+              data[p + 1] = c.g * shade;
+              data[p + 2] = c.b * shade;
+              data[p + 3] = 255;
+            }
+          }
+        }
+      }
+      function surfProject(p, view, W, H) {
+        const { yaw, pitch, scale } = view;
+        const cy = Math.cos(yaw),
+          sy = Math.sin(yaw),
+          cp = Math.cos(pitch),
+          sp = Math.sin(pitch);
+        const x1 = p[0] * cy - p[1] * sy,
+          y1 = p[0] * sy + p[1] * cy,
+          z1 = p[2];
+        const x2 = x1,
+          y2 = y1 * cp - z1 * sp,
+          z2 = y1 * sp + z1 * cp;
+        return {
+          x: W / 2 + scale * x2,
+          y: H / 2 - scale * z2,
+          z: y2,
+          wx: p[0],
+          wy: p[1],
+          wz: p[2],
+        };
+      }
+      function renderSurface(target, mesh, view, opts = {}) {
+        const W = target.width,
+          H = target.height,
+          data = new Uint8ClampedArray(W * H * 4),
+          zbuf = new Float64Array(W * H).fill(-Infinity);
+        const bg = opts.background || [9, 12, 17];
+        for (let i = 0; i < W * H; i++) {
+          const p = i * 4;
+          data[p] = bg[0];
+          data[p + 1] = bg[1];
+          data[p + 2] = bg[2];
+          data[p + 3] = 255;
+        }
+        const L = opts.light || [0.4, 0.5, 0.77],
+          Ln = Math.hypot(L[0], L[1], L[2]) || 1,
+          lx = L[0] / Ln,
+          ly = L[1] / Ln,
+          lz = L[2] / Ln,
+          amb = opts.ambient ?? 0.3;
+        const colorAt = opts.colorAt || ((re, im) => phaseColor(C(re, im), {}));
+        const P = mesh.verts.map((v) => surfProject(v, view, W, H));
+        for (const [i, j, k] of mesh.tris) {
+          const a = P[i],
+            b = P[j],
+            c = P[k];
+          if (!a || !b || !c) continue;
+          if (!isFinite(a.x) || !isFinite(b.x) || !isFinite(c.x)) continue;
+          const ux = b.wx - a.wx,
+            uy = b.wy - a.wy,
+            uz = b.wz - a.wz,
+            vx = c.wx - a.wx,
+            vy = c.wy - a.wy,
+            vz = c.wz - a.wz;
+          let nx = uy * vz - uz * vy,
+            ny = uz * vx - ux * vz,
+            nz = ux * vy - uy * vx;
+          const nl = Math.hypot(nx, ny, nz) || 1;
+          nx /= nl;
+          ny /= nl;
+          nz /= nl;
+          const shade = amb + (1 - amb) * Math.abs(nx * lx + ny * ly + nz * lz);
+          surfRasterTri(
+            data, zbuf, W, H, a, b, c,
+            mesh.att[i], mesh.att[j], mesh.att[k], shade, colorAt,
+          );
+        }
+        return { data, zbuf, bbox: mesh.bbox };
+      }
+      const surfDefaultHeight = (re, im) => Math.log(1 + Math.hypot(re, im));
+      // Многолистная риманова поверхность произвольной функции.
+      // Высота листа = Im(f_k(z)); листы рендерятся вместе (честный z-буфер) и
+      // склеиваются вдоль разрезов — треугольники через скачок значения отбрасываются.
+      function detectBranchPeriod(bf, fallback) {
+        const pts = [C(0.413, 0.272), C(-0.27, 0.61), C(0.74, -0.33)];
+        for (const zt of pts) {
+          let w0;
+          try {
+            w0 = bf(zt, 0);
+          } catch {
+            continue;
+          }
+          if (!isFiniteC(w0)) continue;
+          for (let p = 1; p <= 6; p++) {
+            let wp;
+            try {
+              wp = bf(zt, p);
+            } catch {
+              return fallback;
+            }
+            if (isFiniteC(wp) && abs(sub(wp, w0)) < 1e-7 * (1 + abs(w0))) return p;
+          }
+          return fallback; // период не найден за 6 — бесконечнолистная (log-тип)
+        }
+        return fallback;
+      }
+      function buildBranchSheets(bf, region, opts = {}) {
+        const { xmin, xmax, ymin, ymax } = region,
+          nx = opts.nx || 80,
+          ny = opts.ny || 80,
+          hScale = opts.heightScale ?? 1,
+          capH = 60,
+          N = Math.max(1, Math.round(opts.sheets || 3)),
+          k0 = -Math.floor((N - 1) / 2);
+        const cx = (xmin + xmax) / 2,
+          cy = (ymin + ymax) / 2;
+        const verts = [],
+          att = [],
+          tris = [];
+        let gzmin = Infinity,
+          gzmax = -Infinity;
+        for (let s = 0; s < N; s++) {
+          const k = k0 + s,
+            base = verts.length,
+            H = [],
+            fin = [];
+          let zmin = Infinity,
+            zmax = -Infinity;
+          for (let i = 0; i <= nx; i++)
+            for (let j = 0; j <= ny; j++) {
+              const x = xmin + ((xmax - xmin) * i) / nx,
+                y = ymin + ((ymax - ymin) * j) / ny;
+              let re = 0,
+                im = 0,
+                ok;
+              try {
+                const w = bf(C(x, y), k);
+                re = w.re;
+                im = w.im;
+                ok = isFinite(re) && isFinite(im) && Math.abs(im) < capH;
+              } catch {
+                ok = false;
+              }
+              const h = ok ? im * hScale : 0;
+              if (ok) {
+                if (h < zmin) zmin = h;
+                if (h > zmax) zmax = h;
+              }
+              verts.push([x - cx, y - cy, h]);
+              att.push(ok ? [re, im] : [0, 0]);
+              H.push(h);
+              fin.push(ok);
+            }
+          if (zmin < gzmin) gzmin = zmin;
+          if (zmax > gzmax) gzmax = zmax;
+          // склейка по разрезам: рвём треугольники там, где высота скачком (разрез)
+          const cutGap = Math.max(0.25 * (zmax - zmin), 0.2);
+          const id = (i, j) => i * (ny + 1) + j; // локальный индекс
+          const okE = (p, q) => fin[p] && fin[q] && Math.abs(H[p] - H[q]) < cutGap;
+          for (let i = 0; i < nx; i++)
+            for (let j = 0; j < ny; j++) {
+              const a = id(i, j),
+                b = id(i + 1, j),
+                c = id(i + 1, j + 1),
+                d = id(i, j + 1);
+              if (okE(a, b) && okE(b, c) && okE(a, c)) tris.push([base + a, base + b, base + c]);
+              if (okE(a, c) && okE(c, d) && okE(a, d)) tris.push([base + a, base + c, base + d]);
+            }
+        }
+        const zc = isFinite(gzmin) ? (gzmin + gzmax) / 2 : 0;
+        for (const v of verts) v[2] -= zc;
+        return {
+          verts,
+          att,
+          tris,
+          bbox: {
+            rx: (xmax - xmin) / 2,
+            ry: (ymax - ymin) / 2,
+            rz: isFinite(gzmax) ? (gzmax - gzmin) / 2 || 1 : 1,
+          },
+        };
+      }
+      function surfGridTris(nx, ny, finite) {
+        const tris = [];
+        const id = (i, j) => i * (ny + 1) + j;
+        for (let i = 0; i < nx; i++)
+          for (let j = 0; j < ny; j++) {
+            const a = id(i, j),
+              b = id(i + 1, j),
+              c = id(i + 1, j + 1),
+              d = id(i, j + 1);
+            if (finite[a] && finite[b] && finite[c]) tris.push([a, b, c]);
+            if (finite[a] && finite[c] && finite[d]) tris.push([a, c, d]);
+          }
+        return tris;
+      }
+      function buildLandscape(f, region, opts = {}) {
+        const { xmin, xmax, ymin, ymax } = region,
+          nx = opts.nx || 96,
+          ny = opts.ny || 96,
+          hOf = opts.heightOf || surfDefaultHeight,
+          hScale = opts.heightScale ?? 1;
+        const cx = (xmin + xmax) / 2,
+          cy = (ymin + ymax) / 2;
+        const verts = [],
+          att = [],
+          finite = [];
+        let zmin = Infinity,
+          zmax = -Infinity;
+        for (let i = 0; i <= nx; i++)
+          for (let j = 0; j <= ny; j++) {
+            const x = xmin + ((xmax - xmin) * i) / nx,
+              y = ymin + ((ymax - ymin) * j) / ny;
+            let w, ok;
+            try {
+              w = f(x, y);
+              ok = w && isFinite(w[0]) && isFinite(w[1]);
+            } catch {
+              ok = false;
+            }
+            const h = ok ? hOf(w[0], w[1]) * hScale : 0;
+            if (ok && isFinite(h)) {
+              zmin = Math.min(zmin, h);
+              zmax = Math.max(zmax, h);
+            }
+            verts.push([x - cx, y - cy, ok ? h : 0]);
+            att.push(ok ? [w[0], w[1]] : [0, 0]); // комплексное значение для попиксельной раскраски
+            finite.push(ok && isFinite(h));
+          }
+        const zc = (zmin + zmax) / 2;
+        for (const v of verts) v[2] -= zc;
+        return {
+          verts,
+          att,
+          tris: surfGridTris(nx, ny, finite),
+          bbox: { rx: (xmax - xmin) / 2, ry: (ymax - ymin) / 2, rz: (zmax - zmin) / 2 || 1 },
+        };
+      }
+      function buildRiemannMesh(R, nr, nth, thetaMax, wOf, hOf) {
+        const verts = [],
+          att = [],
+          finite = [];
+        for (let i = 0; i <= nr; i++)
+          for (let j = 0; j <= nth; j++) {
+            const r = (R * i) / nr,
+              th = (thetaMax * j) / nth,
+              w = wOf(r, th);
+            verts.push([r * Math.cos(th), r * Math.sin(th), hOf(r, th, w)]);
+            att.push([w[0], w[1]]);
+            finite.push(isFinite(w[0]) && isFinite(w[1]));
+          }
+        const tris = [];
+        const id = (i, j) => i * (nth + 1) + j;
+        for (let i = 0; i < nr; i++)
+          for (let j = 0; j < nth; j++) {
+            const a = id(i, j),
+              b = id(i + 1, j),
+              c = id(i + 1, j + 1),
+              d = id(i, j + 1);
+            if (finite[a] && finite[b] && finite[c]) tris.push([a, b, c]);
+            if (finite[a] && finite[c] && finite[d]) tris.push([a, c, d]);
+          }
+        return { verts, att, tris, bbox: { rx: R, ry: R, rz: 1 } };
+      }
+      function buildRiemannSqrt(opts = {}) {
+        const R = opts.R || 1.4,
+          nr = opts.nr || 40,
+          nth = opts.nth || 240,
+          sheets = opts.sheets || 2,
+          hScale = opts.heightScale ?? 1;
+        const wOf = (r, th) => {
+          const rr = Math.sqrt(r);
+          return [rr * Math.cos(th / 2), rr * Math.sin(th / 2)];
+        };
+        const m = buildRiemannMesh(R, nr, nth, 2 * Math.PI * sheets, wOf, (r, th, w) => w[1] * hScale);
+        m.bbox.rz = Math.sqrt(R) * hScale || 1;
+        return m;
+      }
+      function buildRiemannLog(opts = {}) {
+        const R = opts.R || 1.4,
+          nr = opts.nr || 36,
+          nth = opts.nth || 240,
+          turns = opts.turns || 2,
+          hScale = opts.heightScale ?? 0.25;
+        const wOf = (r, th) => [Math.log(r || 1e-6), th];
+        const thetaMax = 2 * Math.PI * turns;
+        const m = buildRiemannMesh(R, nr, nth, thetaMax, wOf, (r, th) => (th - thetaMax / 2) * hScale);
+        m.bbox.rz = (thetaMax / 2) * hScale || 1;
+        return m;
+      }
+
+      /* ---------- режим поверхности: кэш меша и рендер ---------- */
+      let _surfMesh = null;
+      function ensureSurfaceMesh(qDensity) {
+        const s = state.surface,
+          dens = Math.max(20, Math.round(s.density * (qDensity || 1)));
+        // цвет применяется попиксельно при рендере, поэтому в ключ меша НЕ входит —
+        // смена схемы раскраски не требует пересборки геометрии.
+        const key =
+          s.kind +
+          "|" +
+          s.heightScale +
+          "|" +
+          s.span +
+          "|" +
+          dens +
+          "|" +
+          (s.kind === "landscape" || s.kind === "branched"
+            ? state.expr + (xyActive() ? "xy" : "") + "|" + (s.sheets || 3)
+            : "");
+        if (_surfMesh && _surfMesh.key === key) return _surfMesh.mesh;
+        let mesh;
+        if (s.kind === "landscape") {
+          const f = displayF(),
+            ff = (x, y) => {
+              const w = safe(f, C(x, y));
+              return isFiniteC(w) ? [w.re, w.im] : null;
+            },
+            h = s.span / 2;
+          mesh = buildLandscape(
+            ff,
+            { xmin: -h, xmax: h, ymin: -h, ymax: h },
+            { nx: dens, ny: dens, heightScale: s.heightScale },
+          );
+        } else if (s.kind === "branched") {
+          const r = AC.compileBranched(state.expr);
+          const h = s.span / 2,
+            md = Math.min(dens, 92);
+          if (r.error || !r.f) {
+            // функция не раскладывается по ветвям (gamma, ζ, суммы и т.п.) — один лист |f|
+            const f = displayF(),
+              ff = (x, y) => {
+                const w = safe(f, C(x, y));
+                return isFiniteC(w) ? [w.re, w.im] : null;
+              };
+            mesh = buildLandscape(
+              ff,
+              { xmin: -h, xmax: h, ymin: -h, ymax: h },
+              { nx: dens, ny: dens, heightScale: s.heightScale },
+            );
+          } else {
+            mesh = buildBranchSheets(
+              r.f,
+              { xmin: -h, xmax: h, ymin: -h, ymax: h },
+              { nx: md, ny: md, heightScale: s.heightScale, sheets: s.sheets || 3 },
+            );
+          }
+        } else if (s.kind === "sqrt") {
+          mesh = buildRiemannSqrt({
+            R: 1.5,
+            nr: Math.round(dens * 0.4),
+            nth: Math.round(dens * 2.2),
+            heightScale: s.heightScale,
+          });
+        } else {
+          mesh = buildRiemannLog({
+            R: 1.5,
+            turns: 2,
+            nr: Math.round(dens * 0.35),
+            nth: Math.round(dens * 2.2),
+            heightScale: s.heightScale * 0.42,
+          });
+        }
+        _surfMesh = { key, mesh };
+        return mesh;
+      }
+      function renderSurface3D(q) {
+        const cv = sizeCanvas($("#cv-surface")),
+          W = cv.width,
+          H = cv.height,
+          v = views.surface,
+          ctx = cv.getContext("2d");
+        // q<1 (интерактив) — пониженное разрешение для скорости; q=1 — суперсэмплинг
+        // по ползунку «разрешение» (рендер крупнее и даунскейл = сглаживание граней/краёв).
+        const ss = q < 1 ? 0.55 : state.surface.ss || 1;
+        const cap = 2200; // предел стороны буфера, чтобы не упереться в память
+        let rw = Math.max(60, Math.round(W * ss)),
+          rh = Math.max(60, Math.round(H * ss));
+        if (Math.max(rw, rh) > cap) {
+          const f = cap / Math.max(rw, rh);
+          rw = Math.round(rw * f);
+          rh = Math.round(rh * f);
+        }
+        const mesh = ensureSurfaceMesh(q < 1 ? 0.5 : 1),
+          bb = mesh.bbox;
+        const fit = (Math.min(rw, rh) * 0.34) / Math.max(bb.rx, bb.ry, bb.rz || 1);
+        const scale = fit * (state.surface.zoom || 1);
+        // попиксельная раскраска по текущей схеме; вход переиспользуем, чтобы не аллоцировать
+        const co = colorOpts(),
+          zin = { re: 0, im: 0 };
+        const colorAt = (re, im) => {
+          zin.re = re;
+          zin.im = im;
+          return phaseColor(zin, co);
+        };
+        const img = renderSurface(
+          { width: rw, height: rh },
+          mesh,
+          { yaw: v.yaw, pitch: v.pitch, scale },
+          { background: [9, 12, 17], ambient: 0.32, colorAt },
+        );
+        off.width = rw;
+        off.height = rh;
+        offc.putImageData(new ImageData(img.data, rw, rh), 0, 0);
+        ctx.imageSmoothingEnabled = true;
+        ctx.imageSmoothingQuality = "high";
+        ctx.clearRect(0, 0, W, H);
+        ctx.drawImage(off, 0, 0, rw, rh, 0, 0, W, H);
+        hideProgress();
+      }
+      // GIF-оборот поверхности: yaw 0→2π вокруг вертикали, бесшовная петля.
+      async function exportSurfaceGIF(btnEl) {
+        if (animRecording) return;
+        const cv = $("#cv-surface"),
+          v = views.surface,
+          y0 = v.yaw,
+          ss0 = state.surface.ss,
+          steps = 48;
+        animRecording = true;
+        const ot = btnEl ? btnEl.textContent : "";
+        if (btnEl) btnEl.disabled = true;
+        const setBtn = (s) => {
+          if (btnEl) btnEl.textContent = s;
+        };
+        setBtn("● захват…");
+        state.surface.ss = 1; // даунскейл кадра при захвате сам сглаживает — суперсэмплинг не нужен
+        await new Promise((r) => setTimeout(r, 0));
+        const frames = [];
+        let gw = 0,
+          gh = 0;
+        try {
+          for (let k = 0; k < steps; k++) {
+            v.yaw = y0 + (2 * Math.PI * k) / steps;
+            renderSurface3D(1);
+            const fr = grabFrameScaled(cv, state.gif.size);
+            gw = fr.w;
+            gh = fr.h;
+            frames.push(fr.data);
+            showProgress(0.5 * (k / steps));
+            await new Promise((r) => setTimeout(r, 0));
+          }
+          setBtn("● сборка…");
+          const bytes = await encodeGIFOffThread(
+            frames,
+            { width: gw, height: gh, delay: 5, loop: 0, dither: state.gif.dither },
+            (p) => showProgress(0.5 + 0.5 * p),
+          );
+          hideProgress();
+          downloadBytes(bytes, "поверхность-оборот.gif", "image/gif");
+        } catch (e) {
+          hideProgress();
+          alert("Не удалось собрать GIF: " + (e && e.message ? e.message : e));
+        }
+        v.yaw = y0;
+        state.surface.ss = ss0;
+        renderSurface3D(1);
+        animRecording = false;
+        if (btnEl) {
+          btnEl.disabled = false;
+          btnEl.textContent = ot;
+        }
       }
 
       /* ---------- панель ---------- */
@@ -5208,23 +7513,83 @@
             commit();
           }
         };
-        const commit = () => {
+        const commit = (record = true) => {
           const okc = setExpr(inp.value);
           err.textContent = state.exprError || "";
           inp.classList.toggle("bad", !!state.exprError);
           if (okc) {
+            if (record) histPush(inp.value);
             syncBranch();
             render(1);
             if (state.mode === "analysis") {
               state.ana.markers = null;
             }
+            syncHash();
+            refreshFavUI();
           }
         };
-        inp.addEventListener("change", commit);
+        inp.addEventListener("change", () => commit(true));
         inp.addEventListener("keydown", (e) => {
-          if (e.key === "Enter") commit();
+          if (e.key === "Enter") commit(true);
         });
-        w.append(sel, inp, err);
+        // W2: история (↶/↷) и избранное (★) формул
+        const bar = document.createElement("div");
+        bar.style.cssText =
+          "display:flex;gap:6px;margin-top:6px;align-items:center;flex-wrap:wrap";
+        const mkmini = (t, title, fn) => {
+          const b = document.createElement("button");
+          b.className = "btn";
+          b.style.cssText = "padding:4px 9px;min-width:0";
+          b.textContent = t;
+          b.title = title;
+          b.onclick = fn;
+          return b;
+        };
+        const undoB = mkmini("↶", "предыдущая формула", () => {
+          const e = histUndo();
+          if (e != null) {
+            inp.value = e;
+            commit(false);
+          }
+        });
+        const redoB = mkmini("↷", "следующая формула", () => {
+          const e = histRedo();
+          if (e != null) {
+            inp.value = e;
+            commit(false);
+          }
+        });
+        const favB = mkmini("★", "в избранное / убрать", () => {
+          favToggle(inp.value);
+          refreshFavUI();
+        });
+        const favSel = document.createElement("select");
+        favSel.title = "избранные формулы";
+        favSel.style.flex = "1";
+        favSel.onchange = () => {
+          if (favSel.value) {
+            inp.value = favSel.value;
+            commit(true);
+          }
+        };
+        function refreshFavUI() {
+          favB.setAttribute("aria-pressed", favHas(inp.value));
+          favB.style.color = favHas(inp.value) ? "#fbbf24" : "";
+          favSel.innerHTML = "";
+          const o0 = document.createElement("option");
+          o0.value = "";
+          o0.textContent = state.favorites.length ? "★ избранное…" : "★ нет избранного";
+          favSel.appendChild(o0);
+          state.favorites.forEach((e) => {
+            const o = document.createElement("option");
+            o.value = e;
+            o.textContent = e;
+            favSel.appendChild(o);
+          });
+        }
+        refreshFavUI();
+        bar.append(undoB, redoB, favB, favSel);
+        w.append(sel, inp, err, bar);
         return w;
       }
       function syncBranch() {
@@ -5257,6 +7622,7 @@
           state.scheme = s.value;
           buildPanel();
           render(1);
+          syncHash();
         };
         w.appendChild(s);
         frag.appendChild(w);
@@ -5341,6 +7707,64 @@
               },
             ),
           );
+        frag.appendChild(
+          (() => {
+            const w2 = document.createElement("div");
+            w2.className = "ctl";
+            w2.innerHTML = '<label class="fld">палитра фазы</label>';
+            const ps = document.createElement("select");
+            [
+              ["hsl", "стандартная (HSL)"],
+              ["iso", "равноярк. (oklab)"],
+              ["cb", "для дальтоников"],
+            ].forEach(([v, l]) => {
+              const o = document.createElement("option");
+              o.value = v;
+              o.textContent = l;
+              if (v === state.colorPalette) o.selected = true;
+              ps.appendChild(o);
+            });
+            ps.onchange = () => {
+              state.colorPalette = ps.value;
+              render(1);
+              syncHash();
+            };
+            w2.appendChild(ps);
+            return w2;
+          })(),
+        );
+        frag.appendChild(
+          rangeCtl(
+            "сдвиг оттенка",
+            0,
+            360,
+            state.colorHueShift,
+            (v) => {
+              state.colorHueShift = Math.round(v);
+              render(1);
+              syncHash();
+            },
+            5,
+            { fmt: (v) => v + "°" },
+          ),
+        );
+        frag.appendChild(
+          seg(
+            "оверлей контуров",
+            [
+              ["off", "выкл"],
+              ["mod", "|f|"],
+              ["arg", "arg"],
+              ["both", "оба"],
+            ],
+            state.contourOverlay,
+            (v) => {
+              state.contourOverlay = v;
+              render(1);
+              syncHash();
+            },
+          ),
+        );
         return frag;
       }
       let _rcN = 0;
@@ -5436,6 +7860,46 @@
         w.innerHTML = `<p class="note">${html}</p>`;
         return w;
       }
+      // Кнопка экспорта GIF + общие регуляторы качества (размер кадра, дизеринг).
+      // runFn(btn) запускает конкретный экспорт. Настройки хранятся в state.gif и общие для всех.
+      function gifExportBlock(label, runFn) {
+        const frag = document.createDocumentFragment();
+        const bw = document.createElement("div");
+        bw.className = "ctl";
+        const b = document.createElement("button");
+        b.className = "btn";
+        b.textContent = label;
+        b.onclick = () => runFn(b);
+        bw.appendChild(b);
+        frag.appendChild(bw);
+        const sizes = [240, 360, 480, 640, 800];
+        let si = sizes.indexOf(state.gif.size);
+        if (si < 0) si = 2;
+        frag.appendChild(
+          selCtl(
+            "размер GIF (макс. сторона, px)",
+            sizes.map(String),
+            si,
+            (i) => {
+              state.gif.size = sizes[i];
+            },
+          ),
+        );
+        frag.appendChild(
+          seg(
+            "дизеринг (меньше полошения)",
+            [
+              [false, "выкл"],
+              [true, "вкл"],
+            ],
+            state.gif.dither,
+            (v) => {
+              state.gif.dither = v;
+            },
+          ),
+        );
+        return frag;
+      }
       function fieldBounds(cv, v) {
         const W = (cv && cv.width) || 800,
           H = (cv && cv.height) || 600;
@@ -5511,13 +7975,146 @@
         row.append(
           mkb("PNG", () => downloadCanvas($(cvSel), "png")),
           mkb("SVG", () => downloadCanvas($(cvSel), "svg")),
+          mkb("копировать", function () {
+            copyCanvasToClipboard($(cvSel), this);
+          }),
           mkb("параметры", exportParams),
+          mkb("импорт", importParamsFile),
+          mkb("ссылка", function () {
+            copyShareLink(this);
+          }),
         );
         w.appendChild(row);
         return w;
       }
       function stamp() {
         return new Date().toISOString().replace(/[:.]/g, "-").slice(0, 19);
+      }
+      // E2: копирование изображения canvas в буфер обмена (Clipboard API, с фолбэком-подсказкой).
+      function copyCanvasToClipboard(cv, btn) {
+        if (!cv) return;
+        const flash = (msg) => {
+          if (!btn) return;
+          const t = btn.dataset.label || btn.textContent;
+          btn.dataset.label = t;
+          btn.textContent = msg;
+          setTimeout(() => (btn.textContent = btn.dataset.label), 1400);
+        };
+        if (!(navigator.clipboard && window.ClipboardItem)) {
+          flash("не поддерж.");
+          return;
+        }
+        cv.toBlob((blob) => {
+          if (!blob) {
+            flash("ошибка");
+            return;
+          }
+          navigator.clipboard
+            .write([new ClipboardItem({ "image/png": blob })])
+            .then(() => flash("скопировано ✓"), () => flash("отказано"));
+        }, "image/png");
+      }
+      // E1: истинно векторный SVG конформной сетки. Для вида «линии» — пути strokePaths/mkPaths
+      // (_conf.Lp/Rp), для «шахматки» — сохранённые клетки (_conf.cellsL/cellsR). which: "L" | "R".
+      function confSVG(which) {
+        if (!_conf) {
+          alert("Сначала постройте конформную сетку (вкладка «конформная сетка»).");
+          return;
+        }
+        const cv = which === "R" ? _conf.R : _conf.L,
+          view = which === "R" ? _conf.imgView : _conf.domView;
+        if (!cv || !view) {
+          alert("Нет данных для экспорта этой стороны.");
+          return;
+        }
+        const W = cv.width,
+          H = cv.height,
+          out = [];
+        out.push(
+          '<svg xmlns="http://www.w3.org/2000/svg" width="' +
+            W +
+            '" height="' +
+            H +
+            '" viewBox="0 0 ' +
+            W +
+            " " +
+            H +
+            '">',
+        );
+        out.push('<rect width="' + W + '" height="' + H + '" fill="#0b0e13"/>');
+        const x0 = W / 2 - view.cx / view.scale,
+          y0 = H / 2 + view.cy / view.scale;
+        out.push(
+          '<g stroke="rgba(255,255,255,0.14)" stroke-width="1"><line x1="0" y1="' +
+            y0.toFixed(2) +
+            '" x2="' +
+            W +
+            '" y2="' +
+            y0.toFixed(2) +
+            '"/><line x1="' +
+            x0.toFixed(2) +
+            '" y1="0" x2="' +
+            x0.toFixed(2) +
+            '" y2="' +
+            H +
+            '"/></g>',
+        );
+        const cells = which === "R" ? _conf.cellsR : _conf.cellsL,
+          paths = which === "R" ? _conf.Rp : _conf.Lp;
+        if (cells && cells.length) {
+          for (const c of cells) {
+            let d = "M";
+            for (let i = 0; i < c.pts.length; i += 2)
+              d += (i ? "L" : "") + c.pts[i].toFixed(1) + " " + c.pts[i + 1].toFixed(1) + " ";
+            out.push('<path d="' + d.trim() + 'Z" fill="' + c.col + '"/>');
+          }
+        } else if (paths && paths.length) {
+          for (const p of paths) {
+            const col = p.hue === 0 ? "rgba(90,209,196,0.62)" : "rgba(232,160,90,0.55)";
+            let d = "";
+            for (const s of p.seg)
+              for (let i = 0; i < s.length; i += 2)
+                d += (i ? "L" : "M") + s[i].toFixed(2) + " " + s[i + 1].toFixed(2) + " ";
+            if (d) out.push('<path d="' + d.trim() + '" fill="none" stroke="' + col + '" stroke-width="1"/>');
+          }
+        } else {
+          alert("Для этого вида нет векторных данных — воспользуйтесь PNG.");
+          return;
+        }
+        out.push("</svg>");
+        const url = URL.createObjectURL(new Blob([out.join("\n")], { type: "image/svg+xml" }));
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = "conformal_" + (which === "R" ? "image" : "source") + "_" + stamp() + ".svg";
+        a.click();
+        setTimeout(() => URL.revokeObjectURL(url), 1000);
+      }
+      // Панель экспорта конформного режима (две стороны: вектор SVG / PNG / буфер).
+      function confExportCtl() {
+        const w = document.createElement("div");
+        w.className = "ctl";
+        w.innerHTML = '<label class="fld">экспорт сетки</label>';
+        const row = document.createElement("div");
+        row.style.cssText = "display:flex;gap:6px;flex-wrap:wrap";
+        const mk = (t, fn) => {
+          const b = document.createElement("button");
+          b.className = "btn";
+          b.style.cssText = "padding:5px 9px;min-width:0";
+          b.textContent = t;
+          b.onclick = fn;
+          return b;
+        };
+        row.append(
+          mk("SVG⃗ слева", () => confSVG("L")),
+          mk("SVG⃗ справа", () => confSVG("R")),
+          mk("PNG слева", () => downloadCanvas($("#cv-confL"), "png")),
+          mk("PNG справа", () => downloadCanvas($("#cv-confR"), "png")),
+          mk("копир. справа", function () {
+            copyCanvasToClipboard($("#cv-confR"), this);
+          }),
+        );
+        w.appendChild(row);
+        return w;
       }
       function downloadCanvas(cv, fmt) {
         if (!cv) return;
@@ -5565,6 +8162,204 @@
         a.download = `complex_params_${stamp()}.json`;
         a.click();
         setTimeout(() => URL.revokeObjectURL(url), 1000);
+      }
+
+      /* ---------- W1: перманентность состояния (URL-hash, импорт, ссылка) ---------- */
+      function serializeState() {
+        const v = views[state.mode] || views.phase;
+        return {
+          expr: state.expr,
+          mode: state.mode,
+          scheme: state.scheme,
+          branchK: state.branchK,
+          color: {
+            density: state.colorDensity,
+            falloff: state.colorFalloff,
+            spokes: state.colorSpokes,
+            contrast: state.colorContrast,
+            mono: state.colorMono,
+          },
+          view: { ...v },
+        };
+      }
+      const _MODES = ["phase", "analysis", "conformal", "fractal", "sphere", "surface"];
+      // Применить снимок к state (без рендера — вызывающий сам делает setMode).
+      function applyStateObj(o) {
+        if (!o) return false;
+        try {
+          if (o.expr) {
+            state.expr = o.expr;
+            setExpr(o.expr);
+          }
+          if (o.branchK != null) state.branchK = o.branchK;
+          if (o.scheme) state.scheme = o.scheme;
+          if (o.color) {
+            const c = o.color;
+            if (c.density != null) state.colorDensity = c.density;
+            if (c.falloff != null) state.colorFalloff = c.falloff;
+            if (c.spokes != null) state.colorSpokes = c.spokes;
+            if (c.contrast != null) state.colorContrast = c.contrast;
+            if (c.mono != null) state.colorMono = c.mono;
+          }
+          if (o.mode && _MODES.includes(o.mode)) state.mode = o.mode;
+          if (o.view && views[state.mode]) Object.assign(views[state.mode], o.view);
+          return true;
+        } catch (e) {
+          return false;
+        }
+      }
+      // Кодирование/декодирование состояния в location.hash (base64 от JSON, UTF-8-безопасно).
+      function stateToHash() {
+        try {
+          return "s=" + btoa(unescape(encodeURIComponent(JSON.stringify(serializeState()))));
+        } catch (e) {
+          return "";
+        }
+      }
+      function hashToState(h) {
+        try {
+          const m = (h || "").replace(/^#/, "").match(/(?:^|&)s=([^&]+)/);
+          if (!m) return null;
+          return JSON.parse(decodeURIComponent(escape(atob(m[1]))));
+        } catch (e) {
+          return null;
+        }
+      }
+      let _hashTimer = null;
+      function syncHash() {
+        clearTimeout(_hashTimer);
+        _hashTimer = setTimeout(() => {
+          const h = stateToHash();
+          if (!h) return;
+          try {
+            history.replaceState(null, "", "#" + h);
+          } catch (e) {
+            try {
+              location.hash = h;
+            } catch (_) {}
+          }
+        }, 250);
+      }
+      function restoreFromHash() {
+        return applyStateObj(hashToState(location.hash));
+      }
+      function fallbackCopy(text, done) {
+        const ta = document.createElement("textarea");
+        ta.value = text;
+        ta.style.cssText = "position:fixed;opacity:0;left:-9999px";
+        document.body.appendChild(ta);
+        ta.select();
+        let ok = false;
+        try {
+          ok = document.execCommand("copy");
+        } catch (e) {}
+        ta.remove();
+        done && done(ok);
+      }
+      function copyShareLink(btn) {
+        const url = location.origin + location.pathname + "#" + stateToHash();
+        try {
+          history.replaceState(null, "", url);
+        } catch (e) {}
+        const flash = (ok) => {
+          if (!btn) return;
+          const t = btn.dataset.label || btn.textContent;
+          btn.dataset.label = t;
+          btn.textContent = ok ? "скопировано ✓" : "ссылка в адресной строке";
+          setTimeout(() => (btn.textContent = btn.dataset.label), 1400);
+        };
+        if (navigator.clipboard && navigator.clipboard.writeText)
+          navigator.clipboard.writeText(url).then(
+            () => flash(true),
+            () => fallbackCopy(url, flash),
+          );
+        else fallbackCopy(url, flash);
+      }
+      // Импорт JSON: принимает и формат «ссылки» (serializeState), и русский exportParams.
+      function normalizeParams(j) {
+        if (j && (j.expr || j.view || j.color)) return j;
+        const o = {};
+        if (j["функция"]) o.expr = j["функция"];
+        if (j["схема"]) o.scheme = j["схема"];
+        if (j["режим"]) o.mode = j["режим"];
+        if (j["ветвь"] != null) o.branchK = j["ветвь"];
+        if (j["область"] && j["режим"]) {
+          const b = j["область"],
+            cv = document.querySelector("#cv-" + j["режим"]),
+            W = cv ? cv.width : 1024;
+          o.view = {
+            cx: (b.xmin + b.xmax) / 2,
+            cy: (b.ymin + b.ymax) / 2,
+            scale: (b.xmax - b.xmin) / W,
+          };
+        }
+        return o;
+      }
+      function importParamsFile() {
+        const inp = document.createElement("input");
+        inp.type = "file";
+        inp.accept = "application/json,.json";
+        inp.onchange = () => {
+          const f = inp.files && inp.files[0];
+          if (!f) return;
+          const r = new FileReader();
+          r.onload = () => {
+            try {
+              const o = normalizeParams(JSON.parse(r.result));
+              if (applyStateObj(o)) {
+                state.exprHistory = [state.expr];
+                state.exprHistIdx = 0;
+                setMode(state.mode);
+                syncHash();
+              } else alert("Не удалось применить параметры из файла.");
+            } catch (e) {
+              alert("Неверный JSON: " + (e && e.message ? e.message : e));
+            }
+          };
+          r.readAsText(f);
+        };
+        inp.click();
+      }
+      /* ---------- W2: история и избранное формул ---------- */
+      function histPush(expr) {
+        if (!expr) return;
+        const h = state.exprHistory;
+        if (h.length && h[state.exprHistIdx] === expr) return;
+        if (state.exprHistIdx < h.length - 1) h.length = state.exprHistIdx + 1;
+        h.push(expr);
+        if (h.length > 100) h.shift();
+        state.exprHistIdx = h.length - 1;
+      }
+      function histUndo() {
+        if (state.exprHistIdx > 0) return state.exprHistory[--state.exprHistIdx];
+        return null;
+      }
+      function histRedo() {
+        if (state.exprHistIdx < state.exprHistory.length - 1)
+          return state.exprHistory[++state.exprHistIdx];
+        return null;
+      }
+      function favHas(expr) {
+        return state.favorites.includes(expr);
+      }
+      function favToggle(expr) {
+        if (!expr) return;
+        const i = state.favorites.indexOf(expr);
+        if (i >= 0) state.favorites.splice(i, 1);
+        else state.favorites.unshift(expr);
+        if (state.favorites.length > 50) state.favorites.length = 50;
+        persistFav();
+      }
+      function persistFav() {
+        try {
+          localStorage.setItem("atlas.favorites", JSON.stringify(state.favorites));
+        } catch (e) {}
+      }
+      function loadFav() {
+        try {
+          const s = localStorage.getItem("atlas.favorites");
+          if (s) state.favorites = JSON.parse(s) || [];
+        } catch (e) {}
       }
 
       /* ---------- конструктор-шаблоны ---------- */
@@ -5865,6 +8660,67 @@
           ),
         );
         p.appendChild(canvasSizeCtl());
+        p.appendChild(
+          seg(
+            "сглаживание (SSAA)",
+            [
+              ["1", "выкл"],
+              ["2", "2×"],
+            ],
+            String(state.ssaa),
+            (val) => {
+              state.ssaa = +val;
+              render(1);
+            },
+          ),
+        );
+        p.appendChild(
+          seg(
+            "оси и подписи",
+            [
+              ["on", "показать"],
+              ["off", "скрыть"],
+            ],
+            state.showAxes ? "on" : "off",
+            (val) => {
+              state.showAxes = val === "on";
+              render(1);
+            },
+          ),
+        );
+        p.appendChild(
+          seg(
+            "рендер портрета",
+            [
+              ["on", "GPU (WebGL)"],
+              ["off", "CPU"],
+            ],
+            state.useGL ? "on" : "off",
+            (val) => {
+              state.useGL = val === "on";
+              render(1);
+            },
+          ),
+        );
+        p.appendChild(
+          seg(
+            "воркеры (фракталы)",
+            [
+              ["on", "вкл"],
+              ["off", "выкл"],
+            ],
+            state.useWorkers ? "on" : "off",
+            (val) => {
+              state.useWorkers = val === "on";
+              render(1);
+            },
+          ),
+        );
+        p.appendChild(
+          note(
+            "GPU-рендер портрета (классическая раскраска + палитры + оверлей) даёт рендер в реальном времени; на неподдерживаемых функциях (gamma, zeta, суммы, x/y, ветви) — автоматический откат на CPU. Воркеры распараллеливают базовые фракталы. SSAA сглаживает финальный кадр избыточной выборкой.",
+          ),
+        );
         const h = document.createElement("div");
         h.className = "ctl";
         h.innerHTML = '<label class="fld">раскраска (портрет и сфера)</label>';
@@ -5876,6 +8732,8 @@
             views.analysis = { cx: 0, cy: 0, scale: 5 / 600 };
             if (typeof resetFractalView === "function") resetFractalView();
             views.sphere = { yaw: 0.6, pitch: 0.5 };
+            views.surface = { yaw: 0.7, pitch: 0.95 };
+            views.compare = { cx: 0, cy: 0, scale: 5 / 600 };
             render(1);
           }),
         );
@@ -5893,6 +8751,8 @@
           conformal: "отображение",
           fractal: "фрактал",
           sphere: "параметры",
+          surface: "поверхность",
+          compare: "сравнение",
         };
         p.appendChild(headding(TITLES[state.mode] || "параметры"));
         if (state.mode !== "fractal" && usesFunction()) functionGroup(p);
@@ -5974,6 +8834,41 @@
                 ),
               );
             }
+            p.appendChild(
+              seg(
+                "поле Полиа (conj f)",
+                [
+                  ["off", "выкл"],
+                  ["on", "вкл"],
+                ],
+                state.polya ? "on" : "off",
+                (v) => {
+                  state.polya = v === "on";
+                  render(1);
+                },
+              ),
+            );
+            p.appendChild(
+              seg(
+                "линии разреза",
+                [
+                  ["off", "выкл"],
+                  ["on", "вкл"],
+                ],
+                state.branchCuts ? "on" : "off",
+                (v) => {
+                  state.branchCuts = v === "on";
+                  buildPanel();
+                  render(1);
+                },
+              ),
+            );
+            if (state.branchCuts)
+              p.appendChild(
+                note(
+                  "Жёлтым — линии разреза, где главная ветвь f(z) разрывна (log, √, zᵃ, обратные тригонометрические). Вдоль них склеиваются листы римановой поверхности: для √z и log z это видно в режиме «поверхность».",
+                ),
+              );
             p.appendChild(
               btn("сбросить вид", () => {
                 views.phase = { cx: 0, cy: 0, scale: 5 / 600 };
@@ -6117,6 +9012,18 @@
               ew.appendChild(eb);
               p.appendChild(ew);
               p.appendChild(
+                gifExportBlock("⬇ записать GIF", (gb) =>
+                  exportFramesGIF(
+                    $("#cv-phase"),
+                    "портрет-деформация.gif",
+                    drawPhaseFrame,
+                    state.phaseLoop,
+                    state.phaseSpeed,
+                    gb,
+                  ),
+                ),
+              );
+              p.appendChild(
                 note(
                   "Гомотопия H_t(z) = (1−t)·z + t·f(z): портрет морфит из тождества (t=0) в f (t=1). Поле f(z) считается один раз, кадры — перекраска по фазе на пониженном разрешении (ползунок). Нули и полюсы непрерывно «съезжаются» на места.",
                 ),
@@ -6125,6 +9032,67 @@
             requestAnimationFrame(drawWheel);
           } else {
             p.appendChild(
+              seg(
+                "источник",
+                [
+                  ["image", "образ f"],
+                  ["domain", "область z"],
+                ],
+                state.sphereSrc,
+                (v) => {
+                  state.sphereSrc = v;
+                  render(1);
+                },
+              ),
+            );
+            p.appendChild(
+              seg(
+                "Мёбиус = вращение",
+                [
+                  ["off", "выкл"],
+                  ["on", "вкл"],
+                ],
+                state.sphereRot.on ? "on" : "off",
+                (v) => {
+                  state.sphereRot.on = v === "on";
+                  if (!state.sphereRot.on) state.sphereRot.anim = false;
+                  buildPanel();
+                  render(1);
+                },
+              ),
+            );
+            if (state.sphereRot.on) {
+              p.appendChild(
+                rangeCtl("угол θ", 0, 6.2832, state.sphereRot.theta, (v) => { state.sphereRot.theta = v; render(1); }, 0.02, { fmt: (x) => x.toFixed(2) }),
+              );
+              p.appendChild(
+                rangeCtl("ось — Re a", -2, 2, state.sphereRot.ax, (v) => { state.sphereRot.ax = v; render(1); }, 0.05),
+              );
+              p.appendChild(
+                rangeCtl("ось — Im a", -2, 2, state.sphereRot.ay, (v) => { state.sphereRot.ay = v; render(1); }, 0.05),
+              );
+              p.appendChild(
+                seg(
+                  "анимация",
+                  [
+                    ["off", "выкл"],
+                    ["on", "вкл"],
+                  ],
+                  state.sphereRot.anim ? "on" : "off",
+                  (v) => {
+                    state.sphereRot.anim = v === "on";
+                    if (state.sphereRot.anim) sphereRotTick();
+                    else render(1);
+                  },
+                ),
+              );
+              p.appendChild(
+                note(
+                  "M(z)=(az+b)/(cz+d), сохраняющее сферу (элемент SU(2)), действует как жёсткое вращение сферы Римана вокруг оси через точку a и антиподальную к ней. Меняйте θ — узор области z поворачивается без искажений: дробно-линейное преобразование = вращение сферы.",
+                ),
+              );
+            }
+            p.appendChild(
               btn("сбросить вид сферы", () => {
                 views.sphere = { yaw: 0.6, pitch: 0.5 };
                 render(1);
@@ -6132,7 +9100,9 @@
             );
             p.appendChild(
               note(
-                "Стереографическая проекция ℂ∪{∞} на сферу. Северный полюс — бесконечно удалённая точка. Перетаскивайте, чтобы вращать.",
+                state.sphereSrc === "domain"
+                  ? "Область z: раскраска самой координаты z на сфере (тождество). Полезно как опорный узор для демонстрации Мёбиус-вращения."
+                  : "Образ f: стереографическая проекция ℂ∪{∞} с раскраской по f(z). Северный полюс — ∞. Перетаскивайте, чтобы вращать.",
               ),
             );
             p.appendChild(exportCtl("#cv-sphere"));
@@ -6144,6 +9114,7 @@
               [
                 ["point", "точка"],
                 ["contour", "контур"],
+                ["series", "ряд"],
               ],
               state.ana.tool,
               (v) => {
@@ -6152,21 +9123,87 @@
               },
             ),
           );
-          if (state.ana.tool === "contour")
+          if (state.ana.tool === "contour") {
             p.appendChild(
-              rangeCtl(
-                "радиус контура",
-                0.05,
-                2.5,
-                state.ana.radius,
+              seg(
+                "форма контура",
+                [
+                  ["circle", "окружн."],
+                  ["rect", "прямоуг."],
+                  ["polyline", "ломаная"],
+                ],
+                state.ana.shape || "circle",
                 (v) => {
-                  state.ana.radius = v;
-                  if (state.ana.contour) analyzeContour(state.ana.contour, v);
+                  state.ana.shape = v;
+                  state.ana.poly = [];
+                  state.ana.drawn = null;
+                  buildPanel();
                 },
-                0.05,
               ),
             );
+            if ((state.ana.shape || "circle") === "circle")
+              p.appendChild(
+                rangeCtl(
+                  "радиус контура",
+                  0.05,
+                  2.5,
+                  state.ana.radius,
+                  (v) => {
+                    state.ana.radius = v;
+                    if (state.ana.contour) analyzeContour(state.ana.contour, v);
+                  },
+                  0.05,
+                ),
+              );
+            else {
+              if (state.ana.shape === "polyline")
+                p.appendChild(
+                  btn("замкнуть и посчитать", () =>
+                    analyzePolyContour(state.ana.poly, true, "ломаная"),
+                  ),
+                );
+              p.appendChild(
+                btn("очистить контур", () => {
+                  state.ana.poly = [];
+                  state.ana.drawn = null;
+                  renderAnalysis();
+                }),
+              );
+            }
+          }
+          if (state.ana.tool === "series") {
+            p.appendChild(
+              rangeCtl(
+                "членов ряда N",
+                1,
+                12,
+                state.ana.errN || 8,
+                (v) => {
+                  state.ana.errN = Math.round(v);
+                  if (state.ana.errMap) renderAnalysis(1);
+                },
+                1,
+              ),
+            );
+            p.appendChild(
+              seg(
+                "карта ошибки |f−Σₙ|",
+                [
+                  ["off", "выкл"],
+                  ["on", "вкл"],
+                ],
+                state.ana.errMap ? "on" : "off",
+                (v) => {
+                  state.ana.errMap = v === "on";
+                  renderAnalysis(1);
+                },
+              ),
+            );
+          }
           p.appendChild(btn("найти нули и полюсы в окне", findZP));
+          p.appendChild(btn("поведение в ∞", analyzeInfinity));
+          if (/zeta\s*\(/.test(state.expr))
+            p.appendChild(btn("нули ζ на Re=½", analyzeZetaZeros));
           const r = document.createElement("div");
           r.className = "ctl";
           r.innerHTML = '<label class="fld">результат</label>';
@@ -6180,7 +9217,13 @@
             note(
               state.ana.tool === "point"
                 ? "Клик: классификация особой точки, вычет, ряд Тейлора, значения корней/ветвей."
-                : "Клик задаёт центр; ползунок — радиус. Считаются ∮f dz, сумма вычетов и (нули−полюсы) внутри.",
+                : state.ana.tool === "series"
+                  ? "Клик: коэффициенты Тейлора в точке, радиус сходимости (до ближайшей особенности) и окружность сходимости (голубой пунктир). «Карта ошибки» красит |f − Σₙ|: тёмно-синее — точно, красное — расходится."
+                  : (state.ana.shape || "circle") === "circle"
+                    ? "Клик задаёт центр; ползунок — радиус. Считаются ∮f dz, Σ вычетов и (нули−полюсы) внутри."
+                    : state.ana.shape === "rect"
+                      ? "Два клика — противоположные углы прямоугольника. Считаются ∮, Σ вычетов и (нули−полюсы) внутри."
+                      : "Клики добавляют вершины ломаной; «замкнуть и посчитать» считает ∮ по замкнутому контуру.",
             ),
           );
           p.appendChild(domainCtl("#cv-analysis", views.analysis));
@@ -6449,11 +9492,25 @@
             ew.appendChild(eb);
             p.appendChild(ew);
             p.appendChild(
+              gifExportBlock("⬇ записать GIF", (gb) => {
+                confPause();
+                exportFramesGIF(
+                  $("#cv-confR"),
+                  "деформация.gif",
+                  drawConfFrame,
+                  state.confLoop,
+                  state.confSpeed,
+                  gb,
+                );
+              }),
+            );
+            p.appendChild(
               note(
                 "Прямолинейная гомотопия H_t(z) = (1−t)·z + t·f(z): каждый кадр — голоморфное (конформное) отображение. При некоторых t возможны заломы там, где f′(z) — отрицательное вещественное; у полюсов f образ улетает в бесконечность.",
               ),
             );
           }
+          p.appendChild(confExportCtl());
           p.appendChild(
             note(
               sp
@@ -6518,6 +9575,61 @@
               interactRender();
             }),
           );
+          if (state.fractal !== "buddhabrot")
+            p.appendChild(
+              seg(
+                "трассировка орбиты",
+                [
+                  ["off", "выкл"],
+                  ["on", "вкл"],
+                ],
+                state.fracOrbit ? "on" : "off",
+                (vv) => {
+                  state.fracOrbit = vv === "on";
+                  if (!state.fracOrbit) { state.orbitPt = null; render(1); }
+                  buildPanel();
+                },
+              ),
+            );
+          if (state.fractal === "mandelbrot" || state.fractal === "multibrot" || state.fractal === "tricorn" || state.fractal === "burningship")
+            p.appendChild(
+              seg(
+                "превью Жюлиа (наведение)",
+                [
+                  ["on", "вкл"],
+                  ["off", "выкл"],
+                ],
+                state.juliaPreview ? "on" : "off",
+                (vv) => {
+                  state.juliaPreview = vv === "on";
+                  if (!state.juliaPreview) hideJuliaPreview();
+                },
+              ),
+            );
+          if (state.fractal === "mandelbrot" || state.fractal === "multibrot" || state.fractal === "julia") {
+            p.appendChild(
+              seg(
+                "раскраска снаружи",
+                [
+                  ["smooth", "итерации"],
+                  ["de", "граница (DE)"],
+                ],
+                state.fracExterior,
+                (vv) => { state.fracExterior = vv; render(1); },
+              ),
+            );
+            p.appendChild(
+              seg(
+                "раскраска внутри",
+                [
+                  ["flat", "плоско"],
+                  ["period", "период"],
+                ],
+                state.fracInterior,
+                (vv) => { state.fracInterior = vv; render(1); },
+              ),
+            );
+          }
           p.appendChild(
             btn("сбросить вид", () => {
               resetFractalView();
@@ -6526,6 +9638,206 @@
           );
           p.appendChild(note(fractalHint()));
           p.appendChild(exportCtl("#cv-fractal"));
+        } else if (state.mode === "surface") {
+          p.appendChild(
+            selCtl(
+              "тип поверхности",
+              [
+                "аналитический ландшафт |f|",
+                "многолистная (f)",
+                "риманова √z",
+                "риманова log z",
+              ],
+              { landscape: 0, branched: 1, sqrt: 2, log: 3 }[state.surface.kind],
+              (i) => {
+                state.surface.kind = ["landscape", "branched", "sqrt", "log"][i];
+                _surfMesh = null;
+                if (state.surface.kind === "branched") {
+                  const r = AC.compileBranched(state.expr);
+                  if (r.f) state.surface.sheets = detectBranchPeriod(r.f, 3);
+                }
+                buildPanel();
+                render(1);
+              },
+            ),
+          );
+          if (state.surface.kind === "landscape" || state.surface.kind === "branched") {
+            functionGroup(p);
+            if (state.surface.kind === "branched")
+              p.appendChild(
+                rangeCtl(
+                  "листов (ветвей)",
+                  1,
+                  8,
+                  state.surface.sheets,
+                  (v) => {
+                    state.surface.sheets = Math.round(v);
+                    _surfMesh = null;
+                    interactRender();
+                  },
+                  1,
+                ),
+              );
+            p.appendChild(
+              rangeCtl(
+                "охват области",
+                2,
+                12,
+                state.surface.span,
+                (v) => {
+                  state.surface.span = v;
+                  _surfMesh = null;
+                  interactRender();
+                },
+                0.5,
+              ),
+            );
+            p.appendChild(
+              rangeCtl(
+                "плотность сетки",
+                40,
+                200,
+                state.surface.density,
+                (v) => {
+                  state.surface.density = Math.round(v);
+                  _surfMesh = null;
+                  interactRender();
+                },
+                10,
+              ),
+            );
+          }
+          p.appendChild(
+            rangeCtl(
+              "масштаб высоты",
+              0.1,
+              3,
+              state.surface.heightScale,
+              (v) => {
+                state.surface.heightScale = v;
+                _surfMesh = null;
+                interactRender();
+              },
+              0.05,
+            ),
+          );
+          p.appendChild(
+            rangeCtl(
+              "приближение",
+              0.4,
+              2.4,
+              state.surface.zoom,
+              (v) => {
+                state.surface.zoom = v;
+                render(1);
+              },
+              0.05,
+            ),
+          );
+          p.appendChild(
+            rangeCtl(
+              "разрешение (суперсэмплинг)",
+              1,
+              2.5,
+              state.surface.ss,
+              (v) => {
+                state.surface.ss = v;
+                render(1);
+              },
+              0.25,
+            ),
+          );
+          p.appendChild(
+            btn("сбросить вид", () => {
+              views.surface = { yaw: 0.7, pitch: 0.95 };
+              state.surface.zoom = 1;
+              buildPanel();
+              render(1);
+            }),
+          );
+          p.appendChild(
+            gifExportBlock("⬇ записать GIF (оборот)", (seb) => exportSurfaceGIF(seb)),
+          );
+          p.appendChild(exportCtl("#cv-surface"));
+          p.appendChild(
+            note(
+              state.surface.kind === "landscape"
+                ? "Рельеф высоты log(1+|f|) над плоскостью z, раскрашенный фазой f (учитывает текущую схему). Перетаскивание — поворот. Нули — впадины, полюсы — пики."
+                : state.surface.kind === "branched"
+                  ? "Многолистная риманова поверхность f(z): каждый лист — своя ветвь (высота = Im, цвет = фаза). Листы склеиваются вдоль разрезов. Работает для log, корней/дробных степеней и обратных тригонометрических/гиперболических; число листов подбирается автоматически (для log-типа задаётся вручную). Для функций без многозначности (или с γ, ζ, суммами) показывается один лист."
+                : state.surface.kind === "sqrt"
+                  ? "Риманова поверхность √z: два листа, склеенных по разрезу (−∞,0]. Полный оборот фазы происходит за обход 4π по z."
+                  : "Риманова поверхность log z: бесконечнолистный геликоид (показаны 2 витка); каждый виток — своя ветвь логарифма.",
+            ),
+          );
+        } else if (state.mode === "compare") {
+          p.appendChild(funcControl());
+          const bh = document.createElement("div");
+          bh.id = "branch-host";
+          p.appendChild(bh);
+          requestAnimationFrame(syncBranch);
+          const gw = document.createElement("div");
+          gw.className = "ctl";
+          gw.innerHTML = '<label class="fld">функция g(z) — справа</label>';
+          const gsel = document.createElement("select");
+          PRESETS.forEach(([l, e]) => {
+            const o = document.createElement("option");
+            o.value = e;
+            o.textContent = l;
+            if (e.replace(/\s+/g, "") === state.cmpExpr.replace(/\s+/g, "")) o.selected = true;
+            gsel.appendChild(o);
+          });
+          const goc = document.createElement("option");
+          goc.value = "__c";
+          goc.textContent = "своя формула…";
+          if (!PRESETS.some(([l, e]) => e.replace(/\s+/g, "") === state.cmpExpr.replace(/\s+/g, ""))) goc.selected = true;
+          gsel.appendChild(goc);
+          const ginp = document.createElement("input");
+          ginp.type = "text";
+          ginp.id = "cmp-expr";
+          ginp.value = state.cmpExpr;
+          ginp.spellcheck = false;
+          ginp.style.marginTop = "8px";
+          ginp.addEventListener("focus", () => (state.activeInput = ginp));
+          const gerr = document.createElement("div");
+          gerr.className = "err";
+          const gcommit = () => {
+            const r = AC.compile(ginp.value);
+            if (r.error) {
+              gerr.textContent = r.error;
+              ginp.classList.add("bad");
+            } else {
+              gerr.textContent = "";
+              ginp.classList.remove("bad");
+              state.cmpExpr = ginp.value;
+              r._src = ginp.value;
+              state.cmpCompiled = r;
+              render(1);
+              syncHash();
+            }
+          };
+          gsel.onchange = () => {
+            if (gsel.value !== "__c") { ginp.value = gsel.value; gcommit(); }
+          };
+          ginp.addEventListener("change", gcommit);
+          ginp.addEventListener("keydown", (e) => { if (e.key === "Enter") gcommit(); });
+          gw.appendChild(gsel);
+          gw.appendChild(ginp);
+          gw.appendChild(gerr);
+          p.appendChild(gw);
+          p.appendChild(templatePalette());
+          p.appendChild(schemeControl());
+          p.appendChild(
+            btn("сбросить вид", () => {
+              views.compare = { cx: 0, cy: 0, scale: 5 / 600 };
+              render(1);
+            }),
+          );
+          p.appendChild(
+            note(
+              "Два портрета с общим видом: слева f(z), справа g(z). Сдвиг и масштаб синхронны на обоих холстах — удобно сравнивать нули, полюсы, ветвление и асимптотику. Раскраска общая.",
+            ),
+          );
         }
       }
       function fractalTypeCtl() {
@@ -6551,6 +9863,7 @@
             ],
           ],
           ["аналитические", [["newton", "бассейны Ньютона f(z)"]]],
+          ["плотность орбит", [["buddhabrot", "Buddhabrot"]]],
           [
             "контрпримеры (неголоморфные)",
             [
@@ -6638,6 +9951,8 @@
           return "Трикорн (Mandelbar): z↦z̄²+c. Антиголоморфно — итерация не сохраняет углы; структура качественно иная, чем у голоморфного Мандельброта.";
         if (t === "burningship")
           return "Burning Ship: z↦(|Re z|+i|Im z|)²+c. Неголоморфно (модули ломают аналитичность) — контрпример к голоморфной динамике.";
+        if (t === "buddhabrot")
+          return "Buddhabrot: накапливается плотность траекторий убегающих точек z₀=0 под z↦z²+c. «Итераций» задаёт глубину орбит; картинка уплотняется со временем, симметрична относительно вещественной оси.";
         return "";
       }
       function drawWheel() {
@@ -6736,6 +10051,7 @@
             interactRender();
           }
           if (opts.probe) probe(opts.rotate ? null : pxToZ(v, W, H, mx, my), opts, v, W, H, mx, my);
+          if (opts.hover && !drag) opts.hover(pxToZ(v, W, H, mx, my), e);
         });
         const end = () => {
           drag = false;
@@ -6755,6 +10071,7 @@
         cv.addEventListener("pointercancel", end);
         cv.addEventListener("pointerleave", () => {
           drag = false;
+          if (opts.hover) opts.hover(null);
         });
       }
       function probe(z, opts) {
@@ -6768,6 +10085,12 @@
           const t = state.fractal,
             jc = state.juliaC,
             mi = state.maxIter;
+          if (t === "buddhabrot") {
+            $("#ro-fz").textContent = "—";
+            $("#ro-extra-k").textContent = "плотность";
+            $("#ro-extra").textContent = "накопление орбит";
+            return;
+          }
           let it;
           if (t === "multibrot") it = multibrot(z.re, z.im, state.mbPower, mi);
           else if (t === "julia") it = juliaPow(z.re, z.im, jc.re, jc.im, state.juliaPower, mi);
@@ -6782,7 +10105,14 @@
           } else it = mandelbrot(z.re, z.im, mi);
           $("#ro-fz").textContent = "—";
           $("#ro-extra-k").textContent = "итераций";
-          $("#ro-extra").textContent = it >= mi ? mi + " (внутри)" : it.toFixed(1);
+          if (it >= mi) {
+            let extra = mi + " (внутри)";
+            if (t === "mandelbrot" || t === "multibrot" || t === "julia") {
+              const per = interiorPeriod(z.re, z.im);
+              if (per > 0) extra = "внутри · период " + per;
+            }
+            $("#ro-extra").textContent = extra;
+          } else $("#ro-extra").textContent = it.toFixed(1);
           return;
         }
         if (dispActive()) {
@@ -6797,7 +10127,7 @@
             : "∞";
           return;
         }
-        $("#ro-fz").textContent = fmt(safe(curF(), z));
+        $("#ro-fz").textContent = fmt(safe(opts.altF ? opts.altF() : curF(), z));
       }
 
       /* ---------- режимы ---------- */
@@ -6814,6 +10144,10 @@
         state.panel = "view";
         if (m !== "conformal" && typeof confPause === "function") confPause();
         if (m !== "phase" && typeof phasePause === "function") phasePause();
+        if (m !== "fractal") {
+          if (typeof hideJuliaPreview === "function") hideJuliaPreview();
+          state.orbitPt = null;
+        }
         document
           .querySelectorAll(".pane")
           .forEach((p) => p.classList.toggle("on", p.dataset.pane === m));
@@ -6823,6 +10157,8 @@
           conformal: "наведите курсор — точка и её образ",
           fractal: "прокрутка — масштаб, клик — c для Жюлиа",
           sphere: "перетаскивание — вращение",
+          surface: "перетаскивание — вращение, ползунок — масштаб",
+          compare: "общий вид: перетаскивание — сдвиг, прокрутка — масштаб",
         };
         $("#hint").textContent = hints[m] || "";
         $("#ro-extra-k").textContent = "";
@@ -6830,6 +10166,7 @@
         updateTabs();
         buildPanel();
         requestAnimationFrame(() => render(1));
+        syncHash();
       }
       function openSettings() {
         state.panel = "settings";
@@ -6849,14 +10186,44 @@
       attachField($("#cv-analysis"), () => views.analysis, {
         probe: true,
         click: (z) => {
-          if (state.ana.tool === "point") analyzePoint(z);
-          else analyzeContour(z, state.ana.radius);
+          const t = state.ana.tool;
+          if (t === "point") return analyzePoint(z);
+          if (t === "series") return analyzeSeries(z);
+          const sh = state.ana.shape || "circle";
+          if (sh === "circle") return analyzeContour(z, state.ana.radius);
+          if (sh === "rect") {
+            state.ana.poly.push(z);
+            if (state.ana.poly.length >= 2) {
+              const A = state.ana.poly[0],
+                B = state.ana.poly[1];
+              const pts = [C(A.re, A.im), C(B.re, A.im), C(B.re, B.im), C(A.re, B.im)];
+              state.ana.poly = [];
+              analyzePolyContour(pts, true, "прямоугольник");
+            } else {
+              state.ana.contour = null;
+              state.ana.drawn = { kind: "poly", pts: [C(z.re, z.im)], closed: false };
+              renderAnalysis();
+            }
+            return;
+          }
+          // ломаная
+          state.ana.poly.push(z);
+          state.ana.contour = null;
+          state.ana.drawn = { kind: "poly", pts: state.ana.poly.map((p) => C(p.re, p.im)), closed: false };
+          renderAnalysis();
         },
       });
       attachField($("#cv-fractal"), () => views.fractal, {
         probe: true,
         fractal: true,
         click: (z) => {
+          if (state.fractal === "buddhabrot") return;
+          if (state.fracOrbit) {
+            state.orbitPt = C(z.re, z.im);
+            state.orbit = orbitPath(z);
+            animateOrbit();
+            return;
+          }
           if (state.fractal === "mandelbrot" || state.fractal === "multibrot") {
             state.juliaPower = state.fractal === "multibrot" ? state.mbPower : 2;
             state.juliaC = { re: z.re, im: z.im };
@@ -6866,8 +10233,19 @@
             render(1);
           }
         },
+        hover: (z, e) => {
+          if (!z || !e || !state.juliaPreview ||
+              !(state.fractal === "mandelbrot" || state.fractal === "multibrot" || state.fractal === "tricorn" || state.fractal === "burningship")) {
+            hideJuliaPreview();
+            return;
+          }
+          juliaPreviewShow(e.clientX, e.clientY, z);
+        },
       });
       attachField($("#cv-sphere"), () => views.sphere, { rotate: true, noZoom: true });
+      attachField($("#cv-surface"), () => views.surface, { rotate: true, noZoom: true });
+      attachField($("#cv-cmpL"), () => views.compare, { probe: true });
+      attachField($("#cv-cmpR"), () => views.compare, { probe: true, altF: () => cmpG() });
       {
         const cv = $("#cv-confL");
         cv.addEventListener("pointermove", (e) => {
@@ -6925,7 +10303,11 @@
         clearTimeout(idleTimer);
         idleTimer = setTimeout(() => render(1), 120);
       });
-      setMode("phase");
+      loadFav();
+      restoreFromHash();
+      state.exprHistory = [state.expr];
+      state.exprHistIdx = 0;
+      setMode(state.mode);
     </script>
   </body>
 </html>
