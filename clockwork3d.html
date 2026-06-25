@@ -1,0 +1,1907 @@
+<!doctype html>
+<html lang="ru">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Horologium · гиревой регулятор · 3D</title>
+    <style>
+      :root {
+        --ink: #0c0f13;
+        --ink2: #11151b;
+        --brass: #c79f49;
+        --brass-dim: #9c7b34;
+        --steel: #94badd;
+        --enamel: #f1e7cf;
+        --line: #2a323c;
+        --text: #cdd6e2;
+        --mut: #7d8794;
+      }
+      * {
+        box-sizing: border-box;
+        margin: 0;
+        padding: 0;
+      }
+      html,
+      body {
+        height: 100%;
+        background: radial-gradient(1200px 800px at 70% -10%, #182029 0%, var(--ink) 60%);
+        color: var(--text);
+        font-family: Georgia, "Times New Roman", serif;
+        overflow: hidden;
+      }
+      #app {
+        position: fixed;
+        inset: 0;
+      }
+      canvas {
+        display: block;
+      }
+      /* ---- overlays ---- */
+      .overlay {
+        position: fixed;
+        pointer-events: none;
+        font-family: "IBM Plex Mono", ui-monospace, Menlo, monospace;
+      }
+      .panel {
+        pointer-events: auto;
+        background: rgba(12, 15, 19, 0.72);
+        border: 1px solid var(--line);
+        border-radius: 12px;
+        backdrop-filter: blur(6px);
+      }
+      #titlebar {
+        top: 18px;
+        left: 22px;
+      }
+      #titlebar h1 {
+        font-family: Georgia, serif;
+        font-weight: 600;
+        font-size: 25px;
+        letter-spacing: 0.3px;
+        color: #eadfbf;
+      }
+      #titlebar h1 b {
+        color: var(--brass);
+      }
+      #titlebar .sub {
+        font-family: "IBM Plex Mono", monospace;
+        font-size: 11px;
+        letter-spacing: 3px;
+        text-transform: uppercase;
+        color: var(--brass-dim);
+        margin-bottom: 6px;
+      }
+      #titlebar .tag {
+        font-family: Georgia, serif;
+        font-style: italic;
+        color: var(--mut);
+        font-size: 13px;
+        max-width: 430px;
+        margin-top: 7px;
+      }
+      /* controls */
+      #controls {
+        right: 20px;
+        top: 18px;
+        width: 270px;
+        padding: 14px 16px 16px;
+      }
+      #controls h2 {
+        font-family: "IBM Plex Mono", monospace;
+        font-size: 11px;
+        letter-spacing: 2px;
+        color: var(--brass-dim);
+        text-transform: uppercase;
+        margin-bottom: 10px;
+      }
+      .ctl {
+        margin: 9px 0;
+      }
+      .ctl label {
+        display: flex;
+        justify-content: space-between;
+        font-family: "IBM Plex Mono", monospace;
+        font-size: 11px;
+        color: var(--mut);
+        margin-bottom: 4px;
+        letter-spacing: 0.5px;
+      }
+      .ctl label .v {
+        color: var(--brass);
+      }
+      input[type="range"] {
+        width: 100%;
+        -webkit-appearance: none;
+        height: 3px;
+        border-radius: 3px;
+        background: #2c343d;
+        outline: none;
+      }
+      input[type="range"]::-webkit-slider-thumb {
+        -webkit-appearance: none;
+        width: 13px;
+        height: 13px;
+        border-radius: 50%;
+        background: var(--brass);
+        cursor: pointer;
+        box-shadow: 0 0 0 3px rgba(199, 159, 73, 0.18);
+      }
+      input[type="range"]::-moz-range-thumb {
+        width: 13px;
+        height: 13px;
+        border: none;
+        border-radius: 50%;
+        background: var(--brass);
+        cursor: pointer;
+      }
+      .togs {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 7px;
+        margin-top: 11px;
+      }
+      .tog {
+        pointer-events: auto;
+        font-family: "IBM Plex Mono", monospace;
+        font-size: 10.5px;
+        letter-spacing: 0.5px;
+        padding: 6px 9px;
+        border: 1px solid var(--line);
+        border-radius: 8px;
+        color: var(--mut);
+        cursor: pointer;
+        user-select: none;
+        background: rgba(20, 26, 32, 0.6);
+      }
+      .tog.on {
+        color: var(--ink);
+        background: var(--brass);
+        border-color: var(--brass);
+      }
+      .btns {
+        display: flex;
+        gap: 7px;
+        margin-top: 12px;
+      }
+      .btn {
+        pointer-events: auto;
+        flex: 1;
+        text-align: center;
+        font-family: "IBM Plex Mono", monospace;
+        font-size: 11px;
+        letter-spacing: 1px;
+        padding: 8px 0;
+        border: 1px solid var(--line);
+        border-radius: 8px;
+        color: var(--text);
+        cursor: pointer;
+        background: rgba(20, 26, 32, 0.7);
+        text-transform: uppercase;
+      }
+      .btn.primary {
+        border-color: var(--brass);
+        color: var(--brass);
+      }
+      /* instruments overlay (collapsible) */
+      #instr {
+        left: 22px;
+        bottom: 20px;
+        width: 300px;
+        padding: 12px 14px;
+      }
+      #instr.collapsed .body {
+        display: none;
+      }
+      #instr h2 {
+        font-family: "IBM Plex Mono", monospace;
+        font-size: 11px;
+        letter-spacing: 2px;
+        color: var(--brass-dim);
+        text-transform: uppercase;
+        margin-bottom: 8px;
+        display: flex;
+        justify-content: space-between;
+        cursor: pointer;
+      }
+      #instr .rows {
+        display: grid;
+        grid-template-columns: 1fr auto;
+        gap: 3px 10px;
+        font-family: "IBM Plex Mono", monospace;
+        font-size: 11.5px;
+      }
+      #instr .rows .k {
+        color: var(--mut);
+      }
+      #instr .rows .val {
+        color: var(--enamel);
+        text-align: right;
+      }
+      #phase {
+        margin-top: 10px;
+        width: 100%;
+        height: 120px;
+        border: 1px solid var(--line);
+        border-radius: 7px;
+        background: #0b0e12;
+      }
+      #hint {
+        right: 20px;
+        bottom: 18px;
+        font-family: "IBM Plex Mono", monospace;
+        font-size: 10.5px;
+        color: var(--mut);
+        letter-spacing: 0.5px;
+        text-align: right;
+        line-height: 1.7;
+      }
+      #boot {
+        position: fixed;
+        inset: 0;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-family: "IBM Plex Mono", monospace;
+        color: var(--brass-dim);
+        letter-spacing: 2px;
+        font-size: 13px;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="app"></div>
+
+    <div id="boot">СБОРКА МЕХАНИЗМА…</div>
+
+    <div class="overlay">
+      <div id="titlebar">
+        <div class="sub">Horologium · гиревой регулятор</div>
+        <h1>Мёртвый ход <b>в объёме</b></h1>
+        <div class="tag">
+          Честный ходовой ряд: гиря → большое колесо → центральное (минуты) → промежуточное →
+          спусковое (секунды). Видимые колёса и ведут стрелки.
+        </div>
+      </div>
+
+      <div id="controls" class="panel">
+        <h2>Регулировка хода</h2>
+        <div class="ctl">
+          <label>Гиревой момент <span class="v" id="vTau">0.82</span></label>
+          <input id="sTau" type="range" min="0.30" max="2.00" step="0.02" value="0.82" />
+        </div>
+        <div class="ctl">
+          <label>Трение маятника <span class="v" id="vDamp">0.0150</span></label>
+          <input id="sDamp" type="range" min="0.006" max="0.030" step="0.0005" value="0.015" />
+        </div>
+        <div class="ctl">
+          <label>Длина маятника, м <span class="v" id="vLen">0.994</span></label>
+          <input id="sLen" type="range" min="0.85" max="1.15" step="0.001" value="0.994" />
+        </div>
+        <div class="ctl">
+          <label>Скорость показа <span class="v" id="vSpd">1×</span></label>
+          <input id="sSpd" type="range" min="0" max="100" step="1" value="33" />
+        </div>
+        <div class="togs">
+          <div class="tog on" id="tWound">держать заведённой</div>
+          <div class="tog" id="tExploded">разнесённый вид</div>
+          <div class="tog" id="tGhost">призрачные платины</div>
+          <div class="tog on" id="tSpin">авто-облёт</div>
+        </div>
+        <div class="btns">
+          <div class="btn primary" id="bWind">Завести</div>
+          <div class="btn" id="bPause">Пауза</div>
+          <div class="btn" id="bReset">Сброс</div>
+        </div>
+      </div>
+
+      <div id="instr" class="panel">
+        <h2 id="instrHdr"><span>Приборы хода</span><span id="instrTgl">▾</span></h2>
+        <div class="body">
+          <div class="rows">
+            <div class="k">амплитуда</div>
+            <div class="val" id="rAmp">—</div>
+            <div class="k">период удара, с</div>
+            <div class="val" id="rBeat">—</div>
+            <div class="k">спусковое, об/мин</div>
+            <div class="val" id="rRev">—</div>
+            <div class="k">центральное, об/ч</div>
+            <div class="val" id="rCen">—</div>
+            <div class="k">завод</div>
+            <div class="val" id="rWind">—</div>
+            <div class="k">время</div>
+            <div class="val" id="rClock">—</div>
+          </div>
+          <canvas id="phase" width="300" height="120"></canvas>
+        </div>
+      </div>
+
+      <div id="hint" class="overlay">
+        тащить — облёт · колесо — приближение · правый клик — сдвиг
+      </div>
+    </div>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script>
+      "use strict";
+      /* ============================================================================
+   Horologium 3D — гиревой регулятор с мёртвым ходом (Three.js r128)
+   Phase 1: каркас сцены, освещение, платины/столбики, орбита, тестовое колесо.
+   Реальный ходовой ряд задан в TRAIN (используется в следующих фазах).
+   ========================================================================== */
+      const THREE = window.THREE;
+
+      /* ----------------------------------------------------------------------------
+   РЕАЛЬНЫЙ ХОДОВОЙ РЯД (гиревой английский longcase)
+   power: гиря → great(96) → center pinion(8) → center wheel(64) → third pinion(8)
+        → third wheel(60) → escape pinion(8) → escape wheel(30)  [спуск]
+   center = 1 об/час (минутная);  escape = 1 об/мин (секундная)
+   ---------------------------------------------------------------------------- */
+      const MOD = 1.0; // общий модуль ходовых колёс (ед. сцены)
+      const ESC_N = 30; // зубьев спускового колеса
+      // арбор = ось: несёт wheel (ведомое) и/или pinion (ведущий следующую ось)
+      const TRAIN = {
+        great: { wheelN: 96, pinionN: null, role: "great" }, // несёт только большое колесо (+ завод)
+        center: { wheelN: 64, pinionN: 8, role: "center" }, // 1 об/час, минутная стрелка
+        third: { wheelN: 60, pinionN: 8, role: "third" },
+        escape: { wheelN: ESC_N, pinionN: 8, role: "escape" }, // 1 об/мин, секундная стрелка
+      };
+      // передаточные (ведомая ось делает ratio оборотов на 1 оборот спускового колеса φ)
+      // φ — угол спускового колеса. escape:1 ; third: escape*(8/60)=0.1333 ... считаем явно ниже.
+
+      /* ----------------------------------------------------------------------------
+   THREE: renderer / scene / camera
+   ---------------------------------------------------------------------------- */
+      const appEl = document.getElementById("app");
+      const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+      renderer.setPixelRatio(Math.min(devicePixelRatio || 1, 2));
+      renderer.setSize(innerWidth, innerHeight);
+      renderer.outputEncoding = THREE.sRGBEncoding;
+      renderer.toneMapping = THREE.ACESFilmicToneMapping;
+      renderer.toneMappingExposure = 1.05;
+      renderer.shadowMap.enabled = true;
+      renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+      appEl.appendChild(renderer.domElement);
+
+      const scene = new THREE.Scene();
+      const camera = new THREE.PerspectiveCamera(42, innerWidth / innerHeight, 1, 4000);
+
+      /* ----- procedural environment (gradient) so metal reads without an HDR ----- */
+      function makeEnv() {
+        const c = document.createElement("canvas");
+        c.width = 16;
+        c.height = 256;
+        const g = c.getContext("2d");
+        const grd = g.createLinearGradient(0, 0, 0, 256);
+        grd.addColorStop(0.0, "#2b3440");
+        grd.addColorStop(0.45, "#171d24");
+        grd.addColorStop(0.55, "#10151b");
+        grd.addColorStop(1.0, "#05070a");
+        g.fillStyle = grd;
+        g.fillRect(0, 0, 16, 256);
+        const tex = new THREE.CanvasTexture(c);
+        tex.mapping = THREE.EquirectangularReflectionMapping;
+        const pmrem = new THREE.PMREMGenerator(renderer);
+        pmrem.compileEquirectangularShader();
+        const env = pmrem.fromEquirectangular(tex).texture;
+        tex.dispose();
+        pmrem.dispose();
+        return env;
+      }
+      scene.environment = makeEnv();
+
+      /* ----------------------------------------------------------------------------
+   Lights
+   ---------------------------------------------------------------------------- */
+      scene.add(new THREE.HemisphereLight(0x9fb4cc, 0x14181d, 0.55));
+      const key = new THREE.DirectionalLight(0xfff1d6, 1.15);
+      key.position.set(60, 90, 120);
+      key.castShadow = true;
+      key.shadow.mapSize.set(2048, 2048);
+      key.shadow.camera.near = 10;
+      key.shadow.camera.far = 600;
+      key.shadow.camera.left = -160;
+      key.shadow.camera.right = 160;
+      key.shadow.camera.top = 160;
+      key.shadow.camera.bottom = -160;
+      key.shadow.bias = -0.0004;
+      scene.add(key);
+      const fill = new THREE.DirectionalLight(0x9ec0ff, 0.35);
+      fill.position.set(-90, 30, 40);
+      scene.add(fill);
+      const rim = new THREE.DirectionalLight(0xffd9a0, 0.5);
+      rim.position.set(20, 40, -120);
+      scene.add(rim);
+
+      /* ----------------------------------------------------------------------------
+   Materials
+   ---------------------------------------------------------------------------- */
+      const MAT = {
+        brass: new THREE.MeshStandardMaterial({
+          color: 0xc69a44,
+          metalness: 0.95,
+          roughness: 0.34,
+          envMapIntensity: 1.0,
+        }),
+        brassDark: new THREE.MeshStandardMaterial({
+          color: 0x9a7a33,
+          metalness: 0.92,
+          roughness: 0.45,
+          envMapIntensity: 0.9,
+        }),
+        steel: new THREE.MeshStandardMaterial({
+          color: 0x8fb0d6,
+          metalness: 0.96,
+          roughness: 0.22,
+          envMapIntensity: 1.1,
+        }),
+        steelBlue: new THREE.MeshStandardMaterial({
+          color: 0x49628c,
+          metalness: 0.9,
+          roughness: 0.3,
+          envMapIntensity: 1.1,
+        }),
+        plate: new THREE.MeshStandardMaterial({
+          color: 0xb08a3c,
+          metalness: 0.9,
+          roughness: 0.5,
+          envMapIntensity: 0.85,
+        }),
+        jewel: new THREE.MeshStandardMaterial({
+          color: 0xc0392b,
+          metalness: 0.3,
+          roughness: 0.25,
+          emissive: 0x3a0d08,
+          envMapIntensity: 1.0,
+        }),
+        enamel: new THREE.MeshStandardMaterial({ color: 0xf1e7cf, metalness: 0.0, roughness: 0.6 }),
+      };
+
+      /* ----------------------------------------------------------------------------
+   Movement frame: two plates + four pillars (skeleton style)
+   Depth runs along +Z (toward viewer). Arbors are parallel to Z.
+   ---------------------------------------------------------------------------- */
+      const movement = new THREE.Group();
+      scene.add(movement);
+
+      const PLATE_GAP = 26; // distance between plates (depth)
+      const PLATE_TH = 3.0; // frame thickness
+      const zBack = -PLATE_GAP / 2,
+        zFront = +PLATE_GAP / 2;
+      // frame extents chosen to contain the whole train (great wheel reaches y≈-100)
+      const FR = { cx: 3, cy: -17, WX: 61, HY: 91, R: 24, margin: 11 };
+
+      function drawRoundRect(p, w, h, r, cx, cy) {
+        const x0 = cx - w,
+          y0 = cy - h,
+          x1 = cx + w,
+          y1 = cy + h;
+        p.moveTo(x0 + r, y0);
+        p.lineTo(x1 - r, y0);
+        p.absarc(x1 - r, y0 + r, r, -Math.PI / 2, 0, false);
+        p.lineTo(x1, y1 - r);
+        p.absarc(x1 - r, y1 - r, r, 0, Math.PI / 2, false);
+        p.lineTo(x0 + r, y1);
+        p.absarc(x0 + r, y1 - r, r, Math.PI / 2, Math.PI, false);
+        p.lineTo(x0, y0 + r);
+        p.absarc(x0 + r, y0 + r, r, Math.PI, Math.PI * 1.5, false);
+      }
+      const plates = new THREE.Group();
+      movement.add(plates);
+      const EXPL = []; // {o, z0, plate} for exploded view
+      function expl(o, plate) {
+        EXPL.push({ o, z0: o.position.z, plate: !!plate });
+        return o;
+      }
+      function plateFrame(z) {
+        const shape = new THREE.Shape();
+        drawRoundRect(shape, FR.WX, FR.HY, FR.R, FR.cx, FR.cy);
+        const hole = new THREE.Path();
+        drawRoundRect(
+          hole,
+          FR.WX - FR.margin,
+          FR.HY - FR.margin,
+          Math.max(6, FR.R - 8),
+          FR.cx,
+          FR.cy,
+        );
+        shape.holes.push(hole);
+        const geo = new THREE.ExtrudeGeometry(shape, {
+          depth: PLATE_TH,
+          bevelEnabled: true,
+          bevelThickness: 0.5,
+          bevelSize: 0.6,
+          bevelSegments: 1,
+          steps: 1,
+          curveSegments: 6,
+        });
+        geo.translate(0, 0, -PLATE_TH / 2);
+        const me = new THREE.Mesh(geo, MAT.plate);
+        me.position.z = z;
+        me.castShadow = me.receiveShadow = true;
+        return me;
+      }
+      plates.add(expl(plateFrame(zBack), true));
+      plates.add(expl(plateFrame(zFront), true));
+
+      // bridges (cocks): a thin bar carrying each arbor's pivot, from arbor to nearest frame edge
+      function addBridges(z) {
+        const bridgeArbors = [
+          { p: [0, -52], dir: "down" },
+          { p: [0, 0], dir: "left" },
+          { p: [27.6, 23.1], dir: "right" },
+          { p: [5.7, 49.1], dir: "up" },
+        ];
+        for (const b of bridgeArbors) {
+          const [x, y] = b.p;
+          let ex = x,
+            ey = y;
+          if (b.dir === "up") ey = FR.cy + FR.HY - FR.margin;
+          if (b.dir === "down") ey = FR.cy - FR.HY + FR.margin;
+          if (b.dir === "right") ex = FR.cx + FR.WX - FR.margin;
+          if (b.dir === "left") ex = FR.cx - FR.WX + FR.margin;
+          const len = Math.hypot(ex - x, ey - y),
+            ang = Math.atan2(ey - y, ex - x);
+          const bar = new THREE.Mesh(new THREE.BoxGeometry(len, 7, PLATE_TH * 0.9), MAT.plate);
+          bar.position.set((x + ex) / 2, (y + ey) / 2, z);
+          bar.rotation.z = ang;
+          bar.castShadow = true;
+          plates.add(bar);
+          // boss + jewel
+          const boss = new THREE.Mesh(
+            new THREE.CylinderGeometry(5, 5, PLATE_TH * 1.1, 20),
+            MAT.brass,
+          );
+          boss.rotation.x = Math.PI / 2;
+          boss.position.set(x, y, z);
+          boss.castShadow = true;
+          plates.add(boss);
+          const jw = new THREE.Mesh(new THREE.SphereGeometry(2.0, 14, 14), MAT.jewel);
+          jw.position.set(x, y, z + (z > 0 ? 0.8 : -0.8));
+          plates.add(jw);
+        }
+      }
+      addBridges(zBack);
+      addBridges(zFront);
+
+      // corner pillars
+      const pillars = new THREE.Group();
+      movement.add(pillars);
+      const corners = [
+        [FR.cx - FR.WX + 10, FR.cy - FR.HY + 10],
+        [FR.cx + FR.WX - 10, FR.cy - FR.HY + 10],
+        [FR.cx - FR.WX + 10, FR.cy + FR.HY - 10],
+        [FR.cx + FR.WX - 10, FR.cy + FR.HY - 10],
+      ];
+      for (const [px, py] of corners) {
+        const pil = new THREE.Mesh(new THREE.CylinderGeometry(3.0, 3.0, PLATE_GAP, 18), MAT.brass);
+        pil.rotation.x = Math.PI / 2;
+        pil.position.set(px, py, 0);
+        pil.castShadow = true;
+        pillars.add(pil);
+        for (const cz of [zBack + 2.2, zFront - 2.2]) {
+          const c = new THREE.Mesh(new THREE.CylinderGeometry(4.2, 4.2, 2.4, 18), MAT.brass);
+          c.rotation.x = Math.PI / 2;
+          c.position.set(px, py, cz);
+          pillars.add(c);
+        }
+      }
+
+      /* ============================================================================
+   CYCLOIDAL GEAR GENERATOR  (validated in 2D prototype)
+   Single describing-circle Rd per mesh; pinion (Rd=Rp/2) -> radial flanks.
+   ========================================================================== */
+      function cycloidOutline(N, m, Rd, opt) {
+        opt = opt || {};
+        const Rp = (m * N) / 2,
+          add = (opt.add ?? 0.95) * m,
+          ded = (opt.ded ?? 1.4) * m;
+        const Ra = Rp + add,
+          Rf = Math.max(1.2, Rp - ded);
+        const toothFrac = opt.toothFrac ?? 0.48,
+          phiP = (((2 * Math.PI) / N) * toothFrac) / 2,
+          STEP = 0.004;
+        function faceHalf() {
+          const o = [];
+          const k = (Rp + Rd) / Rd;
+          for (let p = 0; p < Math.PI; p += STEP) {
+            const x = (Rp + Rd) * Math.cos(p) - Rd * Math.cos(k * p),
+              y = (Rp + Rd) * Math.sin(p) - Rd * Math.sin(k * p);
+            const r = Math.hypot(x, y),
+              a = Math.atan2(y, x);
+            o.push({ r, a });
+            if (r >= Ra || a >= phiP * 0.74) break;
+          }
+          return o;
+        }
+        function flankHalf() {
+          const o = [];
+          const k = (Rp - Rd) / Rd;
+          for (let p = 0; p < Math.PI; p += STEP) {
+            const x = (Rp - Rd) * Math.cos(p) + Rd * Math.cos(k * p),
+              y = (Rp - Rd) * Math.sin(p) - Rd * Math.sin(k * p);
+            const r = Math.hypot(x, y),
+              a = Math.atan2(y, x);
+            o.push({ r, a });
+            if (r <= Rf) break;
+          }
+          return o;
+        }
+        const F = faceHalf(),
+          K = flankHalf(),
+          aTip = F.length ? F[F.length - 1].a : 0;
+        const right = [];
+        for (let i = K.length - 1; i >= 0; i--) right.push({ r: K[i].r, a: phiP + K[i].a });
+        for (let i = 0; i < F.length; i++) right.push({ r: F[i].r, a: phiP - F[i].a });
+        const pts = [];
+        const push = (r, la, thc) =>
+          pts.push(new THREE.Vector2(r * Math.cos(thc + la), r * Math.sin(thc + la)));
+        for (let i = 0; i < N; i++) {
+          const thc = (i * 2 * Math.PI) / N;
+          for (let j = right.length - 1; j >= 0; j--) push(right[j].r, -right[j].a, thc);
+          push(Ra, -(phiP - aTip), thc);
+          push(Ra, phiP - aTip, thc);
+          for (let j = right.length - 1; j >= 0; j--) push(right[j].r, right[j].a, thc);
+          const aR = phiP + (K.length ? K[K.length - 1].a : 0),
+            thcN = ((i + 1) * 2 * Math.PI) / N;
+          const sA = thc + aR,
+            eA = thcN - aR,
+            seg = Math.max(1, Math.round((eA - sA) / 0.06));
+          for (let s = 1; s <= seg; s++) {
+            const a = sA + ((eA - sA) * s) / seg;
+            pts.push(new THREE.Vector2(Rf * Math.cos(a), Rf * Math.sin(a)));
+          }
+        }
+        return { pts, Rp, Ra, Rf };
+      }
+      function gearShape(G) {
+        const s = new THREE.Shape();
+        G.pts.forEach((p, i) => (i ? s.lineTo(p.x, p.y) : s.moveTo(p.x, p.y)));
+        s.closePath();
+        return s;
+      }
+
+      /* toothed brass WHEEL with crossings (spokes) + hub */
+      function buildWheel(N, m, Rd, opt, thick, mat, spokes) {
+        const G = cycloidOutline(N, m, Rd, opt);
+        const shape = gearShape(G);
+        const innerR = Math.max(2.5, G.Rf - Math.max(2.2, G.Rp * 0.16));
+        const hole = new THREE.Path();
+        hole.absarc(0, 0, innerR, 0, Math.PI * 2, true);
+        shape.holes.push(hole);
+        const geo = new THREE.ExtrudeGeometry(shape, {
+          depth: thick,
+          bevelEnabled: true,
+          bevelThickness: thick * 0.14,
+          bevelSize: m * 0.12,
+          bevelSegments: 1,
+          steps: 1,
+          curveSegments: 1,
+        });
+        geo.translate(0, 0, -thick / 2);
+        geo.computeVertexNormals();
+        const grp = new THREE.Group();
+        const ring = new THREE.Mesh(geo, mat);
+        ring.castShadow = ring.receiveShadow = true;
+        grp.add(ring);
+        const ns = spokes ?? (N >= 44 ? 6 : N >= 24 ? 5 : 4);
+        for (let i = 0; i < ns; i++) {
+          const a = (i / ns) * Math.PI * 2,
+            len = innerR + 1.5;
+          const sp = new THREE.Mesh(new THREE.BoxGeometry(m * 1.5, len, thick * 0.92), mat);
+          sp.position.set((Math.cos(a) * len) / 2, (Math.sin(a) * len) / 2, 0);
+          sp.rotation.z = a - Math.PI / 2;
+          sp.castShadow = true;
+          grp.add(sp);
+        }
+        const hub = new THREE.Mesh(
+          new THREE.CylinderGeometry(m * 2.0, m * 2.0, thick * 1.15, 22),
+          mat,
+        );
+        hub.rotation.x = Math.PI / 2;
+        hub.castShadow = true;
+        grp.add(hub);
+        grp.userData.G = G;
+        return grp;
+      }
+      /* small solid PINION (lantern leaves) + hub */
+      function buildPinion(N, m, Rd, opt, thick, mat) {
+        const G = cycloidOutline(N, m, Rd, opt);
+        const shape = gearShape(G);
+        const geo = new THREE.ExtrudeGeometry(shape, {
+          depth: thick,
+          bevelEnabled: true,
+          bevelThickness: thick * 0.1,
+          bevelSize: m * 0.08,
+          bevelSegments: 1,
+          steps: 1,
+          curveSegments: 1,
+        });
+        geo.translate(0, 0, -thick / 2);
+        geo.computeVertexNormals();
+        const grp = new THREE.Group();
+        const me = new THREE.Mesh(geo, mat);
+        me.castShadow = me.receiveShadow = true;
+        grp.add(me);
+        grp.userData.G = G;
+        return grp;
+      }
+
+      /* ============================================================================
+   GOING TRAIN — real layout, parallel arbors, staggered depth
+   ========================================================================== */
+      const m = MOD,
+        Rd = (m * 8) / 2 / 2; // shared module; describing circle = half (8-leaf) pinion pitch radius
+      const NP = 8; // pinion leaves
+      const POS = {
+        // arbor XY positions (centre wheel at origin = dial centre)
+        great: new THREE.Vector2(0, -52),
+        center: new THREE.Vector2(0, 0),
+        third: new THREE.Vector2(27.6, 23.1),
+        escape: new THREE.Vector2(5.7, 49.1),
+      };
+      const ZP = { G: -7, C: 0, T: 7 }; // mesh planes (depth)
+      const wheelOpt = { toothFrac: 0.46 },
+        pinOpt = { toothFrac: 0.54, add: 1.05, ded: 1.3 };
+      const PT = 2.0,
+        PINT = 4.6; // wheel thickness, pinion length
+
+      // build gear meshes (each gear pre-rotated by its own static phase φ0)
+      function frac(x) {
+        x = x % 1;
+        return x < 0 ? x + 1 : x;
+      }
+      function meshPhase(driverPhi0, N_d, posD, N_r, posR) {
+        const a = Math.atan2(posD.y - posR.y, posD.x - posR.x); // R -> D
+        const stepD = (2 * Math.PI) / N_d,
+          stepR = (2 * Math.PI) / N_r;
+        const fd = frac((a + Math.PI - driverPhi0) / stepD);
+        return a - (0.5 - fd) * stepR;
+      }
+      // static phases
+      const ph = { greatW: 0, centerP: 0, centerW: 0, thirdP: 0, thirdW: 0, escapeP: 0 };
+      ph.centerP = meshPhase(ph.greatW, 96, POS.great, NP, POS.center);
+      ph.thirdP = meshPhase(ph.centerW, 64, POS.center, NP, POS.third);
+      ph.escapeP = meshPhase(ph.thirdW, 60, POS.third, NP, POS.escape);
+
+      // arbor groups (rotated by φ-derived angle each frame)
+      const train = new THREE.Group();
+      movement.add(train);
+      function arborGroup(pos) {
+        const g = new THREE.Group();
+        g.position.set(pos.x, pos.y, 0);
+        train.add(g);
+        return g;
+      }
+      const gGreat = arborGroup(POS.great),
+        gCenter = arborGroup(POS.center),
+        gThird = arborGroup(POS.third),
+        gEscape = arborGroup(POS.escape);
+
+      // helper to add a pre-phased gear at a given z to an arbor group
+      function addGear(arbor, gear, z, phi0) {
+        gear.position.z = z;
+        gear.rotation.z = phi0;
+        expl(gear);
+        const holder = new THREE.Group();
+        holder.add(gear);
+        arbor.add(holder);
+        return holder;
+      }
+
+      // arbors + steel rod through each
+      function arborRod(arbor, len, zc = 0) {
+        const r = new THREE.Mesh(new THREE.CylinderGeometry(1.3, 1.3, len, 16), MAT.steel);
+        r.rotation.x = Math.PI / 2;
+        r.position.z = zc;
+        r.castShadow = true;
+        arbor.add(r);
+      }
+      // centre + escape arbors must NOT reach back into the pendulum plane (z=-22); clip their rear ends
+      arborRod(gGreat, PLATE_GAP + 6); // [-16,16]
+      arborRod(gCenter, 36, 5); // [-13,23]  : back pivot -> hands at the dial, no rear overhang
+      arborRod(gThird, PLATE_GAP + 6); // [-16,16]
+      arborRod(gEscape, 32.5, -3.25); // [-19.5,13]: covers escape wheel (-17), clears the pendulum (-22)
+
+      // GREAT arbor: great wheel (96) at z_G
+      addGear(gGreat, buildWheel(96, m, Rd, wheelOpt, PT, MAT.brass, 6), ZP.G, ph.greatW);
+      // CENTER arbor: center pinion (8) at z_G ; center wheel (64) at z_C
+      addGear(gCenter, buildPinion(NP, m, Rd, pinOpt, PINT, MAT.steel), ZP.G, ph.centerP);
+      addGear(gCenter, buildWheel(64, m, Rd, wheelOpt, PT, MAT.brass, 6), ZP.C, ph.centerW);
+      // THIRD arbor: third pinion (8) at z_C ; third wheel (60) at z_T
+      addGear(gThird, buildPinion(NP, m, Rd, pinOpt, PINT, MAT.steel), ZP.C, ph.thirdP);
+      addGear(gThird, buildWheel(60, m, Rd, wheelOpt, PT, MAT.brass, 5), ZP.T, ph.thirdW);
+      // ESCAPE arbor: escape pinion (8) at z_T ; escape wheel handled in escapement phase
+      addGear(gEscape, buildPinion(NP, m, Rd, pinOpt, PINT, MAT.steel), ZP.T, ph.escapeP);
+
+      // jewels (bearing dots) on the front plate at each arbor
+      for (const p of [POS.great, POS.center, POS.third, POS.escape]) {
+        const j = new THREE.Mesh(new THREE.SphereGeometry(2.0, 16, 16), MAT.jewel);
+        j.position.set(p.x, p.y, zFront + 0.5);
+        movement.add(j);
+      }
+
+      /* drive: φ = escape-wheel angle. Arbor angles by exact ratios (signs alternate). */
+      const RATIO = {
+        escape: 1,
+        third: -(NP / 60),
+        center: (NP / 60) * (NP / 64),
+        great: -((NP / 60) * (NP / 64)) * (NP / 96),
+      };
+      function driveTrain(phi) {
+        gEscape.rotation.z = RATIO.escape * phi;
+        gThird.rotation.z = RATIO.third * phi;
+        gCenter.rotation.z = RATIO.center * phi;
+        gGreat.rotation.z = RATIO.great * phi;
+      }
+
+      /* ============================================================================
+   ESCAPEMENT (deadbeat) — escape wheel + anchor with concentric pallet faces
+   ========================================================================== */
+      const Ec = POS.escape; // escape arbor centre
+      const ESC_RP = 16,
+        ESC_TEETH = 30,
+        ESC_Z = -17; // escape wheel BEHIND back plate (real back-pendulum layout)
+      // pointed deadbeat escape-wheel teeth (asymmetric, leaning toward rotation +)
+      function buildEscapeWheel(N, Rp) {
+        const Ra = Rp,
+          Rf = Rp - 3.4,
+          shape = new THREE.Shape();
+        for (let i = 0; i < N; i++) {
+          const a0 = (i / N) * 2 * Math.PI,
+            a1 = ((i + 1) / N) * 2 * Math.PI;
+          const tip = a0 + (a1 - a0) * 0.22; // chirality flipped for forward-running wheel
+          if (i === 0) shape.moveTo(Rf * Math.cos(a0), Rf * Math.sin(a0));
+          else shape.lineTo(Rf * Math.cos(a0), Rf * Math.sin(a0));
+          shape.lineTo(Ra * Math.cos(tip), Ra * Math.sin(tip)); // impulse face up to tip
+          shape.lineTo(Rf * Math.cos(a1), Rf * Math.sin(a1)); // back to next root
+        }
+        shape.closePath();
+        const hole = new THREE.Path();
+        hole.absarc(0, 0, Rf - 5, 0, Math.PI * 2, true);
+        shape.holes.push(hole);
+        const geo = new THREE.ExtrudeGeometry(shape, {
+          depth: 1.8,
+          bevelEnabled: true,
+          bevelThickness: 0.3,
+          bevelSize: 0.3,
+          bevelSegments: 1,
+          steps: 1,
+          curveSegments: 1,
+        });
+        geo.translate(0, 0, -0.9);
+        const grp = new THREE.Group();
+        const ring = new THREE.Mesh(geo, MAT.steelBlue);
+        ring.castShadow = true;
+        grp.add(ring);
+        for (let i = 0; i < 5; i++) {
+          const a = (i / 5) * 2 * Math.PI,
+            len = Rf - 5;
+          const sp = new THREE.Mesh(new THREE.BoxGeometry(1.4, len, 1.5), MAT.steelBlue);
+          sp.position.set((Math.cos(a) * len) / 2, (Math.sin(a) * len) / 2, 0);
+          sp.rotation.z = a - Math.PI / 2;
+          grp.add(sp);
+        }
+        const hub = new THREE.Mesh(new THREE.CylinderGeometry(2.4, 2.4, 2.2, 18), MAT.steel);
+        hub.rotation.x = Math.PI / 2;
+        grp.add(hub);
+        return grp;
+      }
+      const escapeWheel = buildEscapeWheel(ESC_TEETH, ESC_RP);
+      escapeWheel.position.z = ESC_Z;
+      expl(escapeWheel);
+      gEscape.add(escapeWheel);
+
+      // Anchor — pivots above the escape wheel; pallets meet the tooth TIPS at the rim (no sinking)
+      const PIVOT_H = 26.4; // matched to contact solver (pivot/Rp = 1.65)
+      // ---- escapement geometry: ONE source of truth, used by BOTH the drawing and the simulation ----
+      const BETA = (2 * Math.PI) / ESC_TEETH; // tooth pitch
+      const PAL_ANG = (45 * Math.PI) / 180; // pallet half-angle -> 2*PAL_ANG span (90deg = 7.5 teeth)
+      const PAL_R = ESC_RP; // pallet contact radius (= tooth-tip radius)
+      const L_ANCH = Math.hypot(Math.sin(PAL_ANG) * PAL_R, Math.cos(PAL_ANG) * PAL_R - PIVOT_H); // anchor pivot -> pallet lever
+      const LOCK_LEN = 0.55,
+        IMP_LEN = 1.3,
+        IMP_INC = 0.3; // locking-face length, impulse-face length & incline (mm, rad)
+      // EVERYTHING below is DERIVED from the geometry above (no typed dynamics):
+      const ADV = (2 * PAL_ANG) % BETA; // advance per beat = ½ tooth, falls out of the pallet span
+      const TH_REL = LOCK_LEN / L_ANCH; // pendulum release angle near centre (locking-face length / lever)
+      const DPHI_IMP = IMP_LEN / PAL_R; // wheel angle swept during impulse (impulse-face length / radius)
+      const G_IMP = Math.tan(IMP_INC) * (PAL_R / L_ANCH); // dθ/dφ on the impulse face (incline + lever)
+      const anchorPivot = new THREE.Vector3(Ec.x, Ec.y + PIVOT_H, ESC_Z); // in the escape-wheel plane
+      const anchorGroup = new THREE.Group();
+      anchorGroup.position.copy(anchorPivot);
+      movement.add(anchorGroup);
+      expl(anchorGroup);
+      // --- crutch fork geometry: ONE source of truth for the drawn prongs AND the contact physics ---
+      const FORK_Y = 28; // lever — prongs hang this far below the anchor pivot (mm)
+      const PRONG_X = 1.84; // prong centre offset, anchor-local x (mm)
+      const PRONG_W = 1.0; // prong width (mm)
+      const ROD_R_F = 1.25; // pendulum-rod radius at the fork height (mm)
+      (function buildAnchor() {
+        // escape centre sits at anchor-local (0,-PIVOT_H); pallets at ±PAL_ANG from the wheel top
+        const palAng = PAL_ANG;
+        function pallet(sgn) {
+          const ex = Math.sin(sgn * palAng) * ESC_RP,
+            ey = -PIVOT_H + Math.cos(sgn * palAng) * ESC_RP; // tip at rim radius
+          const len = Math.hypot(ex, ey),
+            ang = Math.atan2(ey, ex);
+          const bar = new THREE.Mesh(new THREE.BoxGeometry(len, 3.0, 2.6), MAT.steel);
+          bar.position.set(ex / 2, ey / 2, 0);
+          bar.rotation.z = ang;
+          bar.castShadow = true;
+          anchorGroup.add(bar);
+          // pallet pad just OUTSIDE the teeth (radius ESC_RP+1.5); face inclined by IMP_INC = the impulse face
+          const px = Math.sin(sgn * palAng) * (ESC_RP + 1.5),
+            py = -PIVOT_H + Math.cos(sgn * palAng) * (ESC_RP + 1.5);
+          const pad = new THREE.Mesh(new THREE.BoxGeometry(3.0, 2.6, 2.6), MAT.steelBlue);
+          pad.position.set(px, py, 0);
+          pad.rotation.z = sgn * palAng - sgn * IMP_INC;
+          pad.castShadow = true;
+          anchorGroup.add(pad);
+        }
+        pallet(-1);
+        pallet(1);
+        const hub = new THREE.Mesh(new THREE.CylinderGeometry(3.0, 3.0, 3.4, 18), MAT.brass);
+        hub.rotation.x = Math.PI / 2;
+        anchorGroup.add(hub);
+        // crutch: a U-fork in front of the rod; prongs reach back and straddle it (never overlap the rod)
+        const CZf = -2; // crutch plane, just in FRONT of the rod (world ESC_Z-2)
+        const zlink = new THREE.Mesh(
+          new THREE.BoxGeometry(2.4, 2.4, Math.abs(CZf) + 1.6),
+          MAT.steel,
+        );
+        zlink.position.set(0, -3, CZf / 2);
+        anchorGroup.add(zlink);
+        const stem = new THREE.Mesh(new THREE.BoxGeometry(1.6, 26, 1.6), MAT.steel);
+        stem.position.set(0, -16, CZf);
+        anchorGroup.add(stem);
+        const cross = new THREE.Mesh(new THREE.BoxGeometry(6.4, 1.6, 1.6), MAT.steel);
+        cross.position.set(0, -28, CZf);
+        anchorGroup.add(cross);
+        for (const s of [-1, 1]) {
+          const pr = new THREE.Mesh(new THREE.BoxGeometry(PRONG_W, 3.0, 9), MAT.steel);
+          pr.position.set(s * PRONG_X, -FORK_Y, CZf - 4.5);
+          anchorGroup.add(pr);
+        } // tight fork: inner faces just clear the rod (gap=FORK_GAP)
+      })();
+
+      /* ============================================================================
+   PENDULUM — suspended above; swings in front; crutch coupled to anchor
+   ========================================================================== */
+      const PEND_PIVOT = new THREE.Vector3(Ec.x, Ec.y + PIVOT_H, ESC_Z - 8); // 8mm behind the anchor -> clears the escape arbor
+      const PEND_LEN = 190,
+        BOB_R = 15;
+      const pendulum = new THREE.Group();
+      pendulum.position.copy(PEND_PIVOT);
+      movement.add(pendulum);
+      expl(pendulum);
+      (function buildPendulum() {
+        const rod = new THREE.Mesh(new THREE.CylinderGeometry(1.3, 1.0, PEND_LEN, 16), MAT.steel);
+        rod.position.y = -PEND_LEN / 2;
+        rod.castShadow = true;
+        pendulum.add(rod);
+        const bob = new THREE.Mesh(new THREE.CylinderGeometry(BOB_R, BOB_R, 5, 40), MAT.brass);
+        bob.rotation.x = Math.PI / 2;
+        bob.position.y = -PEND_LEN + 6;
+        bob.castShadow = true;
+        pendulum.add(bob);
+        const bzl = new THREE.Mesh(new THREE.TorusGeometry(BOB_R, 1.6, 10, 40), MAT.brassDark);
+        bzl.position.y = -PEND_LEN + 6;
+        bzl.position.z = 2.6;
+        pendulum.add(bzl);
+        // rating nut
+        const nut = new THREE.Mesh(new THREE.CylinderGeometry(2.2, 2.2, 3, 12), MAT.brass);
+        nut.rotation.x = Math.PI / 2;
+        nut.position.y = -PEND_LEN - 2;
+        pendulum.add(nut);
+        // suspension cock
+        const cock = new THREE.Mesh(new THREE.BoxGeometry(10, 5, 5), MAT.brass);
+        cock.position.set(0, 4, 0);
+        pendulum.add(cock);
+      })();
+
+      /* ============================================================================
+   DIAL + HANDS — minute/hour on centre arbor, seconds on escape arbor
+   ========================================================================== */
+      const DIAL_Z = zFront + 8;
+      function buildDial() {
+        const g = new THREE.Group();
+        g.position.set(POS.center.x, POS.center.y, DIAL_Z);
+        movement.add(g);
+        const face = new THREE.Mesh(new THREE.CylinderGeometry(44, 44, 1.4, 80), MAT.enamel);
+        face.rotation.x = Math.PI / 2;
+        face.position.z = -1;
+        g.add(face);
+        const ring = new THREE.Mesh(new THREE.TorusGeometry(44, 2.2, 16, 80), MAT.brass);
+        g.add(ring);
+        // hour ticks
+        for (let i = 0; i < 12; i++) {
+          const a = (i / 12) * 2 * Math.PI;
+          const big = true;
+          const tk = new THREE.Mesh(
+            new THREE.BoxGeometry(big ? 2.2 : 1, big ? 7 : 4, 1),
+            new THREE.MeshStandardMaterial({ color: 0x20242b, roughness: 0.7 }),
+          );
+          tk.position.set(Math.cos(a) * 38, Math.sin(a) * 38, 0.4);
+          tk.rotation.z = a - Math.PI / 2;
+          g.add(tk);
+        }
+        return { g };
+      }
+      const DIAL = buildDial();
+      expl(DIAL.g);
+      function makeHand(len, w, mat, z) {
+        const m = new THREE.Mesh(new THREE.BoxGeometry(w, len, 1.4), mat);
+        m.geometry.translate(0, len / 2 - len * 0.16, 0);
+        m.position.z = z;
+        m.castShadow = true;
+        return m;
+      }
+      const handMat = new THREE.MeshStandardMaterial({
+        color: 0x14171c,
+        metalness: 0.4,
+        roughness: 0.5,
+      });
+      const hHour = makeHand(24, 3.2, handMat, 1.2),
+        hMin = makeHand(36, 2.2, handMat, 1.8);
+      DIAL.g.add(hHour);
+      DIAL.g.add(hMin);
+      // centre sweep seconds (1 rev/min, driven at escape rate) — no subsidiary dial to clip the main one
+      const hSec = makeHand(
+        40,
+        1.0,
+        new THREE.MeshStandardMaterial({ color: 0x8a1f12, metalness: 0.3, roughness: 0.5 }),
+        2.4,
+      );
+      DIAL.g.add(hSec);
+      // small counterweight tail on the seconds hand (rotates with it)
+      const hSecTail = new THREE.Mesh(new THREE.BoxGeometry(1.0, 9, 1.4), hSec.material);
+      hSecTail.position.set(0, -4.5, 0);
+      hSec.add(hSecTail);
+      // centre cap
+      const cap = new THREE.Mesh(new THREE.SphereGeometry(2.6, 16, 16), MAT.brass);
+      cap.position.set(POS.center.x, POS.center.y, DIAL_Z + 2);
+      movement.add(cap);
+      expl(cap);
+
+      /* ----- gravity weight + line over a barrel on the great-wheel arbor ----- */
+      const BARREL_R = 7,
+        BARREL_Z = -3.5;
+      const barrel = new THREE.Mesh(
+        new THREE.CylinderGeometry(BARREL_R, BARREL_R, 3, 28),
+        MAT.brassDark,
+      );
+      barrel.rotation.x = Math.PI / 2;
+      barrel.position.z = BARREL_Z;
+      gGreat.add(barrel);
+      const weightGrp = new THREE.Group();
+      movement.add(weightGrp);
+      expl(weightGrp);
+      const line = new THREE.Mesh(new THREE.CylinderGeometry(0.5, 0.5, 1, 8), MAT.steel);
+      weightGrp.add(line);
+      const weightBody = new THREE.Mesh(new THREE.CylinderGeometry(11, 11, 34, 36), MAT.brass);
+      const weightCap = new THREE.Mesh(
+        new THREE.CylinderGeometry(11.4, 11.4, 3, 36),
+        MAT.brassDark,
+      );
+      const weightBot = new THREE.Mesh(
+        new THREE.CylinderGeometry(11.4, 11.4, 3, 36),
+        MAT.brassDark,
+      );
+      weightGrp.add(weightBody, weightCap, weightBot);
+      const WLINE_TOP = POS.great.y - BARREL_R; // line leaves barrel just below great arbor
+      function updateWeight() {
+        const descent = Math.abs(PHYS.phi * RATIO.great) * BARREL_R; // unwound arc (slow)
+        const wTop = WLINE_TOP - 64 - descent,
+          z = BARREL_Z;
+        weightCap.position.set(POS.great.x, wTop, z);
+        weightBody.position.set(POS.great.x, wTop - 18, z);
+        weightBot.position.set(POS.great.x, wTop - 35, z);
+        const len = WLINE_TOP - wTop;
+        line.scale.set(1, Math.max(0.1, len), 1);
+        line.position.set(POS.great.x, (WLINE_TOP + wTop) / 2, z);
+      }
+
+      /* ============================================================================
+   PHYSICS — geometry-driven escapement (no free 'impulse' knob)
+   weight torque --(cut tooth-count ratio)--> escape wheel --(pallet contact)--> pendulum.
+   The escape wheel is a real DOF: held by the locking face (deadbeat, no recoil), then
+   driven forward by the weight as a tooth escapes, sliding on the impulse face and pushing
+   the pendulum. Energy delivered per beat = weight * barrelR * advance / ratio  (= the PE the
+   weight loses as the wheel turns that far). Amplitude/timekeeping EMERGE from this.
+   ========================================================================== */
+      const RATIO_G2E = Math.abs(1 / RATIO.great); // great->escape = 720, from the cut tooth counts
+      const I_E = 0.0009; // escape-wheel moment of inertia (a mass property)
+      const I_A = 0.1,
+        DAMP_A = 0.3; // anchor+crutch inertia and its own pivot friction
+      const L_FORK = FORK_Y; // contact lever = the drawn lever
+      const FORK_GAP = PRONG_X - PRONG_W / 2 - ROD_R_F; // half-clearance READ from the prong & rod meshes (=0.13mm)
+      const DPLAY = FORK_GAP / L_FORK; // angular free play, now a FUNCTION of the geometry
+      const K_FORK = 60,
+        C_FORK = 2.0; // fork contact stiffness & damping (penalty unilateral contact)
+      let DAMP = 0.01,
+        WEIGHT = 2.6,
+        SPEED = 1; // WEIGHT = driving weight (gravity moment); DAMP = pendulum friction
+      const PHYS = {
+        th: 0.12,
+        w: 0,
+        tha: 0.12,
+        wa: 0,
+        L: 0.994,
+        phi: 0,
+        we: 0,
+        running: true,
+        wound: true,
+        escState: "LOCK",
+        escNext: 1,
+        escDir: 1,
+        escProg: 0,
+        dMin: 1e9,
+        dMax: -1e9,
+        t: 0,
+        lastBeat: 0,
+        beatPeriod: 1,
+        amp: 0.12,
+        ampPk: 0,
+        beats: 0,
+      };
+      function escTorque() {
+        return PHYS.wound ? WEIGHT * BARREL_R * Math.abs(RATIO.great) : 0;
+      } // torque at the escape wheel
+      /* ===========================================================================
+   CONTACT ESCAPEMENT ENGINE  (verified LCP/sequential-impulse solver, 3 DOF)
+   Embedded physics: escape wheel φ, anchor θa, pendulum θp.
+   Lock / impulse / drop are EMERGENT contact events (no state machine).
+   Runs in scale-free angular units (ER=100); the 3D meshes are posed from its
+   angles. Mesh escapement geometry (PIVOT_H, impulse incline) is matched to it.
+   =========================================================================== */
+      const EV = {
+        sub: (a, b) => [a[0] - b[0], a[1] - b[1]],
+        add: (a, b) => [a[0] + b[0], a[1] + b[1]],
+        dot: (a, b) => a[0] * b[0] + a[1] * b[1],
+        scl: (a, s) => [a[0] * s, a[1] * s],
+        len: (a) => Math.hypot(a[0], a[1]),
+        rot: (a, t) => [
+          a[0] * Math.cos(t) - a[1] * Math.sin(t),
+          a[0] * Math.sin(t) + a[1] * Math.cos(t),
+        ],
+        rotD: (a, t) => [
+          -a[0] * Math.sin(t) - a[1] * Math.cos(t),
+          a[0] * Math.cos(t) - a[1] * Math.sin(t),
+        ],
+        perp: (a) => [-a[1], a[0]],
+      };
+      const ER = 100,
+        EN = 30,
+        EAL = (2 * Math.PI) / EN,
+        EOW = [0, 0],
+        EOA = [0, 165];
+      function eMakePallet(rimDeg, lockTilt, lift, name, hand) {
+        const P = [
+          ER * Math.cos((rimDeg * Math.PI) / 180),
+          ER * Math.sin((rimDeg * Math.PI) / 180),
+        ];
+        const cornerL = EV.sub(P, EOA),
+          radial = EV.scl(cornerL, hand / EV.len(cornerL));
+        const nLockL = EV.rot(radial, lockTilt),
+          nImpL = EV.rot(radial, hand * lift);
+        return {
+          name,
+          hand,
+          cornerL,
+          nLockL,
+          nImpL,
+          tLockL: EV.perp(nLockL),
+          tImpL: EV.perp(nImpL),
+          Llock: 18,
+          Limp: 14,
+        };
+      }
+      function eFaceGap(q, k, cornerL, nL) {
+        const phi = q[0],
+          theta = q[1],
+          psi = phi + k * EAL;
+        const T = [ER * Math.cos(psi), ER * Math.sin(psi)],
+          cw = EV.add(EOA, EV.rot(cornerL, theta)),
+          nw = EV.rot(nL, theta);
+        const g = EV.dot(EV.sub(T, cw), nw),
+          dT = [-ER * Math.sin(psi), ER * Math.cos(psi)];
+        const dcw = EV.rotD(cornerL, theta),
+          dnw = EV.rotD(nL, theta);
+        return {
+          g,
+          J: [EV.dot(dT, nw), EV.dot(EV.scl(dcw, -1), nw) + EV.dot(EV.sub(T, cw), dnw)],
+          T,
+          cw,
+          nw,
+        };
+      }
+      function eSolve(C, Minv, vf, h, beta, iters, biasCap) {
+        iters = iters || 40;
+        biasCap = biasCap || Infinity;
+        const ndof = Minv.length,
+          v = vf.slice();
+        for (const c of C) {
+          c.pn = 0;
+          c.pt = 0;
+          c.kn = 0;
+          for (let d = 0; d < ndof; d++) c.kn += c.Jn[d] * Minv[d] * c.Jn[d];
+          c.kn = c.kn > 1e-12 ? 1 / c.kn : 0;
+          c.bn = c.g > 0 ? c.g / h : Math.max((beta * c.g) / h, -biasCap);
+          if (c.Jt) {
+            c.kt = 0;
+            for (let d = 0; d < ndof; d++) c.kt += c.Jt[d] * Minv[d] * c.Jt[d];
+            c.kt = c.kt > 1e-12 ? 1 / c.kt : 0;
+          }
+        }
+        for (let it = 0; it < iters; it++)
+          for (const c of C) {
+            let wn = c.bn;
+            for (let d = 0; d < ndof; d++) wn += c.Jn[d] * v[d];
+            let npn = Math.max(0, c.pn - c.kn * wn),
+              dpn = npn - c.pn;
+            c.pn = npn;
+            for (let d = 0; d < ndof; d++) v[d] += Minv[d] * c.Jn[d] * dpn;
+            if (c.Jt && c.mu > 0) {
+              let wt = 0;
+              for (let d = 0; d < ndof; d++) wt += c.Jt[d] * v[d];
+              let npt = c.pt - c.kt * wt,
+                lim = c.mu * c.pn;
+              npt = Math.max(-lim, Math.min(lim, npt));
+              let dpt = npt - c.pt;
+              c.pt = npt;
+              for (let d = 0; d < ndof; d++) v[d] += Minv[d] * c.Jt[d] * dpt;
+            }
+          }
+        return { v, P: C.map((c) => ({ pn: c.pn, pt: c.pt, tag: c.tag })) };
+      }
+      function buildEscEngine(opt) {
+        const P = Object.assign(
+          {
+            Iw: 8e-4,
+            Ia: 0.1,
+            Ip: 0.5,
+            Wp: 5.87,
+            ca: 0.0003,
+            cp: 0.0005,
+            cfork: 0.003,
+            cw: 1e-5,
+            DRIVE: -0.022,
+            lockTilt: 0.0,
+            lift: -0.3,
+            mu: 0.0,
+            fork: 0.003,
+            gAct: 3.0,
+            h: 1e-4,
+            beta: 0.2,
+            th0: 0.05,
+          },
+          opt || {},
+        );
+        const Minv = [1 / P.Iw, 1 / P.Ia, 1 / P.Ip];
+        let pals;
+        const rebuild = () =>
+          (pals = [
+            eMakePallet(135, P.lockTilt, P.lift, "E", +1),
+            eMakePallet(45, P.lockTilt, P.lift, "X", -1),
+          ]);
+        rebuild();
+        const st = {
+          q: [0, P.th0, P.th0],
+          v: [0, 0, 0],
+          t: 0,
+          beats: 0,
+          lastSign: 1,
+          peak: 0,
+          amp: 0,
+          period: 0,
+          _bt: 0,
+          lastAct: [],
+          lost: 0,
+        };
+        function contacts(q) {
+          const theta = q[1],
+            out = [];
+          for (const pal of pals) {
+            const cw = EV.add(EOA, EV.rot(pal.cornerL, theta));
+            const k0 = Math.round((Math.atan2(cw[1], cw[0]) - q[0]) / EAL);
+            for (let k = k0 - 1; k <= k0 + 1; k++)
+              for (const f of [
+                [pal.nLockL, pal.tLockL, pal.Llock, "L"],
+                [pal.nImpL, pal.tImpL, pal.Limp, "I"],
+              ]) {
+                const c = eFaceGap(q, k, pal.cornerL, f[0]);
+                const tw = EV.rot(f[1], theta);
+                const s = EV.dot(EV.sub(c.T, c.cw), tw);
+                if (c.g < P.gAct && c.g > -2.0 && s > -2.5 && s < f[2]) {
+                  const dT = [-ER * Math.sin(q[0] + k * EAL), ER * Math.cos(q[0] + k * EAL)],
+                    r = EV.sub(c.T, EOA);
+                  out.push({
+                    Jn: [c.J[0], c.J[1], 0],
+                    Jt: [EV.dot(dT, tw), -EV.dot(EV.perp(r), tw), 0],
+                    g: c.g,
+                    mu: P.mu,
+                    tag: pal.name + f[3],
+                  });
+                }
+              }
+          }
+          const D = q[2] - q[1],
+            d = P.fork;
+          out.push({ Jn: [0, +1, -1], Jt: null, g: d - D, mu: 0, tag: "F+" });
+          out.push({ Jn: [0, -1, +1], Jt: null, g: d + D, mu: 0, tag: "F-" });
+          return out;
+        }
+        function forces(q, v) {
+          const fk = P.cfork * (v[1] - v[2]);
+          return [
+            P.DRIVE - P.cw * v[0],
+            -P.ca * v[1] - fk,
+            -P.Wp * Math.sin(q[2]) - P.cp * v[2] + fk,
+          ];
+        }
+        function step() {
+          let M = Math.max(1, Math.ceil(Math.abs(ER * st.v[0] * P.h) / 0.18));
+          const rc = Math.abs(st.v[1] - st.v[2]) * P.h;
+          M = Math.max(M, Math.ceil(rc / (P.fork > 0 ? P.fork * 0.15 : 1e9)));
+          M = Math.min(220, M);
+          const h = P.h / M;
+          let act = [];
+          for (let m = 0; m < M; m++) {
+            const f = forces(st.q, st.v);
+            const vf = st.v.map((vi, d) => vi + h * Minv[d] * f[d]);
+            const C = contacts(st.q);
+            const r = eSolve(C, Minv, vf, h, P.beta, 40, 8);
+            st.v = r.v;
+            st.q = st.q.map((qi, d) => qi + h * st.v[d]);
+            act = r.P.filter((p) => p.pn > 1e-9 || Math.abs(p.pt) > 1e-9);
+          }
+          st.t += P.h;
+          st.lastAct = act.map((a) => a.tag);
+          st.lost = Math.abs(st.q[2] - st.q[1]);
+          const sgn = Math.sign(st.q[2]) || 1;
+          st.peak = Math.max(st.peak, Math.abs(st.q[2]));
+          if (sgn !== st.lastSign) {
+            st.beats++;
+            if (st._bt) st.period = st.t - st._bt;
+            st._bt = st.t;
+            st.amp = st.peak;
+            st.peak = 0;
+            st.lastSign = sgn;
+          }
+        }
+        function advance(dt) {
+          const n = Math.max(0, Math.min(4000, Math.round(dt / P.h)));
+          for (let i = 0; i < n; i++) step();
+        }
+        return {
+          P,
+          st,
+          step,
+          advance,
+          setMu: (m) => (P.mu = m),
+          setFork: (f) => (P.fork = f),
+          setMode: (rec) => {
+            P.lockTilt = rec ? 0.035 : 0;
+            P.DRIVE = rec ? -0.016 : -0.022;
+            rebuild();
+          },
+          reset: () => {
+            st.q = [0, P.th0, P.th0];
+            st.v = [0, 0, 0];
+            st.t = 0;
+            st.beats = 0;
+            st.lastSign = 1;
+            st.peak = 0;
+            st.period = 0;
+            st._bt = 0;
+          },
+        };
+      }
+
+      const escEngine = buildEscEngine();
+      const ESC_PHI0 = 0.163; // aligns a mesh tooth onto the (reflected) entry pallet at lock
+
+      function physicsStep(dt) {
+        if (!PHYS.running) return;
+        dt = Math.max(0, Math.min(0.05, dt));
+        if (dt === 0) return;
+        escEngine.advance(dt);
+        const s = escEngine.st;
+        PHYS.phi = -s.q[0] + ESC_PHI0; // wheel angle (reflected -> train + hands run forward)
+        PHYS.tha = -s.q[1]; // anchor (reflected with the wheel)
+        PHYS.th = -s.q[2]; // pendulum (reflected)
+        PHYS.we = s.v[0];
+        PHYS.wa = s.v[1];
+        PHYS.w = s.v[2];
+        PHYS.beats = s.beats;
+        PHYS.beatPeriod = s.period;
+        PHYS.amp = s.amp;
+        PHYS.t = s.t;
+        PHYS.escState = s.lastAct.some((t) => t === "EI" || t === "XI")
+          ? "IMP"
+          : s.lastAct.some((t) => t && t.endsWith("L"))
+            ? "LOCK"
+            : "DROP";
+        PHYS.dMin = Math.min(PHYS.dMin, s.q[1] - s.q[2]);
+        PHYS.dMax = Math.max(PHYS.dMax, s.q[1] - s.q[2]);
+      }
+
+      /* anchor + pendulum rock together (coaxial crutch, 1:1); train + hands follow the wheel angle φ */
+      function applyMechanism() {
+        pendulum.rotation.z = PHYS.th;
+        anchorGroup.rotation.z = PHYS.tha; // anchor is its OWN body; couples to the rod only through the fork
+        driveTrain(PHYS.phi);
+        hSec.rotation.z = -PHYS.phi; // seconds: escape arbor, 1 rev/min  (geometry)
+        hMin.rotation.z = -PHYS.phi / 60; // minute: 1 rev/hour
+        hHour.rotation.z = -PHYS.phi / 720; // hour:  1 rev/12h
+        updateWeight();
+      }
+
+      /* ----------------------------------------------------------------------------
+   Hand-rolled orbit + zoom (OrbitControls unavailable in this env)
+   ---------------------------------------------------------------------------- */
+      const cam = {
+        target: new THREE.Vector3(3, -14, 0),
+        theta: 0.68, // azimuth
+        phi: 1.18, // polar (from +Y)
+        radius: 305,
+        thetaV: 0,
+        phiV: 0,
+        autoSpin: true,
+      };
+      function applyCamera() {
+        const s = Math.sin(cam.phi),
+          x = Math.cos(cam.theta) * s,
+          z = Math.sin(cam.theta) * s,
+          y = Math.cos(cam.phi);
+        camera.position.set(
+          cam.target.x + cam.radius * x,
+          cam.target.y + cam.radius * y,
+          cam.target.z + cam.radius * z,
+        );
+        camera.lookAt(cam.target);
+      }
+      applyCamera();
+
+      (function bindOrbit() {
+        const el = renderer.domElement;
+        let drag = false,
+          pan = false,
+          lx = 0,
+          ly = 0;
+        el.addEventListener("mousedown", (e) => {
+          drag = e.button === 0;
+          pan = e.button === 2;
+          lx = e.clientX;
+          ly = e.clientY;
+          cam.autoSpin = false;
+        });
+        addEventListener("mouseup", () => {
+          drag = pan = false;
+        });
+        addEventListener("mousemove", (e) => {
+          const dx = e.clientX - lx,
+            dy = e.clientY - ly;
+          lx = e.clientX;
+          ly = e.clientY;
+          if (drag) {
+            cam.theta -= dx * 0.006;
+            cam.phi = Math.max(0.18, Math.min(2.96, cam.phi - dy * 0.006));
+          } else if (pan) {
+            const k = cam.radius * 0.0016;
+            cam.target.x -= dx * k * Math.cos(cam.theta);
+            cam.target.z -= dx * k * Math.sin(cam.theta);
+            cam.target.y += dy * k;
+          }
+        });
+        el.addEventListener("contextmenu", (e) => e.preventDefault());
+        el.addEventListener(
+          "wheel",
+          (e) => {
+            e.preventDefault();
+            cam.radius = Math.max(70, Math.min(900, cam.radius * (1 + Math.sign(e.deltaY) * 0.08)));
+          },
+          { passive: false },
+        );
+        // touch (single = orbit, pinch = zoom)
+        let pt = null,
+          pd = 0;
+        el.addEventListener(
+          "touchstart",
+          (e) => {
+            cam.autoSpin = false;
+            if (e.touches.length === 1) {
+              pt = { x: e.touches[0].clientX, y: e.touches[0].clientY };
+            } else if (e.touches.length === 2) {
+              pd = Math.hypot(
+                e.touches[0].clientX - e.touches[1].clientX,
+                e.touches[0].clientY - e.touches[1].clientY,
+              );
+            }
+          },
+          { passive: true },
+        );
+        el.addEventListener(
+          "touchmove",
+          (e) => {
+            if (e.touches.length === 1 && pt) {
+              const dx = e.touches[0].clientX - pt.x,
+                dy = e.touches[0].clientY - pt.y;
+              pt = { x: e.touches[0].clientX, y: e.touches[0].clientY };
+              cam.theta -= dx * 0.006;
+              cam.phi = Math.max(0.18, Math.min(2.96, cam.phi - dy * 0.006));
+            } else if (e.touches.length === 2) {
+              const nd = Math.hypot(
+                e.touches[0].clientX - e.touches[1].clientX,
+                e.touches[0].clientY - e.touches[1].clientY,
+              );
+              if (pd) cam.radius = Math.max(70, Math.min(900, (cam.radius * pd) / nd));
+              pd = nd;
+            }
+          },
+          { passive: true },
+        );
+      })();
+
+      /* ----------------------------------------------------------------------------
+   UI wiring (sliders/toggles operate in later phases; here: spin/exploded stubs)
+   ---------------------------------------------------------------------------- */
+      const UI = { explodeTarget: 0, explode: 0 };
+      function tog(id, on, fn) {
+        const el = document.getElementById(id);
+        el.classList.toggle("on", on);
+        el.addEventListener("click", () => {
+          on = !on;
+          el.classList.toggle("on", on);
+          fn(on);
+        });
+      }
+      tog("tSpin", true, (v) => (cam.autoSpin = v));
+      tog("tExploded", false, (v) => {
+        UI.explodeTarget = v ? 1 : 0;
+      });
+      tog("tGhost", false, (v) => {
+        plates.traverse((o) => {
+          if (o.material) {
+            o.material.transparent = v;
+            o.material.opacity = v ? 0.16 : 1.0;
+            o.material.depthWrite = !v;
+          }
+        });
+      });
+      tog("tWound", true, (v) => {
+        PHYS.wound = v;
+      });
+      document.getElementById("instrHdr").addEventListener("click", () => {
+        const p = document.getElementById("instr");
+        p.classList.toggle("collapsed");
+        document.getElementById("instrTgl").textContent = p.classList.contains("collapsed")
+          ? "▸"
+          : "▾";
+      });
+      // sliders
+      function slider(id, vid, fn, fmt) {
+        const s = document.getElementById(id),
+          v = document.getElementById(vid);
+        const upd = () => {
+          const x = parseFloat(s.value);
+          fn(x);
+          if (v) v.textContent = fmt ? fmt(x) : x;
+        };
+        s.addEventListener("input", upd);
+        upd();
+      }
+      slider(
+        "sTau",
+        "vTau",
+        (x) => {
+          WEIGHT = x;
+          escEngine.P.DRIVE = -0.022 * (x / 2.6);
+        },
+        (x) => x.toFixed(2),
+      );
+      slider(
+        "sDamp",
+        "vDamp",
+        (x) => {
+          DAMP = x;
+          escEngine.P.cp = Math.max(1e-4, x * 0.05);
+        },
+        (x) => x.toFixed(4),
+      );
+      slider(
+        "sLen",
+        "vLen",
+        (x) => {
+          PHYS.L = x;
+          escEngine.P.Wp = 5.87 * (0.994 / x);
+        },
+        (x) => x.toFixed(3),
+      );
+      slider(
+        "sSpd",
+        "vSpd",
+        (x) => {
+          SPEED = x <= 0 ? 0 : Math.pow(x / 33, 1.4);
+        },
+        (x) => {
+          const sp = x <= 0 ? 0 : Math.pow(x / 33, 1.4);
+          return sp < 1 ? sp.toFixed(2) + "×" : Math.round(sp) + "×";
+        },
+      );
+      // buttons
+      document.getElementById("bWind").addEventListener("click", () => {
+        PHYS.wound = true;
+        document.getElementById("tWound").classList.add("on");
+        if (Math.abs(PHYS.th) < 0.02) {
+          PHYS.th = 0.12;
+          PHYS.w = 0;
+        }
+      });
+      document.getElementById("bPause").addEventListener("click", (e) => {
+        PHYS.running = !PHYS.running;
+        e.target.textContent = PHYS.running ? "Пауза" : "Пуск";
+      });
+      document.getElementById("bReset").addEventListener("click", () => {
+        PHYS.th = 0.12;
+        PHYS.w = 0;
+        PHYS.tha = 0.12;
+        PHYS.wa = 0;
+        PHYS.phi = 0;
+        PHYS.t = 0;
+        PHYS.beats = 0;
+        PHYS.lastBeat = 0;
+        PHYS.escState = "LOCK";
+        PHYS.escNext = 1;
+        PHYS.escProg = 0;
+        PHYS.amp = 0.12;
+        phaseTrail.length = 0;
+      });
+
+      /* exploded view: spread registered parts along Z */
+      function updateExplode(dt) {
+        UI.explode += (UI.explodeTarget - UI.explode) * Math.min(1, dt * 4);
+        const e = UI.explode;
+        for (const it of EXPL) {
+          if (it.plate) it.o.position.z = it.z0 + Math.sign(it.z0 || 1) * e * 18 + it.z0 * e * 0.6;
+          else it.o.position.z = it.z0 * (1 + e * 1.5) + (it.z0 > 8 ? e * 22 : 0);
+        }
+      }
+
+      /* HUD readouts + phase portrait (th vs w) */
+      const phaseTrail = [];
+      const PHASE_MAX = 900;
+      const pcv = document.getElementById("phase"),
+        pctx = pcv.getContext("2d");
+      let hudT = 0;
+      function fmtClock(phi) {
+        const secs = Math.floor((phi / (2 * Math.PI)) * 60) % 86400;
+        const h = Math.floor(secs / 3600),
+          mm = Math.floor((secs % 3600) / 60),
+          ss = secs % 60;
+        return (
+          String(h).padStart(2, "0") +
+          ":" +
+          String(mm).padStart(2, "0") +
+          ":" +
+          String(ss).padStart(2, "0")
+        );
+      }
+      function updateHUD(dt) {
+        // phase trail
+        phaseTrail.push([PHYS.th, PHYS.w]);
+        if (phaseTrail.length > PHASE_MAX) phaseTrail.shift();
+        hudT += dt;
+        if (hudT < 0.1) return;
+        hudT = 0;
+        // escape rev/min MEASURED from the actual wheel angle φ over a 1 s window (no baked-in assumption)
+        if (PHYS._t0 === undefined) {
+          PHYS._t0 = PHYS.t;
+          PHYS._phi0 = PHYS.phi;
+          PHYS.escRevMeas = 0;
+        }
+        if (PHYS.t - PHYS._t0 >= 1.0) {
+          PHYS.escRevMeas = ((PHYS.phi - PHYS._phi0) / (PHYS.t - PHYS._t0) / (2 * Math.PI)) * 60;
+          PHYS._t0 = PHYS.t;
+          PHYS._phi0 = PHYS.phi;
+        }
+        const escRev = PHYS.escRevMeas;
+        document.getElementById("rAmp").textContent = ((PHYS.amp * 180) / Math.PI).toFixed(2) + "°";
+        document.getElementById("rBeat").textContent = PHYS.beatPeriod.toFixed(3);
+        document.getElementById("rRev").textContent = escRev.toFixed(3);
+        document.getElementById("rCen").textContent = escRev.toFixed(3); // centre = 1 rev/hour
+        document.getElementById("rWind").textContent = PHYS.wound ? "заведён" : "спускается";
+        document.getElementById("rClock").textContent = fmtClock(PHYS.phi);
+        // draw phase portrait
+        const w = pcv.width,
+          h = pcv.height;
+        pctx.clearRect(0, 0, w, h);
+        pctx.strokeStyle = "rgba(125,135,148,.25)";
+        pctx.beginPath();
+        pctx.moveTo(w / 2, 0);
+        pctx.lineTo(w / 2, h);
+        pctx.moveTo(0, h / 2);
+        pctx.lineTo(w, h / 2);
+        pctx.stroke();
+        const sx = w / 2 / 0.35,
+          sy = h / 2 / 2.2; // scale th(±0.35), w(±2.2)
+        pctx.strokeStyle = "#c79f49";
+        pctx.lineWidth = 1.4;
+        pctx.beginPath();
+        phaseTrail.forEach((p, i) => {
+          const X = w / 2 + p[0] * sx,
+            Y = h / 2 - p[1] * sy;
+          i ? pctx.lineTo(X, Y) : pctx.moveTo(X, Y);
+        });
+        pctx.stroke();
+        const last = phaseTrail[phaseTrail.length - 1];
+        if (last) {
+          pctx.fillStyle = "#f1e7cf";
+          pctx.beginPath();
+          pctx.arc(w / 2 + last[0] * sx, h / 2 - last[1] * sy, 2.5, 0, 7);
+          pctx.fill();
+        }
+      }
+
+      /* ----------------------------------------------------------------------------
+   Resize + animation loop
+   ---------------------------------------------------------------------------- */
+      addEventListener("resize", () => {
+        camera.aspect = innerWidth / innerHeight;
+        camera.updateProjectionMatrix();
+        renderer.setSize(innerWidth, innerHeight);
+      });
+
+      let last = performance.now();
+      function animate(now) {
+        requestAnimationFrame(animate);
+        window.__frames = (window.__frames || 0) + 1;
+        if (window.__frames === 1) {
+          last = now;
+        }
+        const dt = Math.min(0.05, (now - last) / 1000);
+        last = now;
+        if (cam.autoSpin) cam.theta += dt * 0.16;
+        applyCamera();
+        physicsStep(dt * SPEED);
+        applyMechanism();
+        updateExplode(dt);
+        updateHUD(dt);
+        renderer.render(scene, camera);
+      }
+      requestAnimationFrame(animate);
+
+      // signal ready
+      window.__view = (t, p, r, tx, ty) => {
+        if (t != null) cam.theta = t;
+        if (p != null) cam.phi = p;
+        if (r != null) cam.radius = r;
+        if (tx != null) cam.target.x = tx;
+        if (ty != null) cam.target.y = ty;
+        cam.autoSpin = false;
+        applyCamera();
+      };
+      window.__setPhi = (v) => {
+        PHYS.phi = v;
+        applyMechanism();
+        renderer.render(scene, camera);
+      };
+      window.__setTh = (v) => {
+        PHYS.th = v;
+        applyMechanism();
+        renderer.render(scene, camera);
+      };
+      window.__forkreset = () => {
+        PHYS.dMin = 1e9;
+        PHYS.dMax = -1e9;
+      };
+      window.__dbg = () => ({
+        f: window.__frames || 0,
+        dMin: +PHYS.dMin.toFixed(5),
+        dMax: +PHYS.dMax.toFixed(5),
+        th: +PHYS.th.toFixed(4),
+        w: +PHYS.w.toFixed(4),
+        tha: +PHYS.tha.toFixed(4),
+        wa: +PHYS.wa.toFixed(4),
+        esc: PHYS.escState,
+        phi: +PHYS.phi.toFixed(4),
+        beats: PHYS.beats,
+        bp: +PHYS.beatPeriod.toFixed(4),
+        run: PHYS.running,
+        speed: SPEED,
+      });
+      window.__advance = (secs, h) => {
+        h = h || 0.005;
+        const steps = Math.round(secs / h);
+        for (let i = 0; i < steps; i++) {
+          physicsStep(h);
+          if (i % 4 === 0) {
+            phaseTrail.push([PHYS.th, PHYS.w]);
+            if (phaseTrail.length > PHASE_MAX) phaseTrail.shift();
+          }
+        }
+        applyMechanism();
+        hudT = 1;
+        updateHUD(0.001);
+        renderer.render(scene, camera);
+      };
+      window.__collide = function (opts) {
+        opts = opts || {};
+        const cap = opts.cap || 4;
+        const dirs = [
+          new THREE.Vector3(1, 0.137, 0.078),
+          new THREE.Vector3(0.09, 1, 0.111),
+          new THREE.Vector3(0.061, 0.123, 1),
+        ].map((v) => v.clone().normalize());
+        const meshes = [];
+        for (const root of [movement, plates]) {
+          root.updateWorldMatrix(true, true);
+          root.traverse((o) => {
+            if (o.isMesh && o.geometry && o.geometry.attributes && o.geometry.attributes.position) {
+              o.geometry.computeBoundingBox();
+              const bb = o.geometry.boundingBox.clone().applyMatrix4(o.matrixWorld);
+              const p = new THREE.Vector3();
+              o.getWorldPosition(p);
+              meshes.push({
+                o,
+                bb,
+                n: o.geometry.attributes.position.count,
+                label:
+                  o.geometry.type.replace("Geometry", "") +
+                  "@(" +
+                  p.x.toFixed(0) +
+                  "," +
+                  p.y.toFixed(0) +
+                  "," +
+                  p.z.toFixed(0) +
+                  ")",
+              });
+            }
+          });
+        }
+        const rc = new THREE.Raycaster();
+        rc.far = 1e7;
+        const inside = (point, mesh) => {
+          let v = 0;
+          for (const d of dirs) {
+            rc.set(point.clone().addScaledVector(d, -1e-2), d);
+            if (rc.intersectObject(mesh, false).length % 2 === 1) v++;
+          }
+          return v >= 2;
+        };
+        const verts = (m) => {
+          const pos = m.o.geometry.attributes.position;
+          const stride = Math.max(1, Math.floor(pos.count / 140));
+          const out = [];
+          for (let i = 0; i < pos.count; i += stride)
+            out.push(new THREE.Vector3().fromBufferAttribute(pos, i).applyMatrix4(m.o.matrixWorld));
+          return out;
+        };
+        const rep = [];
+        for (let i = 0; i < meshes.length; i++)
+          for (let j = i + 1; j < meshes.length; j++) {
+            const A = meshes[i],
+              B = meshes[j];
+            if (!A.bb.intersectsBox(B.bb)) continue;
+            let c = 0;
+            for (const p of verts(A)) {
+              if (inside(p, B.o)) {
+                if (++c >= cap) break;
+              }
+            }
+            if (!c)
+              for (const p of verts(B)) {
+                if (inside(p, A.o)) {
+                  if (++c >= cap) break;
+                }
+              }
+            if (c) rep.push(A.label + "  <>  " + B.label + "  (verts_inside>=" + c + ")");
+          }
+        return { meshes: meshes.length, pairs: rep };
+      };
+      window.__READY = true;
+      const boot = document.getElementById("boot");
+      if (boot) boot.style.display = "none";
+    </script>
+  </body>
+</html>
