@@ -267,7 +267,7 @@
         <h2>Регулировка хода</h2>
         <div class="ctl">
           <label>Гиревой момент <span class="v" id="vTau">0.82</span></label>
-          <input id="sTau" type="range" min="0.30" max="2.00" step="0.02" value="0.82" />
+          <input id="sTau" type="range" min="0.50" max="2.00" step="0.02" value="0.82" />
         </div>
         <div class="ctl">
           <label>Трение маятника <span class="v" id="vDamp">0.0150</span></label>
@@ -901,7 +901,11 @@
       const LOCK_LEN = 0.55,
         IMP_LEN = 1.3,
         IMP_INC = 0.3; // locking-face length, impulse-face length & incline (mm, rad)
-      // EVERYTHING below is DERIVED from the geometry above (no typed dynamics):
+      // Descriptive geometry (drawing / reference). The LIVE dynamics emerge in the
+      // contact engine below; the going train is rigidly kinematic off the wheel angle.
+      // BEAT_TRIM is the "putting the clock in beat" setup angle: it offsets the pendulum
+      // rest so the swing is symmetric about the escapement lock line (cancels beat error).
+      const BEAT_TRIM = -0.006;
       const ADV = (2 * PAL_ANG) % BETA; // advance per beat = ½ tooth, falls out of the pallet span
       const TH_REL = LOCK_LEN / L_ANCH; // pendulum release angle near centre (locking-face length / lever)
       const DPHI_IMP = IMP_LEN / PAL_R; // wheel angle swept during impulse (impulse-face length / radius)
@@ -1146,7 +1150,15 @@
       };
       function escTorque() {
         return PHYS.wound ? WEIGHT * BARREL_R * Math.abs(RATIO.great) : 0;
-      } // torque at the escape wheel
+      } // torque at the escape wheel (real units: weight x barrel radius / 720:1 train ratio)
+      // One honest unit-scale gain mapping that torque into the scale-free contact solver,
+      // chosen so the going clock sits on a healthy ~2-3 deg limit cycle. Every drive update
+      // flows through escTorque(), so BARREL_R, the cut tooth-counts and the wound state all
+      // reach the physics (no detached -0.022 constant).
+      const ESC_DRIVE_GAIN = 16.0;
+      function escDrive() {
+        return -ESC_DRIVE_GAIN * escTorque();
+      }
       /* ===========================================================================
    CONTACT ESCAPEMENT ENGINE  (verified LCP/sequential-impulse solver, 3 DOF)
    Embedded physics: escape wheel φ, anchor θa, pendulum θp.
@@ -1274,6 +1286,7 @@
             h: 1e-4,
             beta: 0.2,
             th0: 0.05,
+            thEq: 0.0,
           },
           opt || {},
         );
@@ -1336,7 +1349,7 @@
           return [
             P.DRIVE - P.cw * v[0],
             -P.ca * v[1] - fk,
-            -P.Wp * Math.sin(q[2]) - P.cp * v[2] + fk,
+            -P.Wp * Math.sin(q[2] - P.thEq) - P.cp * v[2] + fk,
           ];
         }
         function step() {
@@ -1381,8 +1394,7 @@
           setMu: (m) => (P.mu = m),
           setFork: (f) => (P.fork = f),
           setMode: (rec) => {
-            P.lockTilt = rec ? 0.035 : 0;
-            P.DRIVE = rec ? -0.016 : -0.022;
+            P.lockTilt = rec ? 0.035 : 0; // dead-beat vs recoil is purely the lock-face tilt
             rebuild();
           },
           reset: () => {
@@ -1398,7 +1410,7 @@
         };
       }
 
-      const escEngine = buildEscEngine();
+      const escEngine = buildEscEngine({ fork: DPLAY, thEq: BEAT_TRIM });
       const ESC_PHI0 = 0.163; // aligns a mesh tooth onto the (reflected) entry pallet at lock
 
       function physicsStep(dt) {
@@ -1571,6 +1583,7 @@
       });
       tog("tWound", true, (v) => {
         PHYS.wound = v;
+        escEngine.P.DRIVE = escDrive(); // unwound -> 0 torque, the train coasts to rest
       });
       document.getElementById("instrHdr").addEventListener("click", () => {
         const p = document.getElementById("instr");
@@ -1596,7 +1609,7 @@
         "vTau",
         (x) => {
           WEIGHT = x;
-          escEngine.P.DRIVE = -0.022 * (x / 2.6);
+          escEngine.P.DRIVE = escDrive();
         },
         (x) => x.toFixed(2),
       );
@@ -1633,28 +1646,21 @@
       document.getElementById("bWind").addEventListener("click", () => {
         PHYS.wound = true;
         document.getElementById("tWound").classList.add("on");
-        if (Math.abs(PHYS.th) < 0.02) {
-          PHYS.th = 0.12;
-          PHYS.w = 0;
-        }
+        escEngine.P.DRIVE = escDrive();
+        if (Math.abs(escEngine.st.q[2]) < 0.02) escEngine.reset(); // kick a stopped pendulum
       });
       document.getElementById("bPause").addEventListener("click", (e) => {
         PHYS.running = !PHYS.running;
         e.target.textContent = PHYS.running ? "Пауза" : "Пуск";
       });
       document.getElementById("bReset").addEventListener("click", () => {
-        PHYS.th = 0.12;
-        PHYS.w = 0;
-        PHYS.tha = 0.12;
-        PHYS.wa = 0;
-        PHYS.phi = 0;
+        escEngine.reset(); // the meshes are posed from the solver, so reset THAT state
+        escEngine.P.DRIVE = escDrive();
         PHYS.t = 0;
         PHYS.beats = 0;
         PHYS.lastBeat = 0;
-        PHYS.escState = "LOCK";
-        PHYS.escNext = 1;
-        PHYS.escProg = 0;
-        PHYS.amp = 0.12;
+        PHYS.dMin = 1e9;
+        PHYS.dMax = -1e9;
         phaseTrail.length = 0;
       });
 
