@@ -5895,6 +5895,16 @@
         return out;
       }
       let _conf = null;
+      let _confLSize = { w: 600, h: 600 };
+      // Когда левая панель (исходная плоскость) скрыта, её канвас 0×0. Берём
+      // запомненный последний ненулевой размер, чтобы окно сетки/мэша не
+      // схлопывалось в точку и образ f(z) строился корректно.
+      function confSrcSize(L) {
+        // только настоящий размер (скрытая панель даёт канвас 1×1 — игнорируем,
+        // берём запомненный, чтобы окно сетки/мэша не вырождалось)
+        if (L && L.width > 4 && L.height > 4) _confLSize = { w: L.width, h: L.height };
+        return { width: _confLSize.w, height: _confLSize.h };
+      }
       function applyConfSourceVis() {
         const duo = document.querySelector('.pane[data-pane="conformal"] .duo');
         if (duo) duo.classList.toggle("hide-src", !state.confShowSource);
@@ -6065,11 +6075,12 @@
         if (state.confView === "checker") return renderConformalChecker();
         const L = sizeCanvas($("#cv-confL")),
           R = sizeCanvas($("#cv-confR"));
+        const szRef = confSrcSize(L);
         const sp = confSpecial();
         const mf = sp ? sp.f() : curF(),
           dom = sp ? sp.dom : "cart";
-        const domView = confDomView(L, dom);
-        const win = confWin(domView, L);
+        const domView = confDomView(szRef, dom);
+        const win = confWin(domView, szRef);
         const lines = buildGridLines(dom, state.grid, win);
         const imgZ = lines.map((ln) =>
           ln.pts.map((z) => {
@@ -6120,11 +6131,12 @@
       function renderConformalChecker() {
         const L = sizeCanvas($("#cv-confL")),
           R = sizeCanvas($("#cv-confR"));
+        const szRef = confSrcSize(L);
         const sp = confSpecial(),
           mf = sp ? sp.f() : curF(),
           dom = sp ? sp.dom : "cart";
-        const dview = confDomView(L, dom);
-        const win = confWin(dview, L);
+        const dview = confDomView(szRef, dom);
+        const win = confWin(dview, szRef);
         const N = 84;
         // узлы (N+1)² и их образы
         const zs = [],
@@ -6344,8 +6356,9 @@
       function drawConfFrame(t) {
         const _dom = confSpecial() ? confSpecial().dom : "cart",
           _Lc = sizeCanvas($("#cv-confL")),
-          _dview = confDomView(_Lc, _dom),
-          _win = confWin(_dview, _Lc);
+          _szRef = confSrcSize(_Lc),
+          _dview = confDomView(_szRef, _dom),
+          _win = confWin(_dview, _szRef);
         const M = ensureConfMesh(_win),
           it = 1 - t,
           R = sizeCanvas($("#cv-confR")),
