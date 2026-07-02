@@ -4094,6 +4094,19 @@
         }
       }
       const curF = () => state.compiled.f;
+
+      // снимок состояния для чистых математических ядер (см. модуль complex.js)
+      function paramsFromState() {
+        const s = state;
+        return {
+          fractal: s.fractal, juliaC: s.juliaC,
+          juliaPower: s.juliaPower, mbPower: s.mbPower,
+          maxIter: s.maxIter, newtonMethod: s.newtonMethod,
+          compiled: s.compiled, sphereRot: s.sphereRot,
+          f: curF(),
+          colorFastOK: colorFastOK(), colorOpts: colorOpts(), scheme: s.scheme,
+        };
+      }
       const curFast = () =>
         state.branchActive && state.branchK !== 0
           ? null
@@ -5379,136 +5392,162 @@
           }
         ctx.restore();
       }
-      function findFixedPoints() {
-        const v = views.analysis,
-          cv = $("#cv-analysis"),
-          W = cv.width || 800,
-          H = cv.height || 600;
-        const xmin = v.cx - (v.scale * W) / 2,
-          xmax = v.cx + (v.scale * W) / 2,
-          ymin = v.cy - (v.scale * H) / 2,
-          ymax = v.cy + (v.scale * H) / 2;
-        const base = curF(),
-          n = state.fixOrder,
-          g = (z) => {
-            const w = iterN(base, z, n);
-            return C(w.re - z.re, w.im - z.im);
-          };
-        let zeros = [];
+      
+      /* аналитические ядра (чистые) — зеркало модуля complex.js */
+      const atlasCore = AC;
+      /* ==== АНАЛИТИЧЕСКИЕ ЯДРА (чистые: сырые данные, без форматирования и DOM) ====
+       * Презентация (fmt/showResults/renderAnalysis/state.ana/#fixed-out) остаётся в приложении.
+       * Оконные функции принимают win = {xmin,xmax,ymin,ymax}. */
+
+      function analyzePointCore(f, z0) {
+        const fz0 = safe(f, z0);
+        const fp = tryc(() => derivative(f, z0));
+        const sing = tryc(() => classifySingularity(f, z0, { radius: 0.05, terms: 10 }));
+        const r = { z0, fz0, fp, singularity: sing || null, residue: null, taylor: null, sqrt2: null, log: null };
+        if (sing && sing.type === "pole") r.residue = tryc(() => residue(f, z0, { radius: 0.05 }));
+        if (!sing || sing.type === "regular") r.taylor = tryc(() => taylor(f, z0, { terms: 4, radius: 0.3 })) || null;
+        if (isFiniteC(fz0)) { r.sqrt2 = nthRoots(fz0, 2); r.log = logBranches(fz0, 1); }
+        return r;
+      }
+
+      function analyzeInfinityCore(f) {
+        const g = (w) => f(recip(w));
+        const sing = tryc(() => classifySingularity(g, ZERO, { radius: 0.04, terms: 10 }));
+        const r = { type: sing ? sing.type : null, order: sing ? sing.order : null, limit: null, residue: null };
+        if (sing && sing.type === "regular") { const lim = safe(g, C(1e-6, 0)); if (isFiniteC(lim)) r.limit = lim; }
+        const h = (w) => neg(div(g(w), mul(w, w)));
+        const rinf = tryc(() => residue(h, ZERO, { radius: 0.04 }));
+        if (rinf && isFiniteC(rinf)) r.residue = rinf;
+        return r;
+      }
+
+      function analyzeContourCore(f, c, rad) {
+        const ct = circle(c, rad);
+        const I = tryc(() => integrateAdaptive(f, ct, { tol: 1e-9 })) || null;
+        const zp = tryc(() => argumentPrinciple(f, ct));
+        return { I, zp: zp == null ? null : zp };
+      }
+
+      function analyzePolyContourCore(f, pts, closed) {
+        const path = polyline(pts, closed);
+        const I = tryc(() => integrateAdaptive(f, path, { tol: 1e-9 })) || null;
+        let zp = null;
+        if (closed) { const z = tryc(() => argumentPrinciple(f, path)); zp = z == null ? null : z; }
+        return { I, zp };
+      }
+
+      function analyzeSeriesCore(f, z0) {
+        let nearest = Infinity;
         try {
-          zeros = AC.findZerosPoles(g, xmin, xmax, ymin, ymax).zeros;
-        } catch (e) {
-          zeros = [];
+          const win = 3, ps = atlasCore.findZerosPoles(f, z0.re - win, z0.re + win, z0.im - win, z0.im + win).poles;
+          for (const p of ps) { const d = abs(sub(p, z0)); if (d > 1e-6 && d < nearest) nearest = d; }
+        } catch (e) {}
+        const r0 = isFinite(nearest) ? Math.max(0.02, Math.min(0.3, nearest * 0.5)) : 0.3;
+        const a = tryc(() => taylor(f, z0, { terms: 12, radius: r0, N: 256 })) || [];
+        const Rc = _convRadius(a);
+        let R = Rc;
+        if (isFinite(nearest)) R = Math.min(nearest, Rc);
+        const convR = isFinite(R) && R < 1e6 ? R : null;
+        return { a, convR, nearest: isFinite(nearest) ? nearest : null };
+      }
+
+      function findZPCore(f, coeffs, win) {
+        let zeros, poles, note;
+        if (coeffs) {
+          zeros = roots(coeffs).filter((z) => z.re >= win.xmin && z.re <= win.xmax && z.im >= win.ymin && z.im <= win.ymax);
+          poles = []; note = "точно (многочлен)";
+        } else {
+          const zp = atlasCore.findZerosPoles(f, win.xmin, win.xmax, win.ymin, win.ymax);
+          zeros = zp.zeros; poles = zp.poles; note = "численно (Ньютон)";
         }
+        let critical = [];
+        try { critical = atlasCore.findCritical(f, win.xmin, win.xmax, win.ymin, win.ymax); } catch (e) {}
+        return { zeros, poles, critical, note };
+      }
+
+      function analyzeZetaZerosCore(win) {
+        const pts = [];
+        if (0.5 >= win.xmin && 0.5 <= win.xmax)
+          for (const t of _ZETA_IM) for (const s of [t, -t]) if (s >= win.ymin && s <= win.ymax) pts.push(C(0.5, s));
+        return { pts };
+      }
+
+      function fixedPointsCore(f, order, win) {
+        const g = (z) => { const w = iterN(f, z, order); return C(w.re - z.re, w.im - z.im); };
+        let zeros = [];
+        try { zeros = atlasCore.findZerosPoles(g, win.xmin, win.xmax, win.ymin, win.ymax).zeros; } catch (e) { zeros = []; }
+        const list = zeros.map((z) => {
+          const mult = tryc(() => derivative((z2) => iterN(f, z2, order), z));
+          const kind = mult ? (abs(mult) < 1 ? "attract" : abs(mult) > 1 ? "repel" : "neutral") : null;
+          return { z, multiplier: mult || null, kind };
+        });
+        return { order, zeros, list };
+      }
+
+      function findFixedPoints() {
+        const v = views.analysis, cv = $("#cv-analysis"), W = cv.width || 800, H = cv.height || 600;
+        const win = { xmin: v.cx - (v.scale * W) / 2, xmax: v.cx + (v.scale * W) / 2, ymin: v.cy - (v.scale * H) / 2, ymax: v.cy + (v.scale * H) / 2 };
+        const n = state.fixOrder;
+        const fp = fixedPointsCore(curF(), n, win);
+        const zeros = fp.zeros;
         state.fixed = zeros;
         const el = $("#fixed-out");
         if (el) {
           el.innerHTML = "";
-          const h = document.createElement("div");
-          h.className = "hd";
-          h.textContent =
-            (n > 1 ? "точки периода | " + n : "неподвижные точки") +
-            " — " +
-            zeros.length +
-            " в окне";
+          const h = document.createElement("div"); h.className = "hd";
+          h.textContent = (n > 1 ? "точки периода | " + n : "неподвижные точки") + " — " + zeros.length + " в окне";
           el.appendChild(h);
-          zeros.forEach((z, i) => {
-            const r = document.createElement("div");
-            r.className = "row";
-            const mult = tryc(() => derivative((z2) => iterN(base, z2, n), z));
-            const cls = mult
-              ? abs(mult) < 1
-                ? " · притяг."
-                : abs(mult) > 1
-                  ? " · оттал."
-                  : " · нейтр."
-              : "";
+          fp.list.forEach((it, i) => {
+            const z = it.z, mult = it.multiplier;
+            const r = document.createElement("div"); r.className = "row";
+            const cls = it.kind === "attract" ? " · притяг." : it.kind === "repel" ? " · оттал." : it.kind === "neutral" ? " · нейтр." : "";
             const lab = mult ? " | f′=" + fmtShort(mult) + cls : "";
             r.innerHTML = `<span class="k">${n > 1 ? "период" : "непод."} ${i + 1}</span><span class="v teal">${fmt(z)}${lab}</span>`;
             el.appendChild(r);
           });
-          if (!zeros.length) {
-            const r = document.createElement("div");
-            r.className = "row";
-            r.innerHTML = '<span class="k">—</span><span class="v">в окне не найдено</span>';
-            el.appendChild(r);
-          }
+          if (!zeros.length) { const r = document.createElement("div"); r.className = "row"; r.innerHTML = '<span class="k">—</span><span class="v">в окне не найдено</span>'; el.appendChild(r); }
         }
         renderAnalysis();
       }
 
       function analyzePoint(z0) {
-        const f = curF(),
-          out = [
-            ["z₀", fmt(z0), ""],
-            ["f(z₀)", fmt(safe(f, z0)), "teal"],
-          ];
-        out.push(["f′(z₀)", fmt(tryc(() => derivative(f, z0))), ""]);
-        let cls = tryc(() => classifySingularity(f, z0, { radius: 0.05, terms: 10 }));
+        const f = curF();
+        const r = analyzePointCore(f, z0);
+        const out = [["z₀", fmt(z0), ""], ["f(z₀)", fmt(r.fz0), "teal"]];
+        out.push(["f′(z₀)", fmt(r.fp), ""]);
+        const cls = r.singularity;
         if (cls) {
-          if (cls.type === "regular") {
-            out.push(["особенность", "нет", ""]);
-          } else if (cls.type === "pole") {
+          if (cls.type === "regular") out.push(["особенность", "нет", ""]);
+          else if (cls.type === "pole") {
             out.push(["особенность", "полюс порядка " + cls.order, "warm"]);
-            out.push(["вычет", fmt(tryc(() => residue(f, z0, { radius: 0.05 }))), "teal"]);
+            out.push(["вычет", fmt(r.residue), "teal"]);
           } else out.push(["особенность", "существенная", "warm"]);
         }
-        if (!cls || cls.type === "regular") {
-          const t = tryc(() => taylor(f, z0, { terms: 4, radius: 0.3 }));
-          if (t) out.push(["Тейлор", t.map(fmtShort).join("; "), ""]);
+        if (!cls || cls.type === "regular") { if (r.taylor) out.push(["Тейлор", r.taylor.map(fmtShort).join("; "), ""]); }
+        if (isFiniteC(r.fz0)) {
+          out.push(["√f(z₀)", r.sqrt2.map(fmtShort).join(" , "), ""]);
+          out.push(["ln f, k=−1..1", r.log.map(fmtShort).join(" ; "), ""]);
         }
-        // многозначность значения
-        const fz = safe(f, z0);
-        if (isFiniteC(fz)) {
-          const r2 = nthRoots(fz, 2);
-          out.push(["√f(z₀)", r2.map(fmtShort).join(" , "), ""]);
-          const lb = logBranches(fz, 1);
-          out.push(["ln f, k=−1..1", lb.map(fmtShort).join(" ; "), ""]);
-        }
-        state.ana.point = z0;
-        state.ana.out = out;
-        showResults("точка", out);
-        renderAnalysis();
+        state.ana.point = z0; state.ana.out = out;
+        showResults("точка", out); renderAnalysis();
       }
       function analyzeContour(c, r) {
-        const f = curF(),
-          ct = circle(c, r);
-        const I = tryc(() => integrateAdaptive(f, ct, { tol: 1e-9 }));
-        const zp = tryc(() => argumentPrinciple(f, ct));
-        const out = [
-          ["центр", fmt(c), ""],
-          ["радиус", r.toFixed(3), ""],
-        ];
-        if (I) {
-          out.push(["∮ f dz", fmt(I.value), "teal"]);
-          out.push(["Σ вычетов", fmt(div(I.value, C(0, 2 * Math.PI))), "teal"]);
-        }
-        if (zp != null) out.push(["нулей−полюсов", String(zp), "warm"]);
-        state.ana.contour = c;
-        state.ana.radius = r;
-        state.ana.drawn = null;
-        showResults("контур |z−c|=r", out);
-        renderAnalysis();
+        const d = analyzeContourCore(curF(), c, r);
+        const out = [["центр", fmt(c), ""], ["радиус", r.toFixed(3), ""]];
+        if (d.I) { out.push(["∮ f dz", fmt(d.I.value), "teal"]); out.push(["Σ вычетов", fmt(div(d.I.value, C(0, 2 * Math.PI))), "teal"]); }
+        if (d.zp != null) out.push(["нулей−полюсов", String(d.zp), "warm"]);
+        state.ana.contour = c; state.ana.radius = r; state.ana.drawn = null;
+        showResults("контур |z−c|=r", out); renderAnalysis();
       }
       // A4: интеграл по произвольному контуру (прямоугольник / ломаная).
       function analyzePolyContour(pts, closed, label) {
         if (!pts || pts.length < (closed ? 3 : 2)) return;
-        const f = curF(),
-          path = polyline(pts, closed);
-        const I = tryc(() => integrateAdaptive(f, path, { tol: 1e-9 }));
+        const d = analyzePolyContourCore(curF(), pts, closed);
         const out = [["контур", label + " · " + pts.length + " верш." + (closed ? " (замкн.)" : ""), ""]];
-        if (I) {
-          out.push(["∮ f dz", fmt(I.value), "teal"]);
-          if (closed) out.push(["Σ вычетов", fmt(div(I.value, C(0, 2 * Math.PI))), "teal"]);
-        }
-        if (closed) {
-          const zp = tryc(() => argumentPrinciple(f, path));
-          if (zp != null) out.push(["нулей−полюсов", String(zp), "warm"]);
-        }
-        state.ana.contour = null;
-        state.ana.drawn = { kind: "poly", pts: pts.map((p) => C(p.re, p.im)), closed };
-        showResults(closed ? "замкнутый контур" : "путь", out);
-        renderAnalysis();
+        if (d.I) { out.push(["∮ f dz", fmt(d.I.value), "teal"]); if (closed) out.push(["Σ вычетов", fmt(div(d.I.value, C(0, 2 * Math.PI))), "teal"]); }
+        if (closed && d.zp != null) out.push(["нулей−полюсов", String(d.zp), "warm"]);
+        state.ana.contour = null; state.ana.drawn = { kind: "poly", pts: pts.map((p) => C(p.re, p.im)), closed };
+        showResults(closed ? "замкнутый контур" : "путь", out); renderAnalysis();
       }
       // A5: оценка радиуса сходимости ряда Тейлора по отношению коэффициентов (медиана) и по ближайшей особенности.
       function _convRadius(a) {
@@ -5527,98 +5566,40 @@
         return ratios[ratios.length >> 1];
       }
       function analyzeSeries(z0) {
-        const f = curF();
-        let nearest = Infinity;
-        try {
-          const win = 3,
-            ps = AC.findZerosPoles(f, z0.re - win, z0.re + win, z0.im - win, z0.im + win).poles;
-          for (const p of ps) {
-            const d = abs(sub(p, z0));
-            if (d > 1e-6 && d < nearest) nearest = d;
-          }
-        } catch (e) {}
-        const r0 = isFinite(nearest) ? Math.max(0.02, Math.min(0.3, nearest * 0.5)) : 0.3;
-        const a = tryc(() => taylor(f, z0, { terms: 12, radius: r0, N: 256 })) || [];
-        const Rc = _convRadius(a);
-        let R = Rc;
-        if (isFinite(nearest)) R = Math.min(nearest, Rc);
-        state.ana.point = z0;
-        state.ana.seriesData = { z0: C(z0.re, z0.im), a };
-        state.ana.convR = isFinite(R) && R < 1e6 ? R : null;
-        state.ana.drawn = null;
-        state.ana.contour = null;
-        const sd = "₀₁₂₃₄₅₆₇₈₉",
-          subk = (k) => String(k).split("").map((d) => sd[+d]).join("");
+        const d = analyzeSeriesCore(curF(), z0);
+        const a = d.a;
+        state.ana.point = z0; state.ana.seriesData = { z0: C(z0.re, z0.im), a };
+        state.ana.convR = d.convR; state.ana.drawn = null; state.ana.contour = null;
+        const sd = "₀₁₂₃₄₅₆₇₈₉", subk = (k) => String(k).split("").map((d2) => sd[+d2]).join("");
         const out = [["z₀", fmt(z0), ""]];
-        out.push([
-          "радиус сходимости",
-          state.ana.convR != null ? state.ana.convR.toFixed(4) : "∞ (целая?)",
-          "teal",
-        ]);
-        if (isFinite(nearest)) out.push(["ближайшая особ.", "d = " + nearest.toFixed(4), "warm"]);
-        a.forEach((ak, k) => {
-          if (ak && isFiniteC(ak)) out.push(["a" + subk(k), fmtShort(ak), ""]);
-        });
-        showResults("ряд Тейлора в z₀", out);
-        renderAnalysis();
+        out.push(["радиус сходимости", d.convR != null ? d.convR.toFixed(4) : "∞ (целая?)", "teal"]);
+        if (d.nearest != null) out.push(["ближайшая особ.", "d = " + d.nearest.toFixed(4), "warm"]);
+        a.forEach((ak, k) => { if (ak && isFiniteC(ak)) out.push(["a" + subk(k), fmtShort(ak), ""]); });
+        showResults("ряд Тейлора в z₀", out); renderAnalysis();
       }
       function findZP() {
-        const v = views.analysis,
-          cv = $("#cv-analysis"),
-          W = cv.width || 800,
-          H = cv.height || 600;
-        const xmin = v.cx - (v.scale * W) / 2,
-          xmax = v.cx + (v.scale * W) / 2,
-          ymin = v.cy - (v.scale * H) / 2,
-          ymax = v.cy + (v.scale * H) / 2;
-        let zeros, poles, note;
-        if (state.compiled.coeffs) {
-          zeros = roots(state.compiled.coeffs).filter(
-            (z) => z.re >= xmin && z.re <= xmax && z.im >= ymin && z.im <= ymax,
-          );
-          poles = [];
-          note = "точно (многочлен)";
-        } else {
-          const zp = AC.findZerosPoles(curF(), xmin, xmax, ymin, ymax);
-          zeros = zp.zeros;
-          poles = zp.poles;
-          note = "численно (Ньютон)";
-        }
-        let critical = [];
-        try {
-          critical = AC.findCritical(curF(), xmin, xmax, ymin, ymax);
-        } catch (e) {}
-        state.ana.markers = { zeros, poles, critical };
-        const out = [["метод", note, ""]];
-        zeros.forEach((z, i) => out.push(["нуль " + (i + 1), fmt(z), "teal"]));
-        poles.forEach((z, i) => out.push(["полюс " + (i + 1), fmt(z), "warm"]));
-        critical.forEach((z, i) => out.push(["крит. f′=0 · " + (i + 1), fmt(z), ""]));
-        showResults("нули (○), полюсы (×), крит. точки (◇)", out);
-        renderAnalysis();
+        const v = views.analysis, cv = $("#cv-analysis"), W = cv.width || 800, H = cv.height || 600;
+        const win = { xmin: v.cx - (v.scale * W) / 2, xmax: v.cx + (v.scale * W) / 2, ymin: v.cy - (v.scale * H) / 2, ymax: v.cy + (v.scale * H) / 2 };
+        const d = findZPCore(curF(), state.compiled.coeffs, win);
+        state.ana.markers = { zeros: d.zeros, poles: d.poles, critical: d.critical };
+        const out = [["метод", d.note, ""]];
+        d.zeros.forEach((z, i) => out.push(["нуль " + (i + 1), fmt(z), "teal"]));
+        d.poles.forEach((z, i) => out.push(["полюс " + (i + 1), fmt(z), "warm"]));
+        d.critical.forEach((z, i) => out.push(["крит. f′=0 · " + (i + 1), fmt(z), ""]));
+        showResults("нули (○), полюсы (×), крит. точки (◇)", out); renderAnalysis();
       }
       // A2: поведение и вычет в бесконечности через g(w)=f(1/w) при w→0.
       function analyzeInfinity() {
-        const f = curF();
-        const g = (w) => f(recip(w));
+        const b = analyzeInfinityCore(curF());
         const out = [["точка", "z → ∞", ""]];
-        let cls = tryc(() => classifySingularity(g, ZERO, { radius: 0.04, terms: 10 }));
-        if (cls) {
-          if (cls.type === "regular") {
-            out.push(["в ∞", "регулярна (конечный предел)", "teal"]);
-            const lim = safe(g, C(1e-6, 0));
-            if (isFiniteC(lim)) out.push(["lim_{z→∞} f", fmt(lim), ""]);
-          } else if (cls.type === "pole") {
-            out.push(["в ∞", "полюс порядка " + cls.order + " (рост)", "warm"]);
-          } else out.push(["в ∞", "существенная особенность", "warm"]);
+        if (b.type) {
+          if (b.type === "regular") { out.push(["в ∞", "регулярна (конечный предел)", "teal"]); if (b.limit) out.push(["lim_{z→∞} f", fmt(b.limit), ""]); }
+          else if (b.type === "pole") out.push(["в ∞", "полюс порядка " + b.order + " (рост)", "warm"]);
+          else out.push(["в ∞", "существенная особенность", "warm"]);
         }
-        // вычет в ∞ = −res_{w=0}[ f(1/w)/w² ]
-        const h = (w) => neg(div(g(w), mul(w, w)));
-        const rinf = tryc(() => residue(h, ZERO, { radius: 0.04 }));
-        if (rinf && isFiniteC(rinf)) out.push(["вычет в ∞", fmt(rinf), "teal"]);
-        state.ana.point = null;
-        state.ana.out = out;
-        showResults("поведение в ∞ (через 1/f(1/w))", out);
-        renderAnalysis();
+        if (b.residue) out.push(["вычет в ∞", fmt(b.residue), "teal"]);
+        state.ana.point = null; state.ana.out = out;
+        showResults("поведение в ∞ (через 1/f(1/w))", out); renderAnalysis();
       }
       // A3: нетривиальные нули ζ на критической прямой Re=1/2 (мнимые части первых нулей).
       const _ZETA_IM = [
@@ -5628,29 +5609,14 @@
         88.809111, 92.491899, 94.651344, 95.870634, 98.831194, 101.317851,
       ];
       function analyzeZetaZeros() {
-        const v = views.analysis,
-          cv = $("#cv-analysis"),
-          W = cv.width || 800,
-          H = cv.height || 600;
-        const xmin = v.cx - (v.scale * W) / 2,
-          xmax = v.cx + (v.scale * W) / 2,
-          ymin = v.cy - (v.scale * H) / 2,
-          ymax = v.cy + (v.scale * H) / 2;
-        const pts = [];
-        if (0.5 >= xmin && 0.5 <= xmax)
-          for (const t of _ZETA_IM)
-            for (const s of [t, -t]) if (s >= ymin && s <= ymax) pts.push(C(0.5, s));
+        const v = views.analysis, cv = $("#cv-analysis"), W = cv.width || 800, H = cv.height || 600;
+        const win = { xmin: v.cx - (v.scale * W) / 2, xmax: v.cx + (v.scale * W) / 2, ymin: v.cy - (v.scale * H) / 2, ymax: v.cy + (v.scale * H) / 2 };
+        const pts = analyzeZetaZerosCore(win).pts;
         const m = state.ana.markers || { zeros: [], poles: [], critical: [] };
-        m.zeta = pts;
-        state.ana.markers = m;
-        const out = [
-          ["функция", state.expr, ""],
-          ["крит. прямая", "Re = 1/2", "teal"],
-          ["нетрив. нулей в окне", String(pts.length), "warm"],
-        ];
+        m.zeta = pts; state.ana.markers = m;
+        const out = [["функция", state.expr, ""], ["крит. прямая", "Re = 1/2", "teal"], ["нетрив. нулей в окне", String(pts.length), "warm"]];
         pts.slice(0, 14).forEach((z, i) => out.push(["ζ-нуль " + (i + 1), fmt(z), ""]));
-        showResults("нетривиальные нули ζ (◆ на Re=½)", out);
-        renderAnalysis();
+        showResults("нетривиальные нули ζ (◆ на Re=½)", out); renderAnalysis();
       }
       const safe = (f, z) => {
         try {
@@ -6562,10 +6528,10 @@
         data[p + 3] = 255;
       }
       // Итератор Ньютона/Галлея для текущей f: точные f,f',f'' для многочленов (Горнер), иначе численные.
-      function makeNewtonIterator() {
-        const cc = state.compiled && state.compiled.coeffs,
-          halley = state.newtonMethod === "halley",
-          mi = state.maxIter;
+      function makeNewtonIterator(params) {
+        const cc = params.compiled && params.compiled.coeffs,
+          halley = params.newtonMethod === "halley",
+          mi = params.maxIter;
         let evf;
         if (cc) {
           evf = (z) => {
@@ -6580,7 +6546,7 @@
             return [p, dp, ddp];
           };
         } else {
-          const f = curF();
+          const f = params.f;
           evf = (z) => {
             const fp = derivative(f, z),
               fpp = halley ? derivative((w) => derivative(f, w), z) : ZERO;
@@ -6613,12 +6579,12 @@
         };
       }
       // F3/F4: детальная итерация полиномиальных множеств — escape + оценка расстояния (DE).
-      function polyDetail(x, y) {
-        const type = state.fractal,
-          mi = state.maxIter,
-          jc = state.juliaC,
+      function polyDetail(x, y, params) {
+        const type = params.fractal,
+          mi = params.maxIter,
+          jc = params.juliaC,
           isJ = type === "julia",
-          d = type === "multibrot" ? state.mbPower : type === "julia" ? state.juliaPower : 2;
+          d = type === "multibrot" ? params.mbPower : type === "julia" ? params.juliaPower : 2;
         let zx, zy, cx, cy, dzx, dzy;
         if (isJ) { zx = x; zy = y; cx = jc.re; cy = jc.im; dzx = 1; dzy = 0; }
         else { zx = 0; zy = 0; cx = x; cy = y; dzx = 0; dzy = 0; }
@@ -6643,11 +6609,11 @@
         return { esc, it, de };
       }
       // F4/F5: период притягивающего цикла внутренней точки (0 — не определён/убежала).
-      function interiorPeriod(x, y) {
-        const type = state.fractal,
-          jc = state.juliaC,
+      function interiorPeriod(x, y, params) {
+        const type = params.fractal,
+          jc = params.juliaC,
           isJ = type === "julia",
-          d = type === "multibrot" ? state.mbPower : type === "julia" ? state.juliaPower : 2;
+          d = type === "multibrot" ? params.mbPower : type === "julia" ? params.juliaPower : 2;
         let zx, zy, cx, cy;
         if (isJ) { zx = x; zy = y; cx = jc.re; cy = jc.im; }
         else { zx = 0; zy = 0; cx = x; cy = y; }
@@ -6673,10 +6639,10 @@
         data[p] = c.r; data[p + 1] = c.g; data[p + 2] = c.b; data[p + 3] = 255;
       }
       // F1: орбита z→f(z)→f²(z)… для текущего типа.
-      function orbitPath(z0) {
-        const type = state.fractal, jc = state.juliaC, pts = [];
+      function orbitPath(z0, params) {
+        const type = params.fractal, jc = params.juliaC, pts = [];
         if (type === "newton") {
-          const f = curF();
+          const f = params.f;
           let z = C(z0.re, z0.im);
           pts.push(z);
           for (let k = 0; k < 60; k++) {
@@ -6691,8 +6657,8 @@
           return pts;
         }
         let zx, zy, cx, cy, d = 2, kind = -1, tri = false, ship = false;
-        if (type === "julia") { zx = z0.re; zy = z0.im; cx = jc.re; cy = jc.im; d = state.juliaPower; }
-        else if (type === "multibrot") { zx = 0; zy = 0; cx = z0.re; cy = z0.im; d = state.mbPower; }
+        if (type === "julia") { zx = z0.re; zy = z0.im; cx = jc.re; cy = jc.im; d = params.juliaPower; }
+        else if (type === "multibrot") { zx = 0; zy = 0; cx = z0.re; cy = z0.im; d = params.mbPower; }
         else if (type === "tricorn") { zx = 0; zy = 0; cx = z0.re; cy = z0.im; tri = true; }
         else if (type === "burningship") { zx = 0; zy = 0; cx = z0.re; cy = z0.im; ship = true; }
         else if (type === "julia-exp") { zx = z0.re; zy = z0.im; cx = jc.re; cy = jc.im; kind = 0; }
@@ -6700,7 +6666,7 @@
         else if (type === "julia-cos") { zx = z0.re; zy = z0.im; cx = jc.re; cy = jc.im; kind = 2; }
         else { zx = 0; zy = 0; cx = z0.re; cy = z0.im; }
         pts.push(C(zx, zy));
-        const lim = Math.min(state.maxIter, 200);
+        const lim = Math.min(params.maxIter, 200);
         for (let k = 0; k < lim; k++) {
           if (!isFinite(zx) || !isFinite(zy) || zx * zx + zy * zy > 1e8) break;
           if (kind >= 0) {
@@ -6797,6 +6763,7 @@
         });
       }
       function renderFractal(q) {
+        const params = paramsFromState();
         const myGen = renderGen,
           cv = sizeCanvas($("#cv-fractal")),
           W = cv.width,
@@ -6820,7 +6787,7 @@
           type === "tricorn" || type === "burningship" || tKind >= 0;
         const workerOK = state.useWorkers && basicType && !deOn && !periodOn && q >= 1;
         state.orbitPt = null;
-        const newtonIter = type === "newton" ? makeNewtonIterator() : null;
+        const newtonIter = type === "newton" ? makeNewtonIterator(params) : null;
         const nroots = [],
           rootIndex = (z) => {
             for (let i = 0; i < nroots.length; i++) if (abs(sub(z, nroots[i])) < 1e-3) return i;
@@ -6828,6 +6795,7 @@
             return nroots.length - 1;
           };
         const fillBand = (j0, j1) => {
+        const params = paramsFromState();
           const data = new Uint8ClampedArray(rw * (j1 - j0) * 4);
           for (let j = j0; j < j1; j++) {
             const y = v.cy + (rh / 2 - (j + 0.5)) * sy;
@@ -6840,9 +6808,9 @@
                 continue;
               }
               if (polyType && (deOn || periodOn)) {
-                const r = polyDetail(x, y);
+                const r = polyDetail(x, y, params);
                 if (!r.esc) {
-                  if (periodOn) periodColor(interiorPeriod(x, y), data, p);
+                  if (periodOn) periodColor(interiorPeriod(x, y, params), data, p);
                   else { data[p] = 8; data[p + 1] = 9; data[p + 2] = 16; data[p + 3] = 255; }
                 } else if (deOn) deColor(r.de, v.scale, data, p);
                 else fracColor(r.it, data, p);
@@ -6926,7 +6894,7 @@
       }
 
       /* ---------- сфера Римана (быстрый путь) ---------- */
-      function sphereBand(j0, j1, rw, rh, fast, f, P) {
+      function sphereBand(j0, j1, rw, rh, fast, f, P, params) {
         const Rpx = Math.min(rw, rh) * 0.42,
           cx = rw / 2,
           cy = rh / 2,
@@ -6956,7 +6924,7 @@
               zy = Y / d;
             }
             let cr, cg, cb;
-            if (fast && state.scheme === "classic" && colorFastOK()) {
+            if (fast && params.scheme === "classic" && params.colorFastOK) {
               fast(zx, zy, o);
               const tmp = new Uint8ClampedArray(4);
               phaseColorRaw(o[0], o[1], tmp, 0);
@@ -6964,7 +6932,7 @@
               cg = tmp[1];
               cb = tmp[2];
             } else {
-              const col = phaseColor(safe(f, C(zx, zy)), colorOpts());
+              const col = phaseColor(safe(f, C(zx, zy)), params.colorOpts);
               cr = col.r;
               cg = col.g;
               cb = col.b;
@@ -6978,8 +6946,8 @@
         return data;
       }
       // S2: дробно-линейное (элемент SU(2)) как жёсткое вращение сферы вокруг оси через a и антипод.
-      function buildSphereRot() {
-        const r = state.sphereRot, p = C(r.ax, r.ay), cp = conj(p);
+      function buildSphereRot(params) {
+        const r = params.sphereRot, p = C(r.ax, r.ay), cp = conj(p);
         const Mp = Mobius(ONE, neg(p), cp, ONE);
         const D = Mobius(fromPolar(1, r.theta / 2), ZERO, ZERO, fromPolar(1, -r.theta / 2));
         return Mp.inverse().compose(D).compose(Mp);
@@ -6992,6 +6960,7 @@
         _sphereRotRAF = requestAnimationFrame(sphereRotTick);
       }
       function renderSphere(q) {
+        const params = paramsFromState();
         const myGen = renderGen,
           cv = sizeCanvas($("#cv-sphere")),
           W = cv.width,
@@ -7002,7 +6971,7 @@
           rh = (H * Q) | 0;
         let fast, f;
         if (state.sphereRot.on) {
-          const R = buildSphereRot();
+          const R = buildSphereRot(params);
           f = (z) => R.apply(z);
           fast = null;
         } else if (state.sphereSrc === "domain") {
@@ -7022,7 +6991,7 @@
         if (q < 1) {
           off.width = rw;
           off.height = rh;
-          offc.putImageData(new ImageData(sphereBand(0, rh, rw, rh, fast, f, P), rw, rh), 0, 0);
+          offc.putImageData(new ImageData(sphereBand(0, rh, rw, rh, fast, f, P, params), rw, rh), 0, 0);
           ctx.imageSmoothingEnabled = true;
           ctx.clearRect(0, 0, W, H);
           ctx.drawImage(off, 0, 0, rw, rh, 0, 0, W, H);
@@ -7030,7 +6999,7 @@
           return;
         }
         ctx.clearRect(0, 0, W, H); // сфера прозрачна — очистим фон один раз
-        chunkedPaint(cv, rw, rh, W, H, (j0, j1) => sphereBand(j0, j1, rw, rh, fast, f, P), myGen);
+        chunkedPaint(cv, rw, rh, W, H, (j0, j1) => sphereBand(j0, j1, rw, rh, fast, f, P, params), myGen);
       }
       // W3: вторая функция g(z) — ленивая компиляция.
       function cmpG() {
@@ -11026,6 +10995,7 @@
         });
       }
       function probe(z, opts) {
+        const params = paramsFromState();
         if (!z) {
           $("#ro-z").textContent = "—";
           $("#ro-fz").textContent = "—";
@@ -11051,7 +11021,7 @@
           else if (t === "tricorn") it = tricorn(z.re, z.im, mi);
           else if (t === "burningship") it = burningShip(z.re, z.im, mi);
           else if (t === "newton") {
-            const r = makeNewtonIterator()(z.re, z.im);
+            const r = makeNewtonIterator(params)(z.re, z.im);
             it = r.conv ? r.k : mi;
           } else it = mandelbrot(z.re, z.im, mi);
           $("#ro-fz").textContent = "—";
@@ -11059,7 +11029,7 @@
           if (it >= mi) {
             let extra = mi + " (внутри)";
             if (t === "mandelbrot" || t === "multibrot" || t === "julia") {
-              const per = interiorPeriod(z.re, z.im);
+              const per = interiorPeriod(z.re, z.im, params);
               if (per > 0) extra = "внутри · период " + per;
             }
             $("#ro-extra").textContent = extra;
@@ -11302,10 +11272,11 @@
         probe: true,
         fractal: true,
         click: (z) => {
+        const params = paramsFromState();
           if (state.fractal === "buddhabrot") return;
           if (state.fracOrbit) {
             state.orbitPt = C(z.re, z.im);
-            state.orbit = orbitPath(z);
+            state.orbit = orbitPath(z, params);
             animateOrbit();
             return;
           }
