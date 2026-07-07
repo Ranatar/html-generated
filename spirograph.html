@@ -1,0 +1,4473 @@
+<!doctype html>
+<html lang="ru">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Спирограф — чертёжный плоттер</title>
+    <style>
+      :root {
+        --ink: #12141b; /* фон сцены */
+        --panel: #191c26; /* панель */
+        --panel-2: #1f2330; /* приподнятые блоки */
+        --line: #2b3040; /* хайрлайны */
+        --line-soft: #242835;
+        --text: #e9e7df; /* основной текст */
+        --muted: #8b90a0; /* приглушённый */
+        --brass: #c9a24b; /* латунь — акцент, шестерни, фокус */
+        --brass-dim: #8a7332;
+        --patina: #63b3a1; /* патина — «замыкается: да» */
+        --danger: #c76b5a;
+        --focus: 0 0 0 2px rgba(201, 162, 75, 0.55);
+        --mono:
+          ui-monospace, "SF Mono", "JetBrains Mono", Menlo, Consolas,
+          "Liberation Mono", monospace;
+        --sans:
+          "Inter", system-ui, -apple-system, "Segoe UI", Roboto,
+          "Helvetica Neue", Arial, sans-serif;
+      }
+      /* v2: светлая тема — переопределение палитры панели */
+      body.light {
+        --panel: #f4f2ec;
+        --panel-2: #ffffff;
+        --line: #d9d5ca;
+        --line-soft: #e6e2d8;
+        --text: #26262a;
+        --muted: #7a7668;
+        --brass: #a9812c;
+        --brass-dim: #c7a552;
+        --patina: #2f8a78;
+        --focus: 0 0 0 2px rgba(169, 129, 44, 0.5);
+      }
+      #btn-theme {
+        background: var(--panel-2);
+        border: 1px solid var(--line);
+        color: var(--text);
+        width: 28px;
+        height: 26px;
+        border-radius: 6px;
+        cursor: pointer;
+        font-size: 13px;
+        line-height: 1;
+        display: grid;
+        place-items: center;
+      }
+      #btn-theme:focus-visible {
+        outline: none;
+        box-shadow: var(--focus);
+      }
+      * {
+        box-sizing: border-box;
+      }
+      html,
+      body {
+        height: 100%;
+      }
+      body {
+        margin: 0;
+        background: var(--ink);
+        color: var(--text);
+        font-family: var(--sans);
+        font-size: 14px;
+        line-height: 1.45;
+        -webkit-font-smoothing: antialiased;
+        overflow: hidden;
+      }
+      #app {
+        display: flex;
+        height: 100vh;
+        width: 100vw;
+      }
+
+      /* ---------- ПАНЕЛЬ ---------- */
+      #panel {
+        width: 322px;
+        flex: 0 0 322px;
+        height: 100%;
+        background: var(--panel);
+        border-right: 1px solid var(--line);
+        border-top: 2px solid var(--brass-dim);
+        display: flex;
+        flex-direction: column;
+        overflow: hidden;
+      }
+      #panel-head {
+        padding: 16px 18px 12px;
+        border-bottom: 1px solid var(--line);
+        display: flex;
+        align-items: baseline;
+        justify-content: space-between;
+        gap: 8px;
+      }
+      #panel-head h1 {
+        margin: 0;
+        font-size: 15px;
+        font-weight: 600;
+        letter-spacing: 0.22em;
+        text-transform: uppercase;
+      }
+      #panel-head .sub {
+        font-family: var(--mono);
+        font-size: 10px;
+        color: var(--muted);
+        letter-spacing: 0.14em;
+        text-transform: uppercase;
+      }
+      #panel-scroll {
+        overflow-y: auto;
+        padding: 6px 18px 22px;
+        flex: 1;
+      }
+      #panel-scroll::-webkit-scrollbar {
+        width: 9px;
+      }
+      #panel-scroll::-webkit-scrollbar-thumb {
+        background: var(--line);
+        border-radius: 9px;
+      }
+
+      .section {
+        padding: 16px 0 4px;
+      }
+      .section + .section {
+        border-top: 1px solid var(--line-soft);
+      }
+      .section > h2 {
+        margin: 0 0 12px;
+        font-family: var(--mono);
+        font-size: 10.5px;
+        font-weight: 600;
+        letter-spacing: 0.2em;
+        text-transform: uppercase;
+        color: var(--muted);
+      }
+
+      .field {
+        margin-bottom: 13px;
+      }
+      .field > label {
+        display: flex;
+        justify-content: space-between;
+        align-items: baseline;
+        font-size: 12px;
+        color: var(--text);
+        margin-bottom: 6px;
+        gap: 8px;
+      }
+      .field .val {
+        font-family: var(--mono);
+        font-size: 12px;
+        color: var(--brass);
+      }
+      .row {
+        display: flex;
+        gap: 8px;
+        align-items: center;
+      }
+      input[type="range"] {
+        -webkit-appearance: none;
+        appearance: none;
+        width: 100%;
+        height: 2px;
+        background: var(--line);
+        border-radius: 2px;
+        outline: none;
+        flex: 1;
+      }
+      input[type="range"]::-webkit-slider-thumb {
+        -webkit-appearance: none;
+        width: 14px;
+        height: 14px;
+        border-radius: 50%;
+        background: var(--brass);
+        border: 2px solid var(--panel);
+        cursor: pointer;
+        box-shadow: 0 0 0 1px var(--brass-dim);
+      }
+      input[type="range"]::-moz-range-thumb {
+        width: 14px;
+        height: 14px;
+        border-radius: 50%;
+        background: var(--brass);
+        border: 2px solid var(--panel);
+        cursor: pointer;
+        box-shadow: 0 0 0 1px var(--brass-dim);
+      }
+      input[type="range"]:focus-visible {
+        box-shadow: var(--focus);
+      }
+      input[type="number"] {
+        width: 62px;
+        background: var(--panel-2);
+        border: 1px solid var(--line);
+        color: var(--text);
+        font-family: var(--mono);
+        font-size: 12px;
+        padding: 5px 7px;
+        border-radius: 5px;
+        text-align: right;
+      }
+      input[type="number"]:focus-visible {
+        outline: none;
+        box-shadow: var(--focus);
+        border-color: var(--brass-dim);
+      }
+      input[type="color"] {
+        width: 40px;
+        height: 30px;
+        padding: 0;
+        border: 1px solid var(--line);
+        border-radius: 6px;
+        background: var(--panel-2);
+        cursor: pointer;
+      }
+
+      /* сегментные переключатели */
+      .seg {
+        display: flex;
+        background: var(--panel-2);
+        border: 1px solid var(--line);
+        border-radius: 7px;
+        padding: 2px;
+        gap: 2px;
+      }
+      .seg button {
+        flex: 1;
+        background: transparent;
+        border: none;
+        color: var(--muted);
+        font-family: var(--sans);
+        font-size: 12px;
+        padding: 7px 6px;
+        border-radius: 5px;
+        cursor: pointer;
+        transition: none;
+      }
+      .seg button[aria-pressed="true"] {
+        background: var(--brass);
+        color: #1a1400;
+        font-weight: 600;
+      }
+      .seg button:focus-visible {
+        box-shadow: var(--focus);
+      }
+
+      .check {
+        display: flex;
+        align-items: center;
+        gap: 9px;
+        font-size: 12.5px;
+        cursor: pointer;
+        user-select: none;
+        margin-bottom: 11px;
+      }
+      .check input {
+        position: absolute;
+        opacity: 0;
+        width: 0;
+        height: 0;
+      }
+      .check .box {
+        width: 16px;
+        height: 16px;
+        border: 1px solid var(--line);
+        border-radius: 4px;
+        background: var(--panel-2);
+        display: grid;
+        place-items: center;
+        flex: 0 0 auto;
+      }
+      .check input:checked + .box {
+        background: var(--brass);
+        border-color: var(--brass);
+      }
+      .check input:checked + .box::after {
+        content: "";
+        width: 5px;
+        height: 9px;
+        border: solid #1a1400;
+        border-width: 0 2px 2px 0;
+        transform: rotate(45deg);
+        margin-top: -2px;
+      }
+      .check input:focus-visible + .box {
+        box-shadow: var(--focus);
+      }
+
+      /* приборный показометр */
+      .readout {
+        background: var(--panel-2);
+        border: 1px solid var(--line);
+        border-radius: 7px;
+        padding: 10px 12px;
+        font-family: var(--mono);
+        font-size: 11.5px;
+        margin-top: 2px;
+      }
+      .readout .r {
+        display: flex;
+        justify-content: space-between;
+        padding: 2px 0;
+      }
+      .readout .r .k {
+        color: var(--muted);
+        letter-spacing: 0.06em;
+      }
+      .readout .r .v {
+        color: var(--text);
+      }
+      .readout .r .v.ok {
+        color: var(--patina);
+      }
+      .readout .r .v.warn {
+        color: var(--brass);
+      }
+
+      select {
+        width: 100%;
+        background: var(--panel-2);
+        border: 1px solid var(--line);
+        color: var(--text);
+        font-family: var(--sans);
+        font-size: 12.5px;
+        padding: 8px 9px;
+        border-radius: 6px;
+        cursor: pointer;
+      }
+      select:focus-visible {
+        outline: none;
+        box-shadow: var(--focus);
+      }
+
+      .btns {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 8px;
+      }
+      .btn {
+        background: var(--panel-2);
+        border: 1px solid var(--line);
+        color: var(--text);
+        font-family: var(--sans);
+        font-size: 12.5px;
+        padding: 9px 8px;
+        border-radius: 6px;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 6px;
+      }
+      .btn:hover {
+        border-color: var(--brass-dim);
+      }
+      .btn:focus-visible {
+        outline: none;
+        box-shadow: var(--focus);
+      }
+      .btn.primary {
+        grid-column: 1 / -1;
+        background: var(--brass);
+        color: #1a1400;
+        border-color: var(--brass);
+        font-weight: 600;
+        padding: 11px;
+      }
+      .btn.primary:hover {
+        filter: brightness(1.06);
+      }
+      .btn.ghost-danger:hover {
+        border-color: var(--danger);
+        color: var(--danger);
+      }
+      .btn:disabled {
+        opacity: 0.4;
+        cursor: not-allowed;
+      }
+      .btn.wide {
+        grid-column: 1 / -1;
+      }
+
+      /* v3: список слоёв */
+      .layers {
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+        margin-bottom: 2px;
+      }
+      .layer-row {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        background: var(--panel-2);
+        border: 1px solid var(--line);
+        border-radius: 7px;
+        padding: 6px 8px;
+        cursor: pointer;
+        user-select: none;
+      }
+      .layer-row.selected {
+        border-color: var(--brass);
+      }
+      .layer-row.editing {
+        border-color: var(--brass);
+        box-shadow: inset 0 0 0 1px var(--brass-dim);
+      }
+      .layer-row.dragover {
+        border-color: var(--patina);
+      }
+      .layer-row.hidden-layer {
+        opacity: 0.55;
+      }
+      .layer-grip {
+        color: var(--muted);
+        font-size: 13px;
+        cursor: grab;
+        line-height: 1;
+        padding: 0 1px;
+      }
+      .layer-swatch {
+        width: 14px;
+        height: 14px;
+        border-radius: 3px;
+        flex: 0 0 auto;
+        border: 1px solid rgba(0, 0, 0, 0.3);
+      }
+      .layer-name {
+        flex: 1;
+        font-size: 12px;
+        color: var(--text);
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+      .layer-name input {
+        width: 100%;
+        font-size: 12px;
+        padding: 1px 4px;
+        border: 1px solid var(--brass-dim);
+        border-radius: 4px;
+        background: var(--panel);
+        color: var(--text);
+        font-family: var(--sans);
+      }
+      .layer-sub {
+        font-family: var(--mono);
+        font-size: 9.5px;
+        color: var(--muted);
+        flex: 0 0 auto;
+      }
+      .layer-btn {
+        background: transparent;
+        border: none;
+        color: var(--muted);
+        cursor: pointer;
+        font-size: 12px;
+        line-height: 1;
+        padding: 3px;
+        border-radius: 4px;
+        flex: 0 0 auto;
+      }
+      .layer-btn:hover {
+        color: var(--text);
+        background: var(--line);
+      }
+      .layer-btn.on {
+        color: var(--brass);
+      }
+      .layer-btn.del:hover {
+        color: var(--danger);
+      }
+      .layer-btn:focus-visible {
+        outline: none;
+        box-shadow: var(--focus);
+      }
+      .layers-empty {
+        font-size: 11.5px;
+        color: var(--muted);
+        padding: 6px 2px;
+        line-height: 1.4;
+      }
+      /* §10: галерея */
+      .gallery-grid {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 8px;
+      }
+      .gallery-item {
+        border: 1px solid var(--line);
+        border-radius: 7px;
+        overflow: hidden;
+        background: var(--panel-2);
+        display: flex;
+        flex-direction: column;
+      }
+      .gallery-item img {
+        width: 100%;
+        height: 70px;
+        object-fit: cover;
+        display: block;
+        background: var(--ink);
+        cursor: pointer;
+      }
+      .gallery-item .gi-row {
+        display: flex;
+        align-items: center;
+        gap: 4px;
+        padding: 5px 6px;
+      }
+      .gallery-item .gi-name {
+        flex: 1;
+        font-size: 10.5px;
+        color: var(--text);
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+      /* v3 §4: гармоники */
+      #harm-head-row {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        margin: 12px 0 6px;
+      }
+      .harm-row {
+        border: 1px solid var(--line-soft);
+        border-radius: 7px;
+        padding: 6px 9px 2px;
+        margin-bottom: 8px;
+        background: var(--panel-2);
+      }
+      .harm-head {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        margin: 2px 0 6px;
+      }
+      .harm-head span {
+        font-size: 11px;
+        color: var(--muted);
+        font-family: var(--mono);
+        letter-spacing: 0.08em;
+      }
+      .harm-row .field {
+        margin-bottom: 9px;
+      }
+      /* v3: формула и спектр */
+      details.formula {
+        margin-top: 10px;
+        border: 1px solid var(--line);
+        border-radius: 7px;
+        background: var(--panel-2);
+        overflow: hidden;
+      }
+      details.formula > summary {
+        list-style: none;
+        cursor: pointer;
+        padding: 8px 11px;
+        font-family: var(--mono);
+        font-size: 10.5px;
+        letter-spacing: 0.14em;
+        text-transform: uppercase;
+        color: var(--muted);
+      }
+      details.formula > summary::-webkit-details-marker {
+        display: none;
+      }
+      details.formula > summary::after {
+        content: "▾";
+        float: right;
+        color: var(--muted);
+      }
+      details.formula[open] > summary::after {
+        content: "▴";
+      }
+      .formula-body {
+        padding: 0 11px 11px;
+        font-family: var(--mono);
+        font-size: 11px;
+        color: var(--text);
+      }
+      .formula-eq {
+        white-space: pre-wrap;
+        word-break: break-word;
+        line-height: 1.5;
+      }
+      .formula-note {
+        color: var(--muted);
+        font-size: 10px;
+        margin-top: 6px;
+        line-height: 1.4;
+      }
+      .spec-tbl {
+        width: 100%;
+        border-collapse: collapse;
+        margin-top: 8px;
+        font-size: 10.5px;
+      }
+      .spec-tbl th,
+      .spec-tbl td {
+        text-align: right;
+        padding: 2px 4px;
+        border-top: 1px solid var(--line-soft);
+      }
+      .spec-tbl th {
+        color: var(--muted);
+        font-weight: 600;
+      }
+      .spec-tbl td:first-child,
+      .spec-tbl th:first-child {
+        text-align: left;
+        color: var(--muted);
+      }
+
+      /* ---------- СЦЕНА ---------- */
+      #stage {
+        position: relative;
+        flex: 1;
+        height: 100%;
+        overflow: hidden;
+        background: var(--ink);
+      }
+      #c-guides,
+      #c-draw,
+      #c-overlay {
+        position: absolute;
+        inset: 0;
+        display: block;
+      }
+      #c-overlay {
+        pointer-events: none;
+      }
+      #hint {
+        position: absolute;
+        left: 16px;
+        bottom: 14px;
+        font-family: var(--mono);
+        font-size: 10.5px;
+        color: var(--muted);
+        letter-spacing: 0.06em;
+        pointer-events: none;
+        opacity: 0.75;
+      }
+      #hint b {
+        color: var(--brass);
+        font-weight: 600;
+      }
+      #toast {
+        position: absolute;
+        left: 50%;
+        top: 16px;
+        transform: translateX(-50%);
+        background: var(--panel-2);
+        border: 1px solid var(--line);
+        border-radius: 8px;
+        padding: 9px 14px;
+        font-size: 12.5px;
+        color: var(--text);
+        opacity: 0;
+        transition: opacity 0.18s ease;
+        pointer-events: none;
+        max-width: 70%;
+      }
+      #toast.show {
+        opacity: 1;
+      }
+      #toast.warn {
+        border-color: var(--brass-dim);
+      }
+
+      /* мобильная шторка */
+      #panel-toggle {
+        display: none;
+      }
+      @media (max-width: 720px) {
+        #app {
+          flex-direction: column;
+        }
+        #panel {
+          position: fixed;
+          z-index: 20;
+          left: 0;
+          right: 0;
+          top: 0;
+          width: 100%;
+          flex-basis: auto;
+          max-height: 82vh;
+          border-right: none;
+          border-bottom: 1px solid var(--line);
+          transform: translateY(calc(-100% + 49px));
+          transition: transform 0.22s ease;
+        }
+        #panel.open {
+          transform: translateY(0);
+        }
+        #panel-toggle {
+          display: block;
+          position: absolute;
+          right: 14px;
+          top: 11px;
+          z-index: 2;
+          background: var(--panel-2);
+          border: 1px solid var(--line);
+          color: var(--text);
+          font-family: var(--mono);
+          font-size: 11px;
+          padding: 6px 10px;
+          border-radius: 6px;
+          cursor: pointer;
+        }
+        #stage {
+          flex: 1;
+          margin-top: 49px;
+          height: calc(100vh - 49px);
+        }
+      }
+      @media (prefers-reduced-motion: reduce) {
+        * {
+          transition: none !important;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div id="app">
+      <!-- ПАНЕЛЬ -->
+      <aside id="panel">
+        <button id="panel-toggle" aria-label="Показать панель">
+          Настройки ▾
+        </button>
+        <div id="panel-head">
+          <h1>Спирограф</h1>
+          <div style="display: flex; align-items: center; gap: 10px">
+            <span class="sub">плоттер</span>
+            <button
+              id="btn-theme"
+              title="Сменить тему"
+              aria-label="Сменить тему"
+            >
+              ☀
+            </button>
+          </div>
+        </div>
+        <div id="panel-scroll">
+          <!-- КОЛЁСА -->
+          <div class="section">
+            <h2>Колёса</h2>
+
+            <div class="field">
+              <label>Тип кривой</label>
+              <div
+                class="seg"
+                id="seg-type"
+                role="group"
+                aria-label="Тип кривой"
+              >
+                <button type="button" data-type="hypo" aria-pressed="true">
+                  Внутри&nbsp;(гипо)
+                </button>
+                <button type="button" data-type="epi" aria-pressed="false">
+                  Снаружи&nbsp;(эпи)
+                </button>
+              </div>
+            </div>
+
+            <div id="numeric-params"></div>
+
+            <div class="readout" id="readout">
+              <div class="r">
+                <span class="k">лепестков</span
+                ><span class="v" id="rd-lobes">—</span>
+              </div>
+              <div class="r">
+                <span class="k">оборотов</span
+                ><span class="v" id="rd-rev">—</span>
+              </div>
+              <div class="r">
+                <span class="k">замыкается</span
+                ><span class="v" id="rd-close">—</span>
+              </div>
+              <div class="r">
+                <span class="k">точек</span><span class="v" id="rd-pts">—</span>
+              </div>
+            </div>
+
+            <details class="formula" id="formula">
+              <summary>Формула и спектр</summary>
+              <div class="formula-body">
+                <div class="formula-eq" id="formula-eq">—</div>
+                <table class="spec-tbl" id="spec-tbl"></table>
+                <div class="formula-note">
+                  Симметрия, каллиграфия и прозрачность — модификаторы
+                  отображения; в z(t) не входят.
+                </div>
+              </div>
+            </details>
+
+            <div id="harm-head-row" style="margin-top: 14px">
+              <span style="font-size: 12px">Гармоники (вложенные колёса)</span>
+              <button
+                class="layer-btn on"
+                id="btn-harm-add"
+                title="Добавить гармонику"
+                aria-label="Добавить гармонику"
+              >
+                ＋
+              </button>
+            </div>
+            <div id="harm-list"></div>
+          </div>
+
+          <!-- ЦВЕТ -->
+          <div class="section">
+            <h2>Цвет</h2>
+            <div class="field">
+              <label>Режим</label>
+              <select id="sel-cmode" aria-label="Цветовой режим">
+                <option value="solid">Сплошной</option>
+                <option value="gradient">Градиент (по параметру)</option>
+                <option value="velocity">По скорости</option>
+                <option value="curvature">По кривизне</option>
+              </select>
+            </div>
+            <div
+              class="formula-note"
+              id="cmode-hint"
+              style="display: none; margin: -4px 0 8px"
+            ></div>
+
+            <div id="color-solid">
+              <div class="field">
+                <label>Цвет линии</label>
+                <div class="row">
+                  <input type="color" id="c-solid" value="#8ec9d9" />
+                </div>
+              </div>
+            </div>
+
+            <div id="color-gradient" style="display: none">
+              <!-- градиентные ползунки вставляются скриптом -->
+            </div>
+
+            <div id="calli-param" style="margin-top: 4px">
+              <!-- ползунок каллиграфии вставляется скриптом -->
+            </div>
+          </div>
+
+          <!-- АНИМАЦИЯ -->
+          <div class="section">
+            <h2>Анимация</h2>
+            <div id="anim-params"></div>
+            <div class="field">
+              <label for="sel-ease">Разгон черчения</label>
+              <select id="sel-ease">
+                <option value="linear">Ровно</option>
+                <option value="in">Разгон</option>
+                <option value="out">Торможение</option>
+                <option value="inout">Плавно (in-out)</option>
+              </select>
+            </div>
+            <label class="check"
+              ><input type="checkbox" id="chk-gears" checked /><span
+                class="box"
+              ></span
+              >Показывать шестерни</label
+            >
+            <label class="check"
+              ><input type="checkbox" id="chk-preview" checked /><span
+                class="box"
+              ></span
+              >Предпросмотр контура</label
+            >
+          </div>
+
+          <!-- ЖИВОЙ РЕЖИМ -->
+          <div class="section">
+            <h2>Живой режим</h2>
+            <label class="check"
+              ><input type="checkbox" id="chk-live" /><span class="box"></span
+              >Дыхание параметра (эксперим.)</label
+            >
+            <div id="live-params" style="display: none">
+              <div class="field">
+                <label for="sel-live-target">Что оживить</label>
+                <select id="sel-live-target">
+                  <option value="rho">Вынос пера ρ</option>
+                  <option value="lineWidth">Толщина линии</option>
+                  <option value="harm0rho">ρ гармоники 1</option>
+                  <option value="rotation">Вращение фигуры</option>
+                </select>
+              </div>
+              <div class="field">
+                <label for="sel-live-wave">Волна</label>
+                <select id="sel-live-wave">
+                  <option value="sine">Синус</option>
+                  <option value="triangle">Треугольник</option>
+                </select>
+              </div>
+              <div id="live-sliders"></div>
+              <div class="formula-note">
+                Живой слой рисуется поверх статичной композиции; плотность точек
+                ограничена для плавности.
+              </div>
+            </div>
+          </div>
+
+          <!-- ЗВУК -->
+          <div class="section">
+            <h2>Звук</h2>
+            <label class="check"
+              ><input type="checkbox" id="chk-audio" /><span class="box"></span
+              >Озвучивать черчение</label
+            >
+            <div id="audio-params" style="display: none">
+              <div class="field">
+                <label for="sel-amode">Режим</label>
+                <select id="sel-amode">
+                  <option value="chord">Гармонический хор</option>
+                  <option value="trace">Трасса пера</option>
+                  <option value="ticks">Тики лобов</option>
+                </select>
+              </div>
+              <div id="audio-sliders"></div>
+              <div class="field">
+                <label for="sel-awave">Тембр</label>
+                <select id="sel-awave">
+                  <option value="sine">Синус</option>
+                  <option value="triangle">Треугольник</option>
+                  <option value="sawtooth">Пила</option>
+                  <option value="square">Квадрат</option>
+                </select>
+              </div>
+              <label class="check"
+                ><input type="checkbox" id="chk-temper" /><span
+                  class="box"
+                ></span
+                >Темперация (12-TET)</label
+              >
+            </div>
+          </div>
+
+          <!-- СЛОИ -->
+          <div class="section">
+            <h2>Слои</h2>
+            <div class="layers" id="layer-list"></div>
+            <div id="breed-wrap" style="display: none; margin-top: 8px">
+              <div class="harm-head"><span>Скрещивание (генеалогия)</span></div>
+              <div class="row" style="gap: 6px">
+                <select
+                  id="sel-parentA"
+                  style="flex: 1"
+                  aria-label="Родитель A"
+                ></select>
+                <span style="color: var(--muted)">×</span>
+                <select
+                  id="sel-parentB"
+                  style="flex: 1"
+                  aria-label="Родитель B"
+                ></select>
+              </div>
+              <button
+                class="btn"
+                id="btn-breed"
+                style="width: 100%; margin-top: 6px"
+                disabled
+              >
+                ⚭ Скрестить → в активную
+              </button>
+            </div>
+          </div>
+
+          <!-- НАПРАВЛЯЮЩИЕ -->
+          <div class="section">
+            <h2>Направляющие</h2>
+            <label class="check"
+              ><input type="checkbox" id="chk-guides" /><span class="box"></span
+              >Полярная сетка</label
+            >
+            <div id="guides-params" style="display: none">
+              <div id="guides-sliders"></div>
+              <label class="check"
+                ><input type="checkbox" id="chk-guides-frame" /><span
+                  class="box"
+                ></span
+                >Координатная рамка</label
+              >
+            </div>
+          </div>
+
+          <!-- КОМПОЗИЦИЯ -->
+          <div class="section">
+            <h2>Композиция</h2>
+            <div class="field">
+              <label for="sel-preset">Пресет</label>
+              <select id="sel-preset">
+                <option value="">— выбрать —</option>
+              </select>
+            </div>
+            <div id="sym-param">
+              <!-- ползунок симметрии вставляется скриптом -->
+            </div>
+            <label class="check"
+              ><input type="checkbox" id="chk-mirror" /><span class="box"></span
+              >Зеркальные копии</label
+            >
+            <div class="btns">
+              <button class="btn primary" id="btn-draw">Начертить</button>
+              <button class="btn wide" id="btn-done" style="display: none">
+                Готово (выйти из правки)
+              </button>
+              <button class="btn" id="btn-pause" disabled>Пауза</button>
+              <button class="btn" id="btn-skip" disabled>Пропустить</button>
+              <button class="btn" id="btn-undo">↶ Отменить</button>
+              <button class="btn" id="btn-redo">Повторить ↷</button>
+              <button class="btn wide" id="btn-random">Случайно</button>
+              <button class="btn ghost-danger wide" id="btn-clear">
+                Очистить всё
+              </button>
+            </div>
+          </div>
+
+          <!-- ФАЙЛ -->
+          <div class="section">
+            <h2>Файл</h2>
+            <label class="check"
+              ><input type="checkbox" id="chk-transparent" /><span
+                class="box"
+              ></span
+              >Прозрачный фон в PNG</label
+            >
+            <label class="check"
+              ><input type="checkbox" id="chk-guides-export" /><span
+                class="box"
+              ></span
+              >Направляющие в экспорт</label
+            >
+            <div class="field">
+              <label>Фон сцены</label>
+              <div class="row">
+                <input type="color" id="c-bg" value="#12141b" />
+              </div>
+            </div>
+            <div class="field">
+              <label for="sel-pngscale">Разрешение PNG</label>
+              <select id="sel-pngscale">
+                <option value="1">×1 (экран)</option>
+                <option value="2">×2</option>
+                <option value="4">×4 (плакат)</option>
+              </select>
+            </div>
+            <div class="btns">
+              <button class="btn" id="btn-png">Экспорт PNG</button>
+              <button class="btn" id="btn-svg">Экспорт SVG</button>
+              <button class="btn" id="btn-savejson">Сохранить JSON</button>
+              <button class="btn" id="btn-loadjson">Загрузить JSON</button>
+              <button class="btn" id="btn-rec">● Записать WebM</button>
+              <button class="btn" id="btn-share">Скопировать ссылку</button>
+            </div>
+            <input
+              type="file"
+              id="file-json"
+              accept="application/json,.json"
+              style="display: none"
+            />
+          </div>
+
+          <!-- ГАЛЕРЕЯ -->
+          <div class="section" id="gallery-section">
+            <h2>Галерея</h2>
+            <button class="btn wide" id="btn-gallery-save">
+              Сохранить в галерею
+            </button>
+            <div id="gallery-list" style="margin-top: 8px"></div>
+            <div
+              class="layers-empty"
+              id="gallery-unavail"
+              style="display: none"
+            >
+              Локальное хранилище недоступно. Используйте JSON или ссылку для
+              переноса.
+            </div>
+          </div>
+        </div>
+      </aside>
+
+      <!-- СЦЕНА -->
+      <main id="stage">
+        <canvas id="c-guides"></canvas>
+        <canvas id="c-draw"></canvas>
+        <canvas id="c-overlay"></canvas>
+        <div id="hint">
+          <b>Space</b> пауза · <b>C</b> очистить · <b>R</b> случайно ·
+          <b>Ctrl+Z</b> отменить слой
+        </div>
+        <div id="toast" role="status" aria-live="polite"></div>
+      </main>
+    </div>
+
+    <script>
+      "use strict";
+      /* ============================================================================
+   СПИРОГРАФ — реализация по spirograph_spec.md
+   Один файл, без сети. Ядро — Canvas 2D, два наложенных слоя.
+   ========================================================================== */
+
+      /* ------------------------------ §9 Утилиты ------------------------------ */
+      function gcd(a, b) {
+        a = Math.abs(a | 0);
+        b = Math.abs(b | 0);
+        while (b) {
+          [a, b] = [b, a % b];
+        }
+        return a || 1;
+      }
+      function lcm(a, b) {
+        a = Math.abs(a | 0);
+        b = Math.abs(b | 0);
+        if (!a || !b) return a || b || 1;
+        return (a / gcd(a, b)) * b;
+      }
+      function clamp(v, lo, hi) {
+        return Math.max(lo, Math.min(hi, v));
+      }
+      function round2(x) {
+        return Math.round(x * 100) / 100;
+      }
+      function randInt(lo, hi) {
+        return Math.floor(lo + Math.random() * (hi - lo + 1));
+      }
+      function rand(lo, hi) {
+        return lo + Math.random() * (hi - lo);
+      }
+      function coprimeNear(R, r) {
+        // ближайшее к r значение, взаимно простое с R
+        for (let k = 0; k < r; k++) {
+          if (r - k >= 3 && gcd(R, r - k) === 1) return r - k;
+          if (r + k < R && gcd(R, r + k) === 1) return r + k;
+        }
+        return r;
+      }
+      // §2.4 рационализация нецелого отношения через цепные дроби
+      function rationalize(x, maxDen = 1000, eps = 1e-6) {
+        let a = Math.floor(x),
+          h1 = 1,
+          h0 = a,
+          k1 = 0,
+          k0 = 1,
+          frac = x - a;
+        while (frac > eps && k0 <= maxDen) {
+          x = 1 / frac;
+          a = Math.floor(x);
+          [h1, h0] = [h0, a * h0 + h1];
+          [k1, k0] = [k0, a * k0 + k1];
+          frac = x - a;
+        }
+        return { p: h0, q: k0 };
+      }
+
+      /* ------------------------------ Константы ------------------------------- */
+      const MARGIN = 24; // §2.5 поля холста, CSS-px
+      const N_CAP = 200; // §2.4 потолок оборотов для незамыкающихся
+      const N_HARD = 400000; // §10.3 жёсткий лимит числа точек
+      const REDUCED = window.matchMedia(
+        "(prefers-reduced-motion:reduce)",
+      ).matches;
+
+      /* ---------------------- §4 Модель данных / состояние -------------------- */
+      function defaultConfig() {
+        return {
+          type: "hypo",
+          R: 96,
+          r: 60,
+          rho: 0.8,
+          lineWidth: 1.2,
+          color: {
+            mode: "solid",
+            solid: "#8ec9d9",
+            hueStart: 200,
+            hueSpan: 300,
+            sat: 70,
+            light: 60,
+          },
+          // v3 §4: список гармоник (вложенные колёса), 0…6
+          harmonics: [],
+          // v2: каллиграфическая толщина (0 — выключено)
+          calligraphy: 0,
+          // v2: калейдоскоп-симметрия
+          symmetry: { count: 1, mirror: false },
+        };
+      }
+      const state = {
+        layers: [], // Layer[]
+        layerCounter: 0, // v3: счётчик для автоимён слоёв
+        selectedId: null, // v3: выбранный в списке слой
+        editing: false, // v3: режим правки выбранного слоя
+        active: defaultConfig(), // редактируемая конфигурация
+        background: "#12141b",
+        anim: {
+          running: false,
+          tIndex: 0,
+          speed: 60,
+          showGears: true,
+          layer: null,
+          easing: "linear",
+        },
+        preview: true,
+        guides: { on: false, rings: 5, rays: 12, frame: false }, // §8: чертёжные направляющие
+        live: {
+          on: false,
+          target: "rho",
+          wave: "sine",
+          period: 4,
+          amp: 0.4,
+          raf: null,
+          t0: 0,
+          maxN: 20000,
+        }, // §5
+        theme: "dark",
+        rec: {
+          active: false,
+          recorder: null,
+          chunks: [],
+          raf: null,
+          canvas: null,
+          ctx: null,
+          stopOnDone: false,
+        },
+        audio: {
+          on: false,
+          ctx: null,
+          master: null,
+          filter: null,
+          pan: null,
+          dest: null, // §3
+          nodes: [],
+          traceOsc: null,
+          traceGain: null,
+          active: false,
+          lastLobe: -1,
+          mode: "chord",
+          volume: 0.5,
+          f0: 110,
+          temper: false,
+          wave: "sine",
+        },
+        history: { stack: [], index: -1, limit: 60 }, // §6: undo/redo
+        editDirty: false, // §6: были ли правки в текущей edit-сессии
+        view: { W: 0, H: 0, scale: 1, cx: 0, cy: 0 },
+      };
+
+      /* ------------------------------ DOM-ссылки ------------------------------ */
+      const stage = document.getElementById("stage");
+      const cGuides = document.getElementById("c-guides");
+      const cDraw = document.getElementById("c-draw");
+      const cOver = document.getElementById("c-overlay");
+      let ctxDraw = null,
+        ctxOver = null,
+        ctxGuides = null;
+      const toastEl = document.getElementById("toast");
+
+      /* ------------------------------ §3.2 High-DPI --------------------------- */
+      function fitCanvas(canvas, cssW, cssH) {
+        const dpr = window.devicePixelRatio || 1;
+        canvas.width = Math.round(cssW * dpr);
+        canvas.height = Math.round(cssH * dpr);
+        canvas.style.width = cssW + "px";
+        canvas.style.height = cssH + "px";
+        const ctx = canvas.getContext("2d");
+        ctx.setTransform(dpr, 0, 0, dpr, 0, 0); // работаем в CSS-координатах
+        return ctx;
+      }
+
+      /* -------------------- §2 Геометрия одной кривой ------------------------- */
+      // Возвращает производные величины конфигурации.
+      // Кривая представлена как сумма вращающихся векторов (эпициклов):
+      //   z(t) = Σ amp_j·(cos(freq_j·t+ph_j), sin(freq_j·t+ph_j))
+      // §2.1: базовая трохоида = арм (freq 1) + перо колеса (freq ∓k).
+      // v2: вложенное колесо добавляет третий эпицикл (freq ±A/r2).
+      function curveMeta(cfg) {
+        const { type, R, r, rho } = cfg;
+        const harmonics = Array.isArray(cfg.harmonics) ? cfg.harmonics : [];
+        const d = rho * r;
+        const A = type === "hypo" ? R - r : R + r; // R−r либо R+r
+        const k = A / r; // частота гармоники колеса
+        const sx = type === "hypo" ? 1 : -1; // знак d·cos в x (для overlay)
+
+        // §2.1 эпициклы: арм (freq 1) + перо колеса 1 (freq ∓k)
+        const f1 = type === "hypo" ? -k : k;
+        const ph1 = type === "hypo" ? 0 : Math.PI;
+        const terms = [
+          { amp: A, freq: 1, ph: 0 },
+          { amp: d, freq: f1, ph: ph1 },
+        ];
+
+        // §4: цепочка гармоник. Частота f_k = dir·|A|/r_k, амплитуда d_k = ρ_k·r_k
+        const usableHarm = harmonics.filter((h) => h && +h.r > 0);
+        let sumDk = 0;
+        for (const h of usableHarm) {
+          const dk = (+h.rho || 0) * +h.r;
+          sumDk += dk;
+          const fk = (h.dir < 0 ? -1 : 1) * (Math.abs(A) / +h.r);
+          terms.push({ amp: dk, freq: fk, ph: 0 });
+        }
+        const intBase = Number.isInteger(R) && Number.isInteger(r);
+
+        // §2.3/§4.3 замыкание. Целые R,r → lcm по всем колёсам; иначе рационализируем базу.
+        let closes = true,
+          capped = false,
+          N_rev,
+          lobes;
+        if (intBase) {
+          let M = r / gcd(R, r); // из арм+колесо1
+          for (const h of usableHarm) {
+            const rk = Math.round(+h.r);
+            const g = gcd(rk, Math.abs(A));
+            M = lcm(M, rk / g);
+          }
+          N_rev = M;
+          lobes = usableHarm.length ? null : R / gcd(R, r); // составная кривая — лепестки не одиночны
+          if (N_rev > N_CAP) {
+            N_rev = N_CAP;
+            closes = false;
+            capped = true;
+          }
+        } else {
+          const fr = rationalize(R / r);
+          const g = gcd(fr.p, fr.q);
+          N_rev = fr.q / g;
+          lobes = fr.p / g;
+          if (N_rev > N_CAP) {
+            N_rev = N_CAP;
+            closes = false;
+            capped = true;
+          }
+        }
+        const tMax = 2 * Math.PI * N_rev;
+
+        // §2.5 габаритный радиус: сумма всех амплитуд
+        const maxR = Math.abs(A) + d + sumDk;
+
+        // §5.1 плотность: сложность + самая быстрая гармоника
+        let maxFreq = 1;
+        for (const tm of terms) maxFreq = Math.max(maxFreq, Math.abs(tm.freq));
+        const lobesForDensity =
+          Number.isFinite(lobes) && lobes
+            ? lobes
+            : Math.max(6, R / gcd(R, r || 1));
+        let perRev = clamp(
+          Math.max(240 + lobesForDensity * 12 + maxFreq * 24, 44 * maxFreq),
+          240,
+          4000,
+        );
+        let N = Math.ceil(perRev * N_rev);
+        let densityReduced = false;
+        if (N > N_HARD) {
+          // §10.3 снижаем плотность
+          perRev = Math.max(60, Math.floor(N_HARD / N_rev));
+          N = Math.ceil(perRev * N_rev);
+          densityReduced = true;
+        }
+        return {
+          A,
+          k,
+          sx,
+          d,
+          f1,
+          ph1,
+          terms,
+          harmCount: usableHarm.length,
+          chainOn: usableHarm.length > 0,
+          N_rev,
+          lobes,
+          tMax,
+          maxR,
+          N,
+          closes,
+          capped,
+          densityReduced,
+        };
+      }
+
+      /* -------------------- §5.5 / §2.5 Пересчёт вида ------------------------- */
+      function recomputeView(basisCfg) {
+        const W = stage.clientWidth,
+          H = stage.clientHeight;
+        let maxR = 1;
+        if (state.layers.length) {
+          // meta зависит только от конфигурации (не от масштаба) — считаем на лету,
+          // чтобы не зависеть от порядка заполнения L.meta
+          for (const L of state.layers)
+            maxR = Math.max(
+              maxR,
+              L.meta ? L.meta.maxR : curveMeta(L.config).maxR,
+            );
+        } else if (basisCfg) {
+          maxR = Math.max(maxR, curveMeta(basisCfg).maxR);
+        }
+        const scale = (Math.min(W, H) / 2 - MARGIN) / maxR;
+        state.view = { W, H, scale, cx: W / 2, cy: H / 2 };
+      }
+
+      /* -------------------- §5.1 Предвычисление точек ------------------------- */
+      // §5.1 Вывод знаков базовой трохоиды в терминах эпициклов:
+      //   гипо-колесо (cos kt, −sin kt) = вектор с частотой −k, фаза 0;
+      //   эпи-колесо  (−cos kt, −sin kt) = вектор с частотой +k, фаза π.
+      function buildPoints(cfg, capN) {
+        const m = curveMeta(cfg);
+        const { terms, tMax } = m;
+        let N = m.N;
+        if (capN && N > capN) N = capN; // §5: ограничение плотности в живом режиме
+        const { cx, cy, scale: s } = state.view;
+        const dt = tMax / N;
+        const pts = new Array(N + 1);
+        const T = terms.length;
+        for (let i = 0; i <= N; i++) {
+          const t = i * dt; // §10.9 накопление i*dt, не t+=dt
+          let wx = 0,
+            wy = 0;
+          for (let j = 0; j < T; j++) {
+            const term = terms[j],
+              a = term.freq * t + term.ph;
+            wx += term.amp * Math.cos(a);
+            wy += term.amp * Math.sin(a);
+          }
+          pts[i] = [cx + wx * s, cy + wy * s];
+        }
+        const widths = computeWidths(pts, cfg);
+        const cfield = computeField(pts, cfg); // §7: поле цвета (скорость/кривизна)
+        return { pts, meta: m, dt, widths, cfield };
+      }
+
+      // v2: каллиграфическая толщина по скорости пера (длина сегмента ∝ скорость).
+      // Медленно (короткий сегмент) → толще, быстро (длинный) → тоньше.
+      function computeWidths(pts, cfg) {
+        const a = cfg.calligraphy || 0;
+        if (a <= 0) return null;
+        const n = pts.length;
+        if (n < 2) return null;
+        const len = new Float64Array(n - 1);
+        let mn = Infinity,
+          mx = -Infinity;
+        for (let i = 0; i < n - 1; i++) {
+          const dx = pts[i + 1][0] - pts[i][0],
+            dy = pts[i + 1][1] - pts[i][1];
+          const L = Math.hypot(dx, dy);
+          len[i] = L;
+          if (L < mn) mn = L;
+          if (L > mx) mx = L;
+        }
+        const base = cfg.lineWidth;
+        const wThin = Math.max(0.3, base * (1 - 0.6 * a));
+        const wThick = base * (1 + 1.6 * a);
+        const span = mx - mn || 1;
+        const w = new Float64Array(n - 1);
+        for (let i = 0; i < n - 1; i++) {
+          const norm = (len[i] - mn) / span; // 0 медленно … 1 быстро
+          w[i] = wThin + (1 - norm) * (wThick - wThin);
+        }
+        return w;
+      }
+
+      // §7: поле цвета — нормированная скорость или кривизна пера (0…1 по вершинам)
+      function computeField(pts, cfg) {
+        const m = cfg.color.mode;
+        if (m !== "velocity" && m !== "curvature") return null;
+        const n = pts.length;
+        if (n < 3) return null;
+        const raw = new Float64Array(n);
+        if (m === "velocity") {
+          const seg = new Float64Array(n - 1);
+          for (let i = 0; i < n - 1; i++)
+            seg[i] = Math.hypot(
+              pts[i + 1][0] - pts[i][0],
+              pts[i + 1][1] - pts[i][1],
+            );
+          raw[0] = seg[0];
+          raw[n - 1] = seg[n - 2];
+          for (let i = 1; i < n - 1; i++) raw[i] = (seg[i - 1] + seg[i]) * 0.5;
+        } else {
+          for (let i = 1; i < n - 1; i++) {
+            const ax = pts[i][0] - pts[i - 1][0],
+              ay = pts[i][1] - pts[i - 1][1];
+            const bx = pts[i + 1][0] - pts[i][0],
+              by = pts[i + 1][1] - pts[i][1];
+            raw[i] = Math.abs(Math.atan2(ax * by - ay * bx, ax * bx + ay * by)); // угол поворота 0…π
+          }
+          raw[0] = raw[1];
+          raw[n - 1] = raw[n - 2];
+        }
+        let mn = Infinity,
+          mx = -Infinity;
+        for (let i = 0; i < n; i++) {
+          if (raw[i] < mn) mn = raw[i];
+          if (raw[i] > mx) mx = raw[i];
+        }
+        const span = mx - mn || 1;
+        const f = new Float64Array(n);
+        for (let i = 0; i < n; i++) f[i] = (raw[i] - mn) / span;
+        return f;
+      }
+
+      /* ---------------------- §5.4 Цвет вдоль кривой -------------------------- */
+      function colorAt(cfg, i, n, field) {
+        const c = cfg.color;
+        if (c.mode === "solid") return c.solid;
+        let f;
+        if (c.mode === "gradient")
+          f = n > 1 ? i / (n - 1) : 0; // по параметру
+        else f = field ? field[Math.min(i, field.length - 1)] || 0 : 0; // §7: скорость/кривизна
+        const h = (((c.hueStart + f * c.hueSpan) % 360) + 360) % 360;
+        return `hsl(${h.toFixed(1)},${c.sat}%,${c.light}%)`;
+      }
+
+      /* ---------------------- Помощники рисования ----------------------------- */
+      function clearDraw() {
+        ctxDraw.clearRect(0, 0, state.view.W, state.view.H);
+      }
+      function clearOver() {
+        ctxOver.clearRect(0, 0, state.view.W, state.view.H);
+      }
+      function strokeCircle(ctx, x, y, rad, color, w = 1) {
+        ctx.beginPath();
+        ctx.arc(x, y, rad, 0, Math.PI * 2);
+        ctx.strokeStyle = color;
+        ctx.lineWidth = w;
+        ctx.stroke();
+      }
+      function lineSeg(ctx, a, b, color, w = 1) {
+        ctx.beginPath();
+        ctx.moveTo(a[0], a[1]);
+        ctx.lineTo(b[0], b[1]);
+        ctx.strokeStyle = color;
+        ctx.lineWidth = w;
+        ctx.stroke();
+      }
+      function dot(ctx, p, rad, color) {
+        ctx.beginPath();
+        ctx.arc(p[0], p[1], rad, 0, Math.PI * 2);
+        ctx.fillStyle = color;
+        ctx.fill();
+      }
+
+      // v2: калейдоскоп — применяет N поворотных (и опц. зеркальных) копий вокруг центра.
+      function forEachSymmetry(ctx, cfg, fn) {
+        const sym = cfg.symmetry || { count: 1, mirror: false };
+        const cnt = Math.max(1, sym.count | 0);
+        const { cx, cy } = state.view;
+        const copies = [];
+        for (let j = 0; j < cnt; j++)
+          copies.push({ rot: (j * 2 * Math.PI) / cnt, mir: false });
+        if (sym.mirror)
+          for (let j = 0; j < cnt; j++)
+            copies.push({ rot: (j * 2 * Math.PI) / cnt, mir: true });
+        for (const c of copies) {
+          ctx.save();
+          ctx.translate(cx, cy);
+          if (c.mir) ctx.scale(-1, 1);
+          ctx.rotate(c.rot);
+          ctx.translate(-cx, -cy);
+          fn();
+          ctx.restore();
+        }
+      }
+
+      // §9 отрисовка диапазона сегментов [from..to] с учётом цвета, каллиграфии и симметрии.
+      function strokeRange(ctx, pts, from, to, cfg, widths, field, lwMul) {
+        if (to <= from) return;
+        lwMul = lwMul || 1;
+        ctx.lineJoin = "round";
+        ctx.lineCap = "round";
+        const n = pts.length;
+        const solidFast = cfg.color.mode === "solid" && !(cfg.calligraphy > 0);
+        forEachSymmetry(ctx, cfg, () => {
+          if (solidFast) {
+            ctx.lineWidth = cfg.lineWidth * lwMul;
+            ctx.strokeStyle = cfg.color.solid;
+            ctx.beginPath();
+            ctx.moveTo(pts[from][0], pts[from][1]);
+            for (let i = from + 1; i <= to; i++)
+              ctx.lineTo(pts[i][0], pts[i][1]);
+            ctx.stroke();
+          } else {
+            for (let i = from; i < to; i++) {
+              ctx.strokeStyle = colorAt(cfg, i, n, field);
+              ctx.lineWidth = (widths ? widths[i] : cfg.lineWidth) * lwMul;
+              ctx.beginPath();
+              ctx.moveTo(pts[i][0], pts[i][1]);
+              ctx.lineTo(pts[i + 1][0], pts[i + 1][1]);
+              ctx.stroke();
+            }
+          }
+        });
+      }
+      // целиком (или до upto)
+      function strokePolyline(ctx, pts, cfg, upto, widths, field, lwMul) {
+        const n = pts.length;
+        const end = upto == null ? n - 1 : Math.min(upto, n - 1);
+        strokeRange(ctx, pts, 0, end, cfg, widths, field, lwMul);
+      }
+
+      /* -------------------- §5.3 Катящиеся окружности ------------------------- */
+      const BRASS_RING = "rgba(201,162,75,.28)";
+      const BRASS_WHEEL = "rgba(201,162,75,.5)";
+      const BRASS_SPOKE = "rgba(201,162,75,.55)";
+      function drawOverlayGears(layer, i) {
+        clearOver();
+        if (!state.anim.showGears) return;
+        const cfg = layer.config,
+          m = layer.meta,
+          s = state.view.scale;
+        const { cx, cy } = state.view;
+        const t =
+          layer.pts.length > 1 ? (i / (layer.pts.length - 1)) * m.tMax : 0;
+        // кумулятивные суммы эпициклов: P[0]=центр, P[j+1]=P[j]+term_j
+        let sxw = 0,
+          syw = 0;
+        const P = [[cx, cy]];
+        for (const term of m.terms) {
+          sxw += term.amp * Math.cos(term.freq * t + term.ph);
+          syw += term.amp * Math.sin(term.freq * t + term.ph);
+          P.push([cx + sxw * s, cy + syw * s]);
+        }
+        const pen = layer.pts[Math.min(i, layer.pts.length - 1)]; // итоговое перо
+
+        strokeCircle(ctxOver, cx, cy, cfg.R * s, BRASS_RING, 1); // неподвижное кольцо
+        strokeCircle(ctxOver, P[1][0], P[1][1], cfg.r * s, BRASS_WHEEL, 1); // колесо 1 (радиус r) в точке арма
+        lineSeg(ctxOver, P[1], P[2], BRASS_SPOKE, 1); // спица колеса 1
+        dot(ctxOver, P[1], 2.5, "rgba(201,162,75,.7)"); // ось колеса 1
+        // гармоники: эпицикл term_ti центрирован в P[ti], перо в P[ti+1] (показываем до 2 звеньев)
+        for (let ti = 2; ti < m.terms.length && ti <= 3; ti++) {
+          strokeCircle(
+            ctxOver,
+            P[ti][0],
+            P[ti][1],
+            Math.abs(m.terms[ti].amp) * s,
+            "rgba(99,179,161,.5)",
+            1,
+          );
+          dot(ctxOver, P[ti], 2.2, "rgba(99,179,161,.8)");
+          lineSeg(ctxOver, P[ti], P[ti + 1], "rgba(99,179,161,.55)", 1);
+        }
+        dot(ctxOver, pen, 3.5, "#f3ead2"); // перо
+      }
+
+      /* ---------------------- §7 Предпросмотр контура ------------------------- */
+      function drawPreview() {
+        if (state.live.on) return; // §5: живой цикл владеет overlay
+        clearOver();
+        if (!state.preview || state.anim.running) return;
+        const cfg = state.active;
+        const { pts, widths, cfield } = buildPoints(cfg);
+        ctxOver.save();
+        ctxOver.globalAlpha = 0.28;
+        strokePolyline(
+          ctxOver,
+          pts,
+          { ...cfg, lineWidth: Math.max(0.6, cfg.lineWidth * 0.7) },
+          null,
+          widths,
+          cfield,
+        );
+        ctxOver.restore();
+      }
+
+      /* ---------------------- §8 Чертёжные направляющие ----------------------- */
+      function drawGuides(ctx, view, lwMul) {
+        lwMul = lwMul || 1;
+        const { W, H, cx, cy } = view;
+        ctx.clearRect(0, 0, W, H);
+        if (!state.guides.on) return;
+        const R = Math.min(W, H) / 2 - MARGIN * lwMul;
+        if (R <= 0) return;
+        ctx.save();
+        ctx.lineWidth = 1 * lwMul;
+        const rings = Math.max(1, state.guides.rings | 0);
+        ctx.strokeStyle = "rgba(139,144,160,0.18)";
+        for (let k = 1; k <= rings; k++) {
+          ctx.beginPath();
+          ctx.arc(cx, cy, (R * k) / rings, 0, Math.PI * 2);
+          ctx.stroke();
+        }
+        const rays = Math.max(0, state.guides.rays | 0);
+        ctx.strokeStyle = "rgba(139,144,160,0.14)";
+        for (let j = 0; j < rays; j++) {
+          const a = (j * 2 * Math.PI) / rays;
+          ctx.beginPath();
+          ctx.moveTo(cx, cy);
+          ctx.lineTo(cx + R * Math.cos(a), cy + R * Math.sin(a));
+          ctx.stroke();
+        }
+        ctx.strokeStyle = "rgba(201,162,75,0.22)"; // латунное перекрестие
+        ctx.beginPath();
+        ctx.moveTo(cx - R, cy);
+        ctx.lineTo(cx + R, cy);
+        ctx.moveTo(cx, cy - R);
+        ctx.lineTo(cx, cy + R);
+        ctx.stroke();
+        if (state.guides.frame) {
+          const m = MARGIN * lwMul;
+          ctx.strokeStyle = "rgba(139,144,160,0.18)";
+          ctx.strokeRect(m, m, W - 2 * m, H - 2 * m);
+        }
+        ctx.restore();
+      }
+      function drawGuidesScreen() {
+        if (ctxGuides) drawGuides(ctxGuides, state.view, 1);
+      }
+      function svgGuides(cx, cy, W, H) {
+        if (!state.guides.on) return "";
+        const R = Math.min(W, H) / 2 - MARGIN;
+        if (R <= 0) return "";
+        let s = '<g fill="none">';
+        const rings = Math.max(1, state.guides.rings | 0);
+        for (let k = 1; k <= rings; k++)
+          s += `<circle cx="${cx}" cy="${cy}" r="${((R * k) / rings).toFixed(2)}" stroke="#8b90a0" stroke-opacity="0.18" stroke-width="1"/>`;
+        const rays = Math.max(0, state.guides.rays | 0);
+        for (let j = 0; j < rays; j++) {
+          const a = (j * 2 * Math.PI) / rays;
+          s += `<line x1="${cx}" y1="${cy}" x2="${(cx + R * Math.cos(a)).toFixed(2)}" y2="${(cy + R * Math.sin(a)).toFixed(2)}" stroke="#8b90a0" stroke-opacity="0.14" stroke-width="1"/>`;
+        }
+        s += `<line x1="${(cx - R).toFixed(2)}" y1="${cy}" x2="${(cx + R).toFixed(2)}" y2="${cy}" stroke="#c9a24b" stroke-opacity="0.22" stroke-width="1"/>`;
+        s += `<line x1="${cx}" y1="${(cy - R).toFixed(2)}" x2="${cx}" y2="${(cy + R).toFixed(2)}" stroke="#c9a24b" stroke-opacity="0.22" stroke-width="1"/>`;
+        if (state.guides.frame)
+          s += `<rect x="${MARGIN}" y="${MARGIN}" width="${(W - 2 * MARGIN).toFixed(2)}" height="${(H - 2 * MARGIN).toFixed(2)}" stroke="#8b90a0" stroke-opacity="0.18" stroke-width="1" fill="none"/>`;
+        s += "</g>";
+        return s;
+      }
+
+      /* -------------------- §5.5 Перерисовка композиции ----------------------- */
+      function repaintAll() {
+        recomputeView(state.active);
+        clearDraw();
+        for (const L of state.layers) {
+          const built = buildPoints(L.config); // пересчёт координат под текущий масштаб
+          L.pts = built.pts;
+          L.meta = built.meta;
+          L.dt = built.dt;
+          L.widths = built.widths;
+          L.cfield = built.cfield;
+          if (L.visible === false) continue; // v3: скрытые не рисуем (но в масштабе учтены)
+          ctxDraw.globalAlpha = L.opacity == null ? 1 : L.opacity; // v3: прозрачность слоя
+          if (L.done) {
+            strokePolyline(ctxDraw, L.pts, L.config, null, L.widths, L.cfield);
+          } else if (L === state.anim.layer) {
+            strokePolyline(
+              ctxDraw,
+              L.pts,
+              L.config,
+              state.anim.tIndex,
+              L.widths,
+              L.cfield,
+            ); // прогресс
+          }
+          ctxDraw.globalAlpha = 1;
+        }
+      }
+
+      /* ------------------------- §5.2 Анимация -------------------------------- */
+      // v2: тайминг-функция скорости черчения
+      function easeStep(base, p, mode) {
+        let f;
+        if (mode === "in") f = 0.15 + 1.7 * p;
+        else if (mode === "out") f = 0.15 + 1.7 * (1 - p);
+        else if (mode === "inout") f = 0.15 + 1.7 * (1 - Math.abs(2 * p - 1));
+        else f = 1; // linear
+        return Math.max(1, Math.round(base * f));
+      }
+      function frame() {
+        if (!state.anim.running) return;
+        const layer = state.anim.layer;
+        if (!layer) {
+          state.anim.running = false;
+          return;
+        }
+        const n = layer.pts.length;
+        const p = n > 1 ? state.anim.tIndex / (n - 1) : 1;
+        const step = easeStep(state.anim.speed, p, state.anim.easing);
+        const end = Math.min(state.anim.tIndex + step, n - 1);
+        ctxDraw.globalAlpha = layer.opacity == null ? 1 : layer.opacity; // v3
+        strokeRange(
+          ctxDraw,
+          layer.pts,
+          state.anim.tIndex,
+          end,
+          layer.config,
+          layer.widths,
+          layer.cfield,
+        );
+        ctxDraw.globalAlpha = 1;
+        state.anim.tIndex = end;
+        drawOverlayGears(layer, end);
+        if (state.audio.on && state.audio.active) audioFrame(layer, end); // §3
+
+        if (end >= n - 1) {
+          layer.done = true;
+          state.anim.running = false;
+          state.anim.layer = null;
+          clearOver();
+          syncAnimButtons();
+          drawPreview();
+          renderLayerList();
+          syncHash();
+          audioStop(); // §3: релиз звука
+          if (state.rec.active && state.rec.stopOnDone) {
+            // v2: завершить запись после черчения
+            state.rec.stopOnDone = false;
+            setTimeout(stopRecording, 450);
+          }
+          return;
+        }
+        requestAnimationFrame(frame);
+      }
+
+      /* ------------------------- Действия ------------------------------------- */
+      function commitLayer() {
+        // если что-то чертится — мгновенно завершаем текущий слой
+        if (state.anim.running || state.anim.layer) finishCurrent(true);
+
+        const cfg = JSON.parse(JSON.stringify(state.active));
+        const layer = {
+          id: "L" + Date.now() + Math.random().toString(36).slice(2, 6),
+          config: cfg,
+          pts: [],
+          meta: null,
+          dt: 0,
+          widths: null,
+          done: false,
+          name: nextLayerName(),
+          visible: true,
+          opacity: 1,
+        }; // v3
+        state.layers.push(layer);
+        state.selectedId = layer.id;
+        renderLayerList(); // v3: выделяем новый слой
+        recomputeView(state.active); // масштаб по всем слоям (вкл. новый)
+        repaintAll(); // перерисовать завершённые под новый масштаб
+        const built = buildPoints(cfg);
+        layer.pts = built.pts;
+        layer.meta = built.meta;
+        layer.dt = built.dt;
+        layer.widths = built.widths;
+        layer.cfield = built.cfield;
+
+        state.anim.layer = layer;
+        state.anim.tIndex = 0;
+        pushHistory(); // §6: слой зафиксирован
+        if (REDUCED) {
+          // reduced-motion → без анимации
+          finishCurrent(true);
+        } else {
+          state.anim.running = true;
+          syncAnimButtons();
+          if (state.audio.on) audioStart(layer); // §3: озвучивание черчения
+          requestAnimationFrame(frame);
+        }
+      }
+      function finishCurrent() {
+        const layer = state.anim.layer;
+        if (!layer) return;
+        ctxDraw.globalAlpha = layer.opacity == null ? 1 : layer.opacity; // v3
+        strokePolyline(
+          ctxDraw,
+          layer.pts,
+          layer.config,
+          null,
+          layer.widths,
+          layer.cfield,
+        ); // дорисовать целиком
+        ctxDraw.globalAlpha = 1;
+        layer.done = true;
+        state.anim.running = false;
+        state.anim.layer = null;
+        state.anim.tIndex = 0;
+        clearOver();
+        syncAnimButtons();
+        syncHash();
+        audioStop(); // §3
+      }
+      function pauseResume() {
+        if (!state.anim.layer) return;
+        if (state.anim.running) {
+          state.anim.running = false;
+          audioDuck(true);
+        } else {
+          state.anim.running = true;
+          audioDuck(false);
+          requestAnimationFrame(frame);
+        }
+        syncAnimButtons();
+      }
+      function skip() {
+        if (state.anim.layer) {
+          finishCurrent();
+          drawPreview();
+        }
+      }
+      /* ============================================================================
+   §6 v3: История undo/redo (стек снимков композиции)
+   ========================================================================== */
+      let historyLock = false;
+      function resetEditState() {
+        state.editing = false;
+        state.editDirty = false;
+        syncEditUI();
+      }
+      function historySnapshot() {
+        return {
+          background: state.background,
+          selectedId: state.selectedId,
+          layers: state.layers.map((L) => ({
+            id: L.id,
+            config: JSON.parse(JSON.stringify(L.config)),
+            name: L.name,
+            visible: L.visible !== false,
+            opacity: L.opacity == null ? 1 : L.opacity,
+          })),
+        };
+      }
+      function pushHistory() {
+        if (historyLock) return;
+        const h = state.history;
+        h.stack = h.stack.slice(0, h.index + 1);
+        h.stack.push(historySnapshot());
+        if (h.stack.length > h.limit) h.stack.shift();
+        h.index = h.stack.length - 1;
+        updateHistoryButtons();
+      }
+      function historyRestore(snap) {
+        historyLock = true;
+        try {
+          state.anim.running = false;
+          state.anim.layer = null;
+          state.anim.tIndex = 0;
+          audioStop();
+          resetEditState();
+          state.background = snap.background;
+          stage.style.background = snap.background;
+          const bg = document.getElementById("c-bg");
+          if (bg) bg.value = snap.background;
+          state.layers = snap.layers.map((s) => ({
+            id: s.id,
+            config: JSON.parse(JSON.stringify(s.config)),
+            pts: [],
+            meta: null,
+            dt: 0,
+            widths: null,
+            cfield: null,
+            done: true,
+            name: s.name,
+            visible: s.visible !== false,
+            opacity: s.opacity == null ? 1 : s.opacity,
+          }));
+          state.selectedId =
+            snap.selectedId &&
+            state.layers.some((L) => L.id === snap.selectedId)
+              ? snap.selectedId
+              : null;
+          recomputeView(state.active);
+          repaintAll();
+          renderLayerList();
+          syncAnimButtons();
+          if (!state.anim.running) drawPreview();
+          syncHash();
+        } finally {
+          historyLock = false;
+        }
+        updateHistoryButtons();
+      }
+      function historyUndo() {
+        const h = state.history;
+        if (h.index <= 0) {
+          toast("Нечего отменять");
+          return;
+        }
+        h.index--;
+        historyRestore(h.stack[h.index]);
+      }
+      function historyRedo() {
+        const h = state.history;
+        if (h.index >= h.stack.length - 1) {
+          toast("Нечего повторять");
+          return;
+        }
+        h.index++;
+        historyRestore(h.stack[h.index]);
+      }
+      function updateHistoryButtons() {
+        const h = state.history;
+        const u = document.getElementById("btn-undo"),
+          r = document.getElementById("btn-redo");
+        if (u) u.disabled = h.index <= 0;
+        if (r) r.disabled = h.index >= h.stack.length - 1;
+      }
+
+      function undo() {
+        if (state.anim.layer) finishCurrent();
+        if (!state.layers.length) {
+          toast("Слоёв нет");
+          return;
+        }
+        const removed = state.layers.pop();
+        if (state.selectedId === removed.id) {
+          state.selectedId = null;
+          if (state.editing) exitEdit();
+        }
+        recomputeView(state.active);
+        repaintAll();
+        if (!state.editing) drawPreview();
+        renderLayerList();
+        syncHash();
+      }
+      function clearAll(opts) {
+        state.anim.running = false;
+        state.anim.layer = null;
+        state.anim.tIndex = 0;
+        audioStop();
+        state.layers = [];
+        state.selectedId = null;
+        resetEditState();
+        recomputeView(state.active);
+        clearDraw();
+        clearOver();
+        syncAnimButtons();
+        drawPreview();
+        renderLayerList();
+        syncHash();
+        if (!opts || opts.history !== false) pushHistory(); // §6
+      }
+      function randomize() {
+        const R = randInt(40, 240);
+        let r = randInt(3, R - 1);
+        if (Math.random() < 0.5) r = coprimeNear(R, r);
+        state.active.type = Math.random() < 0.3 ? "epi" : "hypo";
+        if (state.active.type === "hypo") r = Math.min(r, R - 1);
+        state.active.R = R;
+        state.active.r = Math.max(3, r);
+        state.active.rho = round2(rand(0.3, 1.0));
+        state.active.color.mode = Math.random() < 0.35 ? "gradient" : "solid";
+        const h = randInt(0, 359);
+        state.active.color.solid = hslToHex(h, 68, 62);
+        state.active.color.hueStart = h;
+        state.active.color.hueSpan = [180, 300, 360, -360][randInt(0, 3)];
+        // v3 §4: изредка подмешиваем 1–2 гармоники и симметрию
+        const nh = Math.random() < 0.35 ? (Math.random() < 0.5 ? 1 : 2) : 0;
+        state.active.harmonics = [];
+        for (let hi = 0; hi < nh; hi++)
+          state.active.harmonics.push({
+            r: randInt(8, Math.max(9, Math.floor(R * 0.5))),
+            rho: round2(rand(0.3, 0.9)),
+            dir: Math.random() < 0.5 ? -1 : 1,
+          });
+        state.active.calligraphy =
+          Math.random() < 0.4 ? round2(rand(0.3, 0.9)) : 0;
+        state.active.symmetry = {
+          count: Math.random() < 0.4 ? randInt(2, 6) : 1,
+          mirror: Math.random() < 0.4,
+        };
+        syncUIFromActive();
+        refreshMeta();
+        recomputeView(state.active);
+        drawPreview();
+      }
+
+      /* ------------------------- §8 Экспорт / импорт -------------------------- */
+      function exportPNG() {
+        const transparent = document.getElementById("chk-transparent").checked;
+        const mult = clamp(
+          +((document.getElementById("sel-pngscale") || {}).value || 1),
+          1,
+          4,
+        );
+        if (mult <= 1) {
+          const tmp = document.createElement("canvas");
+          tmp.width = cDraw.width;
+          tmp.height = cDraw.height;
+          const tctx = tmp.getContext("2d");
+          if (!transparent) {
+            tctx.fillStyle = state.background;
+            tctx.fillRect(0, 0, tmp.width, tmp.height);
+          }
+          if (
+            state.guides.on &&
+            document.getElementById("chk-guides-export").checked
+          )
+            tctx.drawImage(cGuides, 0, 0); // §8
+          tctx.drawImage(cDraw, 0, 0); // только слой кривых, без шестерён
+          downloadURL(tmp.toDataURL("image/png"), "spirograph.png");
+          return;
+        }
+        renderPNGSupersampled(mult, transparent); // §9: плакатное разрешение
+      }
+      // §9: пересборка композиции во временный увеличенный вид (супердискретизация)
+      function renderPNGSupersampled(mult, transparent) {
+        const sv = state.view;
+        const tmp = document.createElement("canvas");
+        tmp.width = Math.round(sv.W * mult);
+        tmp.height = Math.round(sv.H * mult);
+        const tctx = tmp.getContext("2d");
+        tctx.lineJoin = "round";
+        tctx.lineCap = "round";
+        if (!transparent) {
+          tctx.fillStyle = state.background;
+          tctx.fillRect(0, 0, tmp.width, tmp.height);
+        }
+        state.view = {
+          W: sv.W * mult,
+          H: sv.H * mult,
+          scale: sv.scale * mult,
+          cx: sv.cx * mult,
+          cy: sv.cy * mult,
+        };
+        if (
+          state.guides.on &&
+          document.getElementById("chk-guides-export").checked
+        )
+          drawGuides(tctx, state.view, mult); // §8
+        try {
+          for (const L of state.layers) {
+            if (L.visible === false) continue;
+            const b = buildPoints(L.config);
+            tctx.globalAlpha = L.opacity == null ? 1 : L.opacity;
+            strokePolyline(
+              tctx,
+              b.pts,
+              L.config,
+              null,
+              b.widths,
+              b.cfield,
+              mult,
+            );
+            tctx.globalAlpha = 1;
+          }
+        } finally {
+          state.view = sv;
+        }
+        downloadURL(tmp.toDataURL("image/png"), "spirograph@" + mult + "x.png");
+      }
+      const SVG_MAX = 6000; // потолок точек на копию (децимация)
+      function symCopies(cfg) {
+        const sym = cfg.symmetry || { count: 1, mirror: false };
+        const cnt = Math.max(1, sym.count | 0);
+        const list = [];
+        for (let j = 0; j < cnt; j++)
+          list.push({ rot: (j * 2 * Math.PI) / cnt, mir: false });
+        if (sym.mirror)
+          for (let j = 0; j < cnt; j++)
+            list.push({ rot: (j * 2 * Math.PI) / cnt, mir: true });
+        return list;
+      }
+      function xform(p, c, cx, cy) {
+        // поворот (+опц. зеркало) вокруг центра
+        let x = p[0] - cx,
+          y = p[1] - cy;
+        if (c.mir) x = -x;
+        const co = Math.cos(c.rot),
+          si = Math.sin(c.rot);
+        return [cx + x * co - y * si, cy + x * si + y * co];
+      }
+      function exportSVG() {
+        const { W, H, cx, cy } = state.view;
+        const parts = [
+          `<svg xmlns="http://www.w3.org/2000/svg" width="${W}" height="${H}" viewBox="0 0 ${W} ${H}">`,
+        ];
+        const transparent = document.getElementById("chk-transparent").checked;
+        if (!transparent)
+          parts.push(
+            `<rect width="100%" height="100%" fill="${state.background}"/>`,
+          );
+        if (
+          state.guides.on &&
+          document.getElementById("chk-guides-export").checked
+        )
+          parts.push(svgGuides(cx, cy, W, H)); // §8
+        for (const L of state.layers) {
+          if (L.visible === false) continue; // v3: скрытые не экспортируем
+          const src = L.pts,
+            cfg = L.config,
+            widths = L.widths;
+          const op = L.opacity == null ? 1 : L.opacity;
+          if (op < 1) parts.push(`<g opacity="${op.toFixed(3)}">`); // v3: прозрачность слоя
+          const stride = Math.max(1, Math.ceil((src.length - 1) / SVG_MAX));
+          for (const c of symCopies(cfg)) {
+            const pts = [];
+            for (let i = 0; i < src.length; i += stride)
+              pts.push(xform(src[i], c, cx, cy));
+            const n = pts.length;
+            if (n < 2) continue;
+            const cap = `fill="none" stroke-linejoin="round" stroke-linecap="round"`;
+            if (cfg.color.mode === "solid" && !(cfg.calligraphy > 0)) {
+              parts.push(
+                `<path d="${pathD(pts, 0, n - 1)}" stroke="${cfg.color.solid}" stroke-width="${cfg.lineWidth}" ${cap}/>`,
+              );
+            } else {
+              const varField =
+                cfg.color.mode === "velocity" || cfg.color.mode === "curvature";
+              const chunks = cfg.calligraphy > 0 || varField ? 64 : 24,
+                step = Math.max(1, Math.floor((n - 1) / chunks));
+              for (let a = 0; a < n - 1; a += step) {
+                const b = Math.min(a + step, n - 1),
+                  mid = Math.floor((a + b) / 2);
+                const col = colorAt(cfg, mid * stride, src.length, L.cfield);
+                const w = widths
+                  ? widths[Math.min(mid * stride, widths.length - 1)]
+                  : cfg.lineWidth;
+                parts.push(
+                  `<path d="${pathD(pts, a, b)}" stroke="${col}" stroke-width="${w.toFixed(2)}" ${cap}/>`,
+                );
+              }
+            }
+          }
+          if (op < 1) parts.push("</g>"); // v3: закрыть группу прозрачности
+        }
+        parts.push("</svg>");
+        downloadBlob(parts.join("\n"), "spirograph.svg", "image/svg+xml");
+      }
+      function pathD(pts, a, b) {
+        let s = `M ${pts[a][0].toFixed(2)} ${pts[a][1].toFixed(2)}`;
+        for (let i = a + 1; i <= b; i++)
+          s += ` L ${pts[i][0].toFixed(2)} ${pts[i][1].toFixed(2)}`;
+        return s;
+      }
+      function exportJSON() {
+        const data = {
+          version: 2,
+          background: state.background,
+          layers: state.layers.map(layerRecord),
+        };
+        downloadBlob(
+          JSON.stringify(data, null, 2),
+          "spirograph.json",
+          "application/json",
+        );
+      }
+      function importJSON(text) {
+        let data;
+        try {
+          data = JSON.parse(text);
+        } catch (e) {
+          toast("Не удалось прочитать JSON", true);
+          return;
+        }
+        if (
+          !data ||
+          (data.version !== 1 && data.version !== 2) ||
+          !Array.isArray(data.layers)
+        ) {
+          toast("Неверный формат файла", true);
+          return;
+        }
+        clearAll({ history: false });
+        if (data.background && /^#[0-9a-fA-F]{6}$/.test(data.background)) {
+          state.background = data.background;
+          stage.style.background = data.background;
+          document.getElementById("c-bg").value = data.background;
+        }
+        for (const item of data.layers) {
+          const cfg = validateConfig(item.config);
+          if (!cfg) continue;
+          const built = buildPoints(cfg);
+          state.layers.push({
+            id: "L" + Math.random().toString(36).slice(2, 8),
+            config: cfg,
+            pts: built.pts,
+            meta: built.meta,
+            dt: built.dt,
+            widths: built.widths,
+            cfield: built.cfield,
+            done: true,
+            name:
+              typeof item.name === "string" && item.name
+                ? item.name.slice(0, 60)
+                : nextLayerName(),
+            visible: item.visible !== false,
+            opacity: item.opacity == null ? 1 : clamp(+item.opacity, 0, 1),
+          });
+        }
+        recomputeView();
+        repaintAll();
+        drawPreview();
+        renderLayerList();
+        syncHash();
+        pushHistory(); // §6
+        toast(`Загружено слоёв: ${state.layers.length}`);
+      }
+      // §8.3 валидация диапазонов при импорте
+      function validateConfig(c) {
+        if (!c || typeof c !== "object") return null;
+        const type = c.type === "epi" ? "epi" : "hypo";
+        let R = clamp(Math.round(+c.R || 96), 20, 300);
+        let rMax = type === "hypo" ? R - 1 : 200;
+        let r = clamp(Math.round(+c.r || 60), 3, rMax);
+        const rho = clamp(+c.rho || 0.8, 0, 1);
+        const lineWidth = clamp(+c.lineWidth || 1.2, 0.3, 6);
+        const cc = c.color || {};
+        const ns = c.symmetry || {};
+        // §4: harmonics из c.harmonics, либо миграция старого nested (v2)
+        let harmonics = [];
+        if (Array.isArray(c.harmonics)) {
+          harmonics = c.harmonics
+            .slice(0, 6)
+            .filter((h) => h && +h.r > 0)
+            .map((h) => ({
+              r: clamp(Math.round(+h.r || 24), 3, 200),
+              rho: clamp(+h.rho || 0.6, 0, 1),
+              dir: +h.dir < 0 ? -1 : 1,
+            }));
+        } else if (c.nested && c.nested.on) {
+          harmonics = [
+            {
+              r: clamp(Math.round(+c.nested.r2 || 24), 3, 200),
+              rho: clamp(+c.nested.rho2 || 0.6, 0, 1),
+              dir: +c.nested.dir < 0 ? -1 : 1,
+            },
+          ];
+        }
+        return {
+          type,
+          R,
+          r,
+          rho,
+          lineWidth,
+          color: {
+            mode: ["gradient", "velocity", "curvature"].includes(cc.mode)
+              ? cc.mode
+              : "solid",
+            solid: /^#[0-9a-fA-F]{6}$/.test(cc.solid || "")
+              ? cc.solid
+              : "#8ec9d9",
+            hueStart: clamp(+cc.hueStart || 200, 0, 360),
+            hueSpan: clamp(+cc.hueSpan || 300, -720, 720),
+            sat: clamp(+cc.sat || 70, 0, 100),
+            light: clamp(+cc.light || 60, 0, 100),
+          },
+          harmonics,
+          calligraphy: clamp(+c.calligraphy || 0, 0, 1),
+          symmetry: {
+            count: clamp(Math.round(+ns.count || 1), 1, 12),
+            mirror: !!ns.mirror,
+          },
+        };
+      }
+
+      /* ------------------------- Файловые помощники --------------------------- */
+      function downloadURL(url, name) {
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = name;
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+      }
+      function downloadBlob(text, name, mime) {
+        const b = new Blob([text], { type: mime });
+        const u = URL.createObjectURL(b);
+        downloadURL(u, name);
+        setTimeout(() => URL.revokeObjectURL(u), 1000);
+      }
+
+      /* ------------------------- v2: Deep-link (URL-хэш) ---------------------- */
+      function b64enc(s) {
+        return btoa(unescape(encodeURIComponent(s)));
+      }
+      function b64dec(s) {
+        return decodeURIComponent(escape(atob(s)));
+      }
+      function compositionJSON() {
+        return JSON.stringify({
+          version: 2,
+          background: state.background,
+          layers: state.layers.map(layerRecord),
+        });
+      }
+      let hashGuard = false; // чтобы не реагировать на собственную запись хэша
+      function syncHash() {
+        try {
+          hashGuard = true;
+          const j = compositionJSON();
+          location.hash = state.layers.length ? "s=" + b64enc(j) : "";
+          setTimeout(() => (hashGuard = false), 0);
+        } catch (e) {
+          /* хэш не критичен */
+        }
+      }
+      function loadFromHash() {
+        const h = location.hash || "";
+        const m = h.match(/^#?s=(.+)$/);
+        if (!m) return false;
+        try {
+          importJSON(b64dec(m[1]));
+          return true;
+        } catch (e) {
+          return false;
+        }
+      }
+      function copyShareLink() {
+        syncHash();
+        const url = location.href;
+        const done = () => toast("Ссылка скопирована");
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+          navigator.clipboard
+            .writeText(url)
+            .then(done, () => prompt("Скопируйте ссылку:", url));
+        } else {
+          prompt("Скопируйте ссылку:", url);
+        }
+      }
+
+      /* ------------------------- v2: Запись WebM ------------------------------ */
+      function recSupported() {
+        return (
+          typeof MediaRecorder !== "undefined" &&
+          typeof cDraw.captureStream === "function"
+        );
+      }
+      function pickMime() {
+        const c = [
+          "video/webm;codecs=vp9",
+          "video/webm;codecs=vp8",
+          "video/webm",
+        ];
+        for (const m of c)
+          if (MediaRecorder.isTypeSupported && MediaRecorder.isTypeSupported(m))
+            return m;
+        return "video/webm";
+      }
+      function toggleRecord() {
+        if (state.rec.active) {
+          stopRecording();
+          return;
+        }
+        if (!recSupported()) {
+          toast("Запись видео не поддерживается в этом браузере", true);
+          return;
+        }
+        if (state.audio.on) ensureAudio(); // §3.5: аудиодорожка в запись
+        startRecording();
+        if (state.live.on) {
+          // §5: записываем живой режим фиксированной длительности
+          state.rec.stopOnDone = false;
+          const dur = Math.max(4000, state.live.period * 2000);
+          setTimeout(() => {
+            if (state.rec.active) stopRecording();
+          }, dur);
+          toast("Записываю живой режим…");
+        } else {
+          state.rec.stopOnDone = true;
+          commitLayer();
+        }
+      }
+      function startRecording() {
+        const rec = state.rec;
+        const cvs = document.createElement("canvas");
+        cvs.width = cDraw.width;
+        cvs.height = cDraw.height;
+        const cx = cvs.getContext("2d");
+        rec.canvas = cvs;
+        rec.ctx = cx;
+        rec.chunks = [];
+        const compose = () => {
+          cx.fillStyle = state.background;
+          cx.fillRect(0, 0, cvs.width, cvs.height);
+          cx.drawImage(cDraw, 0, 0);
+          if (state.anim.showGears || state.live.on) cx.drawImage(cOver, 0, 0); // §5: захват живого слоя
+          rec.raf = requestAnimationFrame(compose);
+        };
+        compose();
+        let stream = cvs.captureStream(30);
+        // §3.5: добавить аудиодорожку озвучивания, если оно включено
+        if (state.audio.on && state.audio.dest) {
+          const at = state.audio.dest.stream.getAudioTracks();
+          if (at.length) {
+            stream = new MediaStream([...stream.getVideoTracks(), ...at]);
+          }
+        }
+        let recorder;
+        try {
+          recorder = new MediaRecorder(stream, { mimeType: pickMime() });
+        } catch (e) {
+          recorder = new MediaRecorder(stream);
+        }
+        recorder.ondataavailable = (e) => {
+          if (e.data && e.data.size) rec.chunks.push(e.data);
+        };
+        recorder.onstop = () => {
+          cancelAnimationFrame(rec.raf);
+          const blob = new Blob(rec.chunks, { type: "video/webm" });
+          const u = URL.createObjectURL(blob);
+          downloadURL(u, "spirograph.webm");
+          setTimeout(() => URL.revokeObjectURL(u), 1500);
+          rec.active = false;
+          rec.recorder = null;
+          syncRecButton();
+          toast("Видео сохранено");
+        };
+        rec.recorder = recorder;
+        rec.active = true;
+        recorder.start();
+        syncRecButton();
+        toast("Идёт запись…");
+      }
+      function stopRecording() {
+        const rec = state.rec;
+        if (rec.recorder && rec.recorder.state !== "inactive") {
+          try {
+            rec.recorder.stop();
+          } catch (e) {}
+        } else {
+          cancelAnimationFrame(rec.raf);
+          rec.active = false;
+          syncRecButton();
+        }
+      }
+      function syncRecButton() {
+        const b = document.getElementById("btn-rec");
+        if (!b) return;
+        b.textContent = state.rec.active ? "■ Стоп записи" : "● Записать WebM";
+        b.classList.toggle("ghost-danger", state.rec.active);
+      }
+
+      /* ============================================================================
+   §3 v3: Озвучивание черчения (Web Audio, аддитивный синтез)
+   Кривая = сумма синусоид Σ aⱼ·e^{iωⱼt} → банк осцилляторов «поёт» её спектр.
+   ========================================================================== */
+      function audioSupported() {
+        return (
+          typeof (window.AudioContext || window.webkitAudioContext) !==
+          "undefined"
+        );
+      }
+      function ensureAudio() {
+        const A = state.audio;
+        if (A.ctx) {
+          if (A.ctx.state === "suspended") A.ctx.resume();
+          return true;
+        }
+        if (!audioSupported()) return false;
+        const Ctx = window.AudioContext || window.webkitAudioContext;
+        const ctx = new Ctx();
+        const master = ctx.createGain();
+        master.gain.value = 0; // огибающая-мастер
+        const filter = ctx.createBiquadFilter();
+        filter.type = "lowpass";
+        filter.frequency.value = 8000; // яркость
+        const pan = ctx.createStereoPanner ? ctx.createStereoPanner() : null; // панорама
+        const dest = ctx.createMediaStreamDestination
+          ? ctx.createMediaStreamDestination()
+          : null; // для записи
+        master.connect(filter);
+        const tail = pan ? (filter.connect(pan), pan) : filter;
+        tail.connect(ctx.destination);
+        if (dest) tail.connect(dest);
+        Object.assign(A, { ctx, master, filter, pan, dest });
+        if (ctx.state === "suspended") ctx.resume();
+        return true;
+      }
+      function audioStopVoices() {
+        const A = state.audio,
+          now = A.ctx ? A.ctx.currentTime : 0;
+        A.nodes.forEach((v) => {
+          try {
+            v.gain.gain.cancelScheduledValues(now);
+            v.gain.gain.setValueAtTime(0, now);
+            v.osc.stop(now + 0.02);
+          } catch (e) {}
+          setTimeout(() => {
+            try {
+              v.osc.disconnect();
+              v.gain.disconnect();
+            } catch (e) {}
+          }, 60);
+        });
+        A.nodes = [];
+        if (A.traceOsc) {
+          try {
+            A.traceOsc.stop(now + 0.02);
+          } catch (e) {}
+          setTimeout(() => {
+            try {
+              A.traceOsc.disconnect();
+              A.traceGain.disconnect();
+            } catch (e) {}
+          }, 60);
+          A.traceOsc = null;
+          A.traceGain = null;
+        }
+      }
+      function noteFreq(f0, ratio, temper) {
+        let f = f0 * Math.abs(ratio);
+        if (temper && ratio !== 0) {
+          const n = Math.round(12 * Math.log2(Math.abs(ratio)));
+          f = f0 * Math.pow(2, n / 12);
+        }
+        return clamp(f, 20, 5000);
+      }
+      function audioStart(layer) {
+        const A = state.audio;
+        if (!A.on || !ensureAudio()) return;
+        audioStopVoices();
+        A.active = true;
+        A.lastLobe = -1;
+        const now = A.ctx.currentTime,
+          atk = 0.12;
+        A.master.gain.cancelScheduledValues(now);
+        A.master.gain.setValueAtTime(
+          Math.max(0.0001, A.master.gain.value),
+          now,
+        );
+        A.master.gain.linearRampToValueAtTime(A.volume, now + atk);
+        if (A.mode === "chord") buildChord(layer.meta);
+        else if (A.mode === "trace") buildTrace();
+        // ticks: голоса создаются по событию лоба
+      }
+      function buildChord(meta) {
+        const A = state.audio,
+          ctx = A.ctx,
+          now = ctx.currentTime,
+          atk = 0.12;
+        const terms = meta.terms
+          .slice()
+          .sort((a, b) => Math.abs(b.amp) - Math.abs(a.amp))
+          .slice(0, 16); // топ-16
+        const sum = terms.reduce((s, t) => s + Math.abs(t.amp), 0) || 1;
+        for (const t of terms) {
+          const osc = ctx.createOscillator();
+          osc.type = A.wave;
+          osc.frequency.value = noteFreq(A.f0, t.freq, A.temper);
+          const g = ctx.createGain();
+          g.gain.value = 0;
+          osc.connect(g);
+          g.connect(A.master);
+          osc.start(now);
+          g.gain.linearRampToValueAtTime(Math.abs(t.amp) / sum, now + atk);
+          A.nodes.push({ osc, gain: g });
+        }
+      }
+      function buildTrace() {
+        const A = state.audio,
+          ctx = A.ctx,
+          now = ctx.currentTime,
+          atk = 0.12;
+        const osc = ctx.createOscillator();
+        osc.type = A.wave;
+        osc.frequency.value = A.f0;
+        const g = ctx.createGain();
+        g.gain.value = 0;
+        osc.connect(g);
+        g.connect(A.master);
+        osc.start(now);
+        g.gain.linearRampToValueAtTime(1, now + atk);
+        A.traceOsc = osc;
+        A.traceGain = g;
+      }
+      function audioStop() {
+        const A = state.audio;
+        if (!A.ctx || !A.active) {
+          A.active = false;
+          return;
+        }
+        const now = A.ctx.currentTime,
+          rel = 0.4;
+        A.master.gain.cancelScheduledValues(now);
+        A.master.gain.setValueAtTime(A.master.gain.value, now);
+        A.master.gain.linearRampToValueAtTime(0, now + rel);
+        A.active = false;
+        setTimeout(audioStopVoices, rel * 1000 + 40);
+      }
+      function audioDuck(down) {
+        const A = state.audio;
+        if (!A.ctx || !A.active) return;
+        const now = A.ctx.currentTime;
+        A.master.gain.cancelScheduledValues(now);
+        A.master.gain.setValueAtTime(A.master.gain.value, now);
+        A.master.gain.linearRampToValueAtTime(
+          down ? 0.0001 : A.volume,
+          now + 0.12,
+        );
+      }
+      function setAudioVolume(v) {
+        const A = state.audio;
+        A.volume = clamp(v, 0, 1);
+        if (A.ctx && A.active) {
+          const now = A.ctx.currentTime;
+          A.master.gain.cancelScheduledValues(now);
+          A.master.gain.setValueAtTime(A.master.gain.value, now);
+          A.master.gain.linearRampToValueAtTime(A.volume, now + 0.05);
+        }
+      }
+      // вызывается каждый кадр анимации
+      function audioFrame(layer, idx) {
+        const A = state.audio;
+        if (!A.ctx || !A.active) return;
+        const pen = layer.pts[idx],
+          now = A.ctx.currentTime;
+        if (A.pan) {
+          const px = clamp(
+            (pen[0] - state.view.cx) / (state.view.W / 2 || 1),
+            -1,
+            1,
+          );
+          A.pan.pan.setTargetAtTime(px, now, 0.03);
+        } // панорама по X
+        if (idx > 0) {
+          const q = layer.pts[idx - 1];
+          const seg = Math.hypot(pen[0] - q[0], pen[1] - q[1]);
+          A.filter.frequency.setTargetAtTime(
+            clamp(500 + seg * 260, 500, 8000),
+            now,
+            0.05,
+          );
+        } // яркость по скорости
+        if (A.mode === "trace" && A.traceOsc) {
+          const rad =
+            Math.hypot(pen[0] - state.view.cx, pen[1] - state.view.cy) /
+            (state.view.scale || 1);
+          const ratio = clamp(rad / (layer.meta.maxR || 1), 0, 1);
+          A.traceOsc.frequency.setTargetAtTime(
+            A.f0 * (1 + 3 * ratio),
+            now,
+            0.02,
+          );
+        }
+        if (A.mode === "ticks") {
+          const n = layer.pts.length,
+            p = n > 1 ? idx / (n - 1) : 1;
+          const lobes =
+            Number.isFinite(layer.meta.lobes) && layer.meta.lobes
+              ? layer.meta.lobes
+              : layer.meta.N_rev;
+          const li = Math.floor(p * lobes);
+          if (li > A.lastLobe) {
+            A.lastLobe = li;
+            playTick();
+          }
+        }
+      }
+      function playTick() {
+        const A = state.audio,
+          ctx = A.ctx,
+          now = ctx.currentTime;
+        const osc = ctx.createOscillator();
+        osc.type = "sine";
+        osc.frequency.value = A.f0 * 3;
+        const g = ctx.createGain();
+        g.gain.setValueAtTime(0.0001, now);
+        g.gain.linearRampToValueAtTime(
+          Math.max(0.02, A.volume * 0.7),
+          now + 0.005,
+        );
+        g.gain.exponentialRampToValueAtTime(0.0005, now + 0.12);
+        osc.connect(g);
+        g.connect(A.master);
+        osc.start(now);
+        osc.stop(now + 0.14);
+        setTimeout(() => {
+          try {
+            osc.disconnect();
+            g.disconnect();
+          } catch (e) {}
+        }, 200);
+      }
+
+      /* ------------------------- v2: Тема ------------------------------------- */
+      function setTheme(mode) {
+        state.theme = mode;
+        document.body.classList.toggle("light", mode === "light");
+        const btn = document.getElementById("btn-theme");
+        if (btn) btn.textContent = mode === "light" ? "☾" : "☀";
+      }
+
+      /* ------------------------- Цветовые помощники --------------------------- */
+      function hslToHex(h, s, l) {
+        s /= 100;
+        l /= 100;
+        const k = (n) => (n + h / 30) % 12;
+        const a = s * Math.min(l, 1 - l);
+        const f = (n) => {
+          const c =
+            l - a * Math.max(-1, Math.min(k(n) - 3, Math.min(9 - k(n), 1)));
+          return Math.round(255 * c)
+            .toString(16)
+            .padStart(2, "0");
+        };
+        return `#${f(0)}${f(8)}${f(4)}`;
+      }
+
+      /* --------------------------- Toast -------------------------------------- */
+      let toastTimer = null;
+      function toast(msg, warn) {
+        toastEl.textContent = msg;
+        toastEl.classList.toggle("warn", !!warn);
+        toastEl.classList.add("show");
+        clearTimeout(toastTimer);
+        toastTimer = setTimeout(() => toastEl.classList.remove("show"), 2200);
+      }
+
+      /* ============================================================================
+   §6 UI: генерация контролов и связывание
+   ========================================================================== */
+      const NUM_PARAMS = [
+        {
+          key: "R",
+          label: "Кольцо R",
+          min: 20,
+          max: 300,
+          step: 1,
+          fmt: (v) => v,
+        },
+        {
+          key: "r",
+          label: "Колесо r",
+          min: 3,
+          max: 299,
+          step: 1,
+          fmt: (v) => v,
+        },
+        {
+          key: "rho",
+          label: "Вынос пера ρ",
+          min: 0,
+          max: 1,
+          step: 0.01,
+          fmt: (v) => v.toFixed(2),
+        },
+        {
+          key: "lineWidth",
+          label: "Толщина линии",
+          min: 0.3,
+          max: 6,
+          step: 0.1,
+          fmt: (v) => v.toFixed(1),
+        },
+      ];
+      const GRAD_PARAMS = [
+        {
+          path: ["hueStart"],
+          label: "Hue старт",
+          min: 0,
+          max: 360,
+          step: 1,
+          fmt: (v) => v + "°",
+        },
+        {
+          path: ["hueSpan"],
+          label: "Hue диапазон",
+          min: -720,
+          max: 720,
+          step: 1,
+          fmt: (v) => v + "°",
+        },
+        {
+          path: ["sat"],
+          label: "Насыщенность",
+          min: 0,
+          max: 100,
+          step: 1,
+          fmt: (v) => v + "%",
+        },
+        {
+          path: ["light"],
+          label: "Светлота",
+          min: 0,
+          max: 100,
+          step: 1,
+          fmt: (v) => v + "%",
+        },
+      ];
+      const ANIM_PARAMS = [
+        {
+          key: "speed",
+          label: "Скорость",
+          min: 1,
+          max: 200,
+          step: 1,
+          fmt: (v) => v + " сегм/кадр",
+        },
+      ];
+      // v3 §4: конфиги полей одной гармоники
+      const HARM_R = { min: 3, max: 200, step: 1, fmt: (v) => v };
+      const HARM_RHO = { min: 0, max: 1, step: 0.01, fmt: (v) => v.toFixed(2) };
+      const CALLI_PARAM = {
+        key: "calligraphy",
+        label: "Каллиграфия",
+        min: 0,
+        max: 1,
+        step: 0.01,
+        fmt: (v) => (v ? v.toFixed(2) : "выкл"),
+      };
+      const SYM_PARAM = {
+        key: "count",
+        label: "Копий симметрии",
+        min: 1,
+        max: 12,
+        step: 1,
+        fmt: (v) => (v > 1 ? "×" + v : "выкл"),
+      };
+      const AUDIO_PARAMS = [
+        {
+          key: "volume",
+          label: "Громкость",
+          min: 0,
+          max: 1,
+          step: 0.01,
+          fmt: (v) => Math.round(v * 100) + "%",
+        },
+        {
+          key: "f0",
+          label: "Базовая нота",
+          min: 40,
+          max: 330,
+          step: 1,
+          fmt: (v) => v + " Гц",
+        },
+      ];
+      const LIVE_PARAMS = [
+        {
+          key: "period",
+          label: "Период",
+          min: 0.5,
+          max: 12,
+          step: 0.1,
+          fmt: (v) => v.toFixed(1) + " с",
+        },
+        {
+          key: "amp",
+          label: "Амплитуда",
+          min: 0,
+          max: 1,
+          step: 0.01,
+          fmt: (v) => Math.round(v * 100) + "%",
+        },
+      ];
+      const refs = {}; // key -> {range,num,valEl}
+
+      function makeField(container, label, cfg, getVal, setVal) {
+        const wrap = document.createElement("div");
+        wrap.className = "field";
+        const lab = document.createElement("label");
+        const span = document.createElement("span");
+        span.textContent = label;
+        const val = document.createElement("span");
+        val.className = "val";
+        lab.appendChild(span);
+        lab.appendChild(val);
+        const row = document.createElement("div");
+        row.className = "row";
+        const range = document.createElement("input");
+        range.type = "range";
+        range.min = cfg.min;
+        range.max = cfg.max;
+        range.step = cfg.step;
+        const num = document.createElement("input");
+        num.type = "number";
+        num.min = cfg.min;
+        num.max = cfg.max;
+        num.step = cfg.step;
+        row.appendChild(range);
+        row.appendChild(num);
+        wrap.appendChild(lab);
+        wrap.appendChild(row);
+        container.appendChild(wrap);
+
+        function reflect() {
+          const v = getVal();
+          range.value = v;
+          num.value = v;
+          val.textContent = cfg.fmt(v);
+        }
+        range.addEventListener("input", () => {
+          setVal(clamp(+range.value, cfg.min, cfg.max));
+          reflect();
+          onActiveChanged();
+        });
+        // §10: крупный шаг стрелками с Shift (×10)
+        range.addEventListener("keydown", (e) => {
+          if (!e.shiftKey) return;
+          const big = cfg.step * 10;
+          if (e.key === "ArrowRight" || e.key === "ArrowUp") {
+            e.preventDefault();
+            range.value = clamp(+range.value + big, cfg.min, cfg.max);
+            range.dispatchEvent(new Event("input"));
+          } else if (e.key === "ArrowLeft" || e.key === "ArrowDown") {
+            e.preventDefault();
+            range.value = clamp(+range.value - big, cfg.min, cfg.max);
+            range.dispatchEvent(new Event("input"));
+          }
+        });
+        num.addEventListener("input", () => {
+          let v = +num.value;
+          if (isNaN(v)) return;
+          v = clamp(v, cfg.min, cfg.max);
+          setVal(v);
+          reflect();
+          onActiveChanged();
+        });
+        num.addEventListener("blur", reflect);
+        return { reflect, range, num, val, cfg };
+      }
+
+      function buildUI() {
+        // числовые параметры кривой
+        const cont = document.getElementById("numeric-params");
+        NUM_PARAMS.forEach((p) => {
+          refs[p.key] = makeField(
+            cont,
+            p.label,
+            p,
+            () => state.active[p.key],
+            (v) => {
+              state.active[p.key] = v;
+              if (p.key === "R") clampRToRing();
+            },
+          );
+        });
+        // градиентные параметры
+        const gcont = document.getElementById("color-gradient");
+        GRAD_PARAMS.forEach((p) => {
+          refs["g_" + p.path[0]] = makeField(
+            gcont,
+            p.label,
+            p,
+            () => state.active.color[p.path[0]],
+            (v) => {
+              state.active.color[p.path[0]] = v;
+            },
+          );
+        });
+        // анимация
+        const acont = document.getElementById("anim-params");
+        ANIM_PARAMS.forEach((p) => {
+          refs[p.key] = makeField(
+            acont,
+            p.label,
+            p,
+            () => state.anim[p.key],
+            (v) => {
+              state.anim[p.key] = v;
+            },
+          );
+        });
+        // §3: звук — ползунки громкости и базовой ноты
+        const audcont = document.getElementById("audio-sliders");
+        AUDIO_PARAMS.forEach((p) => {
+          refs["a_" + p.key] = makeField(
+            audcont,
+            p.label,
+            p,
+            () => state.audio[p.key],
+            (v) => {
+              if (p.key === "volume") setAudioVolume(v);
+              else state.audio[p.key] = v;
+            },
+          );
+        });
+
+        // v2: каллиграфия
+        refs.calli = makeField(
+          document.getElementById("calli-param"),
+          CALLI_PARAM.label,
+          CALLI_PARAM,
+          () => state.active.calligraphy,
+          (v) => {
+            state.active.calligraphy = v;
+          },
+        );
+        // v2: симметрия
+        refs.sym = makeField(
+          document.getElementById("sym-param"),
+          SYM_PARAM.label,
+          SYM_PARAM,
+          () => state.active.symmetry.count,
+          (v) => {
+            state.active.symmetry.count = v;
+          },
+        );
+
+        // §4: гармоники — динамический список
+        document
+          .getElementById("btn-harm-add")
+          .addEventListener("click", () => {
+            if (state.active.harmonics.length >= 6) {
+              toast("Максимум 6 гармоник");
+              return;
+            }
+            state.active.harmonics.push({ r: 24, rho: 0.6, dir: -1 });
+            renderHarmonics();
+            onActiveChanged();
+          });
+        renderHarmonics();
+        // v2: зеркальные копии
+        document
+          .getElementById("chk-mirror")
+          .addEventListener("change", (e) => {
+            state.active.symmetry.mirror = e.target.checked;
+            onActiveChanged();
+          });
+        // v2: разгон анимации
+        document.getElementById("sel-ease").addEventListener("change", (e) => {
+          state.anim.easing = e.target.value;
+        });
+        // §3: звук — переключатели
+        document.getElementById("chk-audio").addEventListener("change", (e) => {
+          state.audio.on = e.target.checked;
+          document.getElementById("audio-params").style.display = e.target
+            .checked
+            ? ""
+            : "none";
+          if (e.target.checked) {
+            if (!audioSupported()) {
+              toast("Web Audio не поддерживается в этом браузере", true);
+            } else {
+              ensureAudio();
+              toast("Звук включён — начните черчение");
+            }
+          } else {
+            audioStop();
+          }
+        });
+        document.getElementById("sel-amode").addEventListener("change", (e) => {
+          state.audio.mode = e.target.value;
+        });
+        document.getElementById("sel-awave").addEventListener("change", (e) => {
+          state.audio.wave = e.target.value;
+        });
+        document
+          .getElementById("chk-temper")
+          .addEventListener("change", (e) => {
+            state.audio.temper = e.target.checked;
+          });
+        refs.a_volume.reflect();
+        refs.a_f0.reflect();
+        document.getElementById("sel-amode").value = state.audio.mode;
+        document.getElementById("sel-awave").value = state.audio.wave;
+        document.getElementById("chk-temper").checked = state.audio.temper;
+        document.getElementById("chk-audio").checked = state.audio.on;
+        if (!audioSupported()) {
+          const c = document.getElementById("chk-audio");
+          if (c) {
+            c.disabled = true;
+            c.closest(".check").title = "Web Audio не поддерживается";
+          }
+        }
+        // §5: живой режим
+        const livecont = document.getElementById("live-sliders");
+        LIVE_PARAMS.forEach((p) => {
+          refs["live_" + p.key] = makeField(
+            livecont,
+            p.label,
+            p,
+            () => state.live[p.key],
+            (v) => {
+              state.live[p.key] = v;
+            },
+          );
+        });
+        refs.live_period.reflect();
+        refs.live_amp.reflect();
+        document
+          .getElementById("sel-live-target")
+          .addEventListener("change", (e) => {
+            state.live.target = e.target.value;
+          });
+        document
+          .getElementById("sel-live-wave")
+          .addEventListener("change", (e) => {
+            state.live.wave = e.target.value;
+          });
+        document.getElementById("chk-live").addEventListener("change", (e) => {
+          setLive(e.target.checked);
+        });
+        // v2: тема / запись / ссылка
+        document
+          .getElementById("btn-theme")
+          .addEventListener("click", () =>
+            setTheme(state.theme === "light" ? "dark" : "light"),
+          );
+        document
+          .getElementById("btn-rec")
+          .addEventListener("click", toggleRecord);
+        document
+          .getElementById("btn-share")
+          .addEventListener("click", copyShareLink);
+
+        // тип кривой
+        document.getElementById("seg-type").addEventListener("click", (e) => {
+          const b = e.target.closest("button");
+          if (!b) return;
+          state.active.type = b.dataset.type;
+          syncSeg("seg-type", "type", state.active.type);
+          clampRToRing();
+          onActiveChanged();
+        });
+        // режим цвета
+        document.getElementById("sel-cmode").addEventListener("change", (e) => {
+          state.active.color.mode = e.target.value;
+          updateColorPanels();
+          onActiveChanged();
+        });
+        // сплошной цвет
+        document.getElementById("c-solid").addEventListener("input", (e) => {
+          state.active.color.solid = e.target.value;
+          onActiveChanged();
+        });
+        // фон
+        document.getElementById("c-bg").addEventListener("input", (e) => {
+          state.background = e.target.value;
+          stage.style.background = e.target.value;
+        });
+        // чекбоксы
+        document.getElementById("chk-gears").addEventListener("change", (e) => {
+          state.anim.showGears = e.target.checked;
+          if (!e.target.checked && state.anim.running) clearOver();
+        });
+        document
+          .getElementById("chk-preview")
+          .addEventListener("change", (e) => {
+            state.preview = e.target.checked;
+            if (state.preview) drawPreview();
+            else if (!state.anim.running) clearOver();
+          });
+
+        // пресеты
+        const sel = document.getElementById("sel-preset");
+        PRESETS.forEach((p, i) => {
+          const o = document.createElement("option");
+          o.value = i;
+          o.textContent = p.name;
+          sel.appendChild(o);
+        });
+        sel.addEventListener("change", (e) => {
+          const i = +e.target.value;
+          if (isNaN(i) || !PRESETS[i]) return;
+          state.active = validateConfig(PRESETS[i].config);
+          syncUIFromActive();
+          refreshMeta();
+          if (!state.layers.length) recomputeView(state.active);
+          drawPreview();
+          e.target.value = "";
+        });
+
+        // кнопки
+        document.getElementById("btn-draw").addEventListener("click", () => {
+          state.editing ? updateLayer() : commitLayer();
+        });
+        document.getElementById("btn-done").addEventListener("click", exitEdit);
+        document
+          .getElementById("btn-pause")
+          .addEventListener("click", pauseResume);
+        document.getElementById("btn-skip").addEventListener("click", skip);
+        document
+          .getElementById("btn-random")
+          .addEventListener("click", randomize);
+        document
+          .getElementById("btn-undo")
+          .addEventListener("click", historyUndo);
+        document
+          .getElementById("btn-redo")
+          .addEventListener("click", historyRedo);
+        document
+          .getElementById("btn-clear")
+          .addEventListener("click", clearAll);
+        document.getElementById("btn-png").addEventListener("click", exportPNG);
+        document.getElementById("btn-svg").addEventListener("click", exportSVG);
+        document
+          .getElementById("btn-savejson")
+          .addEventListener("click", exportJSON);
+        document
+          .getElementById("btn-loadjson")
+          .addEventListener("click", () =>
+            document.getElementById("file-json").click(),
+          );
+        document.getElementById("file-json").addEventListener("change", (e) => {
+          const f = e.target.files[0];
+          if (!f) return;
+          const rd = new FileReader();
+          rd.onload = () => importJSON(rd.result);
+          rd.readAsText(f);
+          e.target.value = "";
+        });
+
+        // §8: направляющие
+        const gscont = document.getElementById("guides-sliders");
+        refs.g_rings = makeField(
+          gscont,
+          "Колец",
+          { min: 1, max: 12, step: 1, fmt: (v) => v },
+          () => state.guides.rings,
+          (v) => {
+            state.guides.rings = v;
+            drawGuidesScreen();
+          },
+        );
+        refs.g_rays = makeField(
+          gscont,
+          "Лучей",
+          { min: 0, max: 24, step: 1, fmt: (v) => v },
+          () => state.guides.rays,
+          (v) => {
+            state.guides.rays = v;
+            drawGuidesScreen();
+          },
+        );
+        refs.g_rings.reflect();
+        refs.g_rays.reflect();
+        document
+          .getElementById("chk-guides")
+          .addEventListener("change", (e) => {
+            state.guides.on = e.target.checked;
+            document.getElementById("guides-params").style.display = e.target
+              .checked
+              ? ""
+              : "none";
+            drawGuidesScreen();
+          });
+        document
+          .getElementById("chk-guides-frame")
+          .addEventListener("change", (e) => {
+            state.guides.frame = e.target.checked;
+            drawGuidesScreen();
+          });
+
+        // §10: скрещивание слоёв
+        document.getElementById("btn-breed").addEventListener("click", () => {
+          const a = state.layers.find(
+            (L) => L.id === document.getElementById("sel-parentA").value,
+          );
+          const b = state.layers.find(
+            (L) => L.id === document.getElementById("sel-parentB").value,
+          );
+          if (!a || !b) {
+            toast("Нужны два слоя");
+            return;
+          }
+          if (state.editing) exitEdit();
+          state.active = breedConfigs(a.config, b.config);
+          syncUIFromActive();
+          refreshMeta();
+          if (!state.layers.length) recomputeView(state.active);
+          drawPreview();
+          toast("Потомок в активной конфигурации — нажмите «Начертить»");
+        });
+        // §10: галерея
+        document
+          .getElementById("btn-gallery-save")
+          .addEventListener("click", gallerySaveCurrent);
+
+        // мобильная шторка
+        document
+          .getElementById("panel-toggle")
+          .addEventListener("click", () => {
+            document.getElementById("panel").classList.toggle("open");
+          });
+      }
+
+      // r не может превышать R−1 для гипотрохоиды
+      function clampRToRing() {
+        const rMax = state.active.type === "hypo" ? state.active.R - 1 : 200;
+        refs.r.cfg.max = rMax;
+        refs.r.range.max = rMax;
+        refs.r.num.max = rMax;
+        if (state.active.r > rMax) {
+          state.active.r = rMax;
+        }
+        if (state.active.r < 3) {
+          state.active.r = 3;
+        }
+        refs.r.reflect();
+      }
+
+      function syncSeg(id, attr, val) {
+        document.querySelectorAll("#" + id + " button").forEach((b) => {
+          b.setAttribute("aria-pressed", String(b.dataset[attr] === val));
+        });
+      }
+      function updateColorPanels() {
+        const m = state.active.color.mode;
+        document.getElementById("color-solid").style.display =
+          m === "solid" ? "" : "none";
+        document.getElementById("color-gradient").style.display =
+          m === "solid" ? "none" : "";
+        const hint = document.getElementById("cmode-hint");
+        if (hint) {
+          hint.textContent =
+            m === "velocity"
+              ? "Оттенок ← скорость пера"
+              : m === "curvature"
+                ? "Оттенок ← кривизна кривой"
+                : m === "gradient"
+                  ? "Оттенок ← положение вдоль кривой"
+                  : "";
+          hint.style.display = m === "solid" ? "none" : "";
+        }
+      }
+
+      // вызывается при любом изменении active
+      let previewRaf = null;
+      function onActiveChanged() {
+        refreshMeta();
+        if (state.live.on) {
+          return;
+        } // §5: живой цикл перерисует сам
+        if (state.editing) {
+          // v3: живая правка выбранного слоя
+          const L = state.layers.find((x) => x.id === state.selectedId);
+          if (L) {
+            L.config = JSON.parse(JSON.stringify(state.active));
+            state.editDirty = true;
+            repaintAll();
+            renderLayerList();
+          }
+          if (previewRaf) cancelAnimationFrame(previewRaf);
+          previewRaf = requestAnimationFrame(() => {
+            if (!state.anim.running) clearOver();
+          });
+          return;
+        }
+        if (!state.layers.length) recomputeView(state.active);
+        if (previewRaf) cancelAnimationFrame(previewRaf);
+        previewRaf = requestAnimationFrame(() => {
+          if (!state.anim.running) drawPreview();
+        });
+      }
+
+      function syncUIFromActive() {
+        NUM_PARAMS.forEach((p) => refs[p.key].reflect());
+        clampRToRing();
+        GRAD_PARAMS.forEach((p) => refs["g_" + p.path[0]].reflect());
+        document.getElementById("c-solid").value = state.active.color.solid;
+        syncSeg("seg-type", "type", state.active.type);
+        document.getElementById("sel-cmode").value = state.active.color.mode;
+        updateColorPanels();
+        // v3 §4: гармоники
+        renderHarmonics();
+        refs.calli.reflect();
+        refs.sym.reflect();
+        document.getElementById("chk-mirror").checked =
+          !!state.active.symmetry.mirror;
+        document.getElementById("sel-ease").value = state.anim.easing;
+      }
+
+      function refreshMeta() {
+        const m = curveMeta(state.active);
+        const lobesEl = document.getElementById("rd-lobes");
+        if (m.lobes === null) lobesEl.textContent = "— (составная)";
+        else lobesEl.textContent = Number.isFinite(m.lobes) ? m.lobes : "∞";
+        document.getElementById("rd-rev").textContent = m.N_rev;
+        const cl = document.getElementById("rd-close");
+        if (m.closes) {
+          cl.textContent = m.densityReduced ? "да (плотность ↓)" : "да";
+          cl.className = "v ok";
+        } else {
+          cl.textContent = "нет (обрезано " + N_CAP + " об.)";
+          cl.className = "v warn";
+        }
+        document.getElementById("rd-pts").textContent = (
+          m.N + 1
+        ).toLocaleString("ru-RU");
+        updateFormula(m); // v3: живая формула и спектр
+      }
+
+      function syncAnimButtons() {
+        const running = state.anim.running,
+          hasLayer = !!state.anim.layer;
+        const pb = document.getElementById("btn-pause"),
+          sb = document.getElementById("btn-skip");
+        pb.disabled = !hasLayer;
+        sb.disabled = !hasLayer;
+        pb.textContent = running ? "Пауза" : hasLayer ? "Продолжить" : "Пауза";
+      }
+
+      /* --------------------------- §6.5 Пресеты ------------------------------- */
+      const PRESETS = [
+        {
+          name: "Роза",
+          config: {
+            type: "hypo",
+            R: 96,
+            r: 60,
+            rho: 1.0,
+            lineWidth: 1.2,
+            color: { mode: "solid", solid: "#e0a3c0" },
+          },
+        },
+        {
+          name: "Звезда-5",
+          config: {
+            type: "hypo",
+            R: 100,
+            r: 40,
+            rho: 0.9,
+            lineWidth: 1.2,
+            color: { mode: "solid", solid: "#8ec9d9" },
+          },
+        },
+        {
+          name: "Паутина",
+          config: {
+            type: "hypo",
+            R: 144,
+            r: 53,
+            rho: 0.7,
+            lineWidth: 0.8,
+            color: {
+              mode: "gradient",
+              hueStart: 190,
+              hueSpan: 300,
+              sat: 65,
+              light: 62,
+            },
+          },
+        },
+        {
+          name: "Цветок-эпи",
+          config: {
+            type: "epi",
+            R: 80,
+            r: 24,
+            rho: 0.6,
+            lineWidth: 1.3,
+            color: { mode: "solid", solid: "#c9a24b" },
+          },
+        },
+        {
+          name: "Кольцо-муар",
+          config: {
+            type: "hypo",
+            R: 150,
+            r: 149,
+            rho: 0.5,
+            lineWidth: 0.6,
+            color: {
+              mode: "gradient",
+              hueStart: 20,
+              hueSpan: 340,
+              sat: 60,
+              light: 60,
+            },
+          },
+        },
+        {
+          name: "Спираль-эпи",
+          config: {
+            type: "epi",
+            R: 120,
+            r: 35,
+            rho: 0.85,
+            lineWidth: 1.0,
+            color: {
+              mode: "gradient",
+              hueStart: 280,
+              hueSpan: -300,
+              sat: 68,
+              light: 63,
+            },
+          },
+        },
+        {
+          name: "Астроида",
+          config: {
+            type: "hypo",
+            R: 120,
+            r: 30,
+            rho: 1.0,
+            lineWidth: 1.4,
+            color: { mode: "solid", solid: "#63b3a1" },
+          },
+        },
+        {
+          name: "Гнездо",
+          config: {
+            type: "hypo",
+            R: 132,
+            r: 88,
+            rho: 0.75,
+            lineWidth: 0.9,
+            color: {
+              mode: "gradient",
+              hueStart: 140,
+              hueSpan: 220,
+              sat: 62,
+              light: 64,
+            },
+          },
+        },
+        // v2-пресеты
+        {
+          name: "Вложенная роза",
+          config: {
+            type: "hypo",
+            R: 120,
+            r: 40,
+            rho: 0.9,
+            lineWidth: 1.0,
+            color: {
+              mode: "gradient",
+              hueStart: 300,
+              hueSpan: -260,
+              sat: 66,
+              light: 62,
+            },
+            nested: { on: true, r2: 15, rho2: 0.55, dir: -1 },
+          },
+        },
+        {
+          name: "Калейдоскоп",
+          config: {
+            type: "hypo",
+            R: 100,
+            r: 31,
+            rho: 0.85,
+            lineWidth: 0.9,
+            color: { mode: "solid", solid: "#8ec9d9" },
+            symmetry: { count: 6, mirror: true },
+          },
+        },
+        {
+          name: "Каллиграфия",
+          config: {
+            type: "epi",
+            R: 90,
+            r: 22,
+            rho: 0.7,
+            lineWidth: 1.4,
+            color: { mode: "solid", solid: "#c9a24b" },
+            calligraphy: 0.8,
+          },
+        },
+      ];
+
+      /* --------------------------- §7 Клавиатура ------------------------------ */
+      window.addEventListener("keydown", (e) => {
+        const tag = (e.target.tagName || "").toLowerCase();
+        if (tag === "input" || tag === "select" || tag === "textarea") return;
+        if (e.code === "Space") {
+          e.preventDefault();
+          if (state.anim.layer) pauseResume();
+          else commitLayer();
+          return;
+        }
+        if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "z") {
+          e.preventDefault();
+          if (e.shiftKey) historyRedo();
+          else historyUndo();
+          return;
+        }
+        if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "y") {
+          e.preventDefault();
+          historyRedo();
+          return;
+        }
+        if (e.key.toLowerCase() === "c") {
+          clearAll();
+          return;
+        }
+        if (e.key.toLowerCase() === "r") {
+          randomize();
+          return;
+        }
+      });
+
+      /* --------------------------- §3.2 Ресайз -------------------------------- */
+      let resizeTimer = null;
+      function onResize() {
+        clearTimeout(resizeTimer);
+        resizeTimer = setTimeout(() => {
+          const W = stage.clientWidth,
+            H = stage.clientHeight;
+          ctxGuides = fitCanvas(cGuides, W, H);
+          ctxDraw = fitCanvas(cDraw, W, H);
+          ctxOver = fitCanvas(cOver, W, H);
+          repaintAll(); // §5.5 перерисовка из модели
+          drawGuidesScreen(); // §8
+          if (!state.anim.running) drawPreview();
+        }, 150);
+      }
+      window.addEventListener("resize", onResize);
+
+      /* ------------------------------ Init ------------------------------------ */
+      /* ============================================================================
+   §1 v3: Менеджер слоёв  +  §2 Живая формула и спектр
+   ========================================================================== */
+      let dragSrcId = null; // источник перетаскивания
+      function nextLayerName() {
+        state.layerCounter++;
+        return "Слой " + state.layerCounter;
+      }
+      function layerRecord(L) {
+        return {
+          config: L.config,
+          name: L.name,
+          visible: L.visible !== false,
+          opacity: L.opacity == null ? 1 : L.opacity,
+        };
+      }
+      function selectedLayer() {
+        return state.layers.find((L) => L.id === state.selectedId) || null;
+      }
+
+      // --- §1.3 отрисовка списка слоёв ---
+      function layerSwatchCSS(cfg) {
+        if (cfg.color.mode === "solid") return cfg.color.solid;
+        const c = cfg.color,
+          h0 = ((c.hueStart % 360) + 360) % 360,
+          h1 = (((c.hueStart + c.hueSpan) % 360) + 360) % 360;
+        return `linear-gradient(90deg, hsl(${h0},${c.sat}%,${c.light}%), hsl(${h1},${c.sat}%,${c.light}%))`;
+      }
+      function iconBtn(glyph, title, cls) {
+        const b = document.createElement("button");
+        b.className = "layer-btn " + cls;
+        b.type = "button";
+        b.textContent = glyph;
+        b.title = title;
+        b.setAttribute("aria-label", title);
+        return b;
+      }
+      // §4: динамический список гармоник (вложенных колёс)
+      function renderHarmonics() {
+        const box = document.getElementById("harm-list");
+        if (!box) return;
+        box.innerHTML = "";
+        const H = state.active.harmonics || (state.active.harmonics = []);
+        if (!H.length) {
+          const e = document.createElement("div");
+          e.className = "layers-empty";
+          e.textContent =
+            "Базовая трохоида. Нажмите ＋, чтобы добавить вложенное колесо.";
+          box.appendChild(e);
+          return;
+        }
+        H.forEach((h, idx) => {
+          const wrap = document.createElement("div");
+          wrap.className = "harm-row";
+          const head = document.createElement("div");
+          head.className = "harm-head";
+          const ttl = document.createElement("span");
+          ttl.textContent = "Гармоника " + (idx + 1);
+          const del = iconBtn("✕", "Удалить гармонику", "del");
+          del.addEventListener("click", () => {
+            state.active.harmonics.splice(idx, 1);
+            renderHarmonics();
+            onActiveChanged();
+          });
+          head.append(ttl, del);
+          wrap.appendChild(head);
+          makeField(
+            wrap,
+            "Колесо r",
+            HARM_R,
+            () => h.r,
+            (v) => {
+              h.r = v;
+            },
+          ).reflect();
+          makeField(
+            wrap,
+            "Вынос ρ",
+            HARM_RHO,
+            () => h.rho,
+            (v) => {
+              h.rho = v;
+            },
+          ).reflect();
+          const seg = document.createElement("div");
+          seg.className = "seg";
+          seg.setAttribute("role", "group");
+          const mkBtn = (val, lab) => {
+            const b = document.createElement("button");
+            b.type = "button";
+            b.dataset.d = val;
+            b.textContent = lab;
+            b.setAttribute(
+              "aria-pressed",
+              String((h.dir < 0 ? -1 : 1) === val),
+            );
+            b.addEventListener("click", () => {
+              h.dir = val;
+              seg
+                .querySelectorAll("button")
+                .forEach((x) =>
+                  x.setAttribute(
+                    "aria-pressed",
+                    String(+x.dataset.d === h.dir),
+                  ),
+                );
+              onActiveChanged();
+            });
+            return b;
+          };
+          seg.append(mkBtn(-1, "Со-вращение"), mkBtn(1, "Контр-вращение"));
+          const df = document.createElement("div");
+          df.className = "field";
+          const dl = document.createElement("label");
+          const ds = document.createElement("span");
+          ds.textContent = "Вращение";
+          dl.appendChild(ds);
+          df.appendChild(dl);
+          df.appendChild(seg);
+          wrap.appendChild(df);
+          box.appendChild(wrap);
+        });
+      }
+      function renderLayerList() {
+        const box = document.getElementById("layer-list");
+        if (!box) return;
+        box.innerHTML = "";
+        populateMateSelects(); // §10: списки родителей для скрещивания
+        if (!state.layers.length) {
+          const e = document.createElement("div");
+          e.className = "layers-empty";
+          e.textContent = "Начертите первую кривую — она появится здесь.";
+          box.appendChild(e);
+          return;
+        }
+        // верх списка = верхний слой (последний в массиве, рисуется поверх)
+        for (let idx = state.layers.length - 1; idx >= 0; idx--) {
+          const L = state.layers[idx];
+          const row = document.createElement("div");
+          row.className =
+            "layer-row" +
+            (L.id === state.selectedId ? " selected" : "") +
+            (state.editing && L.id === state.selectedId ? " editing" : "") +
+            (L.visible === false ? " hidden-layer" : "");
+          row.draggable = true;
+          row.dataset.id = L.id;
+
+          const grip = document.createElement("span");
+          grip.className = "layer-grip";
+          grip.textContent = "≡";
+          grip.title = "Перетащить для порядка";
+          const sw = document.createElement("span");
+          sw.className = "layer-swatch";
+          sw.style.background = layerSwatchCSS(L.config);
+          const nm = document.createElement("span");
+          nm.className = "layer-name";
+          nm.textContent = L.name || "Слой";
+          const sub = document.createElement("span");
+          sub.className = "layer-sub";
+          sub.textContent =
+            (L.config.type === "hypo" ? "гипо" : "эпи") +
+            " · " +
+            L.config.R +
+            "/" +
+            L.config.r;
+
+          const bVis = iconBtn(
+            L.visible === false ? "○" : "●",
+            L.visible === false ? "Показать слой" : "Скрыть слой",
+            "vis" + (L.visible !== false ? " on" : ""),
+          );
+          const bEdit = iconBtn(
+            "✎",
+            "Править слой",
+            "edit" + (state.editing && L.id === state.selectedId ? " on" : ""),
+          );
+          const bDup = iconBtn("⧉", "Дублировать слой", "dup");
+          const bDel = iconBtn("✕", "Удалить слой", "del");
+          row.append(grip, sw, nm, sub, bVis, bEdit, bDup, bDel);
+          box.appendChild(row);
+
+          row.addEventListener("click", (e) => {
+            if (e.target.closest(".layer-btn") || e.target.closest("input"))
+              return;
+            selectLayer(L.id);
+          });
+          nm.addEventListener("dblclick", (e) => {
+            e.stopPropagation();
+            beginRename(L.id, nm);
+          });
+          bVis.addEventListener("click", (e) => {
+            e.stopPropagation();
+            toggleLayerVisible(L.id);
+          });
+          bEdit.addEventListener("click", (e) => {
+            e.stopPropagation();
+            editLayer(L.id);
+          });
+          bDup.addEventListener("click", (e) => {
+            e.stopPropagation();
+            duplicateLayer(L.id);
+          });
+          bDel.addEventListener("click", (e) => {
+            e.stopPropagation();
+            deleteLayer(L.id);
+          });
+
+          row.addEventListener("dragstart", (e) => {
+            dragSrcId = L.id;
+            e.dataTransfer.effectAllowed = "move";
+            try {
+              e.dataTransfer.setData("text/plain", L.id);
+            } catch (_) {}
+          });
+          row.addEventListener("dragover", (e) => {
+            e.preventDefault();
+            e.dataTransfer.dropEffect = "move";
+            row.classList.add("dragover");
+          });
+          row.addEventListener("dragleave", () =>
+            row.classList.remove("dragover"),
+          );
+          row.addEventListener("drop", (e) => {
+            e.preventDefault();
+            row.classList.remove("dragover");
+            reorderLayers(dragSrcId, L.id);
+          });
+          row.addEventListener("dragend", () => {
+            dragSrcId = null;
+          });
+        }
+      }
+      function beginRename(id, nmEl) {
+        const L = state.layers.find((x) => x.id === id);
+        if (!L) return;
+        const inp = document.createElement("input");
+        inp.value = L.name || "";
+        nmEl.textContent = "";
+        nmEl.appendChild(inp);
+        inp.focus();
+        inp.select();
+        const commit = () => {
+          const v = inp.value.trim().slice(0, 60);
+          if (v) L.name = v;
+          renderLayerList();
+          syncHash();
+        };
+        inp.addEventListener("keydown", (e) => {
+          if (e.key === "Enter") {
+            e.preventDefault();
+            inp.blur();
+          } else if (e.key === "Escape") {
+            renderLayerList();
+          }
+        });
+        inp.addEventListener("blur", commit);
+        inp.addEventListener("click", (e) => e.stopPropagation());
+      }
+
+      // --- §1.4 действия над слоями ---
+      function selectLayer(id) {
+        state.selectedId = id;
+        renderLayerList();
+      }
+      function toggleLayerVisible(id) {
+        const L = state.layers.find((x) => x.id === id);
+        if (!L) return;
+        if (state.anim.layer) finishCurrent();
+        L.visible = L.visible === false;
+        repaintAll();
+        if (!state.editing) drawPreview();
+        renderLayerList();
+        syncHash();
+      }
+      function duplicateLayer(id) {
+        if (state.anim.layer) finishCurrent();
+        const i = state.layers.findIndex((x) => x.id === id);
+        if (i < 0) return;
+        const L = state.layers[i],
+          cfg = JSON.parse(JSON.stringify(L.config)),
+          built = buildPoints(cfg);
+        const nl = {
+          id: "L" + Date.now() + Math.random().toString(36).slice(2, 6),
+          config: cfg,
+          pts: built.pts,
+          meta: built.meta,
+          dt: built.dt,
+          widths: built.widths,
+          cfield: built.cfield,
+          done: true,
+          name: (L.name || "Слой") + " копия",
+          visible: L.visible !== false,
+          opacity: L.opacity == null ? 1 : L.opacity,
+        };
+        state.layers.splice(i + 1, 0, nl);
+        state.selectedId = nl.id;
+        recomputeView(state.active);
+        repaintAll();
+        if (!state.editing) drawPreview();
+        renderLayerList();
+        syncHash();
+        pushHistory();
+      }
+      function deleteLayer(id) {
+        if (state.anim.layer) finishCurrent();
+        const i = state.layers.findIndex((x) => x.id === id);
+        if (i < 0) return;
+        state.layers.splice(i, 1);
+        if (state.selectedId === id) {
+          state.selectedId = null;
+          resetEditState();
+        }
+        recomputeView(state.active);
+        repaintAll();
+        if (!state.editing) drawPreview();
+        renderLayerList();
+        syncHash();
+        pushHistory();
+      }
+      function reorderLayers(srcId, targetId) {
+        if (!srcId || srcId === targetId) return;
+        const si = state.layers.findIndex((x) => x.id === srcId);
+        if (si < 0) return;
+        const [item] = state.layers.splice(si, 1);
+        const ti = state.layers.findIndex((x) => x.id === targetId);
+        state.layers.splice(ti < 0 ? state.layers.length : ti, 0, item);
+        repaintAll();
+        renderLayerList();
+        syncHash();
+        pushHistory();
+      }
+
+      // --- §1.4 режим правки ---
+      function editLayer(id) {
+        if (state.anim.layer) finishCurrent();
+        if (state.live.on) setLive(false); // §5: правка и живой режим взаимоисключающи
+        const L = state.layers.find((x) => x.id === id);
+        if (!L) return;
+        L.visible = true; // правку удобнее видеть
+        state.active = validateConfig(L.config);
+        state.selectedId = id;
+        state.editing = true;
+        syncUIFromActive();
+        refreshMeta();
+        repaintAll();
+        clearOver(); // слой показывает правки, предпросмотр не нужен
+        syncEditUI();
+        renderLayerList();
+      }
+      function updateLayer() {
+        const L = selectedLayer();
+        if (!L) {
+          commitLayer();
+          return;
+        }
+        L.config = JSON.parse(JSON.stringify(state.active));
+        recomputeView(state.active);
+        repaintAll();
+        renderLayerList();
+        syncHash();
+        state.editDirty = false;
+        pushHistory(); // §6: правка — один шаг истории
+        toast("Слой обновлён");
+      }
+      function exitEdit() {
+        const dirty = state.editDirty;
+        resetEditState();
+        renderLayerList();
+        if (!state.anim.running) drawPreview();
+        if (dirty) pushHistory(); // §6: live-правки применены — фиксируем шаг
+      }
+      function syncEditUI() {
+        const draw = document.getElementById("btn-draw"),
+          done = document.getElementById("btn-done");
+        if (!draw) return;
+        draw.textContent = state.editing ? "Обновить слой" : "Начертить";
+        if (done) done.style.display = state.editing ? "" : "none";
+      }
+
+      // --- §2 живая формула и спектр ---
+      function fmtNum(x) {
+        if (Math.abs(x - Math.round(x)) < 1e-9)
+          return String(Math.round(x)).replace("-", "\u2212");
+        return (Math.round(x * 100) / 100).toString().replace("-", "\u2212");
+      }
+      function freqLabel(f) {
+        if (Math.abs(f - 1) < 1e-9) return "t";
+        if (Math.abs(f + 1) < 1e-9) return "\u2212t";
+        return fmtNum(f) + "t";
+      }
+      function updateFormula(m) {
+        const eqEl = document.getElementById("formula-eq");
+        if (!eqEl) return;
+        const terms = m.terms;
+        const build = (fn) =>
+          terms
+            .map((tm, i) => {
+              const neg = Math.abs(tm.ph - Math.PI) < 1e-6; // фаза π → знак «−»
+              const coeff = fmtNum(Math.round(tm.amp * 100) / 100);
+              const body = `${coeff}\u00b7${fn}(${freqLabel(tm.freq)})`;
+              return i === 0
+                ? (neg ? "\u2212" : "") + body
+                : (neg ? " \u2212 " : " + ") + body;
+            })
+            .join("");
+        eqEl.textContent =
+          "z(t) = \u03a3 a\u2c7c\u00b7(cos(\u03c9\u2c7c\u00b7t+\u03c6\u2c7c), sin(\u03c9\u2c7c\u00b7t+\u03c6\u2c7c))\n\n" +
+          "x(t) = " +
+          build("cos") +
+          "\n" +
+          "y(t) = " +
+          build("sin");
+        const tbl = document.getElementById("spec-tbl");
+        if (!tbl) return;
+        const sum = terms.reduce((a, t) => a + Math.abs(t.amp), 0) || 1;
+        const names = ["арм", "колесо"];
+        let html =
+          "<tr><th>эпицикл</th><th>\u03c9</th><th>a</th><th>доля</th></tr>";
+        terms.forEach((t, i) => {
+          const nm = i < names.length ? names[i] : "гарм. " + (i - 1);
+          html += `<tr><td>${nm}</td><td>${fmtNum(t.freq)}</td><td>${fmtNum(Math.round(t.amp * 100) / 100)}</td><td>${((Math.abs(t.amp) / sum) * 100).toFixed(1)}%</td></tr>`;
+        });
+        tbl.innerHTML = html;
+      }
+
+      /* ============================================================================
+   §10 v3: Галерея (localStorage), скрещивание слоёв, прочее
+   ========================================================================== */
+      function escapeHtml(s) {
+        return String(s).replace(
+          /[&<>"']/g,
+          (c) =>
+            ({
+              "&": "&amp;",
+              "<": "&lt;",
+              ">": "&gt;",
+              '"': "&quot;",
+              "'": "&#39;",
+            })[c],
+        );
+      }
+
+      // --- Скрещивание (генеалогия) ---
+      function mixHex(a, b) {
+        const pa = /^#([0-9a-f]{6})$/i.exec(a || ""),
+          pb = /^#([0-9a-f]{6})$/i.exec(b || "");
+        if (!pa || !pb) return a || b || "#8ec9d9";
+        const f = (h) => [
+          parseInt(h.slice(0, 2), 16),
+          parseInt(h.slice(2, 4), 16),
+          parseInt(h.slice(4, 6), 16),
+        ];
+        const c1 = f(pa[1]),
+          c2 = f(pb[1]);
+        const m = (x, y) =>
+          Math.round((x + y) / 2)
+            .toString(16)
+            .padStart(2, "0");
+        return "#" + m(c1[0], c2[0]) + m(c1[1], c2[1]) + m(c1[2], c2[2]);
+      }
+      function breedConfigs(a, b) {
+        const ca = a.color || {},
+          cb = b.color || {};
+        const ha = Array.isArray(a.harmonics) ? a.harmonics : [],
+          hb = Array.isArray(b.harmonics) ? b.harmonics : [];
+        const hn = Math.min(6, Math.max(ha.length, hb.length));
+        const harmonics = [];
+        for (let i = 0; i < hn; i++) {
+          const x = ha[i],
+            y = hb[i];
+          if (x && y)
+            harmonics.push({
+              r: Math.round((+x.r + +y.r) / 2),
+              rho: (+x.rho + +y.rho) / 2,
+              dir: x.dir,
+            });
+          else harmonics.push(Object.assign({}, x || y));
+        }
+        const child = {
+          type: Math.random() < 0.5 ? a.type : b.type,
+          R: Math.round((a.R + b.R) / 2),
+          r: Math.round((a.r + b.r) / 2),
+          rho: (a.rho + b.rho) / 2,
+          lineWidth: (a.lineWidth + b.lineWidth) / 2,
+          calligraphy: ((a.calligraphy || 0) + (b.calligraphy || 0)) / 2,
+          symmetry: {
+            count: Math.round(
+              ((a.symmetry ? a.symmetry.count : 1) +
+                (b.symmetry ? b.symmetry.count : 1)) /
+                2,
+            ),
+            mirror:
+              (a.symmetry && a.symmetry.mirror) ||
+              (b.symmetry && b.symmetry.mirror),
+          },
+          harmonics,
+          color: {
+            mode: ca.mode || "solid",
+            solid: mixHex(ca.solid, cb.solid),
+            hueStart: Math.round(
+              ((ca.hueStart || 200) + (cb.hueStart || 200)) / 2,
+            ),
+            hueSpan: Math.round(
+              ((ca.hueSpan || 300) + (cb.hueSpan || 300)) / 2,
+            ),
+            sat: Math.round(((ca.sat || 70) + (cb.sat || 70)) / 2),
+            light: Math.round(((ca.light || 60) + (cb.light || 60)) / 2),
+          },
+        };
+        return validateConfig(child); // нормализация диапазонов
+      }
+      function populateMateSelects() {
+        const a = document.getElementById("sel-parentA"),
+          b = document.getElementById("sel-parentB"),
+          btn = document.getElementById("btn-breed"),
+          wrap = document.getElementById("breed-wrap");
+        if (!a || !b) return;
+        const prevA = a.value,
+          prevB = b.value;
+        const opts = state.layers
+          .map(
+            (L) =>
+              `<option value="${L.id}">${escapeHtml(L.name || "Слой")}</option>`,
+          )
+          .join("");
+        a.innerHTML = opts;
+        b.innerHTML = opts;
+        if (state.layers.some((L) => L.id === prevA)) a.value = prevA;
+        else if (state.layers[0]) a.value = state.layers[0].id;
+        if (state.layers.some((L) => L.id === prevB)) b.value = prevB;
+        else if (state.layers[1]) b.value = state.layers[1].id;
+        if (btn) btn.disabled = state.layers.length < 2;
+        if (wrap) wrap.style.display = state.layers.length < 2 ? "none" : "";
+      }
+
+      // --- Галерея (localStorage) ---
+      const GALLERY_KEY = "spirograph.gallery.v1";
+      function galleryAvailable() {
+        try {
+          const k = "__sg_probe__";
+          localStorage.setItem(k, "1");
+          localStorage.removeItem(k);
+          return true;
+        } catch (e) {
+          return false;
+        }
+      }
+      function galleryLoad() {
+        try {
+          const s = localStorage.getItem(GALLERY_KEY);
+          const a = s ? JSON.parse(s) : [];
+          return Array.isArray(a) ? a : [];
+        } catch (e) {
+          return [];
+        }
+      }
+      function gallerySaveAll(arr) {
+        try {
+          localStorage.setItem(GALLERY_KEY, JSON.stringify(arr));
+          return true;
+        } catch (e) {
+          toast("Не удалось сохранить (хранилище переполнено?)", true);
+          return false;
+        }
+      }
+      function galleryThumb() {
+        const w = 140,
+          h = Math.max(1, Math.round((w * cDraw.height) / cDraw.width));
+        const t = document.createElement("canvas");
+        t.width = w;
+        t.height = h;
+        const tx = t.getContext("2d");
+        tx.fillStyle = state.background;
+        tx.fillRect(0, 0, w, h);
+        tx.drawImage(cDraw, 0, 0, w, h);
+        return t.toDataURL("image/png");
+      }
+      function gallerySaveCurrent() {
+        if (!galleryAvailable()) {
+          toast("Хранилище недоступно", true);
+          return;
+        }
+        const def = "Композиция " + (galleryLoad().length + 1);
+        const name = (prompt("Название композиции:", def) || "").trim() || def;
+        const entry = {
+          id: "g" + Date.now() + Math.random().toString(36).slice(2, 5),
+          name: name.slice(0, 60),
+          ts: Date.now(),
+          data: {
+            version: 2,
+            background: state.background,
+            layers: state.layers.map(layerRecord),
+          },
+          thumb: galleryThumb(),
+        };
+        const arr = galleryLoad();
+        arr.unshift(entry);
+        while (arr.length > 30) arr.pop();
+        if (gallerySaveAll(arr)) {
+          renderGallery();
+          toast("Сохранено в галерею");
+        }
+      }
+      function galleryOpen(id) {
+        const e = galleryLoad().find((x) => x.id === id);
+        if (!e) return;
+        importJSON(JSON.stringify(e.data));
+      }
+      function galleryDelete(id) {
+        const arr = galleryLoad().filter((x) => x.id !== id);
+        if (gallerySaveAll(arr)) renderGallery();
+      }
+      function renderGallery() {
+        const sec = document.getElementById("gallery-section");
+        if (!sec) return;
+        const list = document.getElementById("gallery-list"),
+          unavail = document.getElementById("gallery-unavail"),
+          save = document.getElementById("btn-gallery-save");
+        if (!galleryAvailable()) {
+          if (list) {
+            list.className = "";
+            list.innerHTML = "";
+          }
+          if (unavail) unavail.style.display = "";
+          if (save) save.disabled = true;
+          return;
+        }
+        if (unavail) unavail.style.display = "none";
+        if (save) save.disabled = false;
+        const arr = galleryLoad();
+        if (!arr.length) {
+          list.className = "";
+          list.innerHTML =
+            '<div class="layers-empty">Пусто. Сохраните текущую композицию.</div>';
+          return;
+        }
+        list.className = "gallery-grid";
+        list.innerHTML = "";
+        for (const e of arr) {
+          const item = document.createElement("div");
+          item.className = "gallery-item";
+          const img = document.createElement("img");
+          img.src = e.thumb || "";
+          img.alt = e.name;
+          img.title = "Открыть: " + e.name;
+          img.addEventListener("click", () => galleryOpen(e.id));
+          const row = document.createElement("div");
+          row.className = "gi-row";
+          const nm = document.createElement("span");
+          nm.className = "gi-name";
+          nm.textContent = e.name;
+          nm.title = e.name;
+          const del = iconBtn("✕", "Удалить из галереи", "del");
+          del.addEventListener("click", () => galleryDelete(e.id));
+          row.append(nm, del);
+          item.append(img, row);
+          list.appendChild(item);
+        }
+      }
+
+      /* ============================================================================
+   §5 v3: Живой режим (морфинг параметров во времени)
+   ========================================================================== */
+      function liveWave(elapsed) {
+        const ph = elapsed / Math.max(0.1, state.live.period);
+        if (state.live.wave === "triangle") {
+          const f = ph - Math.floor(ph);
+          return 2 * Math.abs(2 * f - 1) - 1;
+        }
+        return Math.sin(2 * Math.PI * ph);
+      }
+      function liveModulatedConfig(elapsed) {
+        const cfg = JSON.parse(JSON.stringify(state.active));
+        const w = liveWave(elapsed),
+          a = state.live.amp,
+          tg = state.live.target;
+        if (tg === "rho") cfg.rho = clamp(cfg.rho + a * 0.6 * w, 0, 1);
+        else if (tg === "lineWidth")
+          cfg.lineWidth = clamp(cfg.lineWidth * (1 + a * w), 0.3, 6);
+        else if (tg === "harm0rho" && cfg.harmonics && cfg.harmonics[0])
+          cfg.harmonics[0].rho = clamp(
+            cfg.harmonics[0].rho + a * 0.6 * w,
+            0,
+            1,
+          );
+        return cfg;
+      }
+      function liveFrame(now) {
+        if (!state.live.on) return;
+        if (state.anim.running) {
+          state.live.raf = requestAnimationFrame(liveFrame);
+          return;
+        } // не мешаем черчению
+        const elapsed = (now - state.live.t0) / 1000;
+        const cfg = liveModulatedConfig(elapsed);
+        const built = buildPoints(cfg, state.live.maxN);
+        clearOver();
+        const { cx, cy } = state.view;
+        ctxOver.save();
+        if (state.live.target === "rotation") {
+          const ang =
+            (elapsed / Math.max(0.1, state.live.period)) * 2 * Math.PI;
+          ctxOver.translate(cx, cy);
+          ctxOver.rotate(ang);
+          ctxOver.translate(-cx, -cy);
+        }
+        strokePolyline(
+          ctxOver,
+          built.pts,
+          cfg,
+          null,
+          built.widths,
+          built.cfield,
+        );
+        ctxOver.restore();
+        state.live.raf = requestAnimationFrame(liveFrame);
+      }
+      function startLive() {
+        if (state.anim.layer) finishCurrent();
+        state.live.on = true;
+        state.live.t0 = performance.now();
+        if (previewRaf) cancelAnimationFrame(previewRaf);
+        if (!state.layers.length) {
+          // §5: масштаб под наихудший размах
+          const worst = JSON.parse(JSON.stringify(state.active));
+          worst.rho = 1;
+          if (worst.harmonics) worst.harmonics.forEach((h) => (h.rho = 1));
+          recomputeView(worst);
+        }
+        clearOver();
+        state.live.raf = requestAnimationFrame(liveFrame);
+      }
+      function stopLive() {
+        state.live.on = false;
+        if (state.live.raf) {
+          cancelAnimationFrame(state.live.raf);
+          state.live.raf = null;
+        }
+        clearOver();
+        if (!state.layers.length) recomputeView(state.active);
+        if (!state.anim.running) drawPreview();
+      }
+      function setLive(on) {
+        const chk = document.getElementById("chk-live");
+        if (chk) chk.checked = on;
+        const params = document.getElementById("live-params");
+        if (params) params.style.display = on ? "" : "none";
+        if (on) startLive();
+        else stopLive();
+      }
+
+      function init() {
+        const W = stage.clientWidth,
+          H = stage.clientHeight;
+        ctxGuides = fitCanvas(cGuides, W, H);
+        ctxDraw = fitCanvas(cDraw, W, H);
+        ctxOver = fitCanvas(cOver, W, H);
+        stage.style.background = state.background;
+        buildUI();
+        syncUIFromActive();
+        refreshMeta();
+        renderLayerList();
+        recomputeView(state.active);
+        setTheme(state.theme);
+        syncRecButton();
+        if (!recSupported()) {
+          const b = document.getElementById("btn-rec");
+          if (b) {
+            b.disabled = true;
+            b.title = "Не поддерживается браузером";
+          }
+        }
+        const loaded = loadFromHash(); // v2: восстановление композиции из ссылки
+        if (!loaded) drawPreview();
+        syncAnimButtons();
+        if (!state.history.stack.length) pushHistory(); // §6: исходный снимок
+        updateHistoryButtons();
+        drawGuidesScreen(); // §8
+        renderGallery(); // §10
+      }
+      // v2: реакция на смену ссылки (напр. навигация назад)
+      window.addEventListener("hashchange", () => {
+        if (!hashGuard) loadFromHash();
+      });
+      init();
+    </script>
+  </body>
+</html>
