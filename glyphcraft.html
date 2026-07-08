@@ -548,6 +548,7 @@ html, body {
   <h2>Unicode Real-Time Strategy</h2>
   <div id="game-stats" style="display:none;color:var(--text-dim);font-size:12px;margin-bottom:16px;"></div>
   <button class="menu-btn" id="btn-start">▶️ START GAME</button>
+  <div id="menu-audio-hint" style="font-size:10px;color:var(--text-dim);opacity:0.65;margin:2px 0 4px;">🔊 tap anywhere for music</div>
   <label style="display:block;margin:6px 0;font-size:12px;color:var(--text-dim);cursor:pointer;"><input type="checkbox" id="chk-observer"> 👁️ Observer mode (AI vs AI)</label>
   <button class="menu-btn" id="btn-difficulty" style="font-size:12px;">Difficulty: Normal</button>
   <button class="menu-btn" id="btn-maptype" style="font-size:12px;">Map: Standard</button>
@@ -1577,6 +1578,7 @@ const Audio = {
   _masterGain: null,
 
   init() {
+    if (this.ctx) { this._ensureCtx(); return; }   // идемпотентно: контекст создаётся один раз (§gesture gate)
     try {
       this.ctx = new (window.AudioContext || window.webkitAudioContext)();
       this._masterGain = this.ctx.createGain();
@@ -1647,6 +1649,8 @@ const Audio = {
   // ── Procedural Music Engine ──
   _musicGain: null,
   _musicPlaying: false,
+  _menuMode: false,        // true → играет меню-тема (§menu): нейтральная, mood закреплён на 0
+  _menuMelPos: 0,          // позиция в авторской меню-мелодии (детерминированная, не random)
   _musicOscs: [],
   _combatIntensity: 0,   // зеркало _mood.combat (обратная совместимость)
   _musicScheduler: null,
@@ -1671,6 +1675,69 @@ const Audio = {
   _ROLES: ['bass', 'pad', 'melody', 'arp', 'perc'],
   _buses: {},            // role -> { gain, filter }
   _distCurve: null,      // waveshaper-кривая для дисторшн-баса (§5.1)
+
+  // Активная тема: меню-тема в меню, иначе тема расы игрока (§menu).
+  _activeTheme() {
+    if (this._menuMode) return this._MENU_THEME;
+    const race = Game.playerRace || RACE.HUMAN;
+    return this._THEMES[race] || this._THEMES.human;
+  },
+
+  // ── Menu theme (§menu) ──
+  // Нейтральная, фракционно-независимая «увертюра»: медленная, просторная,
+  // без ударных. Гармония и аккомпанемент — процедурные; мелодия — прописанная
+  // (см. _MENU_MELODY), рендерится теми же голосами/ревербом, что и бой.
+  _MENU_THEME: {
+    tempo: 66,                          // медленно, просторно — «приглашение»
+    scale: [0, 2, 4, 5, 7, 9, 11],      // мажор
+    pentatonic: [0, 2, 4, 7, 9],
+    sections: [
+      // «Verse»: I → V → vi → IV — самая приглашающая последовательность
+      { chords: [[0,4,7], [7,11,14], [9,12,16], [5,9,12]], bars: 4 },
+      // «Chorus»/подъём: vi → IV → I → V — эмоциональный свелл
+      { chords: [[9,12,16], [5,9,12], [0,4,7], [7,11,14]], bars: 4 },
+    ],
+    root: 55.0,                         // A1 → мелодия вокруг A4 (440 Гц)
+    melodyOctave: 3,
+    feel: 'legato',
+    bassInstrument:   'soft_bass',
+    padInstrument:    'choir',          // воздушный хор — нейтрально-эпично
+    melodyInstrument: 'horn',           // благородный рог ведёт тему
+    arpInstrument:    'harp',           // редкая искра арфы (§menu arp)
+    reverb: { amount: 1.3, duration: 3.4 },   // большой зал / кинематографично
+    swing: 0.08,
+    phrasing: { pass: 0, lead: 0, grace: 0.22, jitter: 0 },  // из орнаментов — только форшлаги
+    atmosphere: {                       // мягкое «дыхание зала»
+      filterType: 'lowpass', freq: 1800, q: 0.6, vol: 0.02, dur: 8,
+      tremolo: { rate: 0.25, depth: 0.5 },
+    },
+    percussion: null,                   // без ударных — чистое пространство
+    rhythm: { bass: [true, false, false, false], arpBeatDiv: 2 },  // бас только на «раз»
+  },
+
+  // Пул полутонов (от root) для меню-мелодии: пентатоника A-мажор, ~2 октавы.
+  // Пентатоника консонирует над любым аккордом прогрессии → тема всегда «чистая».
+  _MENU_MEL_POOL: [24,26,28,31,33, 36,38,40,43,45, 48,50,52],  // A3 … C#6
+  // Прописанная тема (8 тактов = verse+chorus). Событие: {i:индекс в пуле, d:длит.(восьмые), a:акцент} или {r:пауза}.
+  // Сумма длительностей = 64 восьмых = 8 тактов по 4/4; ре-синхронизируется на начале verse.
+  _MENU_MELODY: [
+    // Такт 1 (I): восходящий зов A4–C#5–E5
+    {i:5,d:3,a:1}, {i:7,d:2,a:0}, {i:8,d:3,a:1},
+    // Такт 2 (V): мягкий спад F#5–E5–C#5–B4
+    {i:9,d:2,a:1}, {i:8,d:2,a:0}, {i:7,d:2,a:0}, {i:6,d:2,a:0},
+    // Такт 3 (vi): нежно C#5–A4–B4–C#5
+    {i:7,d:3,a:1}, {i:5,d:2,a:0}, {i:6,d:1,a:0}, {i:7,d:2,a:0},
+    // Такт 4 (IV): вдох/разрешение B4–A4–F#4, пауза
+    {i:6,d:2,a:1}, {i:5,d:2,a:0}, {i:4,d:3,a:0}, {r:1},
+    // Такт 5 (chorus vi): подъём E5–F#5–A5
+    {i:8,d:3,a:1}, {i:9,d:2,a:0}, {i:10,d:3,a:1},
+    // Такт 6 (IV): парение A5–F#5–E5–F#5
+    {i:10,d:2,a:1}, {i:9,d:2,a:0}, {i:8,d:2,a:0}, {i:9,d:2,a:0},
+    // Такт 7 (I): возвращение домой E5–C#5–A4–C#5
+    {i:8,d:3,a:1}, {i:7,d:2,a:0}, {i:5,d:1,a:0}, {i:7,d:2,a:0},
+    // Такт 8 (V): открытая концовка B4–C#5–E5 (уводит обратно к началу)
+    {i:6,d:2,a:1}, {i:7,d:2,a:0}, {i:8,d:4,a:1},
+  ],
 
   // Race-specific musical data
   _THEMES: {
@@ -1969,8 +2036,7 @@ const Audio = {
   // Реверб-шина send/return на общем ConvolverNode (§4.2).
   // Размер/длина берутся из темы расы (§7: собор для нежити, сухо для орков).
   _initReverb() {
-    const race = Game.playerRace || RACE.HUMAN;
-    const theme = this._THEMES[race] || this._THEMES.human;
+    const theme = this._activeTheme();
     const rv = theme.reverb || { amount: 0.9, duration: 2.5 };
     this._convolver = this.ctx.createConvolver();
     this._convolver.buffer = this._makeImpulse(rv.duration || 2.5, rv.decay || 3.0);
@@ -2361,10 +2427,60 @@ const Audio = {
     }
   },
 
+  // Меню-мелодия (§menu): прописанная тема из _MENU_MELODY, а не random-мотивы.
+  // Курсор/расписание — как в _emitMelody; орнамент — только редкий форшлаг (гуманизация).
+  _emitMenuMelody(theme, time, beatDur) {
+    const eighthDur = beatDur / 2;
+    const swing = theme.swing || 0;
+    const phr = theme.phrasing || {};
+    const inst = theme.melodyInstrument || 'horn';
+    const root = theme.root;
+    const pool = this._MENU_MEL_POOL;
+    const events = this._MENU_MELODY;
+    const artic = 0.95;   // legato
+
+    if (this._melodyCursor == null || this._melodyCursor < time - 1e-4) {
+      this._melodyCursor = time;
+    }
+
+    let guard = 0;
+    while (this._melodyCursor < time + beatDur - 1e-4 && guard++ < 16) {
+      const ev = events[this._menuMelPos % events.length];
+      this._menuMelPos++;
+      if (ev.r) { this._melodyCursor += ev.r * eighthDur; continue; }   // пауза-«дыхание»
+
+      const durE = ev.d || 1;
+      const accent = ev.a ? 1 : 0;
+      const semitone = pool[ev.i];
+      const noteSec = durE * eighthDur;
+
+      // Свинг: off-beat восьмые чуть позже (сетка курсора не меняется).
+      const eighthIdx = Math.round((this._melodyCursor - time) / eighthDur);
+      const swingShift = (eighthIdx % 2 === 1) ? swing * eighthDur * 0.6 : 0;
+      const startT = this._melodyCursor + swingShift;
+      const vol = 0.20 * (accent ? 1.25 : 1.0);
+
+      // Форшлаг перед длинными нотами — каждый проход слегка иной (не зациклено).
+      if (durE >= 3 && Math.random() < (phr.grace || 0) && ev.i + 1 < pool.length) {
+        const gLen = Math.min(0.07, noteSec * 0.2);
+        this._playVoice(inst, this._semitoneToFreq(root, pool[ev.i + 1]), startT, gLen,
+          { vol: vol * 0.7, bus: this._buses.melody });
+        this._playVoice(inst, this._semitoneToFreq(root, semitone), startT + gLen, noteSec * artic - gLen,
+          { vol, bus: this._buses.melody });
+      } else {
+        this._playVoice(inst, this._semitoneToFreq(root, semitone), startT, noteSec * artic,
+          { vol, bus: this._buses.melody });
+      }
+
+      this._melodyCursor += noteSec;
+    }
+  },
+
   // Schedule one beat of music
   _scheduleBeat(time) {
+    const menu = this._menuMode;
     const race = Game.playerRace || RACE.HUMAN;
-    const theme = this._THEMES[race] || this._THEMES.human;
+    const theme = this._activeTheme();
     const mood = this._mood;
     const ci = mood.combat;
     const bpm = theme.tempo + ci * 40 - mood.night * 7; // бой ускоряет, ночь замедляет (§10)
@@ -2420,14 +2536,25 @@ const Audio = {
       }
     }
 
-    // ── Melody: motif-based phrases (движок §9) ──
-    this._emitMelody(theme, race, time, beatDur, ci, chordTones, root, octaveShift);
+    // ── Melody: прописанная тема в меню (§menu), мотивы-фразы в бою (§9) ──
+    if (menu) {
+      this._emitMenuMelody(theme, time, beatDur);
+    } else {
+      this._emitMelody(theme, race, time, beatDur, ci, chordTones, root, octaveShift);
+    }
+
+    // ── Menu arp (§menu): одна мягкая искра арфы на «два» доли, поверх аккорда ──
+    if (menu && theme.arpInstrument && beatInBar === 2) {
+      const arpSemi = chordTones[chordTones.length - 1] + 12 + theme.melodyOctave * 12;
+      this._playVoice(theme.arpInstrument, this._semitoneToFreq(root, arpSemi),
+        time + beatDur * 0.5, beatDur * 0.6, { vol: 0.07, bus: this._buses.arp });
+    }
 
     // ── Arpeggio: broken chord on every beat in combat ──
     // У орков arpInstrument === null → арпеджио заменяется ритмом (§7).
     const _arpInst = ('arpInstrument' in theme) ? theme.arpInstrument : 'harp';
     const _arpDiv = theme.rhythm?.arpBeatDiv || 2;
-    if (_arpInst && ci > 0.2 && Math.random() < ci && this._beat % _arpDiv === 0) {
+    if (!menu && _arpInst && ci > 0.2 && Math.random() < ci && this._beat % _arpDiv === 0) {
       const arpIdx = beatInBar % chordTones.length;
       const arpSemitone = chordTones[arpIdx] + (theme.melodyOctave + 1 + (mood.triumph > 0.55 ? 1 : 0)) * 12;
       const arpFreq = this._semitoneToFreq(root, arpSemitone);
@@ -2488,6 +2615,9 @@ const Audio = {
           } else {
             this._sectionIdx = (this._sectionIdx + 1) % sections.length;
           }
+          // §menu: ре-синхронизируем прописанную тему с началом verse (index 0),
+          // чтобы «раз» мелодии всегда совпадал с тоникой прогрессии.
+          if (menu && this._sectionIdx === 0) this._menuMelPos = 0;
         }
       } else {
         // Fallback: legacy chords array (backward compat)
@@ -2497,13 +2627,17 @@ const Audio = {
     return beatDur;
   },
 
-  startMusic() {
-    if (!this._ensureCtx() || this._musicPlaying) return;
+  // Общий запуск движка (§menu): _menuMode выбирается обёртками ниже.
+  // Если музыка уже играет — мягко заменяем (stopMusic делает fade-out старого
+  // подграфа, здесь fade-in нового → естественный кроссфейд).
+  _beginMusic() {
+    if (!this._ensureCtx()) return;
+    if (this._musicPlaying) this.stopMusic();   // fade-out прежнего графа
     this._musicPlaying = true;
-    // Безопасный рестарт: отсоединяем прежний музыкальный подграф от мастера.
-    if (this._musicGain) { try { this._musicGain.disconnect(); } catch(e) {} }
     this._musicGain = this.ctx.createGain();
-    this._musicGain.gain.value = 0.6;
+    const t0 = this.ctx.currentTime;
+    this._musicGain.gain.setValueAtTime(0.0001, t0);
+    this._musicGain.gain.linearRampToValueAtTime(0.6, t0 + 0.4);   // fade-in
     this._musicGain.connect(this._masterGain);
     // Пер-ролевые шины + реверб (§4). Создаются после _musicGain.
     this._initBuses();
@@ -2517,7 +2651,7 @@ const Audio = {
     this._padTremLFO.connect(this._padTremDepth);
     this._padTremDepth.connect(this._buses.pad.gain.gain);
     this._padTremLFO.start();
-    // Сброс осей настроения.
+    // Сброс осей настроения и счётчиков.
     this._mood = { combat: 0, night: 0, tension: 0, triumph: 0 };
     this._combatIntensity = 0;
     this._beat = 0;
@@ -2530,6 +2664,7 @@ const Audio = {
     this._melodyCursor = null;
     this._lastMelodySemitone = null;
     this._pendingRest = 0;
+    this._menuMelPos = 0;                        // §menu: сброс прописанной темы
     this._nextBeat = this.ctx.currentTime + 0.1;
     this._lastMelodyIdx = 2;
     // Scheduler loop: schedule notes 0.3s ahead
@@ -2541,6 +2676,9 @@ const Audio = {
       }
     }, 100);
   },
+
+  startMusic()     { this._menuMode = false; this._beginMusic(); },  // внутриигровая, тема расы
+  startMenuMusic() { this._menuMode = true;  this._beginMusic(); },  // §menu: нейтральная увертюра
 
   // Агрегатор осей настроения (§10). Принимает контекст состояния партии.
   // Обратная совместимость: булев аргумент трактуется как { combatNearby }.
@@ -2609,6 +2747,19 @@ const Audio = {
     if (this._musicScheduler) { clearInterval(this._musicScheduler); this._musicScheduler = null; }
     if (this._padTremLFO) { try { this._padTremLFO.stop(); this._padTremLFO.disconnect(); } catch(e) {} this._padTremLFO = null; }
     if (this._padTremDepth) { try { this._padTremDepth.disconnect(); } catch(e) {} this._padTremDepth = null; }
+    // Плавный вывод текущего подграфа без щелчка: fade 0.3s → disconnect.
+    // _musicGain обнуляем сразу — _beginMusic создаст новый; старый доигрывает и сам отключится.
+    const g = this._musicGain;
+    if (g && this.ctx) {
+      const now = this.ctx.currentTime;
+      try {
+        g.gain.cancelScheduledValues(now);
+        g.gain.setValueAtTime(g.gain.value, now);
+        g.gain.linearRampToValueAtTime(0.0001, now + 0.3);
+      } catch(e) {}
+      setTimeout(() => { try { g.disconnect(); } catch(e) {} }, 450);
+    }
+    this._musicGain = null;
     this._musicOscs = [];
     this._musicPlaying = false;
   },
@@ -3059,6 +3210,26 @@ const Game = {
 
   setupListeners() {
     window.addEventListener('resize', () => { this.resize(); Camera._updateVpRect(); });
+
+    // ── Menu music (§menu): AudioContext требует пользовательский жест, а меню
+    // показывается ДО любого взаимодействия. Разблокируем аудио и запускаем
+    // меню-тему на первом жесте по оверлею/клавише. Клик по START ведёт сразу
+    // в игру (его обрабатывает свой хэндлер), поэтому здесь его игнорируем.
+    const _overlay = document.getElementById('overlay-screen');
+    let _menuArmed = false;
+    const _armMenuMusic = (e) => {
+      if (_menuArmed || this.running) return;
+      if (e && e.target && e.target.closest && e.target.closest('#btn-start')) return;
+      _menuArmed = true;
+      Audio.init();
+      Audio.startMenuMusic();
+      const hint = document.getElementById('menu-audio-hint');
+      if (hint) hint.style.display = 'none';
+      _overlay.removeEventListener('pointerdown', _armMenuMusic);
+      document.removeEventListener('keydown', _armMenuMusic);
+    };
+    _overlay.addEventListener('pointerdown', _armMenuMusic);
+    document.addEventListener('keydown', _armMenuMusic);
 
     // Start button
     document.getElementById('btn-start').addEventListener('click', () => {
@@ -3540,6 +3711,12 @@ const Game = {
     Audio.stopMusic();
     document.getElementById('btn-start').textContent = '▶️ PLAY AGAIN';
     if (this.observerMode || victory) Audio.victory(); else Audio.defeat();
+    // §menu: возвращаемся в меню — возобновляем меню-тему после стинга.
+    // Аудио уже разблокировано (шла игра), жест не нужен. Гард: не перебивать,
+    // если игрок уже нажал PLAY AGAIN и запустил новую партию.
+    setTimeout(() => {
+      if (!Game.running && Audio._enabled) Audio.startMenuMusic();
+    }, 1700);
   },
 };
 
