@@ -4086,6 +4086,7 @@
         cmpCompiled: null,
         dispOrder: 1,
         dispArrows: false,
+        cont: { path: [], result: null, seedFrac: 0.35, msf: 0.3, snap: true, showCircles: true, padeM: 6, padeN: 6, pade: null, padeCenter: null, boundary: null },
         dispNorm: true,
         dispScale: 1,
         dispFixed: null,
@@ -5142,11 +5143,13 @@
       }
 
       /* ---------- анализ: оверлей маркеров/контура/точки ---------- */
-      function renderAnalysis(q) {
-        q = q || 1;
-        const cv = $("#cv-analysis"),
-          v = views.analysis;
-        const drawOverlay = (ctx) => {
+      function _anaKey() {
+        const v = views.analysis, cv = $("#cv-analysis");
+        return v.cx + "," + v.cy + "," + v.scale + "|" + state.expr + "|" + (cv ? cv.width : 0);
+      }
+      function analysisOverlay(ctx, doSnap) {
+        const cv = $("#cv-analysis"), v = views.analysis;
+        if (doSnap) { try { state.ana._clean = { img: ctx.getImageData(0, 0, cv.width, cv.height), key: _anaKey() }; } catch (e) {} }
           const W = cv.width,
             H = cv.height,
             toPx = (z) => [W / 2 + (z.re - v.cx) / v.scale, H / 2 - (z.im - v.cy) / v.scale];
@@ -5266,7 +5269,28 @@
             ctx.arc(x, y, 4, 0, 7);
             ctx.fill();
           }
-        };
+          contOverlay(ctx, cv, v);
+      }
+      // Быстрая перерисовка оверлеев поверх кэшированного «чистого» портрета
+      // (не перезапускает медленный порционный рендер портрета).
+      function analysisRedraw() {
+        const cv = $("#cv-analysis");
+        if (!cv || !cv.width) { renderAnalysis(); return; }
+        const ctx = cv.getContext("2d");
+        const c = state.ana._clean;
+        if (c && c.img && c.img.width === cv.width && c.img.height === cv.height && c.key === _anaKey()) {
+          ctx.putImageData(c.img, 0, 0);
+          analysisOverlay(ctx, false);
+        } else {
+          // свежего кэша нет (портрет ещё считается): рисуем оверлей сразу поверх текущего холста.
+          analysisOverlay(ctx, false);
+        }
+      }
+      function renderAnalysis(q) {
+        q = q || 1;
+        const cv = $("#cv-analysis"),
+          v = views.analysis;
+        const drawOverlay = (ctx) => analysisOverlay(ctx, true);
         if (state.ana.errMap && state.ana.seriesData)
           return renderErrorMap(cv, v, q, drawOverlay);
         renderField(cv, v, q, drawOverlay);
@@ -5468,7 +5492,406 @@
           }
         ctx.restore();
       }
-      
+
+      /* ═══════════ Аналитическое продолжение (перецентровка Вейерштрасса) ═══════════ */
+      // Коэффициенты Тейлора по интегралу Коши, сдвиг центра синтетическим делением,
+      // радиус сходимости по хвосту; продолжение вдоль пути с сохранением ветви (монодромия).
+      const _wcSample = (f, c, r, N) => {
+        const v = new Array(N);
+        for (let k = 0; k < N; k++) {
+          const th = (2 * Math.PI * k) / N;
+          const w = safe(f, C(c.re + r * Math.cos(th), c.im + r * Math.sin(th)));
+          v[k] = w && isFiniteC(w) ? w : C(NaN, NaN);
+        }
+        return v;
+      };
+      const _wcCoeffs = (v, r, M) => {
+        const N = v.length, a = new Array(M + 1);
+        for (let n = 0; n <= M; n++) {
+          let s = ZERO;
+          for (let k = 0; k < N; k++) {
+            const ph = (-2 * Math.PI * k * n) / N;
+            s = add(s, mul(v[k], C(Math.cos(ph), Math.sin(ph))));
+          }
+          a[n] = scale(s, 1 / (N * Math.pow(r, n)));
+        }
+        return a;
+      };
+      const _wcCut = (v) => {
+        const N = v.length, j = new Array(N);
+        for (let k = 0; k < N; k++) j[k] = abs(sub(v[k], v[(k - 1 + N) % N]));
+        const s = [...j].sort((a, b) => a - b);
+        return s[N - 1] > 10 * s[N >> 1] + 1e-9;
+      };
+      const _wcShift = (a, delta) => {
+        let c = a.slice(); const b = new Array(a.length); let bi = 0;
+        while (c.length > 0) {
+          const m = c.length - 1;
+          if (m === 0) { b[bi++] = c[0]; break; }
+          const q = new Array(m);
+          q[m - 1] = c[m];
+          for (let i = m - 1; i >= 1; i--) q[i - 1] = add(c[i], mul(delta, q[i]));
+          b[bi++] = add(c[0], mul(delta, q[0]));
+          c = q;
+        }
+        return b;
+      };
+      const _wcRadius = (a) => {
+        const mag = a.map(abs), mx = Math.max(...mag);
+        if (!(mx > 0) || !isFinite(mx)) return Infinity;
+        const floor = mx * 1e-12, idx = [];
+        for (let n = 0; n < mag.length; n++) if (mag[n] > floor) idx.push(n);
+        if (idx.length < 4) return Infinity;
+        const lo = idx[Math.floor(idx.length / 2)];
+        let sum = 0, cnt = 0;
+        for (let n = lo; n + 1 < mag.length; n++)
+          if (mag[n] > floor && mag[n + 1] > floor) { sum += Math.log(mag[n] / mag[n + 1]); cnt++; }
+        return cnt ? Math.exp(sum / cnt) : Infinity;
+      };
+      const _wcSnapRoot = (l, tol = 0.2) => {
+        if (Math.abs(abs(l) - 1) > tol) return l;
+        let best = l, bd = tol;
+        for (let n = 1; n <= 12; n++) for (let k = 0; k < n; k++) {
+          const w = C(Math.cos((2 * Math.PI * k) / n), Math.sin((2 * Math.PI * k) / n));
+          const d = abs(sub(l, w)); if (d < bd) { bd = d; best = w; }
+        }
+        return best;
+      };
+      const _wcSnapOff = (o, tol = 0.3) => {
+        const k = Math.round(o.im / (2 * Math.PI)), t = C(0, 2 * Math.PI * k);
+        return abs(sub(o, t)) < tol ? t : abs(o) < tol ? ZERO : o;
+      };
+      // продолжение f вдоль ломаной path; шаг по длине дуги ~msf·R; сохраняет ветвь
+      function weierstrassPath(f, path, opts) {
+        opts = opts || {};
+        const N = opts.N || 160, M = opts.M || 24, msf = opts.msf || 0.3, snap = opts.snap !== false;
+        let seedR = opts.seedR || 0.5, g = null;
+        for (let att = 0; att < 5; att++) {
+          const sv = _wcSample(f, path[0], seedR, N);
+          if (sv.every(isFiniteC) && !_wcCut(sv)) { const gg = _wcCoeffs(sv, seedR, M); if (gg.every(isFiniteC)) { g = gg; break; } }
+          seedR *= 0.5;
+        }
+        if (!g) return null;
+        const cum = [0];
+        for (let i = 1; i < path.length; i++) cum.push(cum[i - 1] + abs(sub(path[i], path[i - 1])));
+        const L = cum[cum.length - 1];
+        if (!(L > 0)) return null;
+        const at = (s) => {
+          if (s <= 0) return path[0];
+          if (s >= L) return path[path.length - 1];
+          let i = 1; while (i < cum.length - 1 && cum[i] < s) i++;
+          const den = cum[i] - cum[i - 1] || 1, t = (s - cum[i - 1]) / den;
+          return add(scale(path[i - 1], 1 - t), scale(path[i], t));
+        };
+        const seed0 = g.slice();
+        let cur = path[0], curR = _wcRadius(g), s = 0, guard = 0, sheet = 0;
+        let prevLam = ONE, prevOff = ZERO;
+        const steps = [{ center: cur, value: g[0], radius: curR, cut: false }];
+        while (s < L - 1e-9 && guard++ < 20000) {
+          const Rf = isFinite(curR) && curR > 0 ? Math.min(curR, 8) : 4;
+          const ds = Math.min(msf * Rf, L - s), cnew = at(s + ds), delta = sub(cnew, cur);
+          const r = Math.max(1e-6, 0.45 * (Rf - abs(delta)));
+          const v = _wcSample(f, cnew, r, N);
+          let cut = false;
+          if (v.every(isFiniteC) && !_wcCut(v)) {
+            const gT = _wcCoeffs(v, r, M), gS = _wcShift(g, delta);
+            const tol = 1e-9 * (abs(gT[0]) + abs(gT[1]) + 1);
+            let k = 1; while (k < gT.length && abs(gT[k]) < tol) k++;
+            let lam = k < gT.length && abs(gT[k]) > tol ? div(gS[k], gT[k]) : ONE;
+            if (snap) lam = _wcSnapRoot(lam);
+            const cand = gT.map((c) => mul(lam, c));
+            let off = sub(gS[0], mul(lam, gT[0])); if (snap) off = _wcSnapOff(off);
+            cand[0] = add(mul(lam, gT[0]), off);
+            // смена листа — когда ветвь-фактор λ (или лог-сдвиг) МЕНЯЕТСЯ относительно предыдущего шага
+            if (abs(sub(lam, prevLam)) > 1e-6 || abs(sub(off, prevOff)) > 1e-6) { sheet++; cut = true; }
+            prevLam = lam; prevOff = off;
+            g = cand; curR = _wcRadius(gT);
+          } else { g = _wcShift(g, delta); }
+          cur = cnew; s += ds;
+          steps.push({ center: cur, value: g[0], radius: curR, cut });
+        }
+        let monodromy = null;
+        if (abs(sub(cur, path[0])) < 1e-6)
+          monodromy = { startValue: seed0[0], endValue: g[0], ratio: div(g[0], seed0[0]), diff: sub(g[0], seed0[0]) };
+        return { steps, coeffs: g, monodromy, sheet };
+      }
+
+      /* — продолжение Вейерштрасса: путь и запуск — */
+      function contRun() {
+        const P = state.cont.path;
+        state.cont.result = null;
+        if (P.length >= 2) {
+          const f = curF();
+          let span = 0;
+          for (const q of P) span = Math.max(span, abs(sub(q, P[0])));
+          if (!(span > 0)) span = abs(sub(P[1], P[0])) || 0.5;
+          const seedR = Math.max(1e-4, state.cont.seedFrac * span);
+          try { state.cont.result = weierstrassPath(f, P, { seedR, M: 24, N: 160, msf: state.cont.msf, snap: state.cont.snap }); }
+          catch (e) { state.cont.result = null; }
+        }
+        contShowWeier(); analysisRedraw();
+      }
+      function contAddPoint(z) {
+        const P = state.cont.path, last = P[P.length - 1];
+        if (last && abs(sub(last, z)) < 1e-9) return;
+        P.push(C(z.re, z.im)); contRun();
+      }
+      function contCloseLoop() { const P = state.cont.path; if (P.length >= 2) { P.push(C(P[0].re, P[0].im)); contRun(); } }
+      function contUndo() { state.cont.path.pop(); contRun(); }
+      function contReset() {
+        state.cont.path = []; state.cont.result = null; state.cont.pade = null; state.cont.padeCenter = null; state.cont.boundary = null;
+        analysisRedraw();
+      }
+      function _fmtC(z, d = 4) {
+        if (!z || !isFiniteC(z)) return "—";
+        return `${z.re.toFixed(d)} ${z.im < 0 ? "−" : "+"} ${Math.abs(z.im).toFixed(d)}i`;
+      }
+      function contShowWeier() {
+        const res = state.cont.result, P = state.cont.path;
+        if (!res || res.steps.length < 2) {
+          showResults("продолжение Вейерштрасса", [[P.length < 2 ? "кликами задайте путь" : "не удалось (старт у особенности?)", "", "muted"]]);
+          return;
+        }
+        const last = res.steps[res.steps.length - 1];
+        const rows = [
+          ["значение в конце", _fmtC(last.value), "teal"],
+          ["радиус сходимости", isFinite(last.radius) ? last.radius.toPrecision(3) : "∞", ""],
+          ["смен листа", String(res.sheet), res.sheet ? "warm" : ""],
+        ];
+        if (res.monodromy) {
+          const m = res.monodromy;
+          if (abs(m.startValue) > 1e-6) rows.push(["монодромия ×", _fmtC(m.ratio), "warm"]);
+          rows.push(["монодромия +", _fmtC(m.diff), "warm"]);
+        }
+        showResults("продолжение Вейерштрасса", rows);
+      }
+
+      /* — Паде [m/n]: рациональное продолжение; полюса Q выявляют особенности — */
+      const _cSolve = (A, b) => {
+        const n = b.length, M = A.map((r, i) => r.slice().concat([b[i]]));
+        for (let col = 0; col < n; col++) {
+          let piv = col, best = abs(M[col][col]);
+          for (let r = col + 1; r < n; r++) { const mm = abs(M[r][col]); if (mm > best) { best = mm; piv = r; } }
+          if (best < 1e-30) return null;
+          const t = M[col]; M[col] = M[piv]; M[piv] = t;
+          const d = M[col][col];
+          for (let j = col; j <= n; j++) M[col][j] = div(M[col][j], d);
+          for (let r = 0; r < n; r++) { if (r === col) continue; const fac = M[r][col]; for (let j = col; j <= n; j++) M[r][j] = sub(M[r][j], mul(fac, M[col][j])); }
+        }
+        return M.map((r) => r[n]);
+      };
+      const _polyEvalA = (co, z) => { let s = co[co.length - 1] || ZERO; for (let i = co.length - 2; i >= 0; i--) s = add(mul(s, z), co[i]); return s; };
+      // корни комплексного полинома методом Дюрана–Кернера (он же метод Вейерштрасса — тематично)
+      const _polyRoots = (co) => {
+        let d = co.length - 1; while (d > 0 && abs(co[d]) < 1e-14) d--;
+        if (d < 1) return [];
+        const a = co.slice(0, d + 1).map((c) => div(c, co[d]));
+        let roots = []; for (let k = 0; k < d; k++) { const th = 2 * Math.PI * k / d + 0.4; roots.push(C(0.55 * Math.cos(th), 0.55 * Math.sin(th))); }
+        for (let it = 0; it < 300; it++) {
+          let mx = 0;
+          roots = roots.map((r, i) => {
+            let den = ONE; for (let j = 0; j < d; j++) if (j !== i) den = mul(den, sub(r, roots[j]));
+            if (abs(den) < 1e-30) return r;
+            const dz = div(_polyEvalA(a, r), den); mx = Math.max(mx, abs(dz)); return sub(r, dz);
+          });
+          if (mx < 1e-13) break;
+        }
+        return roots;
+      };
+      const padeApprox = (c, m, n) => {
+        let q = [ONE];
+        if (n > 0) {
+          const A = [], b = [];
+          for (let i = 0; i < n; i++) { const row = []; for (let j = 0; j < n; j++) { const idx = m + 1 + i - (j + 1); row.push(idx >= 0 ? c[idx] : ZERO); } A.push(row); b.push(neg(c[m + 1 + i])); }
+          const sol = _cSolve(A, b); if (!sol) return null;
+          q = [ONE].concat(sol);
+        }
+        const p = []; for (let k = 0; k <= m; k++) { let s = ZERO; for (let j = 0; j <= Math.min(k, n); j++) s = add(s, mul(q[j], c[k - j])); p.push(s); }
+        return { p, q };
+      };
+      function padeAt(z0) {
+        z0 = C(z0.re, z0.im);
+        const f = curF(), m = state.cont.padeM, n = state.cont.padeN, L = m + n;
+        const v = views.analysis, half = ($("#cv-analysis").width / 2) * v.scale;
+        let r0 = Math.max(1e-3, 0.15 * half), coeffs = null;
+        for (let att = 0; att < 9; att++) {
+          const sv = _wcSample(f, z0, r0, Math.max(160, 3 * (L + 1)));
+          if (sv.every(isFiniteC) && !_wcCut(sv)) {
+            const cc = _wcCoeffs(sv, r0, L);
+            // радиус сходимости должен превышать окружность выборки, иначе она охватила особенность
+            if (cc.every(isFiniteC) && _wcRadius(cc) > 0.9 * r0) { coeffs = cc; break; }
+          }
+          r0 *= 0.6;
+        }
+        if (!coeffs) { state.cont.pade = null; showResults("Паде", [["не удалось (особенность у центра?)", "", "muted"]]); analysisRedraw(); return; }
+        const pade = padeApprox(coeffs, m, n);
+        if (!pade) { state.cont.pade = null; showResults("Паде", [["вырожденная система", "", "muted"]]); analysisRedraw(); return; }
+        // корни Q → полюса; фильтр дублетов Фруассара по величине вычета P/Q′
+        const qd = pade.q.map((c, k) => scale(c, k)).slice(1);
+        let cand = _polyRoots(pade.q).map((w) => {
+          const resid = abs(div(_polyEvalA(pade.p, w), _polyEvalA(qd.length ? qd : [ONE], w)));
+          return { z: add(z0, w), resid };
+        }).filter((o) => isFiniteC(o.z) && abs(sub(o.z, z0)) < 50 * r0 + 50);
+        const maxres = Math.max(1e-300, ...cand.map((o) => o.resid));
+        let poles = cand.filter((o) => o.resid > 1e-4 * maxres).map((o) => o.z);
+        poles.sort((a, b) => abs(sub(a, z0)) - abs(sub(b, z0)));
+        state.cont.pade = { z0, p: pade.p, q: pade.q, poles, r0, m, n };
+        state.cont.padeCenter = z0;
+        const rows = [["центр z₀", _fmtC(z0, 3), ""], ["аппроксимант", `[${m}/${n}]`, ""], ["радиус Тейлора", (poles.length ? abs(sub(poles[0], z0)) : Infinity).toPrecision(3), "teal"]];
+        poles.slice(0, 6).forEach((p, i) => rows.push([`полюс ${i + 1}`, _fmtC(p, 3), "warm"]));
+        showResults(`Паде [${m}/${n}]`, rows);
+        analysisRedraw();
+      }
+
+      /* — детектор естественной границы: зондирование всех направлений к границе диска — */
+      // корневой тест радиуса (устойчив для лакунарных рядов): R = exp(−⟨ln|aₙ|/n⟩) по
+      // надёжному спадающему участку (до начала шумового хвоста), пропуская нули.
+      const _rootRadius = (a) => {
+        const mag = a.map(abs), mx = Math.max(...mag);
+        if (!(mx > 0) || !isFinite(mx)) return Infinity;
+        const floor = mx * 1e-9;
+        let mn = Infinity, mnIdx = 1;
+        for (let n = 1; n < mag.length; n++) if (mag[n] > floor && mag[n] < mn) { mn = mag[n]; mnIdx = n; }
+        const rel = [];
+        for (let n = 1; n <= mnIdx; n++) if (mag[n] > floor) rel.push(n);
+        if (rel.length < 2) return Infinity;
+        const lo = rel[Math.floor(rel.length * 0.4)];
+        let sum = 0, cnt = 0;
+        for (const n of rel) if (n >= lo) { sum += Math.log(mag[n]) / n; cnt++; }
+        return cnt ? Math.exp(-sum / cnt) : Infinity;
+      };
+      function boundaryAt(z0) {
+        z0 = C(z0.re, z0.im);
+        const f = curF();
+        const cv = $("#cv-analysis"), v = views.analysis, scaleRef = (cv.width / 2) * v.scale;
+        const probeRR = Math.max(1e-4, 0.05 * scaleRef);
+        // локальный радиус сходимости в точке p (расстояние до ближайшей особенности);
+        // 0, если малая окружность уже задевает особенность/разрыв (f невычислима).
+        const localR = (p) => {
+          const sv = _wcSample(f, p, probeRR, 48);
+          if (!sv.every(isFiniteC) || _wcCut(sv)) return 0;
+          const cc = _wcCoeffs(sv, probeRR, 12);
+          if (!cc.every(isFiniteC)) return 0;
+          const R = _wcRadius(cc);
+          return isFinite(R) ? R : 1e9;
+        };
+        // радиус у центра (сдвиг, чтобы обойти лакунарную симметрию коэффициентов)
+        const nud = add(z0, C(0.31 * probeRR, 0.29 * probeRR));
+        const R0 = localR(nud);
+        if (R0 <= 1.4 * probeRR) { state.cont.boundary = null; showResults("естественная граница?", [["старт у особенности — сместите центр", "", "muted"]]); analysisRedraw(); return; }
+        if (R0 >= 1e8 || R0 > 6 * scaleRef) { state.cont.boundary = { z0, R: Infinity, angles: [], entire: true }; showResults("естественная граница?", [["радиус сходимости", "велик / ∞", "teal"], ["вывод", "границы в поле зрения нет (целая функция?)", ""]]); analysisRedraw(); return; }
+        // радиальный марш в каждом направлении: докуда продолжимо наружу
+        const cap = 3.5 * R0, K = 120, angles = [];
+        let blocked = 0;
+        for (let i = 0; i < K; i++) {
+          const th = (2 * Math.PI * i) / K, dir = C(Math.cos(th), Math.sin(th));
+          let p = z0, reach = 0, isBlk = false;
+          for (let step = 0; step < 80; step++) {
+            const R = localR(p);
+            if (R < 1.5 * probeRR) { isBlk = true; break; }
+            const adv = Math.min(0.5 * R, cap - reach, 0.4 * scaleRef);
+            if (adv <= 1e-9) break;
+            p = add(p, scale(dir, adv)); reach += adv;
+            if (reach >= cap - 1e-9) break;
+          }
+          if (isBlk) blocked++;
+          angles.push({ th, reach, blocked: isBlk });
+        }
+        const frac = blocked / K;
+        let Rb = Infinity; for (const a of angles) if (a.blocked) Rb = Math.min(Rb, a.reach);
+        const R = isFinite(Rb) ? Rb : R0;
+        state.cont.boundary = { z0, R, angles, frac, cap, entire: false };
+        let verdict, cls;
+        if (blocked === 0) { verdict = "особенностей в пределах досягаемости нет (целая функция?)"; cls = "teal"; }
+        else if (frac > 0.85) { verdict = "естественная граница — особенности плотны на кривой"; cls = "warm"; }
+        else if (frac < 0.35) { verdict = "изолированные особенности — продолжимо через промежутки"; cls = "teal"; }
+        else { verdict = "смешанно / неоднозначно"; cls = ""; }
+        showResults("естественная граница?", [
+          ["центр z₀", _fmtC(z0, 3), ""],
+          ["радиус до границы", R.toPrecision(3), ""],
+          ["заблокировано направлений", `${Math.round(frac * 100)}%`, cls],
+          ["вывод", verdict, cls],
+        ]);
+        analysisRedraw();
+      }
+
+      /* — оверлей (анализ): продолжение Вейерштрасса, Паде или граница — */
+      function contOverlay(ctx, cv, v) {
+        const tool = state.ana.tool;
+        const W = cv.width, H = cv.height, toPx = (z) => [W / 2 + (z.re - v.cx) / v.scale, H / 2 - (z.im - v.cy) / v.scale];
+        ctx.save();
+        if (tool === "continue") {
+          const S = state.cont, res = S.result;
+          if (res && S.showCircles) {
+            ctx.lineWidth = 1; ctx.strokeStyle = "rgba(140,200,255,.12)";
+            const stride = Math.max(1, Math.round(res.steps.length / 60));
+            for (let i = 0; i < res.steps.length; i += stride) {
+              const st = res.steps[i]; if (!isFinite(st.radius) || st.radius <= 0) continue;
+              const [x, y] = toPx(st.center), rp = st.radius / v.scale;
+              if (rp < 1 || rp > 4 * Math.max(W, H)) continue;
+              ctx.beginPath(); ctx.arc(x, y, rp, 0, 7); ctx.stroke();
+            }
+          }
+          if (res) for (let i = 0; i < res.steps.length; i++) {
+            const st = res.steps[i], w = st.value; if (!w || !isFiniteC(w)) continue;
+            const [x, y] = toPx(st.center);
+            const hue = ((Math.atan2(w.im, w.re) / (2 * Math.PI)) * 360 + 360) % 360;
+            ctx.fillStyle = `hsl(${hue},85%,62%)`;
+            ctx.beginPath(); ctx.arc(x, y, st.cut ? 3.2 : 1.7, 0, 7); ctx.fill();
+            if (st.cut) { ctx.strokeStyle = "rgba(255,255,255,.9)"; ctx.lineWidth = 1.4; ctx.beginPath(); ctx.arc(x, y, 5.2, 0, 7); ctx.stroke(); }
+          }
+          const P = S.path;
+          if (P.length) {
+            ctx.strokeStyle = "rgba(255,255,255,.55)"; ctx.lineWidth = 1.3;
+            ctx.beginPath(); P.forEach((z, i) => { const [x, y] = toPx(z); i ? ctx.lineTo(x, y) : ctx.moveTo(x, y); }); ctx.stroke();
+            P.forEach((z, i) => { const [x, y] = toPx(z); ctx.fillStyle = i === 0 ? "rgba(120,255,160,.95)" : "rgba(255,255,255,.85)"; ctx.beginPath(); ctx.arc(x, y, i === 0 ? 4.5 : 3, 0, 7); ctx.fill(); });
+          }
+        } else if (tool === "pade") {
+          const pd = state.cont.pade;
+          if (pd) {
+            const [cx, cy] = toPx(pd.z0);
+            if (pd.poles.length) {
+              const R = abs(sub(pd.poles[0], pd.z0));
+              ctx.strokeStyle = "#7fd1ff"; ctx.lineWidth = 1.3; ctx.setLineDash([6, 4]);
+              ctx.beginPath(); ctx.arc(cx, cy, R / v.scale, 0, 7); ctx.stroke(); ctx.setLineDash([]);
+            }
+            for (const p of pd.poles) {
+              const [x, y] = toPx(p);
+              ctx.strokeStyle = "#0c0f15"; ctx.lineWidth = 4; ctx.beginPath(); cross(ctx, x, y, 7); ctx.stroke();
+              ctx.strokeStyle = getCss("--warm"); ctx.lineWidth = 2; ctx.beginPath(); cross(ctx, x, y, 7); ctx.stroke();
+            }
+            ctx.fillStyle = "#fff"; ctx.beginPath(); ctx.arc(cx, cy, 4, 0, 7); ctx.fill();
+          }
+        } else if (tool === "boundary") {
+          const bd = state.cont.boundary;
+          if (bd && !bd.entire && bd.angles.length) {
+            const [cx, cy] = toPx(bd.z0);
+            const pts = bd.angles.map((a) => [cx + Math.cos(a.th) * (a.reach / v.scale), cy - Math.sin(a.th) * (a.reach / v.scale)]);
+            const natural = bd.frac > 0.85;
+            // заливка достижимой области: замкнутый «пузырь» ⇒ естественная граница,
+            // звезда с длинными шипами в промежутки ⇒ изолированные особенности
+            ctx.beginPath();
+            pts.forEach(([x, y], i) => (i ? ctx.lineTo(x, y) : ctx.moveTo(x, y)));
+            ctx.closePath();
+            ctx.fillStyle = natural ? "rgba(255,80,80,.16)" : "rgba(120,255,150,.13)";
+            ctx.fill();
+            ctx.strokeStyle = "#0c0f15"; ctx.lineWidth = 3; ctx.stroke();
+            ctx.strokeStyle = natural ? "rgba(255,95,95,.95)" : "rgba(120,255,150,.9)"; ctx.lineWidth = 1.6; ctx.stroke();
+            // точки-упоры (направление заблокировано особенностью)
+            for (let i = 0; i < bd.angles.length; i++) {
+              if (!bd.angles[i].blocked) continue;
+              const [x, y] = pts[i];
+              ctx.fillStyle = "#0c0f15"; ctx.beginPath(); ctx.arc(x, y, 3.4, 0, 7); ctx.fill();
+              ctx.fillStyle = "#ff5a5a"; ctx.beginPath(); ctx.arc(x, y, 2, 0, 7); ctx.fill();
+            }
+            // центр
+            ctx.fillStyle = "#0c0f15"; ctx.beginPath(); ctx.arc(cx, cy, 5, 0, 7); ctx.fill();
+            ctx.fillStyle = "#fff"; ctx.beginPath(); ctx.arc(cx, cy, 3.2, 0, 7); ctx.fill();
+          }
+        }
+        ctx.restore();
+      }
+
       /* аналитические ядра (чистые) — зеркало модуля complex.js */
       const atlasCore = AC;
       /* ==== АНАЛИТИЧЕСКИЕ ЯДРА (чистые: сырые данные, без форматирования и DOM) ====
@@ -9290,10 +9713,24 @@
         custom.append(wi, hi, ap);
         w.appendChild(custom);
         const applyFixed = (ww, hh, cust) => {
+          ww = Math.max(100, Math.min(4000, ww | 0));
+          hh = Math.max(100, Math.min(4000, hh | 0));
+          // Сохраняем область определения при смене размера холста.
+          // Мировое окно по ширине = scale·W (W — ширина рендера в пикселях), поэтому
+          // при изменении W домножаем scale обратно пропорционально: окно (xmin..xmax)
+          // не меняется, растёт лишь детализация. Иначе больший холст = более широкая область.
+          const _cvf = document.querySelector("canvas.field");
+          const oldW = _cvf && _cvf.width ? _cvf.width : state.canvasSize.w;
+          if (oldW && ww && oldW !== ww) {
+            const k = oldW / ww;
+            for (const m in views) {
+              if (views[m] && typeof views[m].scale === "number") views[m].scale *= k;
+            }
+          }
           state.canvasSize = {
             mode: "fixed",
-            w: Math.max(100, Math.min(4000, ww | 0)),
-            h: Math.max(100, Math.min(4000, hh | 0)),
+            w: ww,
+            h: hh,
             custom: !!cust,
           };
           render(1);
@@ -10040,11 +10477,18 @@
                 ["point", "точка"],
                 ["contour", "контур"],
                 ["series", "ряд"],
+                ["continue", "продолж."],
+                ["pade", "Паде"],
+                ["boundary", "граница"],
               ],
               state.ana.tool,
               (v) => {
+                const prev = state.ana.tool;
                 state.ana.tool = v;
+                if (v === "continue" || v === "pade" || v === "boundary") { state.ana.point = null; state.ana.drawn = null; state.ana.contour = null; state.ana.convR = null; }
+                if (prev === "continue" || prev === "pade" || prev === "boundary") { state.cont.path = []; state.cont.result = null; state.cont.pade = null; state.cont.padeCenter = null; state.cont.boundary = null; }
                 buildPanel();
+                renderAnalysis();
               },
             ),
           );
@@ -10124,6 +10568,24 @@
                 },
               ),
             );
+          }
+          if (state.ana.tool === "continue") {
+            p.appendChild(note("Клик добавляет точку пути (тащить — панорама). Обойди точку ветвления (0 для √z, log) и замкни петлю — увидишь монодромию и смену листа. Цвет точек — arg значения; голубые круги — радиус сходимости."));
+            p.appendChild(btn("замкнуть петлю", contCloseLoop));
+            p.appendChild(btn("отменить точку", contUndo));
+            p.appendChild(btn("очистить путь", contReset));
+            p.appendChild(seg("круги сходимости", [["on", "вкл"], ["off", "выкл"]], state.cont.showCircles ? "on" : "off", (v) => { state.cont.showCircles = v === "on"; analysisRedraw(); }));
+            p.appendChild(seg("привязка ветви", [["on", "к корням 1"], ["off", "выкл"]], state.cont.snap ? "on" : "off", (v) => { state.cont.snap = v === "on"; contRun(); }));
+          }
+          if (state.ana.tool === "pade") {
+            p.appendChild(note("Клик задаёт центр z₀. Из ряда Тейлора строится аппроксимант Паде [m/n]; его полюса (кресты) приближают особенности f, продолжая за круг сходимости. Голубой круг — до ближайшего полюса."));
+            p.appendChild(rangeCtl("степень числителя m", 1, 12, state.cont.padeM, (v) => { state.cont.padeM = Math.round(v); if (state.cont.padeCenter) padeAt(state.cont.padeCenter); }, 1));
+            p.appendChild(rangeCtl("степень знаменателя n", 1, 12, state.cont.padeN, (v) => { state.cont.padeN = Math.round(v); if (state.cont.padeCenter) padeAt(state.cont.padeCenter); }, 1));
+            p.appendChild(btn("очистить", contReset));
+          }
+          if (state.ana.tool === "boundary") {
+            p.appendChild(note("Клик задаёт центр z₀: берётся круг сходимости ряда Тейлора и вокруг него зондируются направления. Красные точки — особенность у границы (заблокировано); зелёные лучи наружу — продолжимо (длина ∝ проникновению). Плотно-красное кольцо ⇒ естественная граница. Примеры: series(z^(2^k), k, 0), series(z^(k*k), k, 0)."));
+            p.appendChild(btn("очистить", contReset));
           }
           p.appendChild(btn("найти нули и полюсы в окне", findZP));
           p.appendChild(btn("поведение в ∞", analyzeInfinity));
@@ -11350,6 +11812,9 @@
         probe: true,
         click: (z) => {
           const t = state.ana.tool;
+          if (t === "continue") return contAddPoint(z);
+          if (t === "pade") return padeAt(z);
+          if (t === "boundary") return boundaryAt(z);
           if (t === "point") return analyzePoint(z);
           if (t === "series") return analyzeSeries(z);
           const sh = state.ana.shape || "circle";
