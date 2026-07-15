@@ -1242,6 +1242,7 @@
       //   'contours' / 'contours-scaled' — контурные линии log|z| и arg (сетка)
       //   'smooth-grid' — плавная сетка (произведение дробных частей)
       //   'checker' / 'checker-pm' — лог-полярная шахматка (XOR)
+      //   'diffmod' — «разностный модуль»: |clamp(falloff−classic,0) − постоянная_½| (см. ниже)
       const phaseColor = (
         z,
         {
@@ -1250,6 +1251,7 @@
           spokes = 12,
           density = 4,
           falloff = 0.4,
+          classicK = 1,
           lnorm = 2,
           mono = false,
           palette = "hsl",
@@ -1267,7 +1269,8 @@
           a = arg(z),
           aPos = a < 0 ? a + 2 * Math.PI : a;
         let hue = (aPos / (2 * Math.PI)) * 360;
-        let light = m / (m + 1),
+        // классическая светлота с коэффициентом затухания k: l = m/(m+k). k=1 — исходная схема.
+        let light = m / (m + (classicK || 1)),
           sat = 1;
         // 6·density угловых полос на окружность ↔ шаг 1/density по ln|z| → квадратные ячейки в лог-полярных координатах
         const sectors = density * 6,
@@ -1323,7 +1326,31 @@
           light = light >= 0.5 ? 0.92 : 0.1;
         }
         if (hueShift) hue = (((hue + hueShift) % 360) + 360) % 360;
-        const c = paletteRGB(hue, sat, light, palette);
+        // 'diffmod' — «разностный модуль»: покомпонентная композиция трёх раскрасок
+        // одного оттенка H и насыщенности 1, различающихся только светлотой:
+        //   L_f = 2^(−falloff·m)  (радиальное затухание),
+        //   L_c = m/(m+k)          (классическая с коэф. затухания k),
+        //   L_½ = 0.5              (постоянная светлота).
+        // Результат = |clamp(RGB(L_f) − RGB(L_c), 0) − RGB(L_½)| по каналам.
+        // Поскольку канал = L − min(L,1−L)·C_i (C_i — от оттенка), это равно
+        //   |A(m) − C_i·B(m)|, где A = L_f − L_c − ½, B = min(L_f,1−L_f) − min(L_c,1−L_c) − ½
+        // (обобщение на произвольные falloff и k). Палитра/оверлей-контраст здесь не применяются.
+        let c;
+        if (scheme === "diffmod") {
+          const Lf = Math.exp(-Math.LN2 * m * falloff);
+          const Lc = m / (m + (classicK || 1));
+          const F = hsl2rgb(hue, 1, Lf),
+            Cc = hsl2rgb(hue, 1, Lc),
+            P = hsl2rgb(hue, 1, 0.5);
+          const s1 = (x) => (x < 0 ? 0 : x); // клип первого вычитания (falloff − classic) в 0
+          c = {
+            r: Math.abs(s1(F.r - Cc.r) - P.r),
+            g: Math.abs(s1(F.g - Cc.g) - P.g),
+            b: Math.abs(s1(F.b - Cc.b) - P.b),
+          };
+        } else {
+          c = paletteRGB(hue, sat, light, palette);
+        }
         // C1: переключаемый оверлей контуров |f| и/или arg f поверх любой схемы.
         if (overlay !== "off") {
           const dens = density || 4;
@@ -2387,7 +2414,7 @@
         let a = Math.atan2(im, re);
         if (a < 0) a += 2 * Math.PI;
         const h = (a / (2 * Math.PI)) * 6,
-          l = m / (m + 1),
+          l = m / (m + (state.colorClassicK || 1)),
           s = 1;
         const c = (1 - Math.abs(2 * l - 1)) * s,
           X = c * (1 - Math.abs((h % 2) - 1)),
@@ -2803,8 +2830,46 @@
           eta: dedekindEta,
           jinv: jInvariant,
         };
+        // --- sm/cm Диксона (равногарм.), sl/cl лемнискатические (квадрат), a/b/c Борвейна ---
+        // Все выражены через тэта-функции (глобально, без приведения в ячейку).
+        const _DIXON_A = 5.299916250856354; // pi_3 = sqrt(3)*Gamma(1/3)^3/(2 pi) = Gamma(1/3)^2/Gamma(2/3)
+        const _DIXON_TAU = C(0.5, Math.sqrt(3) / 2); // e^{i pi/3}, равногармоническая решётка
+        const _dixTh = (w, ca, cb) => thetaGen(w, _DIXON_TAU, C(ca, 0), C(cb, 0));
+        // sm: нули на подгруппе H 3-деления, полюса на H+(2/3,0); константа -1
+        const dixonSM = (z) => {
+          const w = C(z.re / _DIXON_A, z.im / _DIXON_A);
+          const num = mul(mul(_dixTh(w, 0.5, 0.5), _dixTh(w, 1 / 6, 1 / 6)), _dixTh(w, -1 / 6, -1 / 6));
+          const den = mul(mul(_dixTh(w, 0.5, -1 / 6), _dixTh(w, 1 / 6, 0.5)), _dixTh(w, -1 / 6, 1 / 6));
+          return mul(C(-1, 0), div(num, den));
+        };
+        // cm: нули на H+(1/3,0) (там же, где sm=1); константа e^{i pi/3}
+        const dixonCM = (z) => {
+          const w = C(z.re / _DIXON_A, z.im / _DIXON_A);
+          const num = mul(mul(_dixTh(w, 0.5, 1 / 6), _dixTh(w, 1 / 6, -1 / 6)), _dixTh(w, -1 / 6, 0.5));
+          const den = mul(mul(_dixTh(w, 0.5, -1 / 6), _dixTh(w, 1 / 6, 0.5)), _dixTh(w, -1 / 6, 1 / 6));
+          return mul(_DIXON_TAU, div(num, den));
+        };
+        // лемнискатические: sl = sn(z, m=-1),  cl = cn/dn при m=-1  (K(-1)=varpi/2)
+        const lemniscateSL = (z) => jacobiSN(z, C(-1, 0));
+        const lemniscateCL = (z) => div(jacobiCN(z, C(-1, 0)), jacobiDN(z, C(-1, 0)));
+        // кубические тэты Борвейна как функции tau (верхняя полуплоскость), q=e^{2 pi i tau}:
+        // a(tau)=T3(q)T3(q^3)+T2(q)T2(q^3); b=(3a(3tau)-a(tau))/2; c=(a(tau/3)-a(tau))/2; a^3=b^3+c^3
+        const _borweinA = (tau) => {
+          const T = (mult, ch) => thetaGen(C(0, 0), C(mult * tau.re, mult * tau.im), C(ch, 0), C(0, 0));
+          return add(mul(T(2, 0), T(6, 0)), mul(T(2, 0.5), T(6, 0.5)));
+        };
+        const borweinA = (tau) => _borweinA(tau);
+        const borweinB = (tau) => mul(C(0.5, 0), sub(mul(C(3, 0), _borweinA(C(3 * tau.re, 3 * tau.im))), _borweinA(tau)));
+        const borweinC = (tau) => mul(C(0.5, 0), sub(_borweinA(C(tau.re / 3, tau.im / 3)), _borweinA(tau)));
         // многоаргументные спецфункции (настоящий второй/третий параметр, без подделки)
         const FNMULTI = {
+          sm: (a) => dixonSM(a[0]),
+          cm: (a) => dixonCM(a[0]),
+          sl: (a) => lemniscateSL(a[0]),
+          cl: (a) => lemniscateCL(a[0]),
+          borweina: (a) => borweinA(a[0]),
+          borweinb: (a) => borweinB(a[0]),
+          borweinc: (a) => borweinC(a[0]),
           besselj: (a) => besselJ(a[0], a[1]),
           bessely: (a) => besselY(a[0], a[1]),
           besseli: (a) => besselI(a[0], a[1]),
@@ -3711,6 +3776,7 @@
         "шахматка (лог-полярная)": "checker",
         "шахматка ±": "checker-pm",
         "шахматка Re/Im": "checker-cart",
+        "разностный модуль": "diffmod",
       };
 
       // Каталог шаблонов-конструктора. Сниппеты вставляются в активное поле; 'a'/'b' — операнды, 'z' — аргумент.
@@ -3837,6 +3903,10 @@
             ["sn", "jacobisn(z, 0.5)"],
             ["cn", "jacobicn(z, 0.5)"],
             ["dn", "jacobidn(z, 0.5)"],
+            ["sm Диксон", "sm(z)"],
+            ["cm Диксон", "cm(z)"],
+            ["sl лемниск.", "sl(z)"],
+            ["cl лемниск.", "cl(z)"],
             ["℘", "wp(z, 1, 0)"],
           ],
         ],
@@ -3877,6 +3947,9 @@
             ["ζ Вейерштрасса", "wzeta(z, 1, 0)"],
             ["σ Вейерштрасса", "wsigma(z, 1, 0)"],
             ["℘ Вейерштрасса", "wp(z, 1, 0)"],
+            ["a Борвейн (τ)", "borweina(z)"],
+            ["b Борвейн (τ)", "borweinb(z)"],
+            ["c Борвейн (τ)", "borweinc(z)"],
           ],
         ],
         [
@@ -3968,6 +4041,7 @@
         scheme: "classic",
         colorDensity: 4,
         colorFalloff: 0.4,
+        colorClassicK: 1,
         colorSpokes: 12,
         colorContrast: 2,
         colorMono: false,
@@ -4189,6 +4263,7 @@
         scheme: state.scheme,
         density: state.colorDensity,
         falloff: state.colorFalloff,
+        classicK: state.colorClassicK,
         spokes: state.colorSpokes,
         lnorm: state.colorContrast,
         mono: state.colorMono,
@@ -4297,7 +4372,7 @@
       const _GLSL_PRELUDE = [
         "precision highp float;",
         "uniform vec2 uCenter; uniform float uScale; uniform vec2 uRes;",
-        "uniform int uPalette; uniform float uHueShift; uniform int uOverlay; uniform float uDensity;",
+        "uniform int uPalette; uniform float uHueShift; uniform int uOverlay; uniform float uDensity; uniform float uClassicK;",
         "float sinh_(float x){ return (exp(x)-exp(-x))*0.5; }",
         "float cosh_(float x){ return (exp(x)+exp(-x))*0.5; }",
         "vec2 cmul(vec2 a, vec2 b){ return vec2(a.x*b.x-a.y*b.y, a.x*b.y+a.y*b.x); }",
@@ -4330,7 +4405,7 @@
         "  float a = atan(w.y, w.x);",
         "  float aPos = a < 0.0 ? a + 6.28318530718 : a;",
         "  float hue01 = fract(aPos/6.28318530718 + uHueShift/360.0);",
-        "  float light = m/(m+1.0);",
+        "  float light = m/(m+uClassicK);",
         "  vec3 c = palette(hue01, 1.0, light);",
         "  if(uOverlay > 0){",
         "    float dist = 0.5;",
@@ -4438,7 +4513,7 @@
           gl.linkProgram(prog);
           if (!gl.getProgramParameter(prog, gl.LINK_STATUS)) { _glProg[body] = null; return null; }
           const u = (n) => gl.getUniformLocation(prog, n);
-          const rec = { prog, p: gl.getAttribLocation(prog, "p"), uCenter: u("uCenter"), uScale: u("uScale"), uRes: u("uRes"), uPalette: u("uPalette"), uHueShift: u("uHueShift"), uOverlay: u("uOverlay"), uDensity: u("uDensity") };
+          const rec = { prog, p: gl.getAttribLocation(prog, "p"), uCenter: u("uCenter"), uScale: u("uScale"), uRes: u("uRes"), uPalette: u("uPalette"), uHueShift: u("uHueShift"), uOverlay: u("uOverlay"), uDensity: u("uDensity"), uClassicK: u("uClassicK") };
           _glProg[body] = rec;
           return rec;
         } catch (e) { _glProg[body] = null; return null; }
@@ -4476,6 +4551,7 @@
           gl.uniform1f(rec.uHueShift, state.colorHueShift || 0);
           gl.uniform1i(rec.uOverlay, { off: 0, mod: 1, arg: 2, both: 3 }[state.contourOverlay] || 0);
           gl.uniform1f(rec.uDensity, state.colorDensity || 4);
+          gl.uniform1f(rec.uClassicK, state.colorClassicK || 1);
           gl.drawArrays(gl.TRIANGLES, 0, 3);
           if (gl.getError() !== gl.NO_ERROR) return false;
           const ctx = cv.getContext("2d");
@@ -8257,6 +8333,36 @@
               0.05,
             ),
           );
+        if (sc === "classic" || sc === "diffmod")
+          frag.appendChild(
+            rangeCtl(
+              "коэф. затухания k (classic)",
+              0.1,
+              4,
+              state.colorClassicK,
+              (v) => {
+                state.colorClassicK = v;
+                render(1);
+                syncHash();
+              },
+              0.05,
+            ),
+          );
+        if (sc === "diffmod")
+          frag.appendChild(
+            rangeCtl(
+              "коэф. затухания φ (falloff)",
+              0.1,
+              2,
+              state.colorFalloff,
+              (v) => {
+                state.colorFalloff = v;
+                render(1);
+                syncHash();
+              },
+              0.05,
+            ),
+          );
         if (sc === "bands")
           frag.appendChild(
             rangeCtl(
@@ -8754,6 +8860,7 @@
           color: {
             density: state.colorDensity,
             falloff: state.colorFalloff,
+            classicK: state.colorClassicK,
             spokes: state.colorSpokes,
             contrast: state.colorContrast,
             mono: state.colorMono,
@@ -8776,6 +8883,7 @@
             const c = o.color;
             if (c.density != null) state.colorDensity = c.density;
             if (c.falloff != null) state.colorFalloff = c.falloff;
+            if (c.classicK != null) state.colorClassicK = c.classicK;
             if (c.spokes != null) state.colorSpokes = c.spokes;
             if (c.contrast != null) state.colorContrast = c.contrast;
             if (c.mono != null) state.colorMono = c.mono;
