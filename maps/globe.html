@@ -1941,27 +1941,61 @@
           const def = V.def, P = V.P,
             invRot = rotatorInv([-state.cLon, -state.cLat, state.gamma]),
             Rt = ccTranspose3(C.R),
-            axial = C.space === "rgb" && C.mapMode.charCodeAt(0) === 97,
+            axial = C.mapMode.charCodeAt(0) === 97,
             sx = V.rect.w / w, sy = V.rect.h / h, tol = 1.5 / V.s;
-          for (let iy = 0; iy < h; iy++) {
-            const Y = V.rect.y + (iy + 0.5) * sy;
-            for (let ix = 0; ix < w; ix++) {
-              const X = V.rect.x + (ix + 0.5) * sx;
-              const xn = (X - V.cx) / V.s, yn = (V.cy - Y) / V.s;
-              const q = inv(xn, yn, P);
-              if (!q || !isFinite(q[0]) || !isFinite(q[1])) continue;
-              if (Math.abs(q[0]) > V.lamMaxDeg * DEG + 1e-6 || Math.abs(q[1]) > V.phiMaxDeg * DEG + 1e-6) continue; // CC3: клип по домену проекции (projDomain)
-              const re = def.forward(q[0], q[1], P);
-              if (Math.hypot(re[0] - xn, re[1] - yn) > tol) continue; // вне глобуса
-              const geo = invRot(q[0], q[1]);
-              const vv = ccLonLatToVec(geo[0], geo[1]);
-              let c;
-              if (axial) c = ccSampleAxialWorld(vv, Rt, C);
-              else c = ccSampleColor(ccApply3(Rt, vv), C);
-              if (!c) continue;
-              const o = (iy * w + ix) * 4;
-              px[o] = c[0]; px[o + 1] = c[1]; px[o + 2] = c[2]; px[o + 3] = Math.round(255 * op);
+          const fwd = def.forward, useWarm = typeof V.def.inverse !== "function"; // inverse:null → двухпроходно
+          const lamMax = V.lamMaxDeg * DEG + 1e-6, phiMax = V.phiMaxDeg * DEG + 1e-6;
+          const XN = (ix) => (V.rect.x + (ix + 0.5) * sx - V.cx) / V.s;
+          const YN = (iy) => (V.cy - (V.rect.y + (iy + 0.5) * sy)) / V.s;
+          const solve = (xn, yn, seed) => {
+            let q = seed ? ccNewton(fwd, xn, yn, P, seed[0], seed[1]) : inv(xn, yn, P);
+            if (!q || !isFinite(q[0]) || !isFinite(q[1])) return null;
+            if (Math.abs(q[0]) > lamMax || Math.abs(q[1]) > phiMax) return null;
+            const re = fwd(q[0], q[1], P);
+            if (Math.hypot(re[0] - xn, re[1] - yn) > tol) return null;
+            return q;
+          };
+          const paint = (q, ix, iy) => {
+            const geo = invRot(q[0], q[1]);
+            const vv = ccLonLatToVec(geo[0], geo[1]);
+            let c;
+            if (axial) c = C.space === "hsl" ? ccSampleAxialBiconus(vv, Rt, C) : ccSampleAxialWorld(vv, Rt, C);
+            else c = ccSampleColor(ccApply3(Rt, vv), C);
+            if (!c) return;
+            const o = (iy * w + ix) * 4;
+            px[o] = c[0]; px[o + 1] = c[1]; px[o + 2] = c[2]; px[o + 3] = Math.round(255 * op);
+          };
+          if (useWarm) {
+            // CC9 ПРОХОД 1: грубая сетка сидов (полный numInverse на 1/CS² пикселей)
+            const CS = 4, cw = Math.floor((w - 1) / CS) + 1, chh = Math.floor((h - 1) / CS) + 1;
+            const seeds = new Array(cw * chh).fill(null);
+            for (let cy = 0; cy < chh; cy++) {
+              for (let jx = 0; jx < cw; jx++) {
+                const cx = (cy & 1) ? cw - 1 - jx : jx;
+                const ix = Math.min(w - 1, cx * CS), iy = Math.min(h - 1, cy * CS);
+                const near = (cx > 0 && seeds[cy * cw + cx - 1]) || (cx < cw - 1 && seeds[cy * cw + cx + 1])
+                  || (cy > 0 && seeds[(cy - 1) * cw + cx]) || null;
+                seeds[cy * cw + cx] = solve(XN(ix), YN(iy), near);
+              }
             }
+            // CC9 ПРОХОД 2: тонкая сетка, тёплый старт от соседа/грубого сида (без полного numInverse)
+            let prev = null;
+            for (let iy = 0; iy < h; iy++) {
+              const rev = (iy & 1) === 1, cyr = Math.min(chh - 1, Math.round(iy / CS));
+              for (let jj = 0; jj < w; jj++) {
+                const ix = rev ? (w - 1 - jj) : jj;
+                const seed = prev || seeds[cyr * cw + Math.min(cw - 1, Math.round(ix / CS))];
+                const q = seed ? solve(XN(ix), YN(iy), seed) : null;
+                if (!q) { prev = null; continue; }
+                prev = q; paint(q, ix, iy);
+              }
+            }
+          } else {
+            for (let iy = 0; iy < h; iy++)
+              for (let ix = 0; ix < w; ix++) {
+                const q = solve(XN(ix), YN(iy), null);
+                if (q) paint(q, ix, iy);
+              }
           }
           og.putImageData(im, 0, 0);
           L._bmp = oc; L._sig = sig;
@@ -2312,6 +2346,55 @@
         return rings;
       }
       /* ═══════════ /CC-COLORCUBE-HSL ═══════════ */
+      /* ═══════════ CC-COLORCUBE-AXBI — осевое проецирование биконуса ═══════════ */
+      // осевое с МИРОВОЙ осью: луч ⟂ оси ∩ повёрнутый биконус; цвет по (светлота t, тон)
+      function ccSampleAxialBiconus(v, Rt, C) {
+        const axisCh = C.mapMode.charCodeAt(5); // 'x'120 'y'121 'z'122
+        const k = axisCh === 122 ? 2 : axisCh === 121 ? 1 : 0;
+        const Ow = [0, 0, 0]; Ow[k] = v[k];
+        const Dw = [v[0], v[1], v[2]]; Dw[k] = 0;
+        if (Math.hypot(Dw[0], Dw[1], Dw[2]) < 1e-7) Dw[(k + 1) % 3] = 1; // полюс оси
+        const O = ccApply3(Rt, Ow);
+        let D = ccApply3(Rt, Dw);
+        const dl = Math.hypot(D[0], D[1], D[2]) || 1; D = [D[0] / dl, D[1] / dl, D[2] / dl];
+        const hit = ccRayBiconus(O, D); if (!hit) return null;
+        const P = [O[0] + hit.s * D[0], O[1] + hit.s * D[1], O[2] + hit.s * D[2]], t = hit.t;
+        const a = P[0]*CC_BU[0] + P[1]*CC_BU[1] + P[2]*CC_BU[2];
+        const bb = P[0]*CC_BW[0] + P[1]*CC_BW[1] + P[2]*CC_BW[2];
+        let h = Math.atan2(bb, a) / DEG - 30; h = ((h % 360) + 360) % 360;
+        const l = (t + 1) / 2;
+        let rgb = hslToRgb(h, 100, l * 100);
+        if (C.lattice.on && C.lattice.style !== "vector") {
+          const hueLines = Math.max(1, C.lattice.subdiv) * 3;
+          const dh = Math.abs(((h / (360 / hueLines)) % 1) - 0.5) * 2, dlt = Math.abs(((l * C.lattice.subdiv) % 1) - 0.5) * 2;
+          if (dh > 0.94 || dlt > 0.94) rgb = [rgb[0]*0.25, rgb[1]*0.25, rgb[2]*0.28];
+        }
+        return rgb;
+      }
+      /* ═══════════ /CC-COLORCUBE-AXBI ═══════════ */
+      /* ═══════════ CC-COLORCUBE-WARM — Ньютон с тёплым стартом ═══════════ */
+      // Ньютон 2D от заданного сида (lam,phi). Возвращает [lam,phi] при сходимости, иначе null.
+      function ccNewton(fwd, x, y, P, lam, phi) {
+        const h = 1e-6;
+        for (let it = 0; it < 20; it++) {
+          const f = fwd(lam, phi, P);
+          if (!isFinite(f[0]) || !isFinite(f[1])) return null;
+          const ex = f[0] - x, ey = f[1] - y;
+          if (ex > -1e-9 && ex < 1e-9 && ey > -1e-9 && ey < 1e-9) return [lam, phi];
+          const fl1 = fwd(lam + h, phi, P), fl0 = fwd(lam - h, phi, P),
+                fp1 = fwd(lam, phi + h, P), fp0 = fwd(lam, phi - h, P);
+          const J11 = (fl1[0] - fl0[0]) / (2 * h), J12 = (fp1[0] - fp0[0]) / (2 * h),
+                J21 = (fl1[1] - fl0[1]) / (2 * h), J22 = (fp1[1] - fp0[1]) / (2 * h);
+          const det = J11 * J22 - J12 * J21;
+          if (!isFinite(det) || Math.abs(det) < 1e-30) return null;
+          lam -= (J22 * ex - J12 * ey) / det;
+          phi -= (-J21 * ex + J11 * ey) / det;
+          if (phi > 1.5707963267948966) phi = 1.5707963267948966;
+          else if (phi < -1.5707963267948966) phi = -1.5707963267948966;
+        }
+        return null;
+      }
+      /* ═══════════ /CC-COLORCUBE-WARM ═══════════ */
       function renderHeatmap(tctx, V, L) {
         if (!POP) {
           loadPopGrid();
