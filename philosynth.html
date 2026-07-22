@@ -3834,6 +3834,15 @@
             <div class="pool-summary" id="poolSummary" style="display:none"></div>
             <input type="file" id="poolFileInput" accept=".html,.htm"
                    style="display:none" onchange="handlePoolFileImport(this)" multiple>
+            <div id="fullBudgetBlock" class="meta-option" style="display:none; margin-top:12px; padding:10px; border:1px solid var(--ink-line, #d8d4cc); background:rgba(0,0,0,0.02);">
+              <label style="display:flex; align-items:flex-start; gap:8px; cursor:pointer; font-size:13px;">
+                <input type="checkbox" id="keepFullBudgetCb" onchange="onKeepFullBudgetChange()">
+                <span><strong>Сохранять полный бюджет секций</strong>
+                  <span style="color:var(--ink-dim, #8a8278); font-weight:normal;"> — не ужимать из-за контекста родительских концепций</span>
+                </span>
+              </label>
+              <div id="fullBudgetPreview" style="margin-top:8px; font-family:'IBM Plex Mono',monospace; font-size:11px; color:var(--ink-dim, #8a8278); white-space:pre-line; line-height:1.6;"></div>
+            </div>
           </div>
         </div>
 
@@ -4412,20 +4421,61 @@
         creative: "Творческий",
       };
 
-      const MD = {
-        dialectical:
-          "Движение от тезиса к антитезису и к синтезу — обнаружение внутренних противоречий между традициями и их снятие в новом единстве",
-        integrative:
-          "Поиск общих оснований, скрытых точек пересечения и взаимодополняющих элементов между выбранными традициями",
-        deconstructive:
-          "Разбор базовых предпосылок каждой традиции, обнаружение скрытых допущений и пересборка из очищенных элементов",
-        hermeneutical:
-          "Погружение в горизонт понимания каждой традиции и расширение собственного горизонта через слияние перспектив",
-        analytical:
-          "Формализация ключевых положений, выявление логической структуры и построение непротиворечивого синтеза",
-        creative:
-          "Свободная комбинаторика идей с упором на оригинальность, неожиданные связи и порождающий потенциал",
+      // MD — описания методов синтеза, теперь индексированные по
+      // кардинальности участников (multi / single / none). Штатно
+      // обращения идут через mdText(p, method); прямое MD[method]
+      // для обратной совместимости возвращает описание multi-режима.
+      const MD_BY_CARD = {
+        multi: {
+          dialectical:
+            "Движение от тезиса к антитезису и к синтезу — обнаружение внутренних противоречий между традициями и их снятие в новом единстве",
+          integrative:
+            "Поиск общих оснований, скрытых точек пересечения и взаимодополняющих элементов между выбранными традициями",
+          deconstructive:
+            "Разбор базовых предпосылок каждой традиции, обнаружение скрытых допущений и пересборка из очищенных элементов",
+          hermeneutical:
+            "Погружение в горизонт понимания каждой традиции и расширение собственного горизонта через слияние перспектив",
+          analytical:
+            "Формализация ключевых положений, выявление логической структуры и построение непротиворечивого синтеза",
+          creative:
+            "Свободная комбинаторика идей с упором на оригинальность, неожиданные связи и порождающий потенциал",
+        },
+        single: {
+          dialectical:
+            "Движение от тезиса к антитезису и к синтезу — внутреннее диалектическое развитие исходной позиции, обнаружение её внутренних противоречий (в том числе в свете зерна концепции) и их снятие в новом единстве",
+          integrative:
+            "Поиск общих оснований и взаимодополняющих элементов между исходной позицией и проблемным полем, заданным зерном; интеграция с соседними философскими горизонтами, на которые опирается зерно",
+          deconstructive:
+            "Разбор базовых предпосылок исходной позиции, обнаружение её скрытых допущений в свете зерна и пересборка из очищенных элементов",
+          hermeneutical:
+            "Погружение в горизонт понимания исходной позиции и его расширение через последовательное вчитывание зерна концепции",
+          analytical:
+            "Формализация ключевых положений исходной позиции, уточнение их в свете зерна концепции и построение непротиворечивого развития",
+          creative:
+            "Свободная комбинаторика идей исходной позиции и тем, заданных зерном, с упором на оригинальность и порождающий потенциал",
+        },
+        none: {
+          dialectical:
+            "Движение от тезиса к антитезису и к синтезу — обнаружение внутренних противоречий внутри проблемного поля, задаваемого зерном, и их снятие в новом единстве",
+          integrative:
+            "Поиск общих оснований, скрытых точек пересечения и взаимодополняющих элементов в проблемном поле, задаваемом зерном",
+          deconstructive:
+            "Разбор базовых предпосылок, лежащих в основании проблемы, обнаружение скрытых допущений и пересборка из очищенных элементов",
+          hermeneutical:
+            "Погружение в горизонт понимания, задаваемый зерном, и расширение этого горизонта через последовательную интерпретацию",
+          analytical:
+            "Формализация ключевых положений, выявление логической структуры и построение непротиворечивой концепции из зерна",
+          creative:
+            "Свободная комбинаторика идей с упором на оригинальность, неожиданные связи и порождающий потенциал",
+        },
       };
+      const MD = MD_BY_CARD.multi;  // бэк-совместимость: MD[method] — multi
+      function mdText(p, method) {
+        const card = participantCardinality(p);
+        const m = method || (p && p.method) || "dialectical";
+        return (MD_BY_CARD[card] && MD_BY_CARD[card][m])
+            || MD_BY_CARD.multi[m] || "";
+      }
 
       const DL = {
         overview: "Обзорная",
@@ -4440,14 +4490,42 @@
         generative: "Порождающий",
       };
 
-      const SD = {
-        comparative:
-          "Категории заимствуются из исходных философов с переопределением, дополняются синтетическими",
-        transformative:
-          "Каждая категория обязана возникать из напряжения между минимум двумя философами, прямое заимствование запрещено",
-        generative:
-          "Категории порождаются проблемой, а не философами; философы — источники ограничений, которые синтез преодолевает",
+      // SD — описания уровней синтеза, индексированные по кардинальности.
+      // Штатно — через sdText(p, level). Прямое SD[level] — для
+      // обратной совместимости возвращает multi-описание.
+      const SD_BY_CARD = {
+        multi: {
+          comparative:
+            "Категории заимствуются из исходных философов с переопределением, дополняются синтетическими",
+          transformative:
+            "Каждая категория обязана возникать из напряжения между минимум двумя философами, прямое заимствование запрещено",
+          generative:
+            "Категории порождаются проблемой, а не философами; философы — источники ограничений, которые синтез преодолевает",
+        },
+        single: {
+          comparative:
+            "Категории заимствуются из исходной позиции с переопределением и уточнением в свете зерна концепции, дополняются синтетическими",
+          transformative:
+            "Каждая категория обязана возникать из напряжения между исходной позицией и проблемным полем, задаваемым зерном; прямое заимствование без переосмысления запрещено",
+          generative:
+            "Категории порождаются проблемой (зерном), а не исходной позицией; исходная позиция — источник ограничений, которые синтез преодолевает",
+        },
+        none: {
+          comparative:
+            "Категории разрабатываются через сопоставление нескольких возможных трактовок зерна, с переопределением ключевых понятий и построением синтетического каркаса",
+          transformative:
+            "Каждая категория обязана возникать из напряжения между минимум двумя различимыми трактовками/горизонтами в поле зерна; прямое заимствование из одной узнаваемой традиции запрещено",
+          generative:
+            "Категории порождаются проблемой (зерном), а не готовыми системами; философские традиции — лишь источники ограничений, которые синтез преодолевает",
+        },
       };
+      const SD = SD_BY_CARD.multi;  // бэк-совместимость: SD[level] — multi
+      function sdText(p, level) {
+        const card = participantCardinality(p);
+        const l = level || (p && p.synthLevel) || "comparative";
+        return (SD_BY_CARD[card] && SD_BY_CARD[card][l])
+            || SD_BY_CARD.multi[l] || SD_BY_CARD.multi.comparative;
+      }
 
 
       const ORDER_HINT_MATRIX = {
@@ -4756,6 +4834,8 @@
         // Сериализуем состояние (как в saveHTML)
         const stateData = {
           version: 2,
+          parentContextSchema: PARENT_CONTEXT_SCHEMA_ID,
+          parentContextSchemaVersion: PARENT_CONTEXT_SCHEMA_VERSION,
           genLog: genLog.map(g => {
             const { _sys, _promptSkeleton, ...rest } = g;
             return rest;
@@ -4799,6 +4879,7 @@
        * Синхронизирует _conceptParticipants из пула.
        */
       function syncConceptParticipants() {
+        const _prev = _conceptParticipants;
         _conceptParticipants = _loadedConcepts
           .filter(c => c.isSynthParticipant && c.participant)
           .map(c => {
@@ -4809,6 +4890,10 @@
               ? { ...c.participant, generationOrder: c.generationOrder }
               : c.participant;
           });
+        // Показ/скрытие fullBudgetBlock при смене пула (ТЗ tz_budget_mode).
+        try {
+          if (typeof renderFullBudgetPreview === "function") renderFullBudgetPreview();
+        } catch (_) {}
       }
 
       /**
@@ -5145,6 +5230,7 @@
           lang: p.lang,
           generationOrder: p.generationOrder,
           extGraphMetrics: p.extGraphMetrics || false,
+          keepFullBudget: !!p.keepFullBudget,
         };
         DOC_STATE.sectionOrder = [...dynamicOrder];
         DOC_STATE.sectionDbIdx = {};
@@ -5608,20 +5694,32 @@
         DOC_STATE.sectionDbIdx = {};
         graphBodyIdx = -1;
 
-        children.forEach((el, i) => {
-          el.id = "db" + i;
-          if (i > 0) el.style.borderTop = "none";
+        // Оглавление — не раздел; сохраняем его id="docTOC" и пропускаем
+        // в нумерации db-контейнеров. Без этого первый же вызов rebuildDbMapping
+        // после вставки TOC (например, при удалении/добавлении раздела,
+        // перегенерации, догенерации подразделов после паузы) безусловно
+        // перезаписывает id TOC-а на "db0"; следующий buildTableOfContents
+        // уже не находит старый TOC по getElementById("docTOC") и вставляет
+        // новый — в документе оказывается два оглавления, а индексы разделов
+        // сдвигаются на единицу.
+        let dbIdx = 0;
+        for (const el of children) {
+          if (el.id === "docTOC") continue;
+
+          el.id = "db" + dbIdx;
+          if (dbIdx > 0) el.style.borderTop = "none";
           else el.style.borderTop = "";
 
           const keyAttr = el.getAttribute("data-section-key");
           if (keyAttr) {
             const keys = keyAttr.split("+");
             for (const k of keys) {
-              DOC_STATE.sectionDbIdx[k] = i;
-              if (k === "graph") graphBodyIdx = i;
+              DOC_STATE.sectionDbIdx[k] = dbIdx;
+              if (k === "graph") graphBodyIdx = dbIdx;
             }
           }
-        });
+          dbIdx++;
+        }
       }
 
       /**
@@ -7541,7 +7639,7 @@
 
         if (isEdit) {
           p = DOC_STATE.params;
-          if (!p || !p.phil?.length) return null;
+          if (!p || (!p.phil?.length && !p.seed)) return null;
           effectiveDeps = DOC_STATE.effectiveDeps || {};
           targetKeys = opts.sections;
           // Временно дополняем p.sec добавляемыми разделами,
@@ -7560,7 +7658,7 @@
           const synthLevel = document.getElementById("synthesisLevel").value;
           const seed       = document.getElementById("seedInput").value.trim();
           const ctx        = document.getElementById("contextInput").value.trim();
-          if (!phil.length && !_conceptParticipants.length) return null;
+          if (!phil.length && !_conceptParticipants.length && !seed) return null;
 
           p = { seed, phil, sec, method, depth, synthLevel, ctx, lang: GEN_LANG };
           p.secCtx = getSecCtxMap();
@@ -7604,20 +7702,17 @@
         const scaffoldChars = genCommon?.scaffoldChars ||
           `ПАРАМЕТРЫ СИНТЕЗА:\n\n\nЗАДАНИЕ: составь ТОЛЬКО следующие разделы (строго в указанном порядке, без добавления других):\n\n\n\n`.length;
 
-        let budget = CONTEXT_BUDGET[p.depth] || 48000;
-
-        // При мета-синтезе: контекст концепций увеличивает вход каждого прохода
-        const conceptChars = (DOC_STATE.participants || p.participants || [])
-          .filter(x => x.type === "concept")
-          .reduce((sum, c) =>
-            sum + (c.capsule?.length || 0) + (c.graphNodes?.length || 0) +
-            (c.glossaryCompact?.length || 0) + (c.thesesSummary?.length || 0) +
-            (c.goals?.length || 0) + (c.tensions?.length || 0), 0);
-
-        if (conceptChars > 0) {
-          // Уменьшаем бюджет контекста разделов (аналогично buildContextForSection)
-          budget = Math.max(budget - conceptChars, Math.floor(budget * 0.4));
-        }
+        const _baseBudget0 = CONTEXT_BUDGET[p.depth] || 48000;
+        // При явно переданном opts — уважаем его. Иначе — чекбокс
+        // как user-facing источник истины (а не замороженный флаг из
+        // DOC_STATE.params прошлой генерации).
+        const _estKeepFullBudget = (opts && typeof opts.keepFullBudget === "boolean")
+          ? opts.keepFullBudget
+          : _currentKeepFullBudget();
+        const _estParticipants = (DOC_STATE.participants || p.participants || []);
+        const _estOrder = p.generationOrder || "architectural";
+        const _estSynthLevel = p.synthLevel || "comparative";
+        const _estMethod = p.method || "dialectical";
 
         // ── Оценка выхода каждого раздела ──
         const estimatedOutput = {};
@@ -7642,22 +7737,37 @@
         let totalInChars  = 0;
         let totalOutChars = 0;
 
+        // baseChars здесь — легаси-значение (static + full-monolithic). При селективности
+        // берём только статическую часть; parentOverhead суммируется per-section.
+        const _baseStaticChars = hasConceptParticipants(p)
+          ? baseCtxStatic(p).length
+          : baseChars;
+
         for (let i = 0; i < passes.length; i++) {
           const pass = passes[i];
-
-          let contextChars = 0;
-          // Контекст есть у всех, кроме первого прохода (при полной генерации)
-          // или кроме sum (при редактировании — каждый раздел получает контекст)
           const needsContext = isEdit
             ? pass.some(d => d.key !== "sum")
             : i > 0;
 
+          // Соответствие runtime (_runGenPassesFromIdx): partBase собирается
+          // один раз на весь pass через pass[0].key. passParentOverhead и
+          // budget вычисляются по репрезентативному ключу (pass[0]).
+          const _passKey = pass[0].key;
+          const passParentOverhead = parentOverheadForSection(
+            _estParticipants, _passKey, _estOrder, _estSynthLevel, _estMethod);
+          const baseWithCritic = (_passKey === "critique")
+            ? Math.floor(_baseBudget0 * 1.5) : _baseBudget0;
+          const { effectiveBudget: budgetForPass } = applyBudgetPressure(
+            baseWithCritic, passParentOverhead, _estKeepFullBudget);
+
+          // contextChars складывается по def (как было в оригинале — это
+          // верхняя оценка, затем ограничивается общим pass-бюджетом).
+          let contextChars = 0;
           if (needsContext) {
             for (const def of pass) {
               if (def.key === "sum") continue;
               const deps = effectiveDeps[def.key];
               if (!deps) continue;
-
               for (const ctxKey of [...(deps.required || []), ...(deps.optional || [])]) {
                 const src = sourceOf(ctxKey);
                 const srcOutput = estimatedOutput[src];
@@ -7666,14 +7776,14 @@
                 contextChars += Math.round(srcOutput * share);
               }
             }
-            contextChars = Math.min(contextChars, budget);
+            contextChars = Math.min(contextChars, budgetForPass);
           }
 
           const sectionPromptsChars = pass.reduce(
             (s, d) => s + (d.prompt?.length || 0) + (d.title?.length || 0) + 20, 0
           );
 
-          const passInChars = sysChars + baseChars + contextChars
+          const passInChars = sysChars + _baseStaticChars + passParentOverhead + contextChars
                   + sectionPromptsChars + scaffoldChars;
           totalInChars += passInChars;
 
@@ -7701,7 +7811,8 @@
         if (!p) return null;
 
         // ── Системные и базовые элементы ──
-        const sysChars = genCommon?.sysChars || buildSYS(p).length;
+        // SYS для подраздела короче (subsection-режим), учитываем это в оценке.
+        const sysChars = genCommon?.sysChars || buildSYS(p, { outputMode: "subsection" }).length;
         const baseChars = genCommon?.baseChars || baseCtx(p).length;
 
         // ── Промпт подраздела (serializeSubsectionRegen) ──
@@ -7743,16 +7854,18 @@
         // Используем тот же подход, что и estimateCost: FRAGMENT_SHARE + фактические размеры
         let baseBudget = CONTEXT_BUDGET[p.depth] || 48000;
         if (sectionKey === "critique") baseBudget = Math.floor(baseBudget * 1.5);
-
-        const conceptChars = (DOC_STATE.participants || [])
-          .filter(x => x.type === "concept")
-          .reduce((sum, c) =>
-            sum + (c.capsule?.length || 0) + (c.graphNodes?.length || 0) +
-            (c.glossaryCompact?.length || 0) + (c.thesesSummary?.length || 0) +
-            (c.goals?.length || 0) + (c.tensions?.length || 0), 0);
-        const budget = conceptChars > 0
-          ? Math.max(baseBudget - conceptChars, Math.floor(baseBudget * 0.4))
-          : baseBudget;
+        // Приоритет чекбокса (см. hotfix2)
+        const _subKeepFull = _currentKeepFullBudget();
+        const _subParticipants = DOC_STATE.participants || [];
+        const _subOrder = p.generationOrder || "architectural";
+        const _subSynthLevel = p.synthLevel || "comparative";
+        const _subMethod = p.method || "dialectical";
+        const _subParentOverhead = parentOverheadForSection(
+          _subParticipants, sectionKey, _subOrder,
+          _subSynthLevel, _subMethod, subsectionName
+        );
+        const { effectiveBudget: budget } = applyBudgetPressure(
+          baseBudget, _subParentOverhead, _subKeepFull);
 
         const effectiveDeps = DOC_STATE.effectiveDeps || {};
         const deps = effectiveDeps[sectionKey];
@@ -7774,7 +7887,10 @@
           priorCtxEstimate = Math.min(priorCtxEstimate, budget);
         }
 
-        const totalInChars = sysChars + baseChars + subPromptChars + priorCtxEstimate;
+        const _subBaseStaticChars = hasConceptParticipants(p)
+          ? baseCtxStatic(p).length : baseChars;
+        const totalInChars = sysChars + _subBaseStaticChars + _subParentOverhead
+                           + subPromptChars + priorCtxEstimate;
 
         // ── Выход: подраздел ≈ 1/N от полного раздела ──
         const sectionMult = SECTION_OUTPUT_MULT[sectionKey] ?? SECTION_OUTPUT_MULT._default;
@@ -7816,6 +7932,7 @@
       }
 
       function updateCostEstimate() {
+        try { if (typeof renderFullBudgetPreview === "function") renderFullBudgetPreview(); } catch(_) {}
         const el = document.getElementById("costEstimate");
         if (!el) return;
         const est = estimateCost();
@@ -8204,23 +8321,25 @@
         ]);
         const baseBudget = CONTEXT_BUDGET[depth] || 12000;
 
-      // При мета-синтезе: контекст концепций-участников уже включён в baseCtx
-      // и занимает часть контекстного окна. Уменьшаем бюджет на контекст
-      // предыдущих разделов, чтобы суммарно не выйти за пределы окна.
-      const conceptOverhead = (typeof _conceptParticipants !== "undefined" && _conceptParticipants.length > 0)
-        ? _conceptParticipants.reduce((sum, c) =>
-            sum + (c.capsule?.length || 0) + (c.graphNodes?.length || 0) +
-            (c.glossaryCompact?.length || 0) + (c.thesesSummary?.length || 0) +
-            (c.goals?.length || 0) + (c.tensions?.length || 0), 0)
-        : 0;
-
-      const adjustedBase = conceptOverhead > 0
-        ? Math.max(baseBudget - conceptOverhead, Math.floor(baseBudget * 0.4))
-        : baseBudget;
-
-      const totalBudget = (sectionKey === "critique")
-        ? Math.floor(adjustedBase * 1.5)
-        : adjustedBase;
+      // Per-section formula через applyBudgetPressure.
+      // Унифицировано: critique × 1.5 применяется ДО давления.
+      const _keepFullBudget = !!((DOC_STATE.params && DOC_STATE.params.keepFullBudget)
+        || _currentKeepFullBudget());
+      const _participantsForBudget = (DOC_STATE.participants && DOC_STATE.participants.length)
+        ? DOC_STATE.participants
+        : ((typeof _conceptParticipants !== "undefined") ? _conceptParticipants : []);
+      const _genOrder = (DOC_STATE.params && DOC_STATE.params.generationOrder) || "architectural";
+      const _synthLevel = (DOC_STATE.params && DOC_STATE.params.synthLevel) || "comparative";
+      const _method = (DOC_STATE.params && DOC_STATE.params.method) || "dialectical";
+      const _parentOverhead = parentOverheadForSection(
+        _participantsForBudget, sectionKey, _genOrder, _synthLevel, _method
+      );
+      const _baseWithCritic = (sectionKey === "critique") ? Math.floor(baseBudget * 1.5) : baseBudget;
+      const _pressure = applyBudgetPressure(_baseWithCritic, _parentOverhead, _keepFullBudget);
+      const totalBudget = _pressure.effectiveBudget;
+      const _rawBaseBudget = _baseWithCritic;
+      const _conceptOverheadApplied = _pressure.applied;
+      const _budgetModeForLog = _pressure.mode;
 
         // 1. Обязательный контекст
         const requiredParts = [];
@@ -8274,7 +8393,11 @@
                 isSubstitute: !_origAllKeys.has(key) 
               });
               remainingBudget = 0;
-              break;
+              // Не обрываем цикл: остаток опциональных ключей должен
+              // залогироваться как skipped_budget (условие в начале
+              // следующей итерации это обеспечивает). Иначе записи о
+              // полностью пропущенных опциональных контекстах вообще
+              // не попадают в ctxLog.
             }
           }
         } else {
@@ -8351,6 +8474,9 @@
                         + optionalParts.reduce((s, p) => s + p.text.length, 0);
         ctxLog.push({
           sectionKey,
+          rawBaseBudget: _rawBaseBudget,
+          conceptOverheadApplied: _conceptOverheadApplied,
+          budgetMode: _budgetModeForLog,
           budget: totalBudget,
           entries: logEntries,
           totalUsed,
@@ -8358,6 +8484,7 @@
           reqTotal: deps.required.length,
           optIncluded: logEntries.filter(e => e.priority === "optional" && (e.status === "found" || e.status === "truncated")).length,
           optTotal: deps.optional.length,
+          parentSpec: buildParentSpecForLog(_participantsForBudget, sectionKey, _genOrder, _synthLevel, _method),
         });
 
         // 6. Форматируем
@@ -8388,11 +8515,28 @@
         );
 
         // 2. Сворачиваем блоки концепций-участников (═══ КОНЦЕПЦИЯ-УЧАСТНИК ... ═══)
+        // ТЗ selective-parent-context 6.2: расширенный формат маркера,
+        // включающий список использованных полей родителя.
         result = result.replace(
           /(═══ КОНЦЕПЦИЯ-УЧАСТНИК: ([^═]+)═══)\n([\s\S]*?)(?=\n═══ КОНЦЕПЦИЯ-УЧАСТНИК|\n""")/g,
           (match, headerLine, name, content) => {
             const chars = content.trim().length;
-            return "[контекст «" + name.trim() + "»: " +
+            // Извлекаем заголовки полей (напр. "КАПСУЛА:", "ТЕЗИСЫ:")
+            // из самого содержимого блока. Работает и для селективных,
+            // и для монолитных блоков — ничего не нужно передавать извне.
+            const fieldHeaders = [];
+            const rx = /^([А-ЯЁ][А-ЯЁ\s()А-ЯЁ]{2,50}):$/gm;
+            let m;
+            while ((m = rx.exec(content)) !== null) {
+              // Игнорируем служебные заголовки-не-поля
+              const h = m[1].trim();
+              if (h === "МЕТОД" || h === "УРОВЕНЬ" || h === "ЗЕРНО") continue;
+              fieldHeaders.push(h);
+            }
+            const fieldsLabel = (fieldHeaders.length > 0)
+              ? ": " + fieldHeaders.join(" + ") + " = "
+              : ": ";
+            return "[контекст «" + name.trim() + "»" + fieldsLabel +
               chars.toLocaleString("ru") + " симв.]";
           }
         );
@@ -8443,7 +8587,11 @@
         return result;
       }
 
-      function buildSYS(p) {
+      function buildSYS(p, opts) {
+        opts = opts || {};
+        const outputMode =
+          opts.outputMode === "subsection" ? "subsection" :
+          opts.outputMode === "mode"       ? "mode"       : "full";
         const philList = p?.phil?.length ? p.phil.join(", ") : "";
       const lang = p?.lang || "Russian";
       const langInstruction = lang === "Russian" ? "" :
@@ -8486,7 +8634,16 @@
       (philList ? `\n- Каждый участник (${philList}) должен быть представлен корректно, без искажения его позиции` : "") +
       `
       
-      Отвечай ТОЛЬКО HTML начиная с <div class="doc-section">. Никакого текста вне HTML-разметки.`;
+      ` + (outputMode === "subsection"
+        ? `Отвечай ТОЛЬКО HTML одного именованного подраздела в виде <div data-section="...">...</div>. ` +
+          `БЕЗ внешней обёртки <div class="doc-section">, БЕЗ <div class="section-num">, БЕЗ <div class="section-title">, ` +
+          `БЕЗ <div class="doc-content"> — только сам <div data-section>. Никакого текста вне этого HTML-элемента.`
+        : outputMode === "mode"
+        ? `Формат итогового HTML-ответа задан в инструкциях ниже («СТРУКТУРА ОТВЕТА» / «Отвечай HTML:…»). ` +
+          `Следуй им дословно. БЕЗ внешней обёртки <div class="doc-section">, БЕЗ <div class="section-num">, ` +
+          `БЕЗ <div class="section-title"> (они не нужны для этого формата вывода). ` +
+          `Никакого текста вне указанного в задании HTML-элемента.`
+        : `Отвечай ТОЛЬКО HTML начиная с <div class="doc-section">. Никакого текста вне HTML-разметки.`);
       }
 
       function buildQualityReinforcement(p) {
@@ -9270,6 +9427,27 @@
       };
 
       /**
+       * Заголовок подраздела «Портрет ...» в Исполнительном резюме (sum).
+       * Зависит от кардинальности участников и наличия концепций-участников.
+       * Единая точка истины: заголовок используется в buildSectionDefs,
+       * в SUBSECTION_MAP_BASE.sum (через buildSubsectionMap), в INTRA_DEPS,
+       * в SUBSECTION_TO_CTX_KEYS. Чтобы все эти места синхронно
+       * переключались при изменении числа участников, функция вызывается
+       * каждый раз, когда нужен заголовок.
+       */
+      function SUBSECTION_SUM_PORTRAIT(p) {
+        const card = participantCardinality(p);
+        if (card === "none") return "Портрет зерна концепции";
+        if (hasConceptParticipants(p))
+          return card === "single"
+            ? "Портрет концепции-родителя"
+            : "Портрет каждого участника синтеза";
+        return card === "single"
+          ? "Портрет философа"
+          : "Портрет каждого философа";
+      }
+
+      /**
        * Возвращает полную карту секций для данных параметров синтеза.
        * @param {{ synthLevel?: string }} p
        * @returns {{ [sectionKey: string]: string[] }}
@@ -9286,8 +9464,17 @@
           ...critiqueBase.slice(1),                                  // Верность методу синтеза, Сохранение..., и т.д.
         ];
 
+        // Собираем sum: заголовок «Портрет ...» зависит от кардинальности
+        // участников. Остальные подразделы берём как есть.
+        const sumBase = SUBSECTION_MAP_BASE.sum;
+        const portraitTitle = SUBSECTION_SUM_PORTRAIT(p);
+        const sum = sumBase.map(name =>
+          name === "Портрет каждого философа" ? portraitTitle : name
+        );
+
         return {
           ...SUBSECTION_MAP_BASE,
+          sum,
           glossary: SUBSECTION_MAP_GLOSSARY[level] || SUBSECTION_MAP_GLOSSARY.comparative,
           critique,
         };
@@ -9379,19 +9566,32 @@
       function getIntraDependents(sectionKey, subsectionName) {
         const deps = INTRA_DEPS[sectionKey] || {};
         const result = new Set();
-        const queue = [subsectionName];
+        const actualSubMap = buildSubsectionMap(DOC_STATE.params || {});
+        const actualSubs = new Set(actualSubMap[sectionKey] || Object.keys(deps));
 
-        // Фильтруем по актуальным подразделам текущего уровня синтеза
-        const actualSubs = new Set(
-          (buildSubsectionMap(DOC_STATE.params || {})[sectionKey]) || Object.keys(deps)
-        );
+        // Канонизируем input: в INTRA_DEPS имя подраздела «Портрет...»
+        // зафиксировано как канон («Портрет каждого философа»), но в DOM
+        // и DOC_STATE оно может иметь другой вид — приводим.
+        const canonInput = canonicalSubsectionKey(sectionKey, subsectionName);
+        // И обратная карта «канон → актуальное отображаемое имя» — для
+        // того, чтобы вернуть имена, совпадающие с DOM.
+        const portraitActual = (sectionKey === "sum")
+          ? SUBSECTION_SUM_PORTRAIT(DOC_STATE.params || {})
+          : null;
+        const denormalize = (name) =>
+          (sectionKey === "sum" && name === "Портрет каждого философа" && portraitActual)
+            ? portraitActual : name;
 
+        const queue = [canonInput];
         while (queue.length > 0) {
           const current = queue.shift();
           for (const [sub, sources] of Object.entries(deps)) {
-            if (sources.includes(current) && !result.has(sub) && actualSubs.has(sub)) {
-              result.add(sub);
-              queue.push(sub);
+            if (sources.includes(current) && !result.has(sub)) {
+              const actualName = denormalize(sub);
+              if (actualSubs.has(actualName)) {
+                result.add(actualName);
+                queue.push(sub);  // для дальнейшего обхода — канон
+              }
             }
           }
         }
@@ -9535,13 +9735,38 @@
       }
 
       /**
+       * Канонизирует имя подраздела для поиска в INTRA_DEPS и
+       * SUBSECTION_TO_CTX_KEYS. Внутри этих структур имя подраздела
+       * «Портрет...» фиксировано как «Портрет каждого философа» (канон),
+       * а реальное отображаемое имя зависит от числа участников и может
+       * быть «Портрет философа», «Портрет концепции-родителя», «Портрет
+       * зерна концепции» и т. д. Перед lookup нормализуем любой из
+       * этих вариантов к канону.
+       */
+      const _SUM_PORTRAIT_VARIANTS = new Set([
+        "Портрет каждого философа",
+        "Портрет философа",
+        "Портрет каждого участника синтеза",
+        "Портрет концепции-родителя",
+        "Портрет зерна концепции",
+      ]);
+      function canonicalSubsectionKey(sectionKey, subsectionName) {
+        if (sectionKey === "sum" &&
+            _SUM_PORTRAIT_VARIANTS.has(subsectionName)) {
+          return "Портрет каждого философа";
+        }
+        return subsectionName;
+      }
+
+      /**
        * Для данного подраздела определяет, какие подразделы ДРУГИХ разделов
        * потребляют его контекстные ключи.
        *
        * @returns {{ section: string, subsection: string|null, ctxKey: string }[]}
        */
       function getCrossSecDependents(sectionKey, subsectionName) {
-        const ctxKeys = (SUBSECTION_TO_CTX_KEYS[sectionKey] || {})[subsectionName] || [];
+        const canonName = canonicalSubsectionKey(sectionKey, subsectionName);
+        const ctxKeys = (SUBSECTION_TO_CTX_KEYS[sectionKey] || {})[canonName] || [];
         if (!ctxKeys.length) return [];
 
         const consumers = buildCtxKeyConsumers();
@@ -9640,13 +9865,373 @@
         return p.phil || [];
       }
 
-      /**
-       * Строит блок контекста концепций для вставки в промпт.
-       * Вставляется в baseCtx.
-       */
-      function conceptContextBlock(p) {
-        if (!hasConceptParticipants(p)) return "";
 
+      // ═══════════════════════════════════════════════════════════════════
+      // PARENT_DEPS + budget pressure (ТЗ: selective-parent-context + budget_mode)
+      // ═══════════════════════════════════════════════════════════════════
+
+      const PARENT_FIELD_ORDER = [
+        "capsule", "goals", "portraits", "tensions",
+        "graphNodes", "graphEdges",
+        "dialogueConcepts", "dialogueSynthesis",
+        "glossaryCompact", "thesesSummary",
+      ];
+
+      const PARENT_FIELD_LABELS = {
+        capsule:            "КАПСУЛА",
+        goals:              "ЦЕЛИ И МЕТОД",
+        portraits:          "ПОРТРЕТЫ ФИЛОСОФОВ",
+        tensions:           "НАПРЯЖЕНИЯ",
+        graphNodes:         "КАТЕГОРИИ (из графа)",
+        graphEdges:         "СВЯЗИ (из графа)",
+        dialogueConcepts:   "ПОНЯТИЯ (из диалога)",
+        dialogueSynthesis:  "АНАЛИТИЧЕСКИЙ КОММЕНТАРИЙ К ДИАЛОГУ",
+        glossaryCompact:    "ТЕРМИНЫ",
+        thesesSummary:      "ТЕЗИСЫ",
+      };
+
+      /**
+       * Базовая карта: по одной записи на каждый раздел мета-концепции.
+       */
+      const PARENT_DEPS_BASE = {
+        sum:       { required: ["capsule","goals","tensions","thesesSummary","graphNodes"],
+                     optional: ["graphEdges","glossaryCompact","dialogueSynthesis","portraits"] },
+        graph:     { required: ["capsule","graphNodes","graphEdges"],
+                     optional: ["glossaryCompact","thesesSummary","tensions"] },
+        glossary:  { required: ["capsule","glossaryCompact","graphNodes"],
+                     optional: ["tensions","thesesSummary"] },
+        theses:    { required: ["capsule","thesesSummary","graphNodes","graphEdges","glossaryCompact"],
+                     optional: ["tensions","goals"] },
+        name:      { required: ["capsule","goals"],
+                     optional: ["thesesSummary","graphNodes"] },
+        history:   { required: ["capsule","goals","portraits"],
+                     optional: ["thesesSummary","tensions"] },
+        origin:    { required: ["capsule","goals","portraits","tensions","thesesSummary"],
+                     optional: ["graphNodes","glossaryCompact"] },
+        practical: { required: ["capsule","goals","thesesSummary"],
+                     optional: ["glossaryCompact","graphNodes"] },
+        dialogue:  { required: ["capsule","tensions","thesesSummary","graphNodes"],
+                     optional: ["goals","dialogueSynthesis","portraits"] },
+        evolution: { required: ["capsule","goals","thesesSummary"],
+                     optional: ["graphNodes","graphEdges","tensions"] },
+        critique:  { required: ["capsule","goals","portraits","tensions","thesesSummary","graphNodes","graphEdges","glossaryCompact"],
+                     optional: ["dialogueSynthesis","dialogueConcepts"] },
+        capsule:   { required: ["capsule","goals","thesesSummary"],
+                     optional: ["graphNodes","glossaryCompact"] },
+      };
+
+      /**
+       * OVERLAY для генетического порядка (dialogue → theses → glossary → graph).
+       * Применяется к PARENT_DEPS_BASE через deepMergeUniq (см. resolveParentDeps).
+       */
+      const PARENT_DEPS_GENETIC = {
+        dialogue: { required: ["tensions","thesesSummary","dialogueConcepts"],
+                    optional: ["goals","dialogueSynthesis"] },
+        theses:   { required: ["dialogueConcepts","dialogueSynthesis"],
+                    optional: ["tensions","goals"] },
+        glossary: { required: ["dialogueConcepts"],
+                    optional: ["tensions"] },
+        graph:    { required: ["dialogueConcepts","thesesSummary"],
+                    optional: ["tensions"] },
+        critique: { required: ["dialogueSynthesis","dialogueConcepts"],
+                    optional: [] },
+        capsule:  { required: ["dialogueSynthesis"],
+                    optional: ["dialogueConcepts"] },
+        name:     { required: [],
+                    optional: ["dialogueConcepts","dialogueSynthesis"] },
+      };
+
+      // ─────────────────────────────────────────────────────────────────
+      // PARENT_DEPS_LEVEL — уровне-патчи для архитектурного порядка.
+      // ─────────────────────────────────────────────────────────────────
+      const PARENT_DEPS_LEVEL = {
+        transformative: {
+          graph:     { required: ["tensions","graphEdges"] },
+          glossary:  { required: ["tensions"] },
+          theses:    { required: ["tensions"], optional: ["portraits"] },
+          origin:    { required: ["tensions"] },
+          dialogue:  { required: ["graphEdges"], optional: ["tensions"] },
+          critique:  { required: ["tensions"] },           // в BASE уже есть; deepMergeUniq дедуп.
+          evolution: { optional: ["tensions"] },
+        },
+
+        generative: {
+          graph:     { required: ["portraits","tensions"] },
+          glossary:  { optional: ["portraits"] },
+          theses:    { required: ["portraits"] },
+          origin:    { required: ["portraits"], optional: ["thesesSummary"] },
+          dialogue:  { required: ["portraits"], optional: ["tensions"] },
+          critique:  { required: ["portraits"] },          // в BASE уже есть; дедуп.
+          practical: { optional: ["thesesSummary"] },      // в BASE уже required; дедуп.
+        },
+      };
+
+      // ─────────────────────────────────────────────────────────────────
+      // PARENT_DEPS_LEVEL_GENETIC — уровне-патчи для генетического порядка.
+      // ─────────────────────────────────────────────────────────────────
+      const PARENT_DEPS_LEVEL_GENETIC = {
+        transformative: {
+          dialogue:  { required: ["tensions"] },           // драйвер диалога
+          glossary:  { required: ["tensions"] },
+          theses:    { required: ["tensions"], optional: ["portraits"] },
+          origin:    { required: ["tensions"] },
+          graph:     { required: ["tensions"], optional: ["graphEdges"] },
+          critique:  { required: ["tensions"] },
+        },
+
+        generative: {
+          dialogue:  { required: ["portraits"], optional: ["tensions"] },
+          glossary:  { optional: ["portraits"] },
+          theses:    { required: ["portraits"] },
+          origin:    { required: ["portraits"], optional: ["thesesSummary"] },
+          graph:     { required: ["portraits"], optional: ["tensions"] },
+          critique:  { required: ["portraits"] },
+        },
+      };
+
+      // ─────────────────────────────────────────────────────────────────
+      // PARENT_DEPS_METHOD — метод-патчи для мета-синтеза.
+      // ─────────────────────────────────────────────────────────────────
+      const PARENT_DEPS_METHOD = {
+        hermeneutical: {
+          evolution: { optional: ["portraits"] },
+        },
+
+        analytical: {
+          origin:    { required: ["glossaryCompact"] },
+          theses:    { required: ["thesesSummary"] },      // уже required в BASE, дедуп.
+        },
+
+        dialectical: {
+        },
+
+        integrative: {
+          origin:    { required: ["portraits"] },
+          history:   { required: ["portraits"] },          // уже required в BASE, дедуп.
+          critique:  { required: ["portraits"] },          // уже required в BASE, дедуп.
+        },
+
+        deconstructive: {
+          critique:  { required: ["thesesSummary","goals"] },
+          origin:    { required: ["thesesSummary"] },      // уже required в BASE, дедуп.
+        },
+      };
+
+      // ─────────────────────────────────────────────────────────────────
+      // PARENT_INTRA_DEPS — подраздельная карта родителей.
+      // ─────────────────────────────────────────────────────────────────
+      const PARENT_INTRA_DEPS = {
+        graph: {
+          "Методология построения графа":  { required: ["capsule","goals"] },
+          "Таблица категорий":             { required: ["capsule","graphNodes","tensions"] },
+          "Таблица связей":                { required: ["graphNodes","graphEdges"] },
+          "Топология графа":               { required: ["graphEdges"], optional: ["graphNodes"] },
+          "Топологическая таблица":        { required: ["graphEdges"], optional: ["graphNodes"] },
+        },
+        theses: {
+          "Онтологические тезисы":            { required: ["capsule","graphNodes","thesesSummary"] },
+          "Эпистемологические тезисы":         { required: ["capsule","graphNodes","thesesSummary"] },
+          "Этические и аксиологические тезисы":{ required: ["capsule","thesesSummary"] },
+          "Сводная таблица тезисов":          { required: ["thesesSummary"] },
+        },
+        critique: {
+          "Внутренняя когерентность":        { required: ["capsule","thesesSummary"] },
+          "Философская новизна":              { required: ["capsule","portraits"] },
+          "Эмерджентность концепции":         { required: ["graphNodes","graphEdges","tensions"] },
+          "Проблемная генерация":             { required: ["capsule","tensions"] },
+          "Верность методу синтеза":          { required: ["capsule"] },
+          "Сохранение ценных аспектов":       {},   // полный section-уровневый набор
+          "Разрешение противоречий":          { required: ["tensions","thesesSummary"] },
+          "Слепые пятна":                     { required: ["capsule","portraits","goals"] },
+          "Межслойная согласованность":       { required: ["thesesSummary"] },
+          "Итоговая оценка":                   {},   // полный section-уровневый
+          "Рекомендации по улучшению":         { required: ["capsule"] },
+        },
+      };
+
+      const PARENT_CONTEXT_SCHEMA_VERSION = 1;
+      const PARENT_CONTEXT_SCHEMA_ID = "selective-v1";
+
+      function _validateParentDeps() {
+        const valid = new Set(PARENT_FIELD_ORDER);
+        function check(map, name) {
+          for (const [section, spec] of Object.entries(map || {})) {
+            for (const tier of ["required", "optional"]) {
+              for (const fld of (spec[tier] || [])) {
+                if (!valid.has(fld)) {
+                  console.warn("[" + name + "] неизвестное поле «" + fld +
+                    "» в разделе \"" + section + "\" (" + tier + ")");
+                }
+              }
+            }
+          }
+        }
+        // BASE карты
+        check(PARENT_DEPS_BASE, "PARENT_DEPS_BASE");
+        check(PARENT_DEPS_GENETIC, "PARENT_DEPS_GENETIC");
+        // Патчи: проверяем каждый «лист» индивидуально
+        for (const [level, map] of Object.entries(PARENT_DEPS_LEVEL)) {
+          check(map, "PARENT_DEPS_LEVEL[" + level + "]");
+        }
+        for (const [level, map] of Object.entries(PARENT_DEPS_LEVEL_GENETIC)) {
+          check(map, "PARENT_DEPS_LEVEL_GENETIC[" + level + "]");
+        }
+        for (const [method, map] of Object.entries(PARENT_DEPS_METHOD)) {
+          check(map, "PARENT_DEPS_METHOD[" + method + "]");
+        }
+        // Intra-карта: по каждому (section × subsection) — отдельная проверка
+        for (const [section, subs] of Object.entries(PARENT_INTRA_DEPS)) {
+          for (const [subName, spec] of Object.entries(subs)) {
+            check({ [subName]: spec },
+                  "PARENT_INTRA_DEPS[" + section + "]");
+          }
+        }
+      }
+      _validateParentDeps();
+
+      function resolveParentDeps(p) {
+        const order  = (p && p.generationOrder) || "architectural";
+        const level  = (p && p.synthLevel)      || "comparative";
+        const method = (p && p.method)          || "dialectical";
+        if (order === "genetic") {
+          return deepMergeUniq(
+            PARENT_DEPS_BASE,
+            PARENT_DEPS_GENETIC,
+            PARENT_DEPS_LEVEL_GENETIC[level] ?? {},
+            PARENT_DEPS_METHOD[method]       ?? {}
+          );
+        }
+        return deepMergeUniq(
+          PARENT_DEPS_BASE,
+          PARENT_DEPS_LEVEL[level]   ?? {},
+          PARENT_DEPS_METHOD[method] ?? {}
+        );
+      }
+
+      /**
+       * Резолвер для подраздельной регенерации в мета-режиме.
+       */
+      function resolveParentDepsForSubsection(p, sectionKey, subsectionName) {
+        const key = String(sectionKey || "").split("+")[0].split(":")[0];
+        const secDeps = resolveParentDeps(p)[key]
+                     || { required: ["capsule"], optional: [] };
+        const intra = PARENT_INTRA_DEPS?.[key]?.[subsectionName];
+        if (!intra) return secDeps;
+        const hasR = Array.isArray(intra.required);
+        const hasO = Array.isArray(intra.optional);
+        if (!hasR && !hasO) return secDeps;  // явный {} — полный section
+        const secAll = new Set([
+          ...(secDeps.required || []),
+          ...(secDeps.optional || []),
+        ]);
+        return {
+          required: (intra.required || []).filter(f => secAll.has(f)),
+          optional: (intra.optional || []).filter(f => secAll.has(f)),
+        };
+      }
+
+      function computeConceptOverhead(participants) {
+        if (!participants) return 0;
+        return participants.filter(x => x && x.type === "concept").reduce((sum, c) =>
+          sum + (c.capsule?.length || 0) + (c.graphNodes?.length || 0) +
+                (c.glossaryCompact?.length || 0) + (c.thesesSummary?.length || 0) +
+                (c.goals?.length || 0) + (c.tensions?.length || 0), 0);
+      }
+
+      function applyBudgetPressure(baseBudget, conceptOverhead, keepFullBudget) {
+        if (keepFullBudget || !conceptOverhead) {
+          return { effectiveBudget: baseBudget, applied: 0,
+                   mode: keepFullBudget ? 'full' : 'shrink' };
+        }
+        const effective = Math.max(baseBudget - conceptOverhead, Math.floor(baseBudget * 0.4));
+        return { effectiveBudget: effective, applied: baseBudget - effective, mode: 'shrink' };
+      }
+
+      function parentOverheadForSection(participants, sectionKey, order, synthLevel, method, subsectionName) {
+        if (!participants || !participants.length) return 0;
+        const key = String(sectionKey || "").split("+")[0].split(":")[0];
+        // Для подраздельной регенерации — используем intra-спец.
+        // Для section-уровня — полный патч-резолвер (учитывает LEVEL/METHOD).
+        let fields;
+        if (subsectionName) {
+          const spec = resolveParentDepsForSubsection(
+            { generationOrder: order, synthLevel, method }, key, subsectionName
+          );
+          fields = spec
+            ? new Set([...(spec.required || []), ...(spec.optional || [])])
+            : new Set(["capsule"]);
+        } else {
+          const deps = resolveParentDeps({ generationOrder: order, synthLevel, method });
+          const spec = deps[key];
+          fields = spec
+            ? new Set([...(spec.required || []), ...(spec.optional || [])])
+            : new Set(["capsule"]);
+        }
+        let total = 0;
+        for (const c of participants) {
+          if (!c || c.type !== "concept") continue;
+          for (const fld of fields) {
+            const val = c[fld];
+            if (val) total += val.length;
+          }
+          total += 200;
+        }
+        return total;
+      }
+
+      function parentFieldsUsedFor(p, sectionKey, subsectionName) {
+        const concepts = (p && p.participants || []).filter(x => x.type === "concept");
+        if (concepts.length === 0) return [];
+        const key = String(sectionKey || "").split("+")[0].split(":")[0];
+        const spec = subsectionName
+          ? resolveParentDepsForSubsection(p, key, subsectionName)
+          : (resolveParentDeps(p)[key] || { required: ["capsule"], optional: [] });
+        const all = new Set([...(spec.required || []), ...(spec.optional || [])]);
+        const used = new Set();
+        for (const c of concepts) {
+          for (const fld of all) if (c[fld]) used.add(fld);
+        }
+        return PARENT_FIELD_ORDER.filter(f => used.has(f));
+      }
+
+      function buildParentSpecForLog(participants, sectionKey, order, synthLevel, method, subsectionName) {
+        const concepts = (participants || []).filter(x => x && x.type === "concept");
+        if (concepts.length === 0) return null;
+        const key = String(sectionKey || "").split("+")[0].split(":")[0];
+        const spec = subsectionName
+          ? resolveParentDepsForSubsection(
+              { generationOrder: order, synthLevel, method }, key, subsectionName
+            )
+          : (resolveParentDeps({ generationOrder: order, synthLevel, method })[key]);
+        const required = (spec && spec.required) || ["capsule"];
+        const optional = (spec && spec.optional) || [];
+        const allAllowed = new Set([...required, ...optional]);
+
+        const perParent = concepts.map(c => {
+          const included = [], omitted = [], missingRequired = [];
+          for (const fld of PARENT_FIELD_ORDER) {
+            if (allAllowed.has(fld)) {
+              if (c[fld]) included.push(fld);
+              else if (required.includes(fld)) missingRequired.push(fld);
+            } else {
+              if (c[fld]) omitted.push(fld);
+            }
+          }
+          let chars = 0;
+          for (const fld of included) {
+            chars += (c[fld] || "").length;
+            chars += (PARENT_FIELD_LABELS[fld] || fld).length + 4;
+          }
+          chars += 90 + (c.name || "").length;
+          return { name: c.name, includedFields: included, omittedFields: omitted,
+                   missingRequired, chars };
+        });
+        const totalChars = perParent.reduce((s, pp) => s + pp.chars, 0);
+        return { required, optional, perParent, totalChars };
+      }
+
+      function conceptContextBlockFull(p) {
+        if (!hasConceptParticipants(p)) return "";
         const concepts = p.participants.filter(x => x.type === "concept");
         const blocks = concepts.map(c => {
           const parts = [];
@@ -9655,47 +10240,16 @@
                      " · Уровень: " + (SL[c.synthLevel] || c.synthLevel));
           if (c.seed) parts.push("Зерно: " + c.seed);
           parts.push("");
-          parts.push("КАПСУЛА:");
-          parts.push(c.capsule);
-          parts.push("");
-          if (c.goals) {
-            parts.push("ЦЕЛИ И МЕТОД:");
-            parts.push(c.goals);
-            parts.push("");
-          }
-          if (c.tensions) {
-            parts.push("НАПРЯЖЕНИЯ:");
-            parts.push(c.tensions);
-            parts.push("");
-          }
-          // Адаптивно: показываем граф И/ИЛИ диалог — то, что есть
-          if (c.graphNodes) {
-            parts.push("КАТЕГОРИИ (из графа):");
-            parts.push(c.graphNodes);
-            parts.push("");
-          }
-          if (c.dialogueConcepts) {
-            parts.push("ПОНЯТИЯ (из диалога):");
-            parts.push(c.dialogueConcepts);
-            parts.push("");
-          }
-          if (c.glossaryCompact) {
-            parts.push("ТЕРМИНЫ:");
-            parts.push(c.glossaryCompact);
-            parts.push("");
-          }
-          if (c.thesesSummary) {
-            parts.push("ТЕЗИСЫ:");
-            parts.push(c.thesesSummary);
-            parts.push("");
-          }
-          if (c.dialogueSynthesis) {
-            parts.push("АНАЛИТИЧЕСКИЙ КОММЕНТАРИЙ К ДИАЛОГУ:");
-            parts.push(c.dialogueSynthesis);
-          }
+          if (c.capsule)           { parts.push("КАПСУЛА:");                        parts.push(c.capsule);           parts.push(""); }
+          if (c.goals)             { parts.push("ЦЕЛИ И МЕТОД:");                   parts.push(c.goals);             parts.push(""); }
+          if (c.tensions)          { parts.push("НАПРЯЖЕНИЯ:");                     parts.push(c.tensions);          parts.push(""); }
+          if (c.graphNodes)        { parts.push("КАТЕГОРИИ (из графа):");           parts.push(c.graphNodes);        parts.push(""); }
+          if (c.dialogueConcepts)  { parts.push("ПОНЯТИЯ (из диалога):");           parts.push(c.dialogueConcepts);  parts.push(""); }
+          if (c.glossaryCompact)   { parts.push("ТЕРМИНЫ:");                        parts.push(c.glossaryCompact);   parts.push(""); }
+          if (c.thesesSummary)     { parts.push("ТЕЗИСЫ:");                         parts.push(c.thesesSummary);     parts.push(""); }
+          if (c.dialogueSynthesis) { parts.push("АНАЛИТИЧЕСКИЙ КОММЕНТАРИЙ К ДИАЛОГУ:"); parts.push(c.dialogueSynthesis); }
           return parts.join("\n");
         });
-
         return "\n\nКОНТЕКСТ КОНЦЕПЦИЙ-УЧАСТНИКОВ СИНТЕЗА " +
                "(каждая — результат предыдущего синтеза; обращайся с ней " +
                "как с полноценной философской позицией, у которой есть " +
@@ -9703,42 +10257,263 @@
                blocks.join("\n\n") + "\n\"\"\"";
       }
 
+      function conceptContextBlockSelective(p, sectionKey, explicitSpec) {
+        if (!hasConceptParticipants(p)) return "";
+        const concepts = p.participants.filter(x => x.type === "concept");
+        if (concepts.length === 0) return "";
+        const key = String(sectionKey || "").split("+")[0].split(":")[0];
+        let spec;
+        if (explicitSpec && (Array.isArray(explicitSpec.required) || Array.isArray(explicitSpec.optional))) {
+          // Явный spec (например, из resolveParentDepsForSubsection для
+          // подраздельной регенерации в мета-режиме) — используем как есть.
+          spec = explicitSpec;
+        } else {
+          const deps = resolveParentDeps(p);
+          spec = deps[key];
+          if (!spec) console.warn("PARENT_DEPS: нет записи для «" + key + "» — минимум (capsule).");
+        }
+        const reqFields = (spec && spec.required) || ["capsule"];
+        const optFields = (spec && spec.optional) || [];
+        const includeSet = new Set([...reqFields, ...optFields]);
+        const blocks = concepts.map(c => {
+          const parts = [];
+          parts.push("═══ КОНЦЕПЦИЯ-УЧАСТНИК: «" + c.name + "» ═══");
+          parts.push("Метод: " + (ML[c.method] || c.method) +
+                     " · Уровень: " + (SL[c.synthLevel] || c.synthLevel));
+          if (c.seed) parts.push("Зерно: " + c.seed);
+          parts.push("");
+          for (const fld of PARENT_FIELD_ORDER) {
+            if (!includeSet.has(fld)) continue;
+            const val = c[fld];
+            if (!val) continue;
+            parts.push(PARENT_FIELD_LABELS[fld] + ":");
+            parts.push(val);
+            parts.push("");
+          }
+          return parts.join("\n").replace(/\n{3,}/g, "\n\n");
+        });
+        return "\n\nКОНТЕКСТ КОНЦЕПЦИЙ-УЧАСТНИКОВ СИНТЕЗА " +
+               "(каждая — результат предыдущего синтеза; обращайся с ней " +
+               "как с полноценной философской позицией, у которой есть " +
+               "собственные категории, тезисы и внутренняя логика):\n\"\"\"\n" +
+               blocks.join("\n\n") + "\n\"\"\"";
+      }
+
+      function computeFullConceptBlockSizes(p) {
+        return (p.participants || [])
+          .filter(x => x.type === "concept")
+          .map(c => {
+            const total = [c.capsule, c.graphNodes, c.graphEdges,
+              c.dialogueConcepts, c.dialogueSynthesis,
+              c.glossaryCompact, c.thesesSummary,
+              c.goals, c.tensions, c.portraits]
+              .filter(Boolean).reduce((s, t) => s + t.length, 0);
+            return { name: c.name, chars: total };
+          });
+      }
+
+      function baseCtxStatic(p) {
+        const phils = philNames(p);
+        const concepts = conceptNames(p);
+        const card = participantCardinality(p);
+        let participantsLine = "";
+        if (phils.length && concepts.length)
+          participantsLine = "ФИЛОСОФЫ: " + phils.join(", ") +
+                             "\nКОНЦЕПЦИИ-УЧАСТНИКИ: " + concepts.join(", ");
+        else if (phils.length)
+          participantsLine = "ФИЛОСОФЫ: " + phils.join(", ");
+        else if (concepts.length)
+          participantsLine = "КОНЦЕПЦИИ-УЧАСТНИКИ: " + concepts.join(", ");
+        else
+          // Свободный синтез — нет ни философов, ни концепций-участников.
+          // Явно уведомляем модель, что она опирается ИСКЛЮЧИТЕЛЬНО на зерно,
+          // без заимствования у конкретных мыслителей/концепций.
+          participantsLine =
+            "РЕЖИМ: СВОБОДНЫЙ СИНТЕЗ. У концепции нет участников-философов и " +
+            "нет концепций-родителей. Концепция порождается ИСКЛЮЧИТЕЛЬНО из " +
+            "зерна выше. Не приписывай идеи конкретным мыслителям и не " +
+            "ссылайся на «участников синтеза» — их нет. Допустимы ссылки на " +
+            "философские традиции и течения как на интеллектуальный фон, " +
+            "если этого требует содержание зерна.";
+
+        // Пометки о режиме (для single и multi-concept):
+        let modeNote = "";
+        if (card === "single" && !hasConceptParticipants(p)) {
+          modeNote = "\nРЕЖИМ: РАЗВИТИЕ ОДНОЙ ПОЗИЦИИ. У синтеза один участник-" +
+            "философ и зерно концепции. Задача — не столкнуть несколько позиций, а " +
+            "развить исходную позицию в направлении, заданном зерном. " +
+            "Везде, где шаблон метода/уровня упоминает «между традициями», " +
+            "«минимум двумя философами», «различными источниками», — читай это " +
+            "как напряжение между исходной позицией и проблемным полем зерна.";
+        } else if (card === "single" && hasConceptParticipants(p)) {
+          modeNote = "\nРЕЖИМ: РАЗВИТИЕ КОНЦЕПЦИИ. У синтеза один участник — " +
+            "ранее синтезированная концепция, и зерно. Задача — развить исходную " +
+            "концепцию-родителя в направлении, заданном зерном. Шаблоны метода/" +
+            "уровня, упоминающие «между традициями» и «минимум двумя источниками», " +
+            "читай как напряжение между категориями исходной концепции и " +
+            "проблемным полем зерна.";
+        } else if (hasConceptParticipants(p)) {
+          modeNote = "\nРЕЖИМ: МЕТА-СИНТЕЗ. Среди участников есть ранее синтезированные " +
+            "концепции. Их контекст (капсула, категории, тезисы и т.п.) приведён ниже. " +
+            "Обращайся с каждой концепцией-участником как с самостоятельной " +
+            "философской позицией, обладающей собственным категориальным аппаратом.";
+        }
+        const levelKey = p.synthLevel || "comparative";
+        return "ЗЕРНО КОНЦЕПЦИИ: «" + (p.seed || "") + "»\n" +
+               participantsLine + modeNote + "\n" +
+               "МЕТОД: " + ML[p.method] + " — " + mdText(p, p.method) + "\n" +
+               "УРОВЕНЬ СИНТЕЗА: " + (SL[levelKey] || SL.comparative) + " — " +
+               sdText(p, levelKey) + "\n" +
+               "ГЛУБИНА: " + DL[p.depth] +
+               (p.ctx ? "\nКОНТЕКСТ: " + p.ctx : "");
+      }
+
+      function baseCtxParents(p, sectionKey, subsectionName) {
+        if (!hasConceptParticipants(p)) return "";
+        if (!sectionKey) return conceptContextBlockFull(p);
+        if (subsectionName) {
+          // Подраздельная специализация родителей (PARENT_INTRA_DEPS).
+          // Если карта подраздельных зависимостей не покрывает данный
+          // (section, subsection), резолвер сам отдаст section-уровневый spec.
+          const spec = resolveParentDepsForSubsection(p, sectionKey, subsectionName);
+          return conceptContextBlockSelective(p, sectionKey, spec);
+        }
+        return conceptContextBlockSelective(p, sectionKey);
+      }
+
+      function _augmentGenEntry(genEntry, p, sectionKey, partParentsLen, subsectionName) {
+        if (!genEntry) return;
+        const keepFull = !!((p && p.keepFullBudget)
+          || (DOC_STATE.params && DOC_STATE.params.keepFullBudget)
+          || _currentKeepFullBudget());
+        genEntry.budgetMode = keepFull ? 'full' : 'shrink';
+        if (typeof partParentsLen === "number") {
+          genEntry.parentOverheadChars = partParentsLen;
+        }
+        if (sectionKey && p && hasConceptParticipants(p)) {
+          try { genEntry.parentFieldsUsed = parentFieldsUsedFor(p, sectionKey, subsectionName); }
+          catch (_) { genEntry.parentFieldsUsed = []; }
+        }
+      }
+
+      function buildParentSpecBySection(p, sectionKeys) {
+        if (!hasConceptParticipants(p)) return {};
+        const order = p.generationOrder || "architectural";
+        const synthLevel = p.synthLevel || "comparative";
+        const method = p.method || "dialectical";
+        const participants = p.participants || [];
+        const out = {};
+        for (const sk of (sectionKeys || [])) {
+          out[sk] = buildParentSpecForLog(participants, sk, order, synthLevel, method);
+        }
+        return out;
+      }
+
+      function _currentKeepFullBudget() {
+        const cb = (typeof document !== "undefined")
+          ? document.getElementById("keepFullBudgetCb") : null;
+        return !!(cb && cb.checked);
+      }
+
+      /** Бейдж схемы родительского контекста в шапке документа.
+       *  ТЗ selective-parent-context 10.3: помечает, по какой схеме
+       *  был сгенерирован документ — «селектив v1» / «монолит (legacy)». */
+      function updateSchemaBadgeInHeader(schemaId) {
+        const container = document.getElementById("docHeaderExtras");
+        if (!container) return;
+        // Удаляем старый бейдж
+        const old = container.querySelector(".header-schema-badge");
+        if (old) old.remove();
+        // Показываем только для мета-синтеза (когда есть концепции-родители)
+        const hasConcepts = (DOC_STATE.participants || []).some(x => x && x.type === "concept")
+          || (DOC_STATE.genealogy && (DOC_STATE.genealogy.participants || []).some(p => p.type === "concept"));
+        if (!hasConcepts) return;
+        const id = schemaId || PARENT_CONTEXT_SCHEMA_ID;
+        const label = id === "selective-v1"
+          ? "родительский контекст: селективный v1"
+          : (id === "monolithic"
+             ? "родительский контекст: монолитный (legacy)"
+             : "родительский контекст: " + id);
+        const span = document.createElement("span");
+        span.className = "header-schema-badge";
+        span.style.cssText = "display:inline-block; margin:4px 8px; padding:2px 8px; " +
+          "font-family:'IBM Plex Mono',monospace; font-size:10px; " +
+          "color:var(--ink-dim, #8a8278); border:1px solid var(--ink-line, #d8d4cc); " +
+          "border-radius:2px; background:rgba(0,0,0,0.02);";
+        span.textContent = "◈ " + label;
+        container.appendChild(span);
+      }
+
+      /** Обработчик: пересчёт preview + оценки стоимости. */
+      function onKeepFullBudgetChange() {
+        if (typeof renderFullBudgetPreview === "function") renderFullBudgetPreview();
+        if (typeof updateCostEstimate === "function") {
+          try { updateCostEstimate(); } catch (_) {}
+        }
+      }
+
+      /** Преview блока: видимость + содержимое. */
+      function renderFullBudgetPreview() {
+        const block = document.getElementById("fullBudgetBlock");
+        const preview = document.getElementById("fullBudgetPreview");
+        if (!block || !preview) return;
+        const concepts = (typeof _conceptParticipants !== "undefined") ? _conceptParticipants : [];
+        const N = concepts.length;
+        if (N === 0) { block.style.display = "none"; preview.textContent = ""; return; }
+        block.style.display = "";
+
+        const conceptChars = computeConceptOverhead(concepts);
+        const depthEl = document.getElementById("depthLevel");
+        const depth = depthEl ? depthEl.value : "standard";
+        const rawBudget = CONTEXT_BUDGET[depth] || 48000;
+        const shrunkBudget = Math.max(rawBudget - conceptChars, Math.floor(rawBudget * 0.4));
+
+        let extra = "";
+        try {
+          const estS = estimateCost({ keepFullBudget: false });
+          const estF = estimateCost({ keepFullBudget: true });
+          const dTok = (estF.inTokens - estS.inTokens);
+          const dCost = (estF.cost - estS.cost);
+          if (dTok > 0) {
+            extra = "\nРазница (полный vs ужатый): +" +
+                    dTok.toLocaleString("ru") + " токенов, +$" + dCost.toFixed(4);
+          } else {
+            // Δ=0: секционный контекст не упирается в сжатый бюджет —
+            // режимы дают одинаковую оценку. Честно пишем это пользователю.
+            extra = "\nРазница (полный vs ужатый): 0 токенов — секционный контекст" +
+                    "\nпомещается в оба режима. Чекбокс повлияет только при большом" +
+                    "\nсекционном контексте (глубокая генерация с множеством зависимостей).";
+          }
+          // Предупреждение о большом окне
+          if (estF.passes > 0) {
+            const worstPerPass = Math.round(estF.inTokens / estF.passes);
+            if (worstPerPass > 120000) {
+              extra += "\n⚠ Одиночный проход ≈ " + worstPerPass.toLocaleString("ru") +
+                       " токенов — близко к лимиту контекстного окна (200k).";
+            }
+          }
+        } catch (_) {}
+
+        preview.textContent =
+          "Контекст родителей: " + conceptChars.toLocaleString("ru") + " симв. (" + N + ")\n" +
+          "При ужимании:       бюджет секций " + shrunkBudget.toLocaleString("ru") +
+                " / " + rawBudget.toLocaleString("ru") + " симв.\n" +
+          "Без ужимания:       бюджет секций " + rawBudget.toLocaleString("ru") + " симв." + extra;
+      }
+
+      function conceptContextBlock(p, sectionKey) {
+        return sectionKey
+          ? conceptContextBlockSelective(p, sectionKey)
+          : conceptContextBlockFull(p);
+      }
+
       /** Стоп-сигнал: предотвращает генерацию следующих разделов по инерции */
       const STOP_SIGNAL = "\n\nСТОП: после завершения указанного раздела (или разделов) " +
         "ПРЕКРАТИ генерацию. НЕ переходи к следующим разделам документа. " +
         "Заверши ответ закрывающим тегом </div> последнего запрошенного раздела.";
 
-      function baseCtx(p) {
-        // Разделяем философов и концепции
-        const phils = philNames(p);
-        const concepts = conceptNames(p);
-
-        let participantsLine = "";
-        if (phils.length && concepts.length) {
-          participantsLine = "ФИЛОСОФЫ: " + phils.join(", ") +
-                             "\nКОНЦЕПЦИИ-УЧАСТНИКИ: " + concepts.join(", ");
-        } else if (phils.length) {
-          participantsLine = "ФИЛОСОФЫ: " + phils.join(", ");
-        } else {
-          participantsLine = "КОНЦЕПЦИИ-УЧАСТНИКИ: " + concepts.join(", ");
-        }
-
-        const metaNote = hasConceptParticipants(p)
-          ? "\nРЕЖИМ: МЕТА-СИНТЕЗ. Среди участников есть ранее синтезированные " +
-            "концепции. Их контекст (капсула, категории, тезисы) приведён ниже. " +
-            "Обращайся с каждой концепцией-участником как с самостоятельной " +
-            "философской позицией, обладающей собственным категориальным аппаратом."
-          : "";
-
-        const conceptCtx = conceptContextBlock(p);
-
-        return `ЗЕРНО КОНЦЕПЦИИ: «${p.seed}»\n${participantsLine}${metaNote}\n` +
-               `МЕТОД: ${ML[p.method]} — ${MD[p.method]}\n` +
-               `УРОВЕНЬ СИНТЕЗА: ${SL[p.synthLevel] || SL.comparative} — ` +
-               `${SD[p.synthLevel] || SD.comparative}\n` +
-               `ГЛУБИНА: ${DL[p.depth]}` +
-               `${p.ctx ? "\nКОНТЕКСТ: " + p.ctx : ""}` +
-               conceptCtx;
+      function baseCtx(p, sectionKey) {
+        return baseCtxStatic(p) + baseCtxParents(p, sectionKey);
       }
 
       function mw(p) {
@@ -9761,24 +10536,84 @@
         const parts = [];
         if (phils.length) parts.push(phils.join(", "));
         if (concepts.length) parts.push(concepts.join(", "));
-        return parts.join("; ") || (p.phil || []).join(", ");
+        const result = parts.join("; ") || (p.phil || []).join(", ");
+        // Свободный синтез: участников нет. Шаблоны вида `(${pp})`
+        // разбросаны по всем разделам промпта (sum/graph/glossary/theses/
+        // critique/dialogue/history). Возвращаем осмысленную подсказку,
+        // чтобы в промпте не появлялись пустые скобки «()» и конструкции
+        // «из одного из ()». LLM штатно интерпретирует инструкцию в
+        // квадратных скобках как meta-указание.
+        if (!result) return "[свободный синтез: определи релевантные философские традиции самостоятельно по содержанию зерна]";
+        return result;
       }
 
-      /** Краткий: «философов / участников» */
+      /**
+       * Кардинальность участников синтеза.
+       * Возвращает 'none' (свободный синтез), 'single' (один философ
+       * ИЛИ одна концепция), 'multi' (>= 2 участников в любой комбинации).
+       *
+       * Эта функция — единая точка отсчёта для всех шаблонов, которым
+       * небезразлично число участников. Методы (dialectical, integrative,
+       * deconstructive) и уровни (comparative/transformative/generative)
+       * формулируются в терминах «между традициями/философами», что при
+       * одном участнике превращается в тавтологию или пустоту.
+       */
+      function participantCardinality(p) {
+        const phils = (p && p.phil && Array.isArray(p.phil)) ? p.phil.length : 0;
+        const philsViaParticipants = (p && p.participants)
+          ? p.participants.filter(x => x.type === "philosopher").length : 0;
+        const concepts = hasConceptParticipants(p)
+          ? p.participants.filter(x => x.type === "concept").length : 0;
+        const total = Math.max(phils, philsViaParticipants) + concepts;
+        if (total === 0) return "none";
+        if (total === 1) return "single";
+        return "multi";
+      }
+
+      /** Краткий: «философов / участников». Возвращает слово в род.п. мн.ч. */
       function participantWord(p) {
-        return hasConceptParticipants(p) ? "участников синтеза" : "философов";
+        const card = participantCardinality(p);
+        if (card === "none") return "традиций";
+        if (hasConceptParticipants(p)) return "участников синтеза";
+        return card === "single" ? "философских традиций" : "философов";
       }
 
-      /** Краткий: «философа / участника» */
+      /** Краткий: «философа / участника». Возвращает слово в род.п. ед.ч. */
       function participantWordSg(p) {
-        return hasConceptParticipants(p) ? "участника" : "философа";
+        const card = participantCardinality(p);
+        if (card === "none") return "традиции";
+        if (hasConceptParticipants(p)) return "участника";
+        return card === "single" ? "философа" : "философа";
       }
 
       /** «каждого из философов / каждого участника» */
       function eachParticipant(p) {
-        return hasConceptParticipants(p)
-          ? "каждого участника (" + participantsForPrompt(p) + ")"
-          : "каждого из философов (" + p.phil.join(", ") + ")";
+        const card = participantCardinality(p);
+        if (card === "none") return "каждой значимой философской традиции, отражённой в зерне";
+        if (hasConceptParticipants(p))
+          return card === "single"
+            ? "единственного участника синтеза (" + participantsForPrompt(p) + ")"
+            : "каждого участника (" + participantsForPrompt(p) + ")";
+        const names = (p.phil || []).join(", ");
+        return card === "single"
+          ? "единственного участника синтеза — " + names +
+            " — и философских традиций, с которыми он соотносится в свете зерна концепции"
+          : "каждого из философов (" + names + ")";
+      }
+
+      /** Свободный синтез: нет ни философов, ни концепций-участников. */
+      function hasNoParticipants(p) {
+        return participantCardinality(p) === "none";
+      }
+
+      /** Ровно один участник (философ или концепция). */
+      function hasSingleParticipant(p) {
+        return participantCardinality(p) === "single";
+      }
+
+      /** Два и более участника. */
+      function hasMultipleParticipants(p) {
+        return participantCardinality(p) === "multi";
       }
 
       /**
@@ -9847,9 +10682,12 @@
         const prevNote = (prevSub && prevSub.name && prevSub.note_after)
           ? "\n\n" + prevSub.note_after : "";
 
-        // Режим: перегенерация с нуля или доработка
+        // Режим: перегенерация с нуля, доработка или продолжение с обрыва
+        // (режим продолжения — только при resumeFromInterruption+currentContent,
+        //  ставится из _resumeFromSubsection для оборвавшегося подраздела).
         const isRefine = !!(opts.currentContent);
-        const verb = isRefine ? "Доработай" : "Перегенерируй";
+        const isResumeContinue = isRefine && !!opts.resumeFromInterruption;
+        const verb = isResumeContinue ? "Заверши" : isRefine ? "Доработай" : "Перегенерируй";
 
         let prompt = `${shortPreamble}`;
 
@@ -9864,7 +10702,12 @@
         }
 
         if (opts.currentContent) {
-          prompt += `\n\nТЕКУЩЕЕ СОДЕРЖИМОЕ ПОДРАЗДЕЛА (модифицируй согласно инструкции, не генерируй заново):\n"""\n${opts.currentContent}\n"""`;
+          const _contentHeader = isResumeContinue
+            ? "НАЧАЛЬНЫЙ ФРАГМЕНТ ПОДРАЗДЕЛА, УЖЕ СГЕНЕРИРОВАННЫЙ ДО ОБРЫВА " +
+              "(сохрани дословно и продолжи с обрыва до полного объёма задания, " +
+              "ничего не переписывая):"
+            : "ТЕКУЩЕЕ СОДЕРЖИМОЕ ПОДРАЗДЕЛА (модифицируй согласно инструкции, не генерируй заново):";
+          prompt += `\n\n${_contentHeader}\n"""\n${opts.currentContent}\n"""`;
         }
 
         if (intraSectionCtx) {
@@ -9911,29 +10754,62 @@
           intro: `Оформи ТОЧНО следующие секции (каждую — в <div data-section="..."> согласно правилам форматирования):`,
           subsections: [
             { name: "Цели и метод",
-              body: `Зачем создаётся данный синтез, какую философскую проблему он призван решить. Описание выбранного метода (${ML[p.method]} — ${MD[p.method]}) и уровня (${SL[p.synthLevel]} — ${SD[p.synthLevel]}) и его применимости к данному набору философских систем.
+              body: `Зачем создаётся данный синтез, какую философскую проблему он призван решить. Описание выбранного метода (${ML[p.method]} — ${mdText(p, p.method)}) и уровня (${SL[p.synthLevel]} — ${sdText(p, p.synthLevel)}) и его применимости ${
+                hasNoParticipants(p)
+                  ? "к развёртыванию зерна концепции в отсутствие именованных участников-источников"
+                  : "к данному набору философских систем"
+              }.
 
               ${METHOD_SUM(p)[p.method] || ""}`,
               note_after: null },
-            { name: hasConceptParticipants(p)
-    ? "Портрет каждого участника синтеза"
-    : "Портрет каждого философа",
-  body: hasConceptParticipants(p)
-    ? `Для каждого участника синтеза:\n` +
-      `— Для философов (${philNames(p).join(", ") || "—"}): какова его ключевая идея, ` +
-      `релевантная данному синтезу? Что именно он привносит?\n` +
-      `— Для концепций-участников (${conceptNames(p).join(", ")}): ` +
-      `какова её центральная идея (по капсуле и категориям)? ` +
-      `Какие её тезисы и категории наиболее релевантны? ` +
-      `Какие внутренние напряжения она несёт из своего собственного синтеза?` +
-      `${LEVEL_SUM_PORTRAITS(p)[p.synthLevel] || ""}`
-    : `Для каждого из (${p.phil.join(", ")}): какова его ключевая идея, ` +
-      `релевантная данному синтезу? Что именно он привносит? ` +
+            { name: SUBSECTION_SUM_PORTRAIT(p),
+  body: (() => {
+    const card = participantCardinality(p);
+    const levelExtra = LEVEL_SUM_PORTRAITS(p)[p.synthLevel] || "";
+    // Режим мета-синтеза (среди участников есть концепции)
+    if (hasConceptParticipants(p)) {
+      const lead = card === "single"
+        ? `Для единственного участника синтеза:`
+        : `Для каждого участника синтеза:`;
+      return lead + `\n` +
+        `— Для философов (${philNames(p).join(", ") || "—"}): какова его ключевая идея, ` +
+        `релевантная данному синтезу? Что именно он привносит?\n` +
+        `— Для концепций-участников (${conceptNames(p).join(", ")}): ` +
+        `какова её центральная идея (по капсуле и категориям)? ` +
+        `Какие её тезисы и категории наиболее релевантны? ` +
+        `Какие внутренние напряжения она несёт из своего собственного синтеза?` +
+        levelExtra;
+    }
+    // Свободный синтез (без участников)
+    if (card === "none") {
+      return `Свободный синтез — разверни содержание зерна концепции:\n` +
+        `— Какова центральная проблема или интуиция, заложенная в зерне?\n` +
+        `— В каких философских горизонтах и традициях имеет смысл её ставить?\n` +
+        `— Какие концептуальные напряжения возникают уже при первом раскрытии зерна?\n` +
+        `— Какие аспекты проблематики требуют разработки, какие — осознанно оставлены за рамками?` +
+        levelExtra;
+    }
+    // Один философ + зерно (без концепций-участников)
+    if (card === "single") {
+      const name = (p.phil || [])[0] || "—";
+      return `Для единственного философа-участника (${name}): какова его ключевая идея, ` +
+        `релевантная данному синтезу? Что именно он привносит? Какие аспекты его ` +
+        `философии будут задействованы, а какие — осознанно оставлены за рамками? ` +
+        `С какими соседними философскими горизонтами (традициями, школами, позициями) ` +
+        `его идеи будут соотнесены в свете зерна концепции?` +
+        levelExtra;
+    }
+    // Несколько философов
+    return `Для каждого из философов-участников (${(p.phil || []).join(", ")}): ` +
+      `какова его ключевая идея, релевантная данному синтезу? Что именно он привносит? ` +
       `Какие аспекты его философии будут задействованы, а какие — осознанно ` +
-      `оставлены за рамками?${LEVEL_SUM_PORTRAITS(p)[p.synthLevel] || ""}`,
+      `оставлены за рамками?` + levelExtra;
+  })(),
   note_after: null },
             { name: "Новизна и ценность",
-              body: `Что нового данный синтез может дать, чего не давали исходные философы по отдельности? Какие «слепые пятна» каждого философа компенсируются другими?`,
+              body: hasNoParticipants(p)
+                ? `Что нового данный свободный синтез может внести в философское поле: какой вопрос ставится в более острой форме, чем в существующих традициях? Какой аспект реальности оказывается концептуализирован там, где прежде был слепой участок?`
+                : `Что нового данный синтез может дать, чего не давали исходные философы по отдельности? Какие «слепые пятна» каждого философа компенсируются другими?`,
               note_after: null },
             { name: "Структура документа",
               body: (() => {
@@ -9952,11 +10828,15 @@ ${secListStr}`;
               })(),
               note_after: null },
             { name: "Индекс когерентности",
-              body: `Оценка 0–100: насколько органично сочетаются выбранные философские системы. Развёрнутое обоснование оценки.`,
+              body: hasNoParticipants(p)
+                ? `Оценка 0–100: насколько внутренне связной и непротиворечивой получается развёртка зерна концепции. Развёрнутое обоснование оценки. (В свободном синтезе когерентность измеряется не между источниками, а внутри самой разворачиваемой проблемы.)`
+                : `Оценка 0–100: насколько органично сочетаются выбранные философские системы. Развёрнутое обоснование оценки.`,
               note_after: null },
             { name: "Точки напряжения",
-              body: `Между какими именно ${participantWord(p)}ми и по каким вопросам
-            существуют фундаментальные разногласия, которые синтез должен разрешить?` +
+              body: (hasNoParticipants(p)
+                ? `Какие внутренние напряжения, противоречия и нерешённые вопросы несёт в себе само зерно концепции? Какие моменты задают продуктивную проблемную ткань синтеза?`
+                : `Между какими именно ${participantWord(p)}ми и по каким вопросам
+            существуют фундаментальные разногласия, которые синтез должен разрешить?`) +
                 (p.sec.includes("dialogue")
                   ? `\n\nЕсли раздел «Диалог» включён в план — формулируй напряжения
             как реальные разногласия, способные выдержать продуктивный спор:
@@ -10196,7 +11076,7 @@ ${LEVEL_TOPOLOGY_NOTE(p)[graphLevel] || ""}
                 body: `Для каждого варианта из таблицы — развёрнутый анализ: этимология, коннотации, потенциальные ассоциации, однозначность vs двусмысленность, звучание на разных языках, соответствие традициям выбранных философов, точность отражения сути концепции.`,
                 note_after: null },
               { name: "Итоговая рекомендация",
-                body: `На основании проведённого сравнительного анализа определи оптимальное название. Выдели итоговое название жирным (<strong>) тегом — строго только само название, без каких-либо сопроводительных слов: правильно — \`<strong>Экспрессивная Гармониология</strong>\`, неправильно — \`<strong>Итоговая рекомендация: «Экспрессивная Гармониология»</strong>\`. В этой секции оформление итогового названия в <strong> должно быть первым. Если потребуется оформлять что-то ещё в <strong>, то этот тег должен быть уже после названия. Обоснуй выбор названия: почему именно этот вариант превосходит конкурентов, какие аспекты концепции он схватывает наилучшим образом, как соотносится с существующей философской терминологией. Отдельно: соответствие историческому контексту, методу (${ML[p.method]} — ${MD[p.method]}) и уровню (${SL[p.synthLevel]} — ${SD[p.synthLevel]}) синтеза.`,
+                body: `На основании проведённого сравнительного анализа определи оптимальное название. Выдели итоговое название жирным (<strong>) тегом — строго только само название, без каких-либо сопроводительных слов: правильно — \`<strong>Экспрессивная Гармониология</strong>\`, неправильно — \`<strong>Итоговая рекомендация: «Экспрессивная Гармониология»</strong>\`. В этой секции оформление итогового названия в <strong> должно быть первым. Если потребуется оформлять что-то ещё в <strong>, то этот тег должен быть уже после названия. Обоснуй выбор названия: почему именно этот вариант превосходит конкурентов, какие аспекты концепции он схватывает наилучшим образом, как соотносится с существующей философской терминологией. Отдельно: соответствие историческому контексту, методу (${ML[p.method]} — ${mdText(p, p.method)}) и уровню (${SL[p.synthLevel]} — ${sdText(p, p.synthLevel)}) синтеза.`,
                 note_after: null },
             ],
             postamble: `Мин. ${mw(p)} слов.`,
@@ -10284,7 +11164,9 @@ ${p.extGraphMetrics ? "\nЕсли в контексте есть расшире�
     `категориями исходных концепций при их объединении в новый синтез? ` +
     `Какие тезисы одной концепции конфликтуют с тезисами другой? ` +
     `Какие категории не совместимы и требуют переосмысления?`
-  : `Что бы сказал КАЖДЫЙ из выбранных философов (${p.phil.join(", ")}), увидев, как его идеи трансформированы? Формулируй возражения от лица каждого мыслителя, исходя из его собственной системы.`,
+  : hasNoParticipants(p)
+    ? `Какие возражения наиболее убедительно могли бы выдвинуть против данной концепции представители релевантных философских традиций (опираясь на содержание зерна и полученный граф)? Формулируй возражения от лица каждой такой традиции, исходя из её собственных оснований и характерных способов аргументации.`
+    : `Что бы сказал КАЖДЫЙ из выбранных философов (${(p.phil || []).join(", ")}), увидев, как его идеи трансформированы? Формулируй возражения от лица каждого мыслителя, исходя из его собственной системы.`,
                 note_after: null },
             ],
             postamble: `Мин. ${mw(p)} слов.`,
@@ -10369,7 +11251,26 @@ ${p.extGraphMetrics ? "\nЕсли в контексте доступны рас�
             : LEVEL_DIALOGUE_COMMENT;
 
           const dialogueParts = {
-            preamble: `Составь § — ДИАЛОГ МЕЖДУ ТРАДИЦИЯМИ.
+            preamble: hasNoParticipants(p)
+              ? `Составь § — ДИАЛОГ МЕЖДУ ТРАДИЦИЯМИ.
+
+        Именованных участников синтеза нет — это свободный синтез. Выбери голоса диалога самостоятельно, опираясь на содержание зерна концепции и на дополнительный контекст данного раздела (если задан). В роли голосов могут выступать философские традиции, школы, характерные позиции, «типические мыслители» эпохи или воображаемые представители подходов.
+        Формат: классический философский диалог в стиле платоновских диалогов, но с современным содержанием. Придай голосам характерные черты в соответствии с избранными философскими позициями.
+
+        АДАПТАЦИЯ К КОНТЕКСТУ:
+        — Если в контексте выше приведены категории из графа и/или тезисы:
+          диалог ИССЛЕДУЕТ и ПРОВЕРЯЕТ их — голоса спорят о тех же идеях,
+          что формализованы в предшествующих разделах, но СВОИМ ЯЗЫКОМ, как живые
+          мыслители. Они НЕ комментируют документ и НЕ ссылаются на §§ — они
+          спорят о проблемах. Картирование диалога на формальные разделы выполняет
+          аналитический комментарий и итоговая таблица.
+        — Если граф и тезисы ещё НЕ сгенерированы (их нет в контексте выше):
+          диалог ПОРОЖДАЕТ новые понятия И предварительные утверждения о них —
+          голоса нащупывают категории и формулируют гипотезы,
+          которые будут формализованы в последующих разделах. Каждое новое
+          понятие ВЫДЕЛЯЙ при первом появлении жирным (<strong>),
+          а каждое предварительное утверждение — курсивом (<em>).`
+              : `Составь § — ДИАЛОГ МЕЖДУ ТРАДИЦИЯМИ.
 
         Создай философский диалог между участниками синтеза.
         Участники: ${participantsForPrompt(p)}.
@@ -10391,7 +11292,9 @@ ${p.extGraphMetrics ? "\nЕсли в контексте доступны рас�
           понятие ВЫДЕЛЯЙ при первом появлении жирным (<strong>),
           а каждое предварительное утверждение — курсивом (<em>).`,
 
-            preamble_short: `Раздел «Диалог между традициями». Участники: ${participantsForPrompt(p)}.`,
+            preamble_short: hasNoParticipants(p)
+              ? `Раздел «Диалог между традициями». Свободный синтез: голоса диалога выбираются самостоятельно по содержанию зерна и доп.контексту.`
+              : `Раздел «Диалог между традициями». Участники: ${participantsForPrompt(p)}.`,
             intro: `Оформи ТОЧНО следующие секции (в <div data-section="..."> согласно правилам форматирования):`,
             subsections: [
               { name: "Межфилософский диалог",
@@ -11012,17 +11915,96 @@ ${p.extGraphMetrics ? "\nЕсли в контексте есть расшире�
           alert("Введите API-ключ Anthropic.");
           return;
         }
-        if (!hasParticipants) {
-          alert("Выберите хотя бы одного участника синтеза:\n" +
-                "— философа из списка, или\n" +
-                "— импортируйте ранее сгенерированную концепцию.");
+        // Свободный синтез (только зерно, без участников) допустим:
+        // baseCtxStatic теперь помечает промпт явным режимом «СВОБОДНЫЙ СИНТЕЗ»,
+        // секции с ссылками на участников переформулируются через helper'ы.
+        // Однако одиночный философ без зерна — некорректный сценарий:
+        // одного мыслителя без направляющего зерна недостаточно для синтеза.
+        if (hasPhil && !hasConcepts && phil.length === 1 && !seed) {
+          alert("Одного философа без зерна концепции недостаточно для синтеза.\n\n" +
+                "Либо введите зерно, либо выберите ещё одного участника.");
           return;
         }
-        if (hasConcepts && !hasPhil && _conceptParticipants.length < 2) {
-          alert("Для синтеза только из концепций (без философов) " +
-                "необходимо минимум две концепции.");
+        if (hasConcepts && !hasPhil && _conceptParticipants.length < 2 && !seed) {
+          alert("Для синтеза на основе одной концепции (без философов) " +
+                "необходимо либо ввести зерно, которое задаст направление развития " +
+                "единственной концепции-родителя, либо добавить ещё одну концепцию " +
+                "или философа.");
           return;
         }
+        // Раздел «Диалог» предполагает минимум два голоса. При свободном
+        // синтезе (нет участников) его содержание рискует получиться странным,
+        // ЕСЛИ пользователь также не вложил в доп.контекст раздела указания,
+        // о каких голосах должен идти диалог. Если доп.контекст есть —
+        // считаем, что пользователь осознанно описал голоса там, и молчим.
+        // Если доп.контекста нет — мягкое предупреждение с возможностью
+        // продолжить.
+        if (!hasParticipants && sec.includes("dialogue")) {
+          const secCtxForDialogue = (getSecCtxMap() || {}).dialogue || "";
+          if (!secCtxForDialogue.trim()) {
+            const ok = confirm(
+              "Раздел «Диалог между традициями» обычно предполагает минимум два " +
+              "голоса — участников синтеза. Вы запускаете свободный синтез (без " +
+              "участников) и не заполнили дополнительный контекст раздела " +
+              "«Диалог».\n\n" +
+              "Без явного указания, чьи голоса должны столкнуться в диалоге, " +
+              "раздел может получиться очень странным: модель вынуждена будет " +
+              "импровизировать участников с опорой только на зерно.\n\n" +
+              "Рекомендуется либо снять галочку с «Диалога», либо добавить в " +
+              "доп.контекст раздела указания о предполагаемых голосах " +
+              "(традициях, ролях, позициях).\n\n" +
+              "Продолжить генерацию как есть?"
+            );
+            if (!ok) return;
+          }
+        }
+
+        // Уровень transformative требует «напряжения между минимум двумя»
+        // различимыми источниками. В свободном синтезе и при одном участнике
+        // именованных источников для напряжения недостаточно — предупреждаем.
+        // SD_BY_CARD.none/single переформулируют требование, но предупреждение
+        // даёт пользователю шанс осознанно выбрать сценарий.
+        const _card = hasParticipants
+          ? (hasPhil && hasConcepts ? "multi"
+            : (hasPhil ? (phil.length >= 2 ? "multi" : "single")
+            : (_conceptParticipants.length >= 2 ? "multi" : "single")))
+          : "none";
+        if (synthLevel === "transformative" && _card !== "multi") {
+          const kind = _card === "none" ? "свободном синтезе" : "синтезе с одним участником";
+          const sourceDesc = _card === "none"
+            ? "именованных источников в явном виде нет — модели придётся извлекать различимые трактовки/горизонты прямо из зерна концепции"
+            : "второго источника напряжения нет — модели придётся извлекать второй полюс из зерна концепции";
+          const ok = confirm(
+            "Уровень синтеза «Преобразующий» требует, чтобы каждая категория " +
+            "возникала из напряжения между минимум двумя различимыми источниками. " +
+            "При " + kind + " " + sourceDesc + ".\n\n" +
+            "Если зерно достаточно богато, чтобы развёртываться сразу в несколько " +
+            "несовместимых трактовок, — это сработает. Если же зерно узкое — " +
+            "результат может получиться натянутым.\n\n" +
+            "Рекомендуется либо переключить уровень на «Сравнительный» или " +
+            "«Порождающий», либо дополнить зерно в доп.контексте синтеза.\n\n" +
+            "Продолжить с «Преобразующим» уровнем?"
+          );
+          if (!ok) return;
+        }
+
+        // ── Предупреждение о «дремлющих» концепциях в пуле ──
+        const _dormantEligible = _loadedConcepts.filter(
+          c => c.participant && !c.isSynthParticipant
+        );
+        if (_dormantEligible.length > 0) {
+          const _list = _dormantEligible.map(c => "  • " + c.name).join("\n");
+          const _header = hasConcepts
+            ? "В мета-синтезе будут участвовать только концепции с ☑.\n" +
+              "Следующие в пуле пригодны, но БЕЗ ☑ — будут проигнорированы:"
+            : "В пуле есть концепции, пригодные к мета-синтезу, но без ☑ «Синтез».\n" +
+              "Они НЕ будут участвовать в этой генерации:";
+          const _tail = "\n\nЕсли вы хотели включить их в мета-синтез — " +
+                        "отмените и поставьте ☑ «Синтез» на карточках.\n\n" +
+                        "Продолжить без них?";
+          if (!confirm(_header + "\n\n" + _list + _tail)) return;
+        }
+
         const generationOrder = document.getElementById("generationOrder").value;
         const extGraphMetrics = document.getElementById("extGraphMetrics")?.checked || false;
         const p = { seed, phil, sec, method, depth, synthLevel, ctx, generationOrder, extGraphMetrics, lang: GEN_LANG };
@@ -11034,6 +12016,9 @@ ${p.extGraphMetrics ? "\nЕсли в контексте есть расшире�
           ..._conceptParticipants,
         ];
         p.isMetaSynthesis = _conceptParticipants.length > 0;
+
+        // keepFullBudget: новое поле (ТЗ tz_budget_mode)
+        p.keepFullBudget = _currentKeepFullBudget();
 
         // Для обратной совместимости: p.phil содержит все имена
         p.phil = p.participants.map(x =>
@@ -11138,7 +12123,9 @@ ${p.extGraphMetrics ? "\nЕсли в контексте есть расшире�
         document.getElementById("docSynthLevel").textContent = SL[synthLevel];
         document.getElementById("docTitle").textContent = "Синтез Философской Концепции";
         // Подзаголовок — всегда перечень философов/концепций; зерно уходит только в раскрывающееся поле
-        if (hasConceptParticipants(p)) {
+        if (hasNoParticipants(p)) {
+          document.getElementById("docSubtitle").textContent = "Свободный синтез (на основе зерна)";
+        } else if (hasConceptParticipants(p)) {
           const philPart = philNames(p).join(", ");
           const conceptPart = conceptNames(p).join(", ");
           const parts = [];
@@ -11146,13 +12133,15 @@ ${p.extGraphMetrics ? "\nЕсли в контексте есть расшире�
           if (conceptPart) parts.push(conceptPart);
           document.getElementById("docSubtitle").textContent = "На основе: " + parts.join(" + ");
         } else {
-          document.getElementById("docSubtitle").textContent = `На основе: ${p.phil.join(", ")}`;
+          document.getElementById("docSubtitle").textContent = `На основе: ${(p.phil || []).join(", ")}`;
         }
         document.getElementById("sessionId").textContent = docNum;
 
         // Заполняем раскрывающиеся поля шапки (зерно, контекст)
         buildDocHeaderExtras(seed, ctx);
-        document.getElementById("footerPhil").textContent = p.phil.join(", ");
+        document.getElementById("footerPhil").textContent = hasNoParticipants(p)
+          ? "свободный синтез"
+          : (p.phil || []).join(", ");
 
         const effectiveDeps = buildEffectiveDeps(p.sec, resolveContextDeps(p), p.generationOrder);
         const dynamicOrder = buildDynamicOrder(effectiveDeps, p.sec, resolveContextDeps(p), p.generationOrder)
@@ -11204,30 +12193,28 @@ ${p.extGraphMetrics ? "\nЕсли в контексте есть расшире�
           .scrollIntoView({ behavior: "smooth", block: "start" });
 
         const SYS = buildSYS(p);
-        const partBase = baseCtx(p);
+        const partStatic = baseCtxStatic(p);
+        // partBase оставляем для backward-compat с устаревшими местами, берёт селектив для первого pass
+        const partBase = partStatic + baseCtxParents(p, (passes[0] && passes[0][0] && passes[0][0].key) || null);
         
         // Служебный каркас — литеральные связки. Длину вычисляем по шаблону с пустыми переменными частями:
         const partQuality = buildQualityReinforcement(p);
         const scaffoldLen = `ПАРАМЕТРЫ СИНТЕЗА:\n\n\n\nЗАДАНИЕ: составь ТОЛЬКО следующие разделы (строго в указанном порядке, без добавления других):\n\n\n\n`.length;
         const commonChars = SYS.length + partBase.length + partQuality.length + scaffoldLen;
 
+        const _sectionKeysForSpec14 = passes.map(pass => pass.map(d => d.key).join("+"));
         genCommon = {
           sysChars:      SYS.length,
           baseChars:     partBase.length,
+          baseCharsWithoutConcepts: partStatic.length,
+          totalConceptOverhead: partBase.length - partStatic.length,
+          budgetMode:    p.keepFullBudget ? 'full' : 'shrink',
+          parentSpecBySection: buildParentSpecBySection(p, _sectionKeysForSpec14),
           rulesChars:    0,
           qualityChars:  partQuality.length,
           scaffoldChars: scaffoldLen,
           totalChars:    commonChars,
-          conceptBlockSizes: (p.participants || [])
-            .filter(x => x.type === "concept")
-            .map(c => {
-              const total = [c.capsule, c.graphNodes, c.graphEdges,
-                c.dialogueConcepts, c.dialogueSynthesis,
-                c.glossaryCompact, c.thesesSummary,
-                c.goals, c.tensions, c.portraits]
-                .filter(Boolean).reduce((s, t) => s + t.length, 0);
-              return { name: c.name, chars: total };
-            }),
+          conceptBlockSizes: computeFullConceptBlockSizes(p),
         };
         
         // Цикл генерации вынесен в _runGenPassesFromIdx — ту же функцию,
@@ -11235,7 +12222,7 @@ ${p.extGraphMetrics ? "\nЕсли в контексте есть расшире�
         // дубликацию логики и гарантирует единообразие поведения при сбоях.
         await _runGenPassesFromIdx({
           p, defs, passes, dynamicOrder, effectiveDeps,
-          SYS, partBase, startIdx: 0, source: "init",
+          SYS, partStatic, startIdx: 0, source: "init",
         });
 
         // Если цикл прервался из-за паузы — НЕ финализируем состояние.
@@ -11351,6 +12338,71 @@ ${p.extGraphMetrics ? "\nЕсли в контексте есть расшире�
         if (typeof _showPauseBadge === "function") {
           try { _showPauseBadge(false); } catch (_) {}
         }
+
+        // Автодобавление текущего документа в пул.
+        // Если набор разделов достаточен для мета-синтеза — ставим ☑ сразу.
+        try { _autoAddCurrentDocToPool(); }
+        catch (_autoAddErr) { console.warn("Авто-добавление в пул упало:", _autoAddErr); }
+      }
+
+      /**
+       * Добавляет текущий (только что сгенерированный / финализированный)
+       * документ как карточку в пул концепций. 
+       */
+      function _autoAddCurrentDocToPool() {
+        if (!DOC_STATE || !DOC_STATE.sectionOrder || DOC_STATE.sectionOrder.length === 0) {
+          return;
+        }
+        const docNumEl = document.getElementById("docNum");
+        const docNum = (docNumEl && docNumEl.textContent ? docNumEl.textContent.trim() : "");
+        const filename = (docNum || "generated-" + Date.now()) + ".html";
+
+        // Дедупликация: если запись с таким filename уже есть — no-op.
+        if (_loadedConcepts.some(c => c.filename === filename)) return;
+
+        let snap;
+        try { snap = snapshotCurrentState(); }
+        catch (e) { console.warn("snapshotCurrentState упал:", e); return; }
+        if (!snap || !snap.html) return;
+
+        let entry;
+        try { entry = parseConceptFile(snap.html, filename); }
+        catch (e) { console.warn("parseConceptFile на свежем документе упал:", e); return; }
+
+        if (entry.participant && !entry.participantError) {
+          entry.isSynthParticipant = true;
+        }
+        entry.snapshot = snap;
+        entry.isSelected = true;  // связка «в docBodies = в пуле», для синхронизации правок
+
+        // Сбрасываем флаг isSelected у предыдущих записей (должно быть пусто
+        // после generateDoc.11474–11485, но на всякий случай).
+        for (const c of _loadedConcepts) c.isSelected = false;
+
+        _loadedConcepts.push(entry);
+        _selectedConceptId = entry.id;
+
+        renderPoolConcepts();
+        updateSectionWarnings();
+        updateCostEstimate();
+        syncConceptParticipants();
+
+        if (entry.participant) {
+          setPoolStatus(
+            "✓ Текущая концепция добавлена в пул с ☑ — готова к мета-синтезу " +
+            "с будущими импортами",
+            "ok"
+          );
+        } else {
+          const reason = entry.participantError
+            ? " (" + String(entry.participantError).slice(0, 80) + ")"
+            : "";
+          setPoolStatus(
+            "✓ Текущая концепция добавлена в пул без ☑ — " +
+            "не хватает разделов для мета-синтеза" + reason,
+            ""
+          );
+        }
       }
 
       // ════════════════════════════════════════
@@ -11443,8 +12495,10 @@ ${p.extGraphMetrics ? "\nЕсли в контексте есть расшире�
           } catch (_) {}
           const err = new Error(errMsg);
           err.status = resp.status;
-          // 401 — auth
+          // 401 — auth (ключ недействителен)
           if (resp.status === 401) err.kind = "auth";
+          // 400 + "credit balance" — баланс исчерпан (не ретраим)
+          else if (resp.status === 400 && /credit balance/i.test(errMsg)) err.kind = "billing";
           // 429 / 5xx — pre-stream (ретраим)
           else err.kind = "pre-stream";
           throw err;
@@ -11610,7 +12664,7 @@ ${p.extGraphMetrics ? "\nЕсли в контексте есть расшире�
               // (max-tokens бессмысленно ретраить — упрёмся снова при том же промпте)
               if (err.kind === "auth" || err.kind === "partial"
                   || err.kind === "stuck" || err.kind === "user-abort"
-                  || err.kind === "max-tokens") {
+                  || err.kind === "max-tokens" || err.kind === "billing") {
                 throw err;
               }
               // pre-stream: ретраим до исчерпания попыток
@@ -17027,6 +18081,8 @@ ${p.extGraphMetrics ? "\nЕсли в контексте есть расшире�
         try {
           const stateData = {
             version: 2,
+            parentContextSchema: PARENT_CONTEXT_SCHEMA_ID,
+            parentContextSchemaVersion: PARENT_CONTEXT_SCHEMA_VERSION,
             genLog: genLog.map(g => {
               const { _sys, _promptSkeleton, ...rest } = g;
               return rest;
@@ -17058,6 +18114,7 @@ ${p.extGraphMetrics ? "\nЕсли в контексте есть расшире�
           
             const logConstants = [
               ["CTX_LABELS", CTX_LABELS],
+              ["KEY_LABELS", KEY_LABELS],
             ].map(([name, val]) => `var ${name} = ${JSON.stringify(val)};`)
              .join("\n");
           
@@ -18460,6 +19517,10 @@ ${p.extGraphMetrics ? "\nЕсли в контексте есть расшире�
           console.warn("executeEditPlan: план уже выполняется, повторный запуск отклонён");
           return;
         }
+        // Синхронизируем keepFullBudget из чекбокса (ТЗ tz_budget_mode 5.3)
+        if (DOC_STATE.params) {
+          DOC_STATE.params.keepFullBudget = _currentKeepFullBudget();
+        }
         const plan = { ..._editPlan };
         const total = plan.regen.length + plan.remove.length + plan.add.length
             + (plan.modeRegen?.length || 0)
@@ -18832,7 +19893,11 @@ ${p.extGraphMetrics ? "\nЕсли в контексте есть расшире�
        */
       function extractRelevantIntraSectionContext(container, sectionKey, subsectionName) {
         const deps = INTRA_DEPS[sectionKey] || {};
-        const directDeps = deps[subsectionName];
+        // Канонизируем: в DOM имя может быть локализовано (например,
+        // «Портрет философа» вместо канона «Портрет каждого философа»),
+        // а в INTRA_DEPS — всегда канон.
+        const canonName = canonicalSubsectionKey(sectionKey, subsectionName);
+        const directDeps = deps[canonName];
 
         // Если у подраздела нет записи в INTRA_DEPS — он «корневой»,
         // отправляем все подразделы (консервативный фолбэк)
@@ -18862,7 +19927,9 @@ ${p.extGraphMetrics ? "\nЕсли в контексте есть расшире�
         for (const sec of sections) {
           const name = sec.getAttribute("data-section");
           if (name === subsectionName) continue;  // себя не включаем
-          if (!needed.has(name)) continue;        // только зависимости
+          // Канонизируем имя из DOM перед сверкой с needed (канон).
+          const canonOfName = canonicalSubsectionKey(sectionKey, name);
+          if (!needed.has(canonOfName)) continue;
           const tables = sec.querySelectorAll("table.doc-table");
           if (tables.length > 0) {
             const tableParts = Array.from(tables).map(t => tableToText(t));
@@ -18904,6 +19971,27 @@ ${p.extGraphMetrics ? "\nЕсли в контексте есть расшире�
       async function regenerateSection(sectionKey, newCtx, opts = {}) {
         const p = DOC_STATE.params;
         if (!p) return;
+
+        // Синхронизируем keepFullBudget из текущего чекбокса (ТЗ tz_budget_mode 5.3):
+        // если пользователь переключил чекбокс, это решение должно примениться.
+        DOC_STATE.params.keepFullBudget = _currentKeepFullBudget();
+
+        // ТЗ selective-parent-context 10.2: маркер миграции схемы при
+        // перегенерации раздела в legacy-документе (без parentContextSchema).
+        // После первой перегенерации документ переходит на селективную схему.
+        const _hasConcepts = (DOC_STATE.participants || []).some(x => x && x.type === "concept");
+        if (_hasConcepts && DOC_STATE._parentContextSchema === "monolithic") {
+          genLog.push({
+            type: "schema-migration-marker",
+            timestamp: new Date().toISOString(),
+            fromSchema: "monolithic",
+            toSchema: PARENT_CONTEXT_SCHEMA_ID,
+            sectionKey,
+            sectionLabel: KEY_LABELS[sectionKey] || sectionKey,
+          });
+          DOC_STATE._parentContextSchema = PARENT_CONTEXT_SCHEMA_ID;
+          try { updateSchemaBadgeInHeader(PARENT_CONTEXT_SCHEMA_ID); } catch (_) {}
+        }
 
         // ── 1. Блокируем UI ──
         const card = document.getElementById("editCard-" + sectionKey);
@@ -18974,16 +20062,23 @@ ${p.extGraphMetrics ? "\nЕсли в контексте есть расшире�
 
           // ── 5. Собираем финальный промпт ──
           const SYS = buildSYS(fullP);
-          const partBase = baseCtx(fullP);
+          const _partStatic10a = baseCtxStatic(fullP);
+          const _partParents10a = baseCtxParents(fullP, sectionKey);
+          const partBase = _partStatic10a + _partParents10a;
           if (!genCommon) {
             const scaffoldLen = `ПАРАМЕТРЫ СИНТЕЗА:\n\n\nЗАДАНИЕ:...\n\n\n`.length;
             genCommon = {
               sysChars: SYS.length, 
               baseChars: partBase.length,
+              baseCharsWithoutConcepts: _partStatic10a.length,
+              totalConceptOverhead: _partParents10a.length,
+              budgetMode: (fullP.keepFullBudget || (DOC_STATE.params && DOC_STATE.params.keepFullBudget)) ? 'full' : 'shrink',
+              parentSpecBySection: buildParentSpecBySection(fullP, [sectionKey]),
               rulesChars: 0, 
               qualityChars: 0,
               scaffoldChars: scaffoldLen,
               totalChars: SYS.length + partBase.length + scaffoldLen,
+              conceptBlockSizes: computeFullConceptBlockSizes(fullP),
             };
           }
           const sp = `§ ${def.num} — ${def.title.toUpperCase()}\n${def.prompt}`;
@@ -18995,6 +20090,7 @@ ${p.extGraphMetrics ? "\nЕсли в контексте есть расшире�
           const expectedSubs = subsecMap[sectionKey] || [];
 
           const genEntry = {
+            __augmentCtx: { p: fullP, sectionKey, parentsLen: (typeof _partParents10a !== 'undefined' ? _partParents10a.length : 0) },
             sectionKey: sectionKey,
             sectionLabel: def.title + " [перегенерация]",
             priorChars: prior.length,
@@ -19016,7 +20112,8 @@ ${p.extGraphMetrics ? "\nЕсли в контексте есть расшире�
             _sys: SYS,
             _promptSkeleton: buildPromptSkeleton(fp),
           };
-          genLog.push(genEntry);
+          if (genEntry.__augmentCtx) { _augmentGenEntry(genEntry, genEntry.__augmentCtx.p, genEntry.__augmentCtx.sectionKey, genEntry.__augmentCtx.parentsLen); delete genEntry.__augmentCtx; }
+        genLog.push(genEntry);
 
           // ── 7. Стримим ответ в DOM-контейнер ──
           if (progressText) progressText.textContent = "Генерация...";
@@ -19172,7 +20269,23 @@ ${p.extGraphMetrics ? "\nЕсли в контексте есть расшире�
           }
 
           // Фильтруем артефакты truncateText (маркеры «...сокращено...»)
-          const cleanParts = intraParts.filter(p => !p.name.includes("сокращено"));
+          // И любые ложноположительные срабатывания regex внутри содержимого
+          // подразделов (когда сам текст содержит паттерн [X]\n): оставляем
+          // только записи, имя которых совпадает с реальным data-section в DOM.
+          // Длину отброшенных записей сливаем в предшествующую реальную запись,
+          // чтобы итог по подразделам соответствовал totalUsed контекста.
+          const realSubsectionNames = new Set(
+            Array.from(container.querySelectorAll("[data-section]"))
+              .map(el => el.getAttribute("data-section"))
+          );
+          const cleanParts = [];
+          for (const p of intraParts) {
+            if (realSubsectionNames.has(p.name)) {
+              cleanParts.push(p);
+            } else if (cleanParts.length > 0) {
+              cleanParts[cleanParts.length - 1].len += p.len;
+            }
+          }
 
           const entries = cleanParts.length > 0
             ? cleanParts.map(p => ({
@@ -19222,15 +20335,20 @@ ${p.extGraphMetrics ? "\nЕсли в контексте есть расшире�
         // ── 2. Промпт ──
         const subPrompt = serializeSubsectionRegen(
           def.parts, subsectionName, intraSectionCtx,
-          { userNote: opts.userNote || "", currentContent }
+          { userNote: opts.userNote || "", currentContent,
+            resumeFromInterruption: !!opts.resumeFromInterruption }
         );
 
-        const SYS = buildSYS(p);
-        const partBase = baseCtx({ ...p, secCtx: { ...p.secCtx } });
+        const SYS = buildSYS(p, { outputMode: "subsection" });
+        const _partP10d = { ...p, secCtx: { ...p.secCtx } };
+        const _partStatic10d = baseCtxStatic(_partP10d);
+        const _partParents10d = baseCtxParents(_partP10d, sectionKey, subsectionName);
+        const partBase = _partStatic10d + _partParents10d;
         const fp = `ПАРАМЕТРЫ СИНТЕЗА:\n${partBase}${priorCtx}\n\n${subPrompt}`;
 
         // ── 3. GenLog ──
         const genEntry = {
+          __augmentCtx: { p, sectionKey, parentsLen: (typeof _partParents10d !== 'undefined' ? _partParents10d.length : 0), subsectionName },
           sectionKey: sectionKey + ":" + subsectionName,
           sectionLabel: def.title + " → " + subsectionName + " [подраздел]",
           priorChars: priorCtx.length, 
@@ -19255,6 +20373,7 @@ ${p.extGraphMetrics ? "\nЕсли в контексте есть расшире�
             hasCurrentContent: !!(opts.includeCurrentContent && currentContent),
             currentContentChars: currentContent ? currentContent.length : 0,
         };
+        if (genEntry.__augmentCtx) { _augmentGenEntry(genEntry, genEntry.__augmentCtx.p, genEntry.__augmentCtx.sectionKey, genEntry.__augmentCtx.parentsLen, genEntry.__augmentCtx.subsectionName); delete genEntry.__augmentCtx; }
         genLog.push(genEntry);
 
         // ── 4. Стриминг — прямо в DOM, на место старого подраздела ──
@@ -19520,16 +20639,23 @@ ${p.extGraphMetrics ? "\nЕсли в контексте есть расшире�
 
         // Промпт
         const SYS = buildSYS(fullP);
-        const partBase = baseCtx(fullP);
+        const _partStatic10b = baseCtxStatic(fullP);
+        const _partParents10b = baseCtxParents(fullP, sectionKey);
+        const partBase = _partStatic10b + _partParents10b;
         if (!genCommon) {
           const scaffoldLen = `ПАРАМЕТРЫ СИНТЕЗА:\n\n\nЗАДАНИЕ:...\n\n\n`.length;
           genCommon = {
             sysChars: SYS.length, 
             baseChars: partBase.length,
+            baseCharsWithoutConcepts: _partStatic10b.length,
+            totalConceptOverhead: _partParents10b.length,
+            budgetMode: (fullP.keepFullBudget || (DOC_STATE.params && DOC_STATE.params.keepFullBudget)) ? 'full' : 'shrink',
+            parentSpecBySection: buildParentSpecBySection(fullP, [sectionKey]),
             rulesChars: 0, 
             qualityChars: 0,
             scaffoldChars: scaffoldLen,
             totalChars: SYS.length + partBase.length + scaffoldLen,
+            conceptBlockSizes: computeFullConceptBlockSizes(fullP),
           };
         }
         const sp = `§ ${def.num} — ${def.title.toUpperCase()}\n${def.prompt}`;
@@ -19541,6 +20667,7 @@ ${p.extGraphMetrics ? "\nЕсли в контексте есть расшире�
         const expectedSubs = subsecMap[sectionKey] || [];
 
         const genEntry = {
+          __augmentCtx: { p: fullP, sectionKey, parentsLen: (typeof _partParents10b !== 'undefined' ? _partParents10b.length : 0) },
           sectionKey,
           sectionLabel: def.title + " [каскад]",
           priorChars: prior.length,
@@ -19558,6 +20685,7 @@ ${p.extGraphMetrics ? "\nЕсли в контексте есть расшире�
           _sys: SYS,
           _promptSkeleton: buildPromptSkeleton(fp),
         };
+        if (genEntry.__augmentCtx) { _augmentGenEntry(genEntry, genEntry.__augmentCtx.p, genEntry.__augmentCtx.sectionKey, genEntry.__augmentCtx.parentsLen); delete genEntry.__augmentCtx; }
         genLog.push(genEntry);
 
         // Стриминг
@@ -19885,16 +21013,23 @@ ${p.extGraphMetrics ? "\nЕсли в контексте есть расшире�
           }
 
           const SYS = buildSYS(fullP);
-          const partBase = baseCtx(fullP);
+          const _partStatic10c = baseCtxStatic(fullP);
+          const _partParents10c = baseCtxParents(fullP, sectionKey);
+          const partBase = _partStatic10c + _partParents10c;
           if (!genCommon) {
             const scaffoldLen = `ПАРАМЕТРЫ СИНТЕЗА:\n\n\nЗАДАНИЕ:...\n\n\n`.length;
             genCommon = {
               sysChars: SYS.length, 
               baseChars: partBase.length,
+              baseCharsWithoutConcepts: _partStatic10c.length,
+              totalConceptOverhead: _partParents10c.length,
+              budgetMode: (fullP.keepFullBudget || (DOC_STATE.params && DOC_STATE.params.keepFullBudget)) ? 'full' : 'shrink',
+              parentSpecBySection: buildParentSpecBySection(fullP, [sectionKey]),
               rulesChars: 0, 
               qualityChars: 0,
               scaffoldChars: scaffoldLen,
               totalChars: SYS.length + partBase.length + scaffoldLen,
+              conceptBlockSizes: computeFullConceptBlockSizes(fullP),
             };
           }
           const sp = `§ ${newDef.num} — ${newDef.title.toUpperCase()}\n${newDef.prompt}`;
@@ -19906,6 +21041,7 @@ ${p.extGraphMetrics ? "\nЕсли в контексте есть расшире�
 
           // ── 10. GenLog ──
           const genEntry = {
+            __augmentCtx: { p: fullP, sectionKey, parentsLen: (typeof _partParents10c !== 'undefined' ? _partParents10c.length : 0) },
             sectionKey,
             sectionLabel: newDef.title + " [добавлен]",
             priorChars: prior.length,
@@ -19921,7 +21057,8 @@ ${p.extGraphMetrics ? "\nЕсли в контексте есть расшире�
             expectedSubsections: expectedSubs,
             subsections: [],
           };
-          genLog.push(genEntry);
+          if (genEntry.__augmentCtx) { _augmentGenEntry(genEntry, genEntry.__augmentCtx.p, genEntry.__augmentCtx.sectionKey, genEntry.__augmentCtx.parentsLen); delete genEntry.__augmentCtx; }
+        genLog.push(genEntry);
 
           // ── 11. Стриминг ──
           if (progressText) progressText.textContent = "Генерация...";
@@ -20570,6 +21707,9 @@ ${p.extGraphMetrics ? "\nЕсли в контексте есть расшире�
 
         DOC_STATE.participants = embeddedState?.participants || [];
         DOC_STATE.genealogy = embeddedState?.genealogy || null;
+        // ТЗ selective-parent-context 10.2: запомнить схему файла
+        DOC_STATE._parentContextSchema = (embeddedState && embeddedState.parentContextSchema)
+          || "monolithic";
 
         // Восстанавливаем капсулы из HTML-дерева генеалогии
         if (DOC_STATE.genealogy) {
@@ -20751,6 +21891,15 @@ ${p.extGraphMetrics ? "\nЕсли в контексте есть расшире�
         const orderEl = document.getElementById("generationOrder");
         if (orderEl && embeddedState?.params?.generationOrder) {
           orderEl.value = embeddedState.params.generationOrder;
+        }
+
+        // ── keepFullBudget (ТЗ tz_budget_mode) ──
+        const _kfbCb = document.getElementById("keepFullBudgetCb");
+        if (_kfbCb && embeddedState?.params) {
+          _kfbCb.checked = !!embeddedState.params.keepFullBudget;
+          if (typeof updateCostEstimate === "function") {
+            try { updateCostEstimate(); } catch (_) {}
+          }
         }
 
         // ── Философы: сбрасываем все, затем отмечаем нужных ──
@@ -20991,7 +22140,16 @@ ${p.extGraphMetrics ? "\nЕсли в контексте есть расшире�
 
         // ── 7. Реконструкция генеалогии ──
         const genealogy = reconstructGenealogy(meta, embeddedState, doc);
- 
+
+        // Восстанавливаем капсулы всех не-корневых узлов из отрендеренного
+        // HTML-дерева генеалогии импортируемого документа. Без этого капсулы
+        // дальних предков теряются при метасинтезе 3-го уровня и глубже:
+        // в embeddedState.genealogy они уже сняты через
+        // stripCapsulesFromGenealogy, а .gen-card-capsule-body в HTML остаются.
+        if (genealogy) {
+          restoreCapsulesFromHTML(genealogy, doc);
+        }
+
         // ── 8. Сборка участника ──
         return {
           type: "concept",
@@ -21283,6 +22441,8 @@ ${p.extGraphMetrics ? "\nЕсли в контексте есть расшире�
         details.appendChild(summary);
         details.appendChild(body);
         container.appendChild(details);
+        // ТЗ selective-parent-context 10.3: бейдж схемы
+        try { updateSchemaBadgeInHeader(DOC_STATE._parentContextSchema); } catch (_) {}
       }
 
       /**
@@ -21592,7 +22752,8 @@ ${p.extGraphMetrics ? "\nЕсли в контексте есть расшире�
         if (!p) return null;
 
         // Входные: sys + промпт режима + контекст
-        const sysChars = genCommon?.sysChars || buildSYS(p).length;
+        // SYS для режима чуть короче (mode-режим), учитываем в оценке.
+        const sysChars = genCommon?.sysChars || buildSYS(p, { outputMode: "mode" }).length;
         const promptBaseChars = 800; // фиксированная часть промпта режима
 
         // Контекст: оценка по зависимостям
@@ -21684,7 +22845,8 @@ ${p.extGraphMetrics ? "\nЕсли в контексте есть расшире�
             if (!found && changedSubsections) {
               for (const subId of changedSubsections) {
                 const [secKey, subName] = subId.split(":");
-                const ctxKeys = (SUBSECTION_TO_CTX_KEYS[secKey] || {})[subName] || [];
+                const canonSub = canonicalSubsectionKey(secKey, subName);
+                const ctxKeys = (SUBSECTION_TO_CTX_KEYS[secKey] || {})[canonSub] || [];
                 const overlap = ctxKeys.filter(k => allCtxKeys.includes(k));
                 if (overlap.length > 0) {
                   affected.push({
@@ -21889,7 +23051,7 @@ ${p.extGraphMetrics ? "\nЕсли в контексте есть расшире�
         try {
           const ctx = buildModeContext(_currentMode);
           const prompt = config.buildPrompt(paramValue, ctx);
-          const SYS = buildSYS(DOC_STATE.params);
+          const SYS = buildSYS(DOC_STATE.params, { outputMode: "mode" });
 
           // GenLog запись
           const genEntry = {
@@ -22010,7 +23172,7 @@ ${p.extGraphMetrics ? "\nЕсли в контексте есть расшире�
 
         const ctx = buildModeContext(modeKey);
         const prompt = config.buildPrompt(modeData.param, ctx);
-        const SYS = buildSYS(p);
+        const SYS = buildSYS(p, { outputMode: "mode" });
         const tempContainer = document.createElement("div");
         tempContainer.style.display = "none";
         document.body.appendChild(tempContainer);
@@ -22114,6 +23276,11 @@ ${p.extGraphMetrics ? "\nЕсли в контексте есть расшире�
         });
         document.getElementById("seedInput")?.addEventListener("input", updateCostEstimate);
         document.getElementById("contextInput")?.addEventListener("input", updateCostEstimate);
+
+        // Стартовый расчёт: если форма пришла с уже отмеченными участниками
+        // или зерном (импорт/восстановление состояния), показать стоимость
+        // сразу, не дожидаясь первого change/input.
+        updateCostEstimate();
       });
 
       document.addEventListener('DOMContentLoaded', () => {
@@ -22163,25 +23330,68 @@ ${p.extGraphMetrics ? "\nЕсли в контексте есть расшире�
           }
           lines.push("═".repeat(70));
         
-          // --- Общие элементы промпта ---
+          // --- Общие элементы промпта (с разбивкой родительского контекста) ---
           if (genCommon) {
             lines.push("");
-            lines.push("ОБЩИЕ ЭЛЕМЕНТЫ ПРОМПТА (одинаковы для всех запросов):");
-            lines.push("  Системный промпт          " + num(genCommon.sysChars).padStart(7) + " симв.");
+            lines.push("ОБЩИЕ ЭЛЕМЕНТЫ ПРОМПТА:");
+            lines.push("  Системный промпт          " + num(genCommon.sysChars).padStart(7) + " симв.  (одинаков для всех)");
             if (genCommon.rulesChars > 0) {
-              // Старый формат
               lines.push("  Правила форматирования    " + num(genCommon.rulesChars).padStart(7) + " симв.");
               lines.push("  Требования к качеству     " + num(genCommon.qualityChars).padStart(7) + " симв.");
             } else if (genCommon.qualityChars > 0) {
-              // Новый формат: форматирование в SYS, качество в user
               lines.push("  (вкл. форматирование в системном промпте)");
               lines.push("  Требования к качеству     " + num(genCommon.qualityChars).padStart(7) + " симв.");
             } else {
               lines.push("  (вкл. форматирование и требования к качеству)");
             }
-            lines.push("  Параметры синтеза          " + num(genCommon.baseChars).padStart(7) + " симв.");
+            // Новый формат: статическая часть + родители отдельно
+            const _hasParents = (genCommon.totalConceptOverhead || 0) > 0 ||
+                                (genCommon.parentSpecBySection && Object.keys(genCommon.parentSpecBySection).length > 0);
+            if (_hasParents && typeof genCommon.baseCharsWithoutConcepts === "number") {
+              lines.push("  Параметры синтеза (статика)" + num(genCommon.baseCharsWithoutConcepts).padStart(7) + " симв.  (одинаковы для всех)");
+              const specMap = genCommon.parentSpecBySection || {};
+              const keysForSpec = Object.keys(specMap).filter(k => specMap[k]);
+              if (keysForSpec.length > 0) {
+                lines.push("  Контекст родителей (варьируется по разделам):");
+                let totalSum = 0, maxSum = 0, maxKey = "";
+                for (const sk of keysForSpec) {
+                  const spec = specMap[sk];
+                  const firstKey = String(sk).split("+")[0].split(":")[0];
+                  const label = (KEY_LABELS[firstKey] || firstKey).padEnd(10);
+                  const fieldsUsed = (spec.perParent[0] && spec.perParent[0].includedFields) || [];
+                  lines.push("    " + label + num(spec.totalChars).padStart(7) +
+                    " симв.  (" + fieldsUsed.join(", ") + ")");
+                  totalSum += spec.totalChars;
+                  if (spec.totalChars > maxSum) { maxSum = spec.totalChars; maxKey = firstKey; }
+                }
+                const avg = Math.round(totalSum / Math.max(keysForSpec.length, 1));
+                lines.push("    Средний вес:     " + num(avg).padStart(7) + " симв.   Максимум: " +
+                  num(maxSum) + " (" + (KEY_LABELS[maxKey] || maxKey) + ")");
+              } else {
+                lines.push("  Контекст родителей (монолит): " + num(genCommon.totalConceptOverhead || 0) + " симв.");
+              }
+              // Per-parent breakdown (ТЗ tz_budget_mode 2.2.А) — полный вес каждого родителя
+              const cbs = genCommon.conceptBlockSizes || [];
+              if (cbs.length > 0) {
+                const totalCbs = cbs.reduce((s, x) => s + (x.chars || 0), 0);
+                lines.push("  Участники (полный вес, для справки):");
+                for (const pp of cbs) {
+                  const nm = ("«" + pp.name + "»").padEnd(40);
+                  lines.push("    " + nm + num(pp.chars).padStart(7) + " симв.");
+                }
+                lines.push("    " + "Σ всего полного веса".padEnd(40) +
+                  num(totalCbs).padStart(7) + " симв. (" + cbs.length + " концепции)");
+              }
+            } else {
+              lines.push("  Параметры синтеза          " + num(genCommon.baseChars).padStart(7) + " симв.  (одинаковы для всех)");
+            }
             lines.push("  Служебный каркас          " + num(genCommon.scaffoldChars).padStart(7) + " симв.");
-            lines.push("                       ИТОГО " + num(genCommon.totalChars).padStart(7) + " симв.");
+            if (_hasParents) {
+              const modeLabel = (genCommon.budgetMode === 'full')
+                ? "полный (без ужимания)"
+                : "ужатый (под давлением родителей)";
+              lines.push("  Режим бюджета секций:     " + modeLabel);
+            }
             lines.push("─".repeat(70));
           }
         
@@ -22214,6 +23424,7 @@ ${p.extGraphMetrics ? "\nЕсли в контексте есть расшире�
                 : "";
               const kindLabel = {
                 "auth": "Ошибка авторизации",
+                "billing": "Баланс API исчерпан",
                 "pre-stream": "Ошибка сети",
                 "partial": "Обрыв стрима",
                 "stuck": "Таймаут (стрим завис)",
@@ -22271,6 +23482,22 @@ ${p.extGraphMetrics ? "\nЕсли в контексте есть расшире�
               continue;
             }
 
+            // ── Маркер миграции схемы (ТЗ selective-parent-context 10.2) ──
+            if (g.type === "schema-migration-marker") {
+              const dt = g.timestamp
+                ? new Date(g.timestamp).toLocaleString("ru-RU")
+                : "";
+              lines.push("");
+              lines.push("─".repeat(70));
+              lines.push("  ↻  МИГРАЦИЯ СХЕМЫ" + (dt ? "  ·  " + dt : ""));
+              lines.push("    " + (g.fromSchema || "?") + " → " + (g.toSchema || "?"));
+              if (g.sectionLabel) {
+                lines.push("    при перегенерации раздела: " + g.sectionLabel);
+              }
+              lines.push("─".repeat(70));
+              continue;
+            }
+
             // ── Маркер удаления ──
             if (g.type === "deletion-marker") {
               lines.push("");
@@ -22278,7 +23505,7 @@ ${p.extGraphMetrics ? "\nЕсли в контексте есть расшире�
               const dt = g.timestamp
                 ? new Date(g.timestamp).toLocaleString("ru-RU")
                 : "";
-              lines.push("  " + SYM.fail + " УДАЛЁН: § " + (g.sectionNum || "?") +
+              lines.push("  ✗ УДАЛЁН: § " + (g.sectionNum || "?") +
                 " — " + g.sectionLabel + (dt ? "  ·  " + dt : ""));
               lines.push("─".repeat(70));
               continue;
@@ -22297,7 +23524,42 @@ ${p.extGraphMetrics ? "\nЕсли в контексте есть расшире�
               ? (genCommon?.sysChars || 0)
               : (genCommon ? genCommon.totalChars : 0);
 
-            lines.push("  Общие элементы             " + num(commonChars).padStart(7) + " симв.");
+            // Если в записи genEntry есть per-section parentOverhead — показываем
+            // статику отдельно от родителей. Иначе — legacy-одиночная строка.
+            const _parentOv = (typeof g.parentOverheadChars === "number")
+              ? g.parentOverheadChars : null;
+            const _fieldsUsed = Array.isArray(g.parentFieldsUsed) ? g.parentFieldsUsed : null;
+            if (!isMode && _parentOv !== null && genCommon && typeof genCommon.baseCharsWithoutConcepts === "number") {
+              // Общие = sys + qualRules + статика + скаффолд (без родителей)
+              const staticCommon = genCommon.sysChars + (genCommon.qualityChars || 0) +
+                (genCommon.baseCharsWithoutConcepts || 0) + (genCommon.scaffoldChars || 0) +
+                (genCommon.rulesChars || 0);
+              lines.push("  Общие элементы             " + num(staticCommon).padStart(7) + " симв.");
+              lines.push("  Контекст родителей         " + num(_parentOv).padStart(7) + " симв." +
+                (_fieldsUsed && _fieldsUsed.length ? "  (" + _fieldsUsed.join(", ") + ")" : ""));
+              // Опущенные поля + предупреждения — из parentSpec в ctxLog
+              const _ctxForSpec = ctxByKey[g.sectionKey] || (keys.length ? ctxByKey[keys[0]] : null);
+              const _pspec = _ctxForSpec && _ctxForSpec.parentSpec;
+              if (_pspec && Array.isArray(_pspec.perParent) && _pspec.perParent.length > 0) {
+                // Опущенные поля: берём из первого родителя (они одинаковы для всех при per-section)
+                const _omitted = _pspec.perParent[0].omittedFields || [];
+                if (_omitted.length > 0) {
+                  lines.push("    Опущено: " + _omitted.join(", "));
+                }
+                // Предупреждения о missingRequired (по каждому родителю)
+                for (const pp of _pspec.perParent) {
+                  if (pp.missingRequired && pp.missingRequired.length > 0) {
+                    lines.push("    ⚠ «" + pp.name + "»: отсутствует обязательное поле: " +
+                      pp.missingRequired.join(", "));
+                  }
+                }
+              }
+              if (g.budgetMode && (g.budgetMode === 'full')) {
+                lines.push("  Режим бюджета: полный (без ужимания)");
+              }
+            } else {
+              lines.push("  Общие элементы             " + num(commonChars).padStart(7) + " симв.");
+            }
         
             if (g.priorChars > 0) {
               lines.push("  Контекст пред. разделов   " + num(g.priorChars).padStart(7) + " симв.");
@@ -22311,9 +23573,20 @@ ${p.extGraphMetrics ? "\nЕсли в контексте есть расшире�
                   const parentLabel = KEY_LABELS[parentKey] || parentKey;
                   lines.push("    Контекст подразделов «" + parentLabel + "»: " + num(ctx.totalUsed) + " симв.");
                 } else {
-                  lines.push("    Бюджет: " + num(ctx.budget) + " симв., " +
-                    "использовано: " + num(ctx.totalUsed) + " (" +
-                    Math.round(ctx.totalUsed / ctx.budget * 100) + "%)");
+                  const _raw = ctx.rawBaseBudget || 0;
+                  const _applied = ctx.conceptOverheadApplied || 0;
+                  const _usedPct = Math.round(ctx.totalUsed / Math.max(ctx.budget, 1) * 100);
+                  if (_raw && _applied > 0) {
+                    lines.push("    Бюджет: " + num(ctx.budget) + " из " + num(_raw) + " симв. " +
+                      "(сжат родителями на " + num(_applied) + "), " +
+                      "использовано: " + num(ctx.totalUsed) + " (" + _usedPct + "%)");
+                  } else if (_raw && ctx.budgetMode === 'full') {
+                    lines.push("    Бюджет: " + num(ctx.budget) + " симв. (полный, без ужимания), " +
+                      "использовано: " + num(ctx.totalUsed) + " (" + _usedPct + "%)");
+                  } else {
+                    lines.push("    Бюджет: " + num(ctx.budget) + " симв., " +
+                      "использовано: " + num(ctx.totalUsed) + " (" + _usedPct + "%)");
+                  }
                 }
         
                 const reqEntries = ctx.entries.filter(e => e.priority === "required");
@@ -22430,6 +23703,7 @@ ${p.extGraphMetrics ? "\nЕсли в контексте есть расшире�
             g.type !== "pause-marker" &&
             g.type !== "resume-marker" &&
             g.type !== "user-action-marker" &&
+            g.type !== "schema-migration-marker" &&
             (g.status === "done" || g.status === "error" || !g.status)
           );
           if (doneEntries.length > 0) {
@@ -22765,6 +24039,44 @@ ${p.extGraphMetrics ? "\nЕсли в контексте есть расшире�
               return colorCost(l);
             }
 
+            // ════ НОВЫЕ ПРАВИЛА (ТЗ tz_budget_mode 4.8.3) ════
+            // «Контекст родителей» (строка в «Общих элементах» или в «ВХОД»)
+            if (/Контекст родителей/.test(l)) {
+              l = colorNums(l, C.gold);
+              return l;
+            }
+            // «Режим бюджета секций: полный» — янтарный акцент
+            if (/Режим бюджета (секций|): полный/.test(l)) {
+              l = l.replace(/(полный[^$]*)/,
+                '<span style="color:' + C.gold + ';font-weight:600">$1</span>');
+              return l;
+            }
+            // «(сжат родителями на N)» — приглушённый
+            if (/\(сжат родителями на/.test(l)) {
+              l = colorNums(l, C.gold);
+              l = l.replace(/\(сжат родителями на ([\d\s,.]+)\)/,
+                '<span style="color:' + C.dim + '">(сжат родителями на $1)</span>');
+              return l;
+            }
+            // «⚠ отсутствует обязательное поле» — красный
+            if (/⚠[^$]*отсутствует обязательное поле/.test(l)) {
+              l = l.replace(/⚠/, '<span style="color:' + C.red + '">⚠</span>');
+              l = l.replace(/(отсутствует обязательное поле[^$]*)/,
+                '<span style="color:' + C.red + '">$1</span>');
+              return l;
+            }
+            // «Опущено: ...» — мелкий серый
+            if (/^\s{4}Опущено:/.test(l)) {
+              return '<span style="color:' + C.dim + ';font-size:10px">' + l + '</span>';
+            }
+            // «↻  МИГРАЦИЯ СХЕМЫ» — фиолетовый
+            if (/↻\s+МИГРАЦИЯ СХЕМЫ/.test(l)) {
+              l = l.replace(/↻/, '<span style="color:' + C.violet + '">↻</span>');
+              l = l.replace(/(МИГРАЦИЯ СХЕМЫ)/,
+                '<span style="color:' + C.violet + ';font-weight:600">$1</span>');
+              return l;
+            }
+
             // ════ FALLBACK: минимальная раскраска ════
             l = colorCost(l);
             l = l.replace(/(\[замена\])/g,
@@ -22876,9 +24188,9 @@ ${p.extGraphMetrics ? "\nЕсли в контексте есть расшире�
 
         return "ЗЕРНО КОНЦЕПЦИИ: «" + (p.seed || "") + "»\n" +
           participantsLine + metaNote + "\n" +
-          "МЕТОД: " + (ML[p.method] || p.method) + " — " + (MD[p.method] || "") + "\n" +
+          "МЕТОД: " + (ML[p.method] || p.method) + " — " + (mdText(p, p.method) || "") + "\n" +
           "УРОВЕНЬ СИНТЕЗА: " + (SL[p.synthLevel] || p.synthLevel) + " — " +
-          (SD[p.synthLevel] || "") + "\n" +
+          (sdText(p, p.synthLevel) || "") + "\n" +
           "ГЛУБИНА: " + (DL[p.depth] || p.depth) +
           (p.ctx ? "\nКОНТЕКСТ: " + p.ctx : "") +
           conceptCtx;
@@ -23047,6 +24359,7 @@ ${p.extGraphMetrics ? "\nЕсли в контексте есть расшире�
           g.type !== "pause-marker" &&
           g.type !== "resume-marker" &&
           g.type !== "user-action-marker" &&
+          g.type !== "schema-migration-marker" &&
           (g._promptSkeleton || g.sectionKey)
         );
         if (entries.length === 0) return null;
@@ -23067,6 +24380,16 @@ ${p.extGraphMetrics ? "\nЕсли в контексте есть расшире�
           lines.push("Порядок: " + (p.generationOrder === "genetic" ? "генетический" : "архитектурный"));
           if (p.phil?.length) lines.push("Участники: " + p.phil.join(", "));
           if (p.seed) lines.push("Зерно: " + p.seed);
+          // ТЗ: режим бюджета + схема селективности родительского контекста
+          const _hasMetaP = (p.participants || []).some(x => x && x.type === "concept");
+          if (_hasMetaP) {
+            const _mode = (p.keepFullBudget || (genCommon && genCommon.budgetMode === 'full'))
+              ? "полный (без ужимания)"
+              : "ужатый (множитель сжатия 0.4)";
+            lines.push("Режим бюджета секций: " + _mode);
+            lines.push("Схема родительского контекста: селективная (PARENT_DEPS_BASE, v" +
+              (typeof PARENT_CONTEXT_SCHEMA_VERSION !== "undefined" ? PARENT_CONTEXT_SCHEMA_VERSION : 1) + ")");
+          }
         }
         lines.push("");
       
@@ -23127,6 +24450,26 @@ ${p.extGraphMetrics ? "\nЕсли в контексте есть расшире�
           lines.push("Выход: " + (g.outputChars || 0).toLocaleString("ru") + " симв. → " +
             (g.outputTokens || 0).toLocaleString("ru") + " токенов");
           lines.push("Стоимость: $" + (g.cost || 0).toFixed(4));
+          // ТЗ: информация о родительском контексте и бюджете раздела
+          if (typeof g.parentOverheadChars === "number" && g.parentOverheadChars > 0) {
+            const fields = Array.isArray(g.parentFieldsUsed) ? g.parentFieldsUsed.join(", ") : "";
+            lines.push("Контекст родителей: " + g.parentOverheadChars.toLocaleString("ru") +
+              " симв." + (fields ? "  (поля: " + fields + ")" : ""));
+          }
+          // Бюджет секционного контекста из ctxLog
+          if (typeof ctxLog !== "undefined" && Array.isArray(ctxLog)) {
+            const _ctx = ctxLog.find(c => c.sectionKey === g.sectionKey);
+            if (_ctx && _ctx.rawBaseBudget) {
+              const _raw = _ctx.rawBaseBudget;
+              const _applied = _ctx.conceptOverheadApplied || 0;
+              if (_applied > 0) {
+                lines.push("Бюджет секц. контекста: " + _ctx.budget.toLocaleString("ru") +
+                  " из " + _raw.toLocaleString("ru") + " симв. [ужато]");
+              } else if (_ctx.budgetMode === 'full') {
+                lines.push("Бюджет секц. контекста: " + _raw.toLocaleString("ru") + " симв. [полный]");
+              }
+            }
+          }
           if (g.status === "error") lines.push("⚠ ОШИБКА: " + g.error);
           lines.push("");
         }
@@ -23312,6 +24655,8 @@ ${p.extGraphMetrics ? "\nЕсли в контексте есть расшире�
         const msg = err.message || String(err);
         const kind = err.kind;
         if (kind === "auth") return "API-ключ недействителен или истёк (401).";
+        if (kind === "billing") return "Недостаточно средств на балансе API. " +
+          "Пополните баланс на console.anthropic.com и нажмите «Продолжить».";
         if (kind === "user-abort") return "Генерация остановлена вручную.";
         if (kind === "stuck") return "Нет ответа от API более 45 секунд (стрим «завис»).";
         if (kind === "max-tokens") {
@@ -23364,6 +24709,15 @@ ${p.extGraphMetrics ? "\nЕсли в контексте есть расшире�
         const footEl  = document.getElementById("pauseModalFooter");
         if (!overlay || !titleEl || !bodyEl || !footEl) return;
 
+        // Ветка: billing — баланс исчерпан (без формы ключа, просто retry)
+        if (ps.reasonKind === "billing") {
+          title.textContent = "💳 Баланс API исчерпан";
+          body.innerHTML = _renderPauseContent_billing(ps);
+          footer.innerHTML = _renderPauseFooter_billing(ps);
+          overlay.classList.add("visible");
+          return;
+        }
+        
         // Ветка: 401 auth-ошибка — показываем форму ввода нового ключа
         if (ps.reasonKind === "auth") {
           titleEl.textContent = "🔑 API-ключ недействителен";
@@ -23603,6 +24957,44 @@ ${p.extGraphMetrics ? "\nЕсли в контексте есть расшире�
       // Рендереры: auth — истёкший API-ключ
       // ═══════════════════════════════════════════════════════════════════
 
+      function _renderPauseContent_billing(ps) {
+        const completedCount = (ps.completedPasses || []).length;
+        const completedList = (ps.completedPasses || [])
+          .map(keys => keys.join("+"))
+          .join(", ");
+        return `
+          <p>Генерация приостановлена: <strong>баланс API исчерпан</strong>.</p>
+          <div class="pause-reason-box">${_escapeHtml(ps.reason || "credit balance too low")}</div>
+          <div class="pause-info-box">
+            <strong>Завершено до паузы:</strong> ${completedCount} ${completedCount === 1 ? "раздел" : "разделов"}<br>
+            ${completedCount > 0 ? "<em style=\"color:var(--ink-dim)\">" + _escapeHtml(completedList) + "</em><br>" : ""}
+            <strong>Прервано на:</strong> ${_escapeHtml(ps.sectionLabel || "?")}
+          </div>
+          <p class="pause-subtle">
+            Пополните баланс на
+            <a href="https://console.anthropic.com/settings/billing" target="_blank"
+               style="color:var(--gold)">console.anthropic.com</a>,
+            затем нажмите <strong>«Продолжить»</strong>.
+            API-ключ менять не нужно — он действителен.
+          </p>`;
+      }
+
+      function _renderPauseFooter_billing(ps) {
+        return `
+          <button class="pause-btn primary" onclick="resumeGeneration('retry')"
+                  title="Повторить запрос после пополнения баланса">
+            ▶ Продолжить
+          </button>
+          <button class="pause-btn" onclick="resumeGeneration('skip')"
+                  title="Пропустить текущий раздел">
+            ⤴ Пропустить
+          </button>
+          <button class="pause-btn danger" onclick="resumeGeneration('stop')"
+                  title="Сохранить текущее состояние">
+            ◼ Остановить
+          </button>`;
+      }
+      
       function _renderPauseContent_auth(ps) {
         const context = ps.kind === "gen"
           ? `на разделе <strong>${_escapeHtml(ps.sectionLabel || "—")}</strong>`
@@ -23839,37 +25231,33 @@ ${p.extGraphMetrics ? "\nЕсли в контексте есть расшире�
           if (ct) ct.innerHTML = "";
         }
 
-        // Восстанавливаем SYS, partBase, genCommon
+        // Восстанавливаем SYS, partStatic, genCommon
         const SYS = buildSYS(p);
-        const partBase = baseCtx(p);
+        const partStatic = baseCtxStatic(p);
+        // partBase оставляем для визуализации (максимальный — через полный блок)
+        const partBase = partStatic + baseCtxParents(p, (passes[startIdx] && passes[startIdx][0] && passes[startIdx][0].key) || null);
 
-        // Если genCommon ещё не восстановлен — собираем
         if (!genCommon) {
           const partQuality = buildQualityReinforcement(p);
           const scaffoldLen = `ПАРАМЕТРЫ СИНТЕЗА:\n\n\n\nЗАДАНИЕ: составь ТОЛЬКО следующие разделы (строго в указанном порядке, без добавления других):\n\n\n\n`.length;
+          const _sectionKeysForSpec = passes.map(pass => pass.map(d => d.key).join("+"));
           genCommon = {
             sysChars: SYS.length, baseChars: partBase.length,
+            baseCharsWithoutConcepts: partStatic.length,
+            totalConceptOverhead: partBase.length - partStatic.length,
+            budgetMode: (p.keepFullBudget || (DOC_STATE.params && DOC_STATE.params.keepFullBudget)) ? 'full' : 'shrink',
+            parentSpecBySection: buildParentSpecBySection(p, _sectionKeysForSpec),
             rulesChars: 0, qualityChars: partQuality.length,
             scaffoldChars: scaffoldLen,
             totalChars: SYS.length + partBase.length + partQuality.length + scaffoldLen,
-            conceptBlockSizes: (p.participants || [])
-              .filter(x => x.type === "concept")
-              .map(c => {
-                const total = [c.capsule, c.graphNodes, c.graphEdges,
-                  c.dialogueConcepts, c.dialogueSynthesis,
-                  c.glossaryCompact, c.thesesSummary,
-                  c.goals, c.tensions, c.portraits]
-                  .filter(Boolean).reduce((s, t) => s + t.length, 0);
-                return { name: c.name, chars: total };
-              }),
+            conceptBlockSizes: computeFullConceptBlockSizes(p),
           };
         }
 
-        // Основной цикл — повторяет логику generateDoc, но с startIdx.
         try {
           await _runGenPassesFromIdx({
             p, defs, passes, dynamicOrder, effectiveDeps,
-            SYS, partBase, startIdx, source: "resume",
+            SYS, partStatic, startIdx, source: "resume",
           });
         } catch (e) {
           // Всё, что нужно — уже записано в pausedState внутри _runGenPassesFromIdx
@@ -23995,15 +25383,23 @@ ${p.extGraphMetrics ? "\nЕсли в контексте есть расшире�
           return _continueAfterFilledSubs(ps, { p, defs, passes, dynamicOrder, effectiveDeps });
         }
 
-        // ── Очищаем DOM: удаляем обрывочный div и callout с ошибкой ──
+        // ── Очищаем DOM: callout с ошибкой + (по условию) обрывочный div ──
         const dbIdx = DOC_STATE.sectionDbIdx[targetSectionKey];
         const ct = document.getElementById("db" + dbIdx);
-        if (ct) {
-          // Удаляем обрывочный подраздел по имени
-          if (streamingSub) {
-            const obrivDiv = ct.querySelector(`[data-section="${streamingSub.name}"]`);
-            if (obrivDiv) obrivDiv.remove();
+        const RESUME_CONTINUE_THRESHOLD = 250;
+        let streamingContinueMode = false;
+        if (ct && streamingSub) {
+          const obrivDiv = ct.querySelector(`[data-section="${streamingSub.name}"]`);
+          if (obrivDiv) {
+            const partialLen = (obrivDiv.innerText || "").trim().length;
+            if (partialLen >= RESUME_CONTINUE_THRESHOLD) {
+              streamingContinueMode = true;
+            } else {
+              obrivDiv.remove();
+            }
           }
+        }
+        if (ct) {
           // Удаляем .doc-section, содержащий callout warning «Генерация прервана»
           const warnings = ct.querySelectorAll(".callout.warning");
           warnings.forEach(w => {
@@ -24029,7 +25425,24 @@ ${p.extGraphMetrics ? "\nЕсли в контексте есть расшире�
         // ── Последовательно догенерируем недостающие подразделы ──
         try {
           for (const subName of missingSubs) {
-            await regenerateSubsection(targetSectionKey, subName);
+            const isContinueSub = streamingContinueMode
+                               && streamingSub
+                               && subName === streamingSub.name;
+            if (isContinueSub) {
+              // Режим продолжения
+              await regenerateSubsection(targetSectionKey, subName, {
+                includeCurrentContent: true,
+                resumeFromInterruption: true,
+                userNote: "Генерация этого подраздела была прервана (сетевая ошибка / " +
+                          "лимит max_tokens / таймаут стрима). В блоке «НАЧАЛЬНЫЙ ФРАГМЕНТ " +
+                          "ПОДРАЗДЕЛА» приведён уже написанный тобой текст. Сохрани его " +
+                          "ДОСЛОВНО и продолжи писать именно с того места, где он " +
+                          "заканчивается, до полного объёма задания. Не переписывай и не " +
+                          "перефразируй уже написанное — только допиши недостающее."
+              });
+            } else {
+              await regenerateSubsection(targetSectionKey, subName);
+            }
           }
 
           // Все подразделы раздела готовы — помечаем pass как done
@@ -24094,9 +25507,10 @@ ${p.extGraphMetrics ? "\nЕсли в контексте есть расшире�
           return;
         }
 
-        // Пересобираем SYS и partBase (на случай, если контекст поменялся)
+        // Пересобираем SYS и partStatic (на случай, если контекст поменялся)
         const SYS = buildSYS(p);
-        const partBase = baseCtx(p);
+        const partStatic = baseCtxStatic(p);
+        const partBase = partStatic + baseCtxParents(p, (passes[startIdx] && passes[startIdx][0] && passes[startIdx][0].key) || null);
 
         // genCommon
         if (!genCommon) {
@@ -24110,28 +25524,24 @@ ${p.extGraphMetrics ? "\nЕсли в контексте есть расшире�
 
 
 `.length;
+          const _sectionKeysForSpec13 = passes.map(pass => pass.map(d => d.key).join("+"));
           genCommon = {
             sysChars: SYS.length, baseChars: partBase.length,
+            baseCharsWithoutConcepts: partStatic.length,
+            totalConceptOverhead: partBase.length - partStatic.length,
+            budgetMode: (p.keepFullBudget || (DOC_STATE.params && DOC_STATE.params.keepFullBudget)) ? 'full' : 'shrink',
+            parentSpecBySection: buildParentSpecBySection(p, _sectionKeysForSpec13),
             rulesChars: 0, qualityChars: partQuality.length,
             scaffoldChars: scaffoldLen,
             totalChars: SYS.length + partBase.length + partQuality.length + scaffoldLen,
-            conceptBlockSizes: (p.participants || [])
-              .filter(x => x.type === "concept")
-              .map(c => {
-                const total = [c.capsule, c.graphNodes, c.graphEdges,
-                  c.dialogueConcepts, c.dialogueSynthesis,
-                  c.glossaryCompact, c.thesesSummary,
-                  c.goals, c.tensions, c.portraits]
-                  .filter(Boolean).reduce((s, t) => s + t.length, 0);
-                return { name: c.name, chars: total };
-              }),
+            conceptBlockSizes: computeFullConceptBlockSizes(p),
           };
         }
 
         try {
           await _runGenPassesFromIdx({
             p, defs, passes, dynamicOrder, effectiveDeps,
-            SYS, partBase, startIdx, source: "resume",
+            SYS, partStatic, startIdx, source: "resume",
           });
         } catch (e) {
           console.error("_continueAfterFilledSubs: outer error", e);
@@ -24161,7 +25571,14 @@ ${p.extGraphMetrics ? "\nЕсли в контексте есть расшире�
        * @param {string} [args.source] — "init" (штатная) или "resume" (возобновление)
        */
       async function _runGenPassesFromIdx(args) {
-        const { p, defs, passes, dynamicOrder, effectiveDeps, SYS, partBase, startIdx } = args;
+        const { p, defs, passes, dynamicOrder, effectiveDeps, SYS, startIdx } = args;
+        // Селективность: статическая часть одна на всю генерацию, родительский
+        // блок собирается per-section для каждого pass. Если вызывающий код всё
+        // ещё передал монолитный partBase (legacy) — используем его, но только для
+        // обычного синтеза без родителей; в мета-синтезе всегда выбираем селектив.
+        const _partStatic = hasConceptParticipants(p)
+          ? baseCtxStatic(p)
+          : (args.partStatic != null ? args.partStatic : (args.partBase != null ? args.partBase : baseCtx(p)));
         const source = args.source || "init";
         const isResume = source === "resume";
         const labelSuffix = isResume ? " [возобновление]" : "";
@@ -24208,6 +25625,10 @@ ${p.extGraphMetrics ? "\nЕсли в контексте есть расшире�
             const sp = pass
               .map((d) => `§ ${d.num} — ${d.title.toUpperCase()}\n${d.prompt}`)
               .join("\n\n");
+            const _passKey = pass[0].key;
+            const _partParentsForPass = hasConceptParticipants(p)
+              ? baseCtxParents(p, _passKey) : "";
+            const partBase = _partStatic + _partParentsForPass;
             const fp = `ПАРАМЕТРЫ СИНТЕЗА:\n${partBase}${prior}\n\nЗАДАНИЕ: составь ТОЛЬКО следующие разделы (строго в указанном порядке, без добавления других):\n\n${sp}${buildQualityReinforcement(p)}${STOP_SIGNAL}`;
             const sectionLabel = pass.map(d => d.title).join(" + ");
             const subsecMap = buildSubsectionMap(p);
@@ -24226,6 +25647,7 @@ ${p.extGraphMetrics ? "\nЕсли в контексте есть расшире�
               _sys: SYS,
               _promptSkeleton: buildPromptSkeleton(fp),
             };
+            _augmentGenEntry(genEntry, p, _passKey, _partParentsForPass.length);
             genLog.push(genEntry);
             refreshCtxLogIfOpen();
 
