@@ -2623,6 +2623,17 @@
             next: 6
           },
           {
+            text: "Не преследовать поверженного - отпустить Мелькора",
+            reaction: "Мелькор ползёт прочь, обожжённый светом твоих камней. Ты поднимаешь Сильмариллы для второго удара - и опускаешь. 'Иди. Я не палач.' Он оборачивается, и в его глазах впервые не злоба, а недоумение. Ниэнна, невидимая, плачет от радости.",
+            effect: () => {
+              gameState.feanor.wisdom += 6;
+              gameState.feanor.pride -= 10;
+              gameState.silmarils.purity += 10;
+              gameState.events.push('showed_mercy');
+            },
+            next: 6
+          },
+          {
             text: "Обеспокоиться - камни не должны иметь собственную волю",
             reaction: "Это тревожно. Если Сильмариллы реагируют сами, значит они обладают некоей волей? Ты консультируешься с Ниэнной: 'Это опасно?' Она качает головой: 'Не воля, но отклик. Как растение тянется к свету, так твои камни отталкивают тьму. Инстинкт, не сознание.'",
             effect: () => {
@@ -7867,6 +7878,7 @@
       
       // Определяем подкатегории
       const pathDetails = {
+        ...paths,
         mainPath: dominantPath,
         score: getEventsScore(),
         balance: Math.abs(gameState.feanor.wisdom - gameState.feanor.pride),
@@ -8653,11 +8665,33 @@
       const g = gameState.galadriel;
       if (!g) return stageId;
 
+      // КАЖДОЕ перенаправление срабатывает не более одного раза за партию.
+      //
+      // Без этого любая ветвь сцены, которая не меняет условие входа,
+      // возвращает игрока в ту же сцену бесконечно. Таких ветвей три:
+      //   2b   «Оставить её в покое - больше не просить» не трогает asks;
+      //   2c   «Не просить - принять уроки» и «Обвинить её в жестокости»
+      //        не трогают asks;
+      //   5g_hair  «Попытаться примириться» и «Продолжить работу без
+      //        отвлечений» не выставляют ни один из трёх флагов.
+      // Все они уходят на стадию, с которой перенаправление начинается.
+      //
+      // Чинить это выставлением asks в самих ветвях НЕЛЬЗЯ: asks — счётчик
+      // просьб, а игрок в этих ветвях как раз НЕ просит. Врать счётчику,
+      // чтобы выбраться из петли, — лечить симптом.
+      g.redirected = g.redirected || {};
+      const once = (key, target) => {
+        if (g.redirected[key]) return null;
+        g.redirected[key] = true;
+        return target;
+      };
+
       // Вторая просьба: после первой, если не разругались насмерть.
       if (String(stageId) === '3' && g.asks === 1 &&
         !gameState.events.includes('alienated_galadriel') &&
         !gameState.events.includes('galadriel_gave_hair')) {
-        return "2b";
+        const r = once('2b', "2b");
+        if (r) return r;
       }
 
       // Третья просьба. Не предлагается, если волосы уже отданы:
@@ -8667,7 +8701,8 @@
         !gameState.events.includes('galadriel_gave_hair') &&
         !gameState.events.includes('galadriel_gave_one_hair') &&
         !gameState.events.includes('alienated_galadriel')) {
-        return "2c";
+        const r = once('2c', "2c");
+        if (r) return r;
       }
 
       // Работа с полученными волосами — до общей стадии 5.
@@ -8676,7 +8711,8 @@
         !gameState.events.includes('hair_woven_into_core') &&
         !gameState.events.includes('hair_as_crown') &&
         !gameState.events.includes('lesson_internalized')) {
-        return "5g_hair";
+        const r = once('5g_hair', "5g_hair");
+        if (r) return r;
       }
 
       return stageId;
@@ -10122,6 +10158,13 @@
         return getPoliticalEnding();
       }
       
+      // ПРОВАЛЬНЫЕ КОНЦОВКИ — подняты выше трагических и тёмных.
+      // Внизу каскада они были мертвы: тёмные ворота ловят любую
+      // чистоту <= 30, а трагические — любую гордость >= 80.
+      if (s.light + s.purity + s.power <= 120) {
+        return getFailureEnding();
+      }
+      
       // ТРАГИЧЕСКИЕ КОНЦОВКИ (высокая гордость + конфликты)
       if (f.pride >= 80 || e.includes('drawn_sword') || e.includes('noldor_split')) {
         return getTragicEnding();
@@ -10131,11 +10174,6 @@
       if (path.mainPath === 'melkor' || s.purity <= 30 || 
         e.includes('used_melkor_gift') || e.includes('betrayed_by_melkor')) {
         return getDarkEnding();
-      }
-      
-      // ПРОВАЛЬНЫЕ КОНЦОВКИ
-      if (s.light <= 25 && s.purity <= 25 && s.power <= 25) {
-        return getFailureEnding();
       }
       
       // НЕЙТРАЛЬНАЯ КОНЦОВКА
@@ -10157,8 +10195,8 @@
       }
       
       // Концовка "Мастер всех путей"
-      if (e.includes('valar_counsel') && e.includes('brothers_united') && 
-        e.includes('family_blessing') && e.includes('defeated_melkor')) {
+      if (['family', 'political', 'melkor', 'mystical', 'sacrifice']
+          .every(c => getEventsByCategory(c).length > 0)) {
         gameState.secretEnding = 'master_all_paths';
         return true;
       }
@@ -10171,14 +10209,14 @@
       }
       
       // Концовка "Дух в камне"
-      if (e.includes('spirit_sacrifice') && e.includes('blood_crystal') && 
+      if (e.includes('spirit_sacrifice') && gameState.materials.includes('blood_crystal') && 
         e.includes('fea_fusion')) {
         gameState.secretEnding = 'spirit_stone';
         return true;
       }
       
       // Концовка "Коллекционер всего"
-      if (gameState.materials.length >= 8 && gameState.events.length >= 20) {
+      if (gameState.materials.length >= 3 && gameState.events.length >= 20) {
         gameState.secretEnding = 'ultimate_collector';
         return true;
       }
@@ -10227,15 +10265,15 @@
         return 'mystical';
       }
       
+      // Провальная - очень низкие характеристики
+      if (s.light + s.purity + s.power <= 120) {
+        return 'failure';
+      }
+      
       // Тёмная - связь с Мелькором или низкая чистота
       if (s.purity <= 30 || e.includes('used_melkor_gift') ||
         e.includes('betrayed_by_melkor')) {
         return 'dark';
-      }
-      
-      // Провальная - очень низкие характеристики
-      if (s.light <= 20 && s.purity <= 20 && s.power <= 20) {
-        return 'failure';
       }
       
       return 'neutral';
@@ -10343,7 +10381,8 @@
         };
       }
       
-      if (e.includes('redemption_moment') && e.includes('family_heritage')) {
+      if (e.includes('redemption_moment') && 
+        (e.includes('family_heritage') || e.includes('family_infusion'))) {
         return {
           title: "Возвращение к Семье",
           text: "Гордость чуть не уничтожила тебя. Но в последний момент ты вспомнил, что важнее камней. Слёзы с сыновьями. Объятия Нерданель. Одобрение Финвэ. Это настоящее богатство.\n\nКогда объявляешь Сильмариллы наследием семьи, добавляешь: 'Но семья - это не владение. Это любовь. Любой из моей семьи может взять их. Может подарить. Может даже уничтожить, если нужно для спасения мира.' Твои сыновья клянутся не в верности камням, но в любви друг к другу.\n\nГоды проходят. Мелькор пытается украсть Сильмариллы, но каждый раз вся семья защищает их вместе. Он не может победить единство. В конце концов он отступает навсегда. Сильмариллы передаются из поколения в поколение, но как символ семьи, не как сокровище. Тысячелетия спустя, когда приходит Конец, последний из твоего рода отдаёт их Эру со словами: 'Наша семья хранила не камни, но любовь. Камни лишь напоминали об этом.'",
