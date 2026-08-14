@@ -1,0 +1,630 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Расширенный граф философских концепций</title>
+  <script src="./vendor/d3.min.js"></script>
+  <!-- стили разнесены по главам; порядок значим -->
+  <link rel="stylesheet" href="./css/01-base.css">
+  <link rel="stylesheet" href="./css/02-legend.css">
+  <link rel="stylesheet" href="./css/03-modal-common.css">
+  <link rel="stylesheet" href="./css/04-modal-philosopher.css">
+  <link rel="stylesheet" href="./css/05-path.css">
+  <link rel="stylesheet" href="./css/06-chronology.css">
+  <link rel="stylesheet" href="./css/07-stats.css">
+  <link rel="stylesheet" href="./css/08-stats-results.css">
+  <link rel="stylesheet" href="./css/09-tension.css">
+  <link rel="stylesheet" href="./css/10-forms.css">
+  
+</head>
+<body>
+  <div id="container">
+    <canvas id="graphCanvas"></canvas>
+    
+    <div id="modalOverlay"></div>
+      <!-- Единое окно для концепции, философа и связи, в двух режимах.
+         Прежние #detailModal и #philosopherDetailModal слиты сюда;
+         размер задаётся классом .entity-* (см. CSS), который ставит
+         openUniversalModal. Окна статистического профиля остались
+         отдельными: редактируемого содержимого в них нет. -->
+      <div id="universalModal" class="detail-modal">
+        <button class="close-btn" data-act-click="close-universal-modal">×</button>
+        <div id="universalModalContent" class="modal-content"></div>
+      </div>
+
+      <!-- D3: статистический профиль. Отдельные окна, а не строка в уже
+         плотных окнах концепции и философа (у Канта 17 000 знаков
+         и 364 кликабельных элемента). Здесь же впервые становятся
+         видимыми разложения метрик. -->
+      <div id="conceptProfileModal" class="detail-modal">
+        <button class="close-btn" data-act-click="close-concept-profile-modal">×</button>
+        <div id="conceptProfileContent" class="modal-content"></div>
+      </div>
+
+      <div id="philosopherProfileModal" class="detail-modal">
+        <button class="close-btn" data-act-click="close-philosopher-profile-modal">×</button>
+        <div id="philosopherProfileContent" class="modal-content"></div>
+      </div>
+
+      <!-- Модальное окно для описаний связей пути -->
+      <div id="pathDescriptionsModal">
+        <button class="close-btn" data-act-click="close-path-descriptions-modal">×</button>
+        <div id="pathDescriptionsContent"></div>
+      </div>
+    
+    <div id="legend">
+      <h3>🔍 Фильтры и легенда</h3>
+      
+      <div id="legendSearch">
+        <div class="legend-search-header">
+          <div class="legend-search-icon"></div>
+          <div class="legend-search-input-wrapper">
+            <input type="text" 
+                 class="legend-search-input" 
+                 id="legendSearchInput" 
+                 placeholder="Поиск концепций..."
+                 data-act-input="handle-legend-search-input"
+                 data-act-focus="handle-legend-search-focus">
+            <span class="legend-search-clear" data-act-click="clear-legend-search">×</span>
+            <div class="search-results" id="legendSearchResults"></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="legend-section">
+        <h4>📊 Статистический анализ</h4>
+        <button class="open-stats-modal-btn" data-act-click="open-stats-modal">
+          <span>📊</span>
+          <span>Открыть панель статистики</span>
+        </button>
+      </div>
+
+      <div class="legend-section" id="visualizationControlSection" style="display: none;">
+        <h4>🎨 Визуализация метрик</h4>
+        <div style="background: rgba(108, 92, 231, 0.1); padding: 12px; border-radius: 8px; margin-bottom: 8px;">
+          <div style="color: #fff; font-size: 12px; margin-bottom: 8px;">
+            Активна: <strong id="currentVisualizationMetric">-</strong>
+          </div>
+          <button class="legend-button" data-act-click="reset-node-sizes" style="width: 100%;">
+            🔄 Сбросить визуализацию
+          </button>
+        </div>
+      </div>
+
+      <div class="legend-section">
+        <h4 class="collapsible-header" data-act-click="toggle-section">
+          <span>Философы:</span>
+        </h4>
+        <div id="philosophers-content" class="collapsible-content">
+          <div class="filter-controls">
+            <button data-act-click="select-all-philosophers">Все</button>
+            <button data-act-click="deselect-all-philosophers">Сбросить</button>
+          </div>
+          <div id="philosopherFilters"></div>
+        </div>
+      </div>
+    
+      <div class="legend-section">
+        <h4>
+          <span>Режим фильтрации:</span>
+        </h4>
+        <div class="legend-item">
+          <select id="filterMode" name="filterMode" data-act-change="change-filter-mode-change" style="font-size: 11px; width: 100%;">
+            <option value="all" selected>Только выбранные философы</option>
+            <option value="internal">Только внутренние связи</option>
+            <option value="context">С соседними узлами</option>
+            <option value="external">Только внешние связи</option>
+            <option value="cross_selected">Межфилософские связи выбранных</option>
+            <option value="within_traditions">Только внутри выбранных традиций</option>
+            <option value="between_traditions">Только между выбранными традициями</option>
+            <option value="chains">Связанные сети</option>
+            <option value="unique_chains">Сквозные цепочки</option>
+          </select>
+        </div>
+        <div style="font-size: 10px; color: var(--fg-muted); margin-top: 8px; padding: 8px; background: rgba(108, 92, 231, 0.05); border-radius: 5px; line-height: 1.4;">
+          <strong>Режимы:</strong><br>
+          • <em>Внутри традиций</em> - связи между разными философами, у которых есть общая выбранная традиция<br>
+          • <em>Между традициями</em> - связи между философами, у которых общей выбранной традиции нет<br>
+          • <em>Только выбранные</em> - узлы систем выбранных философов и связи между выбранными философами<br>
+          • <em>Только внутренние</em> - узлы систем выбранных философов без связей с другими философами<br>
+          • <em>С соседними</em> - включая связанные узлы систем невыбранных философов<br>
+          • <em>Только внешние</em> - только узлы, связанные с другими философами, в том числе невыбранными<br>
+          • <em>Межфилософские связи выбранных</em> - только узлы выбранных философов, связанные между собой<br>
+          • <em>Связанные сети</em> - узлы выбранных философов, образующие сеть непрерывных путей друг от друга<br>
+          • <em>Сквозные цепочки</em> - непрерывные цепочки с однократным участием узла каждого философа
+        </div>
+      </div>
+
+      <div class="legend-section">
+        <h4>
+          <span>Отображение связей:</span>
+        </h4>
+        <div class="legend-item">
+          <input type="checkbox" id="uniformLinkWidth" data-act-change="toggle-uniform-link-width-change">
+          <label for="uniformLinkWidth" style="font-size: 11px;">
+            <span>Одинаковая толщина связей</span>
+          </label>
+        </div>
+      </div>
+    
+      <div class="legend-section">
+        <h4 class="collapsible-header collapsed" data-act-click="toggle-section-2">
+          <span>Типы связей:</span>
+        </h4>
+        <div id="relations-content" class="collapsible-content collapsed">
+          <div class="filter-controls">
+            <button data-act-click="select-all-relations">Все</button>
+            <button data-act-click="deselect-all-relations">Сбросить</button>
+          </div>
+          <div id="relationFilters"></div>
+          <div class="weight-legend">
+            <div class="weight-item" title="Вес 1&#10;&#10;Внутри системы: побочная, поясняющая связь.&#10;Между системами: косвенный канал или отдалённое родство.&#10;Типологический слой: отдалённая перекличка.">
+              <div class="weight-line weak"></div>
+              <span>Побочная связь<span class="legend-hint-mark">?</span></span>
+            </div>
+            <div class="weight-item" title="Вес 2&#10;&#10;Внутри системы: обычная связь.&#10;Между системами: воздействие, засвидетельствованное текстами, — включая прямое ученичество.&#10;Типологический слой: отчётливое родство понятийных схем.">
+              <div class="weight-line medium"></div>
+              <span>Обычная связь<span class="legend-hint-mark">?</span></span>
+            </div>
+            <div class="weight-item" title="Вес 3&#10;&#10;Внутри системы: несущая связь — без неё система рассыпается.&#10;Между системами: без этого отношения понятие не возникло бы, либо хрестоматийное поимённое противостояние.&#10;Типологический слой: схождение разительное, вплоть до совпадения постановки вопроса.">
+              <div class="weight-line strong"></div>
+              <span>Несущая связь<span class="legend-hint-mark">?</span></span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="legend-section">
+        <h4 class="collapsible-header collapsed" data-act-click="toggle-section-3">
+          <span>Рубрики:</span>
+        </h4>
+        <div id="rubrics-content" class="collapsible-content collapsed">
+          <div class="filter-controls">
+            <button data-act-click="select-all-rubrics">Все</button>
+            <button data-act-click="deselect-all-rubrics">Сбросить</button>
+          </div>
+          <div id="rubricFilters"></div>
+        </div>
+      </div>
+    
+      <div class="legend-section">
+        <h4 class="collapsible-header collapsed" data-act-click="toggle-section-4">
+          <span>Традиции:</span>
+        </h4>
+        <div id="traditions-content" class="collapsible-content collapsed">
+          <div class="filter-controls">
+            <button data-act-click="select-all-traditions">Все</button>
+            <button data-act-click="deselect-all-traditions">Сбросить</button>
+          </div>
+          <div style="font-size:10px;color: var(--fg-muted);padding:4px 2px 6px;line-height:1.4;">
+            Галочка сужает показ и набор философов не трогает.
+            Кнопки правят его: <strong>=</strong> оставить только этих,
+            <strong>+</strong> добавить к выбранным.
+          </div>
+          <div id="traditionFilters"></div>
+        </div>
+      </div>
+
+      <div class="filter-stats" id="filterStats">
+        Показано: все концепции и связи
+      </div>
+    </div>
+    
+    <!-- Панель поиска пути -->
+    <div id="pathFinder">
+      <h3>
+        <span class="panel-title">🔍 Путь между концепциями</span>
+        <button class="collapse-btn" data-act-click="toggle-panel" title="Свернуть/Развернуть">
+          <span class="expand-icon">−</span>
+        </button>
+      </h3>
+      <div class="panel-content">
+        <div class="path-select-group">
+          <label>От концепции:</label>
+          <div class="custom-select-wrapper">
+            <input type="text" 
+                 class="custom-select-input" 
+                 id="sourceSelectInput" 
+                 placeholder="Начните вводить название..."
+                 autocomplete="off"
+                 data-act-focus="show-custom-select-dropdown-focus"
+                 data-act-input="filter-custom-select-input">
+            <span class="custom-select-arrow">▼</span>
+            <div class="custom-select-dropdown" id="sourceSelectDropdown"></div>
+          </div>
+        </div>
+        <div class="path-select-group">
+          <label>К концепции:</label>
+          <div class="custom-select-wrapper">
+            <input type="text" 
+                 class="custom-select-input" 
+                 id="targetSelectInput" 
+                 placeholder="Начните вводить название..."
+                 autocomplete="off"
+                 data-act-focus="show-custom-select-dropdown-focus-2"
+                 data-act-input="filter-custom-select-input-2">
+            <span class="custom-select-arrow">▼</span>
+            <div class="custom-select-dropdown" id="targetSelectDropdown"></div>
+          </div>
+        </div>
+        <button id="findPathBtn" data-act-click="find-and-show-path">Найти путь</button>
+        
+        <div style="margin-top: 10px; padding-top: 10px; border-top: 1px solid var(--line);">
+          <div style="font-size: 11px; margin-bottom: 8px;">
+            <label style="display: flex; align-items: center; margin-bottom: 5px; cursor: pointer;">
+              <input type="checkbox" id="respectChronology" checked style="margin-right: 8px;">
+              <span>Учитывать хронологию</span>
+            </label>
+            <label style="display: flex; align-items: center; margin-bottom: 5px; cursor: pointer;">
+              <input type="checkbox" id="respectDirectionPath" checked style="margin-right: 8px;">
+              <span>Учитывать направленность связей</span>
+            </label>
+            <label style="display: flex; align-items: center; margin-bottom: 5px; cursor: pointer;">
+              <input type="checkbox" id="useWeightsPath" checked style="margin-right: 8px;">
+              <span>Учитывать веса связей</span>
+            </label>
+            <label style="display: flex; align-items: center; cursor: pointer;"
+                 title="Типологические связи симметричны и дают короткие пути через понятия, между которыми не было исторического контакта">
+              <input type="checkbox" id="skipTypologicalPath" style="margin-right: 8px;">
+              <span>Без типологических связей</span>
+            </label>
+          </div>
+          
+          <!-- Режим строгости хронологии -->
+          <div class="chronology-mode-selector" id="chronologyModeContainer">
+            <label for="chronologyModeSelect">Режим хронологии:</label>
+            <select id="chronologyModeSelect">
+              <option value="strict">Строгий (периоды активности)</option>
+              <option value="moderate">Умеренный (±50 лет)</option>
+              <option value="loose">Свободный (±100 лет)</option>
+            </select>
+            <div class="chronology-info" id="chronologyModeInfo">
+              <strong>Строгий режим:</strong> учитывает реальные периоды жизни и активности философов. Блокирует анахронизмы. Критика и полемика читаются ретроспективно.
+            </div>
+          </div>
+        </div>
+        
+        <div id="pathResult"></div>
+      </div>
+    </div>
+
+    <div id="controls">
+      <button data-act-click="reset-simulation">🔄 Перезапустить</button>
+      <button id="freezeBtn" data-act-click="toggle-simulation-freeze" title="Остановить раскладку насовсем — окна её больше не запустят">❄️ Заморозить</button>
+      <button data-act-click="center-graph">🎯 Центрировать</button>
+      <button id="groupBtn" data-act-click="toggle-grouping">📦 Группировать</button>
+        <button id="saveDataBtn" data-act-click="download-data" title="Отдать шесть файлов базы; положить их в data/ вручную">💾 Скачать базу</button>
+      <button id="saveFolderBtn" data-act-click="save-to-folder" title="Записать базу в выбранную папку (Chrome)">📂 Сохранить в папку</button>
+    <div id="exportButtons">
+        <button data-act-click="export-to-png">💾 PNG</button>
+        <button data-act-click="export-to-svg">💾 SVG</button>
+      </div>
+      <div id="authButtons"></div>
+    </div>
+
+    <div id="authModal" role="dialog" aria-modal="true"></div>
+
+    <div id="info">
+      💡 Клик - подсветка • Ctrl+клик - множественный выбор • Двойной клик - детали • Перетаскивайте • Колесо - масштаб
+    </div>
+
+    <div class="tooltip" id="tooltip"></div>
+  </div>
+
+  <!-- ============================================ -->
+  <!-- МОДАЛЬНОЕ ОКНО РАСШИРЕННОЙ СТАТИСТИКИ -->
+  <!-- ============================================ -->
+  <div id="statsModal">
+    <div class="stats-modal-content">
+      <!-- Заголовок -->
+      <div class="stats-modal-header">
+        <div class="stats-modal-title-section">
+          <h2>📊 Расширенный статистический анализ</h2>
+          <p class="stats-modal-subtitle">Полный набор метрик для историко-философского анализа сети концепций</p>
+        </div>
+        
+        <div class="stats-header-controls">
+          <!-- Переключатель весов -->
+          <div class="stats-parameter-toggle" title="Учитывать веса связей при расчёте">
+            <input type="checkbox" id="statsUseWeightsToggle" data-act-change="handle-stats-parameter-change-change">
+            <label for="statsUseWeightsToggle">Учитывать веса</label>
+          </div>
+          
+          <!-- Переключатель направленности -->
+          <div class="stats-parameter-toggle" title="Учитывать направления связей при расчёте">
+            <input type="checkbox" id="statsRespectDirectionToggle" data-act-change="handle-stats-parameter-change-change-2">
+            <label for="statsRespectDirectionToggle">Учитывать направленность</label>
+          </div>
+          
+          <!-- C3: область расчёта -->
+          <div class="stats-parameter-toggle" title="Считать метрики по всему графу или только по видимой части">
+            <input type="checkbox" id="statsScopeToggle" data-act-change="handle-metrics-scope-change-change">
+            <label for="statsScopeToggle">С учётом фильтров</label>
+            <span id="statsScopeHint" class="stats-scope-hint"></span>
+          </div>
+          
+          <!-- Кнопка закрытия -->
+          <button class="stats-close-btn" data-act-click="close-stats-modal" title="Закрыть (Esc)">×</button>
+        </div>
+      </div>
+      
+      <!-- Тело модального окна -->
+      <div class="stats-modal-body">
+        <!-- Навигационная панель слева -->
+        <div class="stats-navigation">
+          <!-- Базовые метрики сети -->
+          <div class="stats-nav-group">
+            <div class="stats-nav-group-title">
+              <span>🔍</span>
+              <span>Базовые метрики</span>
+            </div>
+            <div class="stats-nav-item" data-view="overview" data-act-click="switch-stats-view">
+              <span class="stats-nav-item-icon">📈</span>
+              <span class="stats-nav-item-text">Общий обзор</span>
+            </div>
+            <div class="stats-nav-item" data-view="comparison" data-act-click="switch-stats-view-2">
+              <span class="stats-nav-item-icon">⚖️</span>
+              <span class="stats-nav-item-text">Сравнение концепций</span>
+            </div>
+            <div class="stats-nav-item" data-view="closest-pairs" data-act-click="switch-stats-view-3">
+              <span class="stats-nav-item-icon">🔗</span>
+              <span class="stats-nav-item-text">Близкие пары</span>
+            </div>
+            <div class="stats-nav-item" data-view="philosopher-comparison" data-act-click="switch-stats-view-4">
+              <span class="stats-nav-item-icon">👤</span>
+              <span class="stats-nav-item-text">Сравнение философов</span>
+            </div>
+            <div class="stats-nav-item" data-view="philosopher-pairs" data-act-click="switch-stats-view-5">
+              <span class="stats-nav-item-icon">🤝</span>
+              <span class="stats-nav-item-text">Близкие пары философов</span>
+            </div>
+            <div class="stats-nav-item" data-view="degree" data-act-click="switch-stats-view-6">
+              <span class="stats-nav-item-icon">🔗</span>
+              <span class="stats-nav-item-text">Степень связности</span>
+            </div>
+            <div class="stats-nav-item" data-view="pagerank" data-act-click="switch-stats-view-7">
+              <span class="stats-nav-item-icon">⭐</span>
+              <span class="stats-nav-item-text">PageRank</span>
+            </div>
+            <div class="stats-nav-item" data-view="betweenness" data-act-click="switch-stats-view-8">
+              <span class="stats-nav-item-icon">🌉</span>
+              <span class="stats-nav-item-text">Betweenness</span>
+            </div>
+            <div class="stats-nav-item" data-view="closeness" data-act-click="switch-stats-view-9">
+              <span class="stats-nav-item-icon">🎯</span>
+              <span class="stats-nav-item-text">Closeness</span>
+            </div>
+            <div class="stats-nav-item" data-view="eigenvector" data-act-click="switch-stats-view-10">
+              <span class="stats-nav-item-icon">🏆</span>
+              <span class="stats-nav-item-text">Eigenvector</span>
+            </div>
+            <div class="stats-nav-item" data-view="weighted-clustering" data-act-click="switch-stats-view-11">
+              <span class="stats-nav-item-icon">🕸️</span>
+              <span class="stats-nav-item-text">Взвешенная кластеризация</span>
+            </div>
+            <div class="stats-nav-item" data-view="local-cohesion" data-act-click="switch-stats-view-12">
+              <span class="stats-nav-item-icon">🔵</span>
+              <span class="stats-nav-item-text">Локальная когезия</span>
+            </div>
+            <div class="stats-nav-item" data-view="rich-club" data-act-click="switch-stats-view-13">
+              <span class="stats-nav-item-icon">👑</span>
+              <span class="stats-nav-item-text">Rich-Club</span>
+            </div>
+          </div>
+
+          <!-- Философские метрики проблемности и критичности -->
+          <div class="stats-nav-group">
+            <div class="stats-nav-group-title">
+              <span>⚡</span>
+              <span>Проблемность и критика</span>
+            </div>
+            <div class="stats-nav-item" data-view="problem-generation" data-act-click="switch-stats-view-14">
+              <span class="stats-nav-item-icon">💥</span>
+              <span class="stats-nav-item-text">Индекс проблемности</span>
+            </div>
+            <div class="stats-nav-item" data-view="critical-power" data-act-click="switch-stats-view-15">
+              <span class="stats-nav-item-icon">⚔️</span>
+              <span class="stats-nav-item-text">Критическая сила</span>
+            </div>
+            <div class="stats-nav-item" data-view="tension" data-act-click="switch-stats-view-16">
+              <span class="stats-nav-item-icon">⚖️</span>
+              <span class="stats-nav-item-text">Индекс напряжения</span>
+            </div>
+          </div>
+
+          <!-- Философские метрики революционности -->
+          <div class="stats-nav-group">
+            <div class="stats-nav-group-title">
+              <span>🔥</span>
+              <span>Революционность и новизна</span>
+            </div>
+            <div class="stats-nav-item" data-view="revolutionary" data-act-click="switch-stats-view-17">
+              <span class="stats-nav-item-icon">🌟</span>
+              <span class="stats-nav-item-text">Индекс революционности</span>
+            </div>
+            <div class="stats-nav-item" data-view="paradigm-shift" data-act-click="switch-stats-view-18">
+              <span class="stats-nav-item-icon">🌐</span>
+              <span class="stats-nav-item-text">Парадигмальный сдвиг</span>
+            </div>
+          </div>
+
+          <!-- Философские метрики влияния -->
+          <div class="stats-nav-group">
+            <div class="stats-nav-group-title">
+              <span>💫</span>
+              <span>Влияние и центральность</span>
+            </div>
+            <div class="stats-nav-item" data-view="influence" data-act-click="switch-stats-view-19">
+              <span class="stats-nav-item-icon">🎭</span>
+              <span class="stats-nav-item-text">Индекс влияния</span>
+            </div>
+            <div class="stats-nav-item" data-view="foundational" data-act-click="switch-stats-view-20">
+              <span class="stats-nav-item-icon">🏛️</span>
+              <span class="stats-nav-item-text">Индекс основополагания</span>
+            </div>
+          </div>
+
+          <!-- Философские метрики синтеза и диалога -->
+          <div class="stats-nav-group">
+            <div class="stats-nav-group-title">
+              <span>🧩</span>
+              <span>Синтез и диалог</span>
+            </div>
+            <div class="stats-nav-item" data-view="synthetic" data-act-click="switch-stats-view-21">
+              <span class="stats-nav-item-icon">🔗</span>
+              <span class="stats-nav-item-text">Индекс синтетичности</span>
+            </div>
+            <div class="stats-nav-item" data-view="dialogical" data-act-click="switch-stats-view-22">
+              <span class="stats-nav-item-icon">💬</span>
+              <span class="stats-nav-item-text">Индекс диалогичности</span>
+            </div>
+          </div>
+
+          <!-- Философские метрики когерентности -->
+          <div class="stats-nav-group">
+            <div class="stats-nav-group-title">
+              <span>🔮</span>
+              <span>Когерентность системы</span>
+            </div>
+            <div class="stats-nav-item" data-view="coherence" data-act-click="switch-stats-view-23">
+              <span class="stats-nav-item-icon">✨</span>
+              <span class="stats-nav-item-text">Внутренняя когерентность</span>
+            </div>
+          </div>
+
+          <!-- Продвинутые метрики трансформации -->
+          <div class="stats-nav-group">
+            <div class="stats-nav-group-title">
+              <span>🦋</span>
+              <span>Трансформация и развитие</span>
+            </div>
+            <div class="stats-nav-item" data-view="transformation" data-act-click="switch-stats-view-24">
+              <span class="stats-nav-item-icon">🔄</span>
+              <span class="stats-nav-item-text">Индекс трансформации</span>
+            </div>
+            <div class="stats-nav-item" data-view="fertility" data-act-click="switch-stats-view-25">
+              <span class="stats-nav-item-icon">🌱</span>
+              <span class="stats-nav-item-text">Концептуальная плодовитость</span>
+            </div>
+          </div>
+
+          <!-- Продвинутые метрики сложности -->
+          <div class="stats-nav-group">
+            <div class="stats-nav-group-title">
+              <span>🧠</span>
+              <span>Сложность и структура</span>
+            </div>
+            <div class="stats-nav-item" data-view="complexity" data-act-click="switch-stats-view-26">
+              <span class="stats-nav-item-icon">📊</span>
+              <span class="stats-nav-item-text">Концептуальная сложность</span>
+            </div>
+            <div class="stats-nav-item" data-view="continuity" data-act-click="switch-stats-view-27">
+              <span class="stats-nav-item-icon">📜</span>
+              <span class="stats-nav-item-text">Индекс преемственности</span>
+            </div>
+            <div class="stats-nav-item" data-view="generative" data-act-click="switch-stats-view-28">
+              <span class="stats-nav-item-icon">🌱</span>
+              <span class="stats-nav-item-text">Генеративность</span>
+            </div>
+            <div class="stats-nav-item" data-view="instrumental" data-act-click="switch-stats-view-29">
+              <span class="stats-nav-item-icon">🔧</span>
+              <span class="stats-nav-item-text">Инструментальность</span>
+            </div>
+            <div class="stats-nav-item" data-view="bridging" data-act-click="switch-stats-view-30">
+              <span class="stats-nav-item-icon">🌉</span>
+              <span class="stats-nav-item-text">Межтрадиционная мостовость</span>
+            </div>
+            <div class="stats-nav-item" data-view="abstraction" data-act-click="switch-stats-view-31">
+              <span class="stats-nav-item-icon">🎚️</span>
+              <span class="stats-nav-item-text">Абстрактность</span>
+            </div>
+            <div class="stats-nav-item" data-view="deductive" data-act-click="switch-stats-view-32">
+              <span class="stats-nav-item-icon">⛓️</span>
+              <span class="stats-nav-item-text">Дедуктивная продуктивность</span>
+            </div>
+          </div>
+
+          <!-- Временные метрики -->
+          <div class="stats-nav-group">
+            <div class="stats-nav-group-title">
+              <span>⏳</span>
+              <span>Временная динамика</span>
+            </div>
+            <div class="stats-nav-item" data-view="temporal-influence" data-act-click="switch-stats-view-33">
+              <span class="stats-nav-item-icon">🕐</span>
+              <span class="stats-nav-item-text">Временное влияние</span>
+            </div>
+          </div>
+
+          <!-- Метрики философов -->
+          <div class="stats-nav-group">
+            <div class="stats-nav-group-title">
+              <span>👤</span>
+              <span>Метрики философов</span>
+            </div>
+            <div class="stats-nav-item" data-view="philosopher-profile" data-act-click="switch-stats-view-34">
+              <span class="stats-nav-item-icon">📖</span>
+              <span class="stats-nav-item-text">Профиль философа</span>
+            </div>
+            <div class="stats-nav-item" data-view="philosopher-systematic" data-act-click="switch-stats-view-35">
+              <span class="stats-nav-item-icon">📚</span>
+              <span class="stats-nav-item-text">Систематичность</span>
+            </div>
+            <div class="stats-nav-item" data-view="philosopher-reach" data-act-click="switch-stats-view-36">
+              <span class="stats-nav-item-icon">🌍</span>
+              <span class="stats-nav-item-text">Исторический охват</span>
+            </div>
+            <div class="stats-nav-item" data-view="philosopher-interdisciplinary" data-act-click="switch-stats-view-37">
+              <span class="stats-nav-item-icon">🔬</span>
+              <span class="stats-nav-item-text">Междисциплинарность</span>
+            </div>
+          </div>
+
+          <!-- Сравнительный анализ -->
+          <div class="stats-nav-group">
+            <div class="stats-nav-group-title">
+              <span>⚖️</span>
+              <span>Сравнительный анализ</span>
+            </div>
+            <div class="stats-nav-item" data-view="concept-rankings" data-act-click="switch-stats-view-38">
+              <span class="stats-nav-item-icon">🏅</span>
+              <span class="stats-nav-item-text">Рейтинги концепций</span>
+            </div>
+            <div class="stats-nav-item" data-view="philosopher-rankings" data-act-click="switch-stats-view-39">
+              <span class="stats-nav-item-icon">🎖️</span>
+              <span class="stats-nav-item-text">Рейтинги философов</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Контентная область справа -->
+        <div class="stats-content-area" id="statsContentArea">
+          <!-- Контент будет динамически загружаться здесь -->
+          <div class="empty-state">
+            <div class="empty-state-icon">📊</div>
+            <div class="empty-state-text">Выберите метрику из меню слева</div>
+            <div class="empty-state-hint">
+              Используйте переключатели "Учитывать веса" и "Учитывать направленность" 
+              для изменения способа расчёта метрик
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div id="analysisProgress" class="stats-progress-indicator" style="display: none;">
+      <div class="stats-progress-text" id="progressLabel">Расчёт метрики...</div>
+      <div class="stats-progress-bar">
+        <div class="stats-progress-fill" id="progressBar" style="width: 0%;"></div>
+      </div>
+      <div class="stats-progress-text" id="progressPercent">0%</div>
+    </div>
+
+  </div>
+
+  
+
+    <script type="module" src="./main.js"></script>
+</body>
+</html>

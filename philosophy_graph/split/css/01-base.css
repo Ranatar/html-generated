@@ -1,0 +1,380 @@
+/* 01-base — основа: тело, полотно, панель контроля, подсказки
+   Часть таблицы стилей philosophy_graph. ПОРЯДОК ПОДКЛЮЧЕНИЯ ЗНАЧИМ:
+   склейка глав по порядку обязана совпадать с исходным блоком. */
+
+    /* ════════════════════════════════════════════════════════════
+       ЕДИНАЯ КОЖА. Всякий цвет поверхности, текста, края, тени и
+       скругления берётся отсюда. Литералами остаются только СМЫСЛОВЫЕ
+       цвета: цвет философа, цвет типа связи, цвета разделов статистики
+       и подсветки на полотне — они несут сведения, а не оформление.
+       ════════════════════════════════════════════════════════════ */
+    :root {
+      /* Поверхности. Прозрачность разведена намеренно: всплывающее над
+         графом полупрозрачно и читается как всплывшее, рабочая
+         поверхность статистики непрозрачна. */
+      --surface: rgba(0, 0, 0, 0.92);
+      --surface-gradient: linear-gradient(135deg, #17141f 0%, #0d0b13 55%, #1b1728 100%);
+      --surface-solid: #0d0b13;
+      --surface-raised: rgba(255, 255, 255, 0.06);
+      --surface-sunken: rgba(0, 0, 0, 0.25);
+      --surface-hover: rgba(108, 92, 231, 0.25);
+
+      /* Текст */
+      --fg: #ffffff;
+      --fg-dim: #e0e0e0;
+      --fg-muted: rgba(255, 255, 255, 0.5);
+
+      /* Линии и края */
+      --line: rgba(255, 255, 255, 0.15);
+      --border-color: rgba(255, 255, 255, 0.2);
+      --radius: 15px;
+      --radius-sm: 8px;
+      --radius-field: 6px;
+      --shadow: 0 10px 40px rgba(0,0,0,0.7);
+
+      /* Ударный цвет. Заливка и ТЕКСТ разведены: #6c5ce7 на чёрном даёт
+         около 3,3 : 1 — крупному заголовку хватает, мелкому тексту нет. */
+      --accent: #6c5ce7;
+      --accent-text: #a29bfe;
+      --accent-soft: rgba(108, 92, 231, 0.35);
+      --accent-faint: rgba(162, 155, 254, 0.08);
+
+      --danger: #e74c3c;
+      --success: #00b894;
+      --warning: #f39c12;
+    }
+
+    body {
+      margin: 0;
+      padding: 0;
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      background: linear-gradient(135deg, #0f0c29 0%, #302b63 50%, #24243e 100%);
+      overflow: hidden;
+    }
+
+    #container {
+      width: 100vw;
+      height: 100vh;
+      position: relative;
+    }
+
+    #graphCanvas {
+      display: block;
+      width: 100%;
+      height: 100%;
+      cursor: default;
+    }
+
+    #legend {
+      position: absolute;
+      top: 20px;
+      left: 20px;
+      /* Край обязателен: тёмная панель поверх тёмного полотна без рамки
+         теряет границу и сливается с графом. */
+      background: var(--surface);
+      background-image: var(--surface-gradient);
+      border: 1px solid var(--border-color);
+      color: var(--fg);
+      padding: 20px;
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+      max-width: 340px;
+      backdrop-filter: blur(10px);
+      max-height: 85vh;
+      overflow-y: auto;
+      z-index: 1;
+    }
+    
+    #legend h3 {
+      margin: 0 0 15px 0;
+      color: var(--fg);
+      font-size: 19px;
+      border-bottom: 3px solid var(--accent);
+      padding-bottom: 10px;
+    }
+    
+    .legend-section {
+      margin-bottom: 18px;
+    }
+    
+    .legend-section h4 {
+      margin: 0 0 10px 0;
+      color: var(--fg);
+      font-size: 13px;
+      font-weight: 700;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    
+    /* Стили для radio buttons */
+    .legend-item input[type="radio"] {
+      margin-right: 8px;
+      cursor: pointer;
+      width: 16px;
+      height: 16px;
+      accent-color: #6c5ce7;
+    }
+    
+    .filter-controls {
+      display: flex;
+      gap: 5px;
+      margin-bottom: 10px;
+    }
+    
+    /* Серый цвет остался от светлой панели: на тёмной он читается как
+       выключенная кнопка. Берём приподнятую подложку с ударным краем. */
+    .filter-controls button {
+      flex: 1;
+      background: var(--surface-raised);
+      border: 1px solid var(--line);
+      color: var(--fg-dim);
+      border: none;
+      padding: 5px 10px;
+      border-radius: 5px;
+      cursor: pointer;
+      font-size: 10px;
+      font-weight: 600;
+      transition: background 0.3s;
+    }
+    
+    .filter-controls button:hover {
+      background: var(--surface-hover);
+      border-color: var(--accent-soft);
+      color: var(--fg);
+    }
+    
+    .legend-item {
+      display: flex;
+      align-items: center;
+      margin: 6px 0;
+      padding: 5px;
+      border-radius: 5px;
+      transition: background 0.2s;
+      cursor: pointer;
+    }
+    
+    .legend-item:hover {
+      background: var(--surface-hover);
+    }
+    
+    .legend-item input[type="checkbox"] {
+      margin-right: 8px;
+      cursor: pointer;
+      width: 16px;
+      height: 16px;
+      accent-color: #6c5ce7;
+    }
+    
+    /* Значок подсказки у типа связи: ненавязчивый, но заметный */
+    .legend-hint-mark {
+      display: inline-block;
+      margin-left: 5px;
+      font-size: 9px;
+      line-height: 12px;
+      width: 12px;
+      height: 12px;
+      text-align: center;
+      border-radius: 50%;
+      color: var(--fg-muted);
+      border: 1px solid rgba(127, 140, 141, 0.45);
+      vertical-align: middle;
+    }
+    .legend-item label:hover .legend-hint-mark {
+      color: #3498db;
+      border-color: #3498db;
+    }
+
+    .legend-item label {
+      cursor: pointer;
+      font-size: 11px;
+      color: var(--fg-dim);
+      display: flex;
+      align-items: center;
+      flex-grow: 1;
+    }
+    
+    /* Обводка светлая: она отделяет кружок философа от тёмной подложки,
+       а прежняя тёмная сливалась бы с нею. */
+    .legend-color {
+      width: 20px;
+      height: 20px;
+      border-radius: 50%;
+      margin-right: 10px;
+      border: 2px solid var(--border-color);
+      flex-shrink: 0;
+    }
+    
+    .legend-line {
+      width: 35px;
+      height: 2.5px;
+      margin-right: 10px;
+      flex-shrink: 0;
+    }
+    
+    .filter-stats {
+      font-size: 10px;
+      color: #7f8c8d;
+      font-style: italic;
+      margin-top: 10px;
+      padding-top: 10px;
+      border-top: 1px solid #e0e0e0;
+    }
+    
+    #legend::-webkit-scrollbar {
+      width: 6px;
+    }
+    
+    #legend::-webkit-scrollbar-track {
+      background: var(--surface-sunken);
+      border-radius: 10px;
+    }
+    
+    #legend::-webkit-scrollbar-thumb {
+      background: #6c5ce7;
+      border-radius: 10px;
+    }
+
+    .tooltip {
+      position: absolute;
+      background: var(--surface);
+      color: var(--fg);
+      padding: 12px 18px;
+      border-radius: 10px;
+      font-size: 13px;
+      pointer-events: none;
+      opacity: 0;
+      transition: opacity 0.3s;
+      box-shadow: 0 6px 20px rgba(0,0,0,0.5);
+      max-width: 500px;
+      border: 1px solid var(--border-color);
+      z-index: 1000;
+    }
+
+    .tooltip strong {
+      font-size: 15px;
+      display: block;
+      margin-bottom: 5px;
+      color: var(--accent-text);
+    }
+    
+    .tooltip em {
+      font-style: italic;
+      color: #ddd;
+      font-size: 11px;
+    }
+    
+    /* Стили для tooltip связей */
+    .link-tooltip-header {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 12px;
+      margin-bottom: 8px;
+    }
+    
+    .link-tooltip-header strong {
+      font-size: 14px;
+      color: var(--accent-text);
+      margin: 0;
+      display: inline;
+    }
+    
+    .link-tooltip-arrow {
+      display: flex;
+      align-items: center;
+      flex-shrink: 0;
+    }
+    
+    .link-tooltip-type {
+      text-align: center;
+      font-size: 13px;
+      font-weight: 600;
+      margin: 6px 0;
+    }
+    
+    .link-tooltip-philosophers {
+      display: flex;
+      justify-content: space-between;
+      margin-top: 8px;
+      font-size: 11px;
+    }
+    
+    .link-tooltip-philosophers em {
+      color: #95a5a6;
+    }
+    
+    .tooltip-description {
+      margin-top: 10px;
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      white-space: normal;
+      font-size: 11px;
+      color: #ddd;
+      border-top: 1px solid var(--border-color);
+      padding-top: 8px;
+      line-height: 1.5;
+    }
+
+    #controls {
+      position: absolute;
+      bottom: 20px;
+      left: 20px;
+      /* Рамка обязательна: тёмная панель поверх тёмного полотна без неё
+         теряет край и сливается с графом. */
+      background: var(--surface);
+      background-image: var(--surface-gradient);
+      border: 1px solid var(--border-color);
+      padding: 15px;
+      border-radius: 12px;
+      box-shadow: var(--shadow);
+    }
+
+    #controls button {
+      background: var(--accent);
+      color: var(--fg);
+      border: none;
+      padding: 8px 15px;
+      border-radius: 6px;
+      cursor: pointer;
+      margin: 3px;
+      font-size: 12px;
+      font-weight: 600;
+      transition: background 0.3s ease; 
+    }
+
+    #controls:hover {
+      z-index: 9999; /* Высокий приоритет при наведении */
+      box-shadow: 0 8px 25px rgba(0,0,0,0.4); /* Усиление тени для визуального эффекта */
+    }
+
+    #controls button:hover {
+      background: #5f4fd1;
+    }
+
+    #controls button.active {
+      background: var(--success);
+    }
+
+    #info {
+      position: absolute;
+      bottom: 20px;
+      right: 20px;
+      background: var(--surface);
+      background-image: var(--surface-gradient);
+      border: 1px solid var(--border-color);
+      padding: 15px 20px;
+      border-radius: 12px;
+      font-size: 13px;
+      color: var(--fg-dim);
+      box-shadow: var(--shadow);
+      font-weight: 500;
+      //z-index: 1;
+      transition: box-shadow 0.2s ease; /* Плавный переход для визуального эффекта */
+    }
+    
+    #info:hover {
+      z-index: 9999; /* Высокий приоритет при наведении */
+      box-shadow: 0 8px 25px rgba(0,0,0,0.4); /* Усиление тени для визуального эффекта */
+    }
+
+    
