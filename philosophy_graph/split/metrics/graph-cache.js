@@ -1,7 +1,7 @@
 // Сгенерировано из philosophy_graph.html — правки вносить сюда, не в исходник.
 import { S } from '../core/ns.js';
-import { isSymmetricLink } from '../core/predicates.js';
-import { metricsLinks, metricsNodes } from './scope.js';
+import { isSymmetricLink } from '../core/link-facts.js';
+import { metricsLinks, metricsNodes } from './scope-select.js';
 
 function buildGlobalGraphCache() {
       if (graphCache) return graphCache;

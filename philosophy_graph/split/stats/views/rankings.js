@@ -1,11 +1,11 @@
 // Сгенерировано из philosophy_graph.html — правки вносить сюда, не в исходник.
 import { DATA, S } from '../../core/ns.js';
-import { toggleMetricValueMode } from '../../metrics/format.js';
-import { initializePhilosophyMetrics } from '../../metrics/init.js';
-import { influenceScopeSwitcher } from '../../metrics/philosophical.js';
+
+import { initializePhilosophyMetrics } from '../../metrics/link-indexes.js';
 import { generatePhilosopherRankings, generateRankings } from '../../metrics/rankings.js';
-import { highlightNodeById } from '../../render/selection.js';
+
 import { generateMetricDescriptionBlock } from '../results.js';
+import { influenceScopeSwitcher } from './philosophical.js';
 
 function generateConceptRankingsContent() {
       if (!DATA.concepts || !DATA.relations) {
@@ -16,7 +16,7 @@ function generateConceptRankingsContent() {
       const normBtn = `
         <button class="stats-action-btn secondary metric-norm-btn"
             data-act-click="toggle-metric-value-mode"
-            title="Сырое значение растёт вместе с числом связей; нормированное делится на степень узла и сравнимо между концепциями">
+            data-tip="Сырое значение растёт вместе с числом связей; нормированное делится на степень узла и сравнимо между концепциями">
           <span class="layout-icon">${S.metricValueMode === 'raw' ? '÷' : '×'}</span>
           <span class="layout-text">${S.metricValueMode === 'raw' ? 'Нормировать' : 'Сырые значения'}</span>
         </button>`;

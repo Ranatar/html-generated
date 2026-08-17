@@ -25,26 +25,23 @@ import { ХЕШ as HASH, объяснить } from './snapshot.mjs';
 
 
 const RIG_MODULE = `
-import { S, DATA } from './core/ns.js';
-import { freezeSimulation } from './render/simulation.js';
-import { pickNode, pickLink, toGraph } from './render/picking.js';
-import { openConceptById } from './modal/entry.js';
-// Имя живёт то в общем состоянии, то обычной переменной своего модуля —
-// это зависит от того, пишут ли в него извне, а раскладка со временем
-// меняется. Прибор смотрит В ОБА МЕСТА, иначе врёт при каждой перестановке.
-import { selectedNodes as выбУзлы, selectedEdges as выбСвязи } from './state.js';
-import { closeUniversalModal } from './modal/core.js';
-window.__rig = { S: S, DATA: DATA, freezeSimulation: freezeSimulation,
-  pickNode: pickNode, pickLink: pickLink, toGraph: toGraph,
-  openConceptById: openConceptById, closeUniversalModal: closeUniversalModal,
-  nodes: function () { return DATA.nodes; },
-  links: function () { return DATA.links; },
-  transform: function () { return S.renderState.transform; },
-  canvas: function () { return S.gfxCanvas; },
-  simulation: function () { return S.simulation; },
-  selectedNodes: function () { return S.selectedNodes !== undefined ? S.selectedNodes : выбУзлы; },
-  selectedEdges: function () { return S.selectedEdges !== undefined ? S.selectedEdges : выбСвязи; },
-  overlay: function () { return S.similarityOverlay; } };
+import './_probe-rig.js';
+const A = window.__app;
+// Часть имён живёт то в общем состоянии, то обычной переменной своего модуля.
+// Оснастка _probe-rig.js смотрит В ОБА МЕСТА и отдаёт свежее значение —
+// прибору эти тонкости знать больше не нужно, как и путь к модулю.
+window.__rig = { S: A.S, DATA: A.DATA, freezeSimulation: A.freezeSimulation,
+  pickNode: A.pickNode, pickLink: A.pickLink, toGraph: A.toGraph,
+  openConceptById: A.openConceptById, closeUniversalModal: A.closeUniversalModal,
+  nodes: function () { return A.DATA.nodes; },
+  links: function () { return A.DATA.links; },
+  transform: function () { return A.S.renderState.transform; },
+  canvas: function () { return A.S.gfxCanvas; },
+
+  simulation: function () { return A.S.simulation; },
+  selectedNodes: function () { return A.S.selectedNodes !== undefined ? A.S.selectedNodes : A.selectedNodes; },
+  selectedEdges: function () { return A.S.selectedEdges !== undefined ? A.S.selectedEdges : A.selectedEdges; },
+  overlay: function () { return A.S.similarityOverlay; } };
 window.__rigReady = true;`;
 
 const RIG_CLASSIC = `
@@ -75,7 +72,7 @@ async function run(label) {
     if (m.type() === 'error' && !u.includes('favicon')) errs.push('console: ' + m.text().slice(0, 160));
   });
 
-  await page.goto(BASE + label, { waitUntil: 'networkidle0', timeout: 60000 });
+  await page.goto(BASE + label, { waitUntil: 'domcontentloaded', timeout: 60000 });
   await wait(3500);
   await page.addScriptTag(label.startsWith('_ref')
     ? { content: RIG_CLASSIC } : { type: 'module', content: RIG_MODULE });
@@ -203,7 +200,7 @@ async function run(label) {
   {
     // концепция, у которой в окне ЕСТЬ раздел похожих с кнопкой на графе
     const выбор = await page.evaluate(async () => {
-      const ids = [...document.querySelectorAll('#sourceSelectDropdown .custom-select-option')]
+      const ids = [...document.querySelectorAll('#sourceSelectDropdown .concept-row')]
         .map(o => o.getAttribute('data-a2') ||
           ((o.getAttribute('onclick') || '').match(/'([^']+)'\s*\)$/) || [])[1])
         .filter(Boolean);

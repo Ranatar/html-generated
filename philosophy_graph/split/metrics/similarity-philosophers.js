@@ -1,7 +1,22 @@
 // Сгенерировано из philosophy_graph.html — правки вносить сюда, не в исходник.
 import { MET, S } from '../core/ns.js';
 import { philosopherProfile } from './philosopher.js';
-import { PHIL_SIM_MIN_CONCEPTS, PHIL_SIM_MIN_RUBRIC_UNION } from './thresholds.js';
+
+const SIM_METRIC_LABELS = {
+      problemGenerationIndex: 'Проблемность', criticalPowerIndex: 'Критическая сила',
+      revolutionaryIndex: 'Революционность', paradigmShiftIndex: 'Сдвиг парадигмы',
+      influenceIndex: 'Влияние', foundationalIndex: 'Основополагание',
+      syntheticIndex: 'Синтетичность', dialogicalIndex: 'Диалогичность',
+      internalCoherenceIndex: 'Когерентность', transformationIndex: 'Трансформация',
+      conceptualFertilityIndex: 'Плодовитость', conceptualComplexityIndex: 'Сложность',
+      conceptualContinuityIndex: 'Преемственность', instrumentalIndex: 'Инструментальность',
+      abstractionIndex: 'Абстрактность', deductiveIndex: 'Дедуктивность',
+      generativeIndex: 'Генеративность'
+    };
+
+const PHIL_SIM_MIN_CONCEPTS = 3;
+
+const PHIL_SIM_MIN_RUBRIC_UNION = 3;
 
 function rubricUnionSize(v1, v2) {
       let k = 0;
@@ -138,4 +153,7 @@ function nearestPhilosophers(philosopherId, kind, k) {
       return out.slice(0, k || 5);
     }
 
-export { _philSimCache, cosineOf, invalidatePhilosopherSimilarityCache, nearestPhilosophers, philosopherSimilarity, philosopherSimilarityData, rubricUnionSize };
+const PHIL_SIM_LABELS = { profile: 'профиль метрик', style: 'способ построения',
+                  structure: 'структура связей', rubrics: 'тематический охват' };
+
+export { PHIL_SIM_LABELS, PHIL_SIM_MIN_CONCEPTS, PHIL_SIM_MIN_RUBRIC_UNION, SIM_METRIC_LABELS, _philSimCache, cosineOf, invalidatePhilosopherSimilarityCache, nearestPhilosophers, philosopherSimilarity, philosopherSimilarityData, rubricUnionSize };

@@ -15,20 +15,28 @@ import path from 'node:path';
 
 const ROOT = process.argv[2] || '/home/claude/build/src';
 
-// имена, которые зовут приборы (собраны из самих приборов)
-const ИМЕНА = `selectedNodes authLogout cancelGraphSelection changeFilterMode clearLegendSearch
-clearSimilarityOverlay closeAuthModal closeConceptProfileModal closePathDescriptionsModal
-closePhilosopherProfileModal closeStatsModal closeUniversalModal deselectAllPhilosophers
-deselectAllRubrics findAndShowPath findConnection handleConnectionViewSearch
-handleLegendSearch handleMetricsScopeChange handleModalSearch handleStatsParameterChange
-highlightNodeById onlyTradition openAuthModal openConceptById openEditConceptModal
-openEditConnectionModal openStatsModal openUniversalModal selectAllPhilosophers
-selectAllRelations selectAllRubrics selectAllTraditions selectCustomOption
-showConceptProfileModal showCustomSelectDropdown showPathDescriptionsModal
-showPhilosopherProfileModal showSimilarityOverlay submitAuth switchStatsView
-toggleConnectionSearchSection toggleGrouping toggleMetricLayout toggleMetricValueMode
-toggleModalMode getConceptConnections freezeSimulation unfreezeSimulation
-pickNode pickLink toGraph`.split(/\s+/).filter(Boolean);
+// ИМЕНА, КОТОРЫЕ ЗОВУТ ПРИБОРЫ. Список — объединение по ВСЕМ приборам: раньше
+// каждый ввозил модули сам, зашивая пути, и всякое переименование модуля
+// роняло прибор (probe6 сорвался на переезде findConnection, delegate.mjs — на
+// переименовании edit-common). Теперь путь знает только эта программа, а она
+// его вычисляет.
+const ИМЕНА = `selectedNodes selectedEdges authLogout cancelGraphSelection changeFilterMode
+clearLegendSearch clearPhilosopherSearch clearSimilarityOverlay closeAboutModal closeAuthModal
+closeConceptProfileModal closePathDescriptionsModal closePhilosopherProfileModal closeStatsModal
+closeUniversalModal collectData deselectAllPhilosophers deselectAllRubrics exportToPNG exportToSVG
+findAndShowPath findConnection findShortestPath freezeSimulation getConceptConnections
+handleConnectionViewSearch handleLegendLinkSearch handleLegendPhilSearch handleLegendSearch
+handleMetricsScopeChange handleModalSearch handlePhilosopherSearch handleStatsParameterChange
+hasNodeClass hasUnsaved highlightConnected highlightNodeById highlightPhilosopherOnGraph
+isLinkVisible isNodeVisible linkDrawAlpha linkVisualState onlyTradition openAboutModal
+openAuthModal openConceptById openEditConceptModal openEditConnectionModal openStatsModal
+openUniversalModal pickLink pickLinkEnd pickNode resetBeyondFilter resetHighlight
+selectAllPhilosophers selectAllRelations selectAllRubrics selectAllTraditions selectCustomOption
+selectSearchResult setSearchKind showConceptProfileModal showCustomSelectDropdown
+showPathDescriptionsModal showPhilosopherProfileModal showSimilarityOverlay submitAuth
+switchStatsView toGraph toggleConnectionSearchSection toggleGrouping toggleLegendSearch
+toggleMetricLayout toggleMetricValueMode toggleModalMode togglePhilosopher unfreezeSimulation
+DATA_SETS actionNames`.split(/\s+/).filter(Boolean);
 
 // где что вывозится
 const exportsOf = new Map();
@@ -65,7 +73,8 @@ for (const m of [...need.keys()].sort())
   out += `import { ${[...need.get(m)].sort().join(', ')} } from './${m}';\n`;
 out += `
 const A = { DATA, S, MET, VIEWS, ${[...need.values()].flatMap(s => [...s]).sort().join(', ')} };
-const ИЗМОДУЛЕЙ = { get selectedNodes() { return typeof selectedNodes !== 'undefined' ? selectedNodes : undefined; } };
+const ИЗМОДУЛЕЙ = { get selectedNodes() { return typeof selectedNodes !== 'undefined' ? selectedNodes : undefined; },
+                    get selectedEdges() { return typeof selectedEdges !== 'undefined' ? selectedEdges : undefined; } };
 
 // Приборы обращаются к данным и состоянию через свойства, чтобы видеть
 // СВЕЖИЕ значения, а не снимок на миг подключения.
@@ -81,6 +90,7 @@ Object.defineProperties(A, {
   relations: { get: () => DATA.relations },
   philosophers: { get: () => DATA.philosophers },
   selectedNodes: { get: () => (S.selectedNodes !== undefined ? S.selectedNodes : ИЗМОДУЛЕЙ.selectedNodes) },
+  selectedEdges: { get: () => (S.selectedEdges !== undefined ? S.selectedEdges : ИЗМОДУЛЕЙ.selectedEdges) },
   isStatsModalOpen: { get: () => S.isStatsModalOpen },
   simulation: { get: () => S.simulation },
   renderState: { get: () => S.renderState },

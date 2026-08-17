@@ -31,6 +31,9 @@ done
 echo "== утверждения о должном (второй слой)"
 node tools/assert_probe.mjs index.html
 
+echo "== свежесть карт"
+node tools/maps_fresh.mjs
+
 echo "== проверка модулей и долг"
 node tools/check_modules.mjs
 python3 tools/bridge_debt.py "$TREE_DIR"

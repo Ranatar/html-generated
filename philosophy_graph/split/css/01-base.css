@@ -9,6 +9,13 @@
        и подсветки на полотне — они несут сведения, а не оформление.
        ════════════════════════════════════════════════════════════ */
     :root {
+      /* Кожа страницы тёмная — и браузер должен об этом знать. Без этого
+         он рисует СВОИ части в светлой: выпадающий список выбора режима
+         хронологии оставался белым с тёмным текстом, потому что список
+         рисует не страница, а система. Одна строка чинит это разом —
+         и для списков, и для полос прокрутки, и для полей ввода. */
+      color-scheme: dark;
+
       /* Поверхности. Прозрачность разведена намеренно: всплывающее над
          графом полупрозрачно и читается как всплывшее, рабочая
          поверхность статистики непрозрачна. */
@@ -80,7 +87,17 @@
       box-shadow: var(--shadow);
       max-width: 340px;
       backdrop-filter: blur(10px);
-      max-height: 85vh;
+      /* Во всю высоту окна за вычетом одинаковых отступов сверху и снизу.
+         Было 85vh — при 1080 точках внизу пропадало ровно 80, а содержимое
+         легенды 3186 точек, то есть прокрутка всё равно есть при любом
+         размере: недобранная высота не оставалась про запас, а просто
+         теряла восемь процентов видимого. Отступы одинаковы сверху и
+         снизу — так видно, что край выбран, а не получился. */
+      max-height: calc(100vh - 40px);
+      /* Отступы и рамка прибавляются СНАРУЖИ высоты, и панель вылезала за
+         нижний край ровно на их сумму (замер: 22 точки). box-sizing
+         укладывает их внутрь — та же ошибка, что была у описаний связей. */
+      box-sizing: border-box;
       overflow-y: auto;
       z-index: 1;
     }
@@ -154,6 +171,20 @@
       cursor: pointer;
     }
     
+    /* Выбранный философ виден в самой легенде: полоска слева и свой фон.
+       Галочка отбора при этом ни при чём — это разные вещи, и выглядят они
+       по-разному. */
+    .legend-item.phil-chosen {
+      background: rgba(255, 215, 0, 0.10);
+      box-shadow: inset 3px 0 0 #ffd700;
+      border-radius: var(--radius-field);
+    }
+    .legend-item.phil-chosen span { color: var(--fg); }
+
+    /* Строка философа выбирает его на графе — курсор об этом говорит.
+       Галочка внутри строки остаётся сама по себе. */
+    .phil-row-label { cursor: pointer; }
+
     .legend-item:hover {
       background: var(--surface-hover);
     }
@@ -305,6 +336,7 @@
     }
     
     .tooltip-description {
+      overflow-wrap: anywhere;
       margin-top: 10px;
       font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
       white-space: normal;
@@ -315,10 +347,75 @@
       line-height: 1.5;
     }
 
+    /* ── ОКНО «О ПРОЕКТЕ» ───────────────────────────────────────────
+       Расширенная замена плашке в углу: та вмещала одну строку про клики,
+       а способов управления куда больше. Правка сюда не входит — она
+       показывается отдельным окном при входе под учётной записью. */
+    #aboutModal {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: rgba(0, 0, 0, 0.6);
+      z-index: 2500;
+      align-items: center;
+      justify-content: center;
+    }
+    #aboutModal.show { display: flex; }
+
+    .about-box {
+      position: relative;
+      width: min(760px, 92vw);
+      max-height: 86vh;
+      overflow-y: auto;
+      background: var(--surface);
+      background-image: var(--surface-gradient);
+      border: 1px solid var(--border-color);
+      border-radius: 14px;
+      padding: 26px 30px;
+      box-shadow: var(--shadow);
+      color: var(--fg-dim);
+      font-size: 13px;
+      line-height: 1.6;
+    }
+    .about-close {
+      position: absolute;
+      top: 12px;
+      right: 14px;
+      background: transparent;
+      border: 1px solid var(--border-color);
+      border-radius: 50%;
+      width: 28px;
+      height: 28px;
+      color: var(--fg-muted);
+      cursor: pointer;
+    }
+    .about-close:hover { background: var(--accent); color: var(--fg); }
+    .about-box h2 { margin: 0 0 6px 0; font-size: 18px; color: var(--fg); }
+    .about-box h3 {
+      margin: 20px 0 8px 0;
+      font-size: 14px;
+      color: #a29bfe;
+      border-bottom: 1px solid var(--line);
+      padding-bottom: 4px;
+    }
+    .about-box table { width: 100%; border-collapse: collapse; }
+    .about-box td { padding: 3px 8px 3px 0; vertical-align: top; }
+    .about-box td:first-child { white-space: nowrap; color: var(--fg); font-weight: 600; }
+    .about-box .about-lead { color: var(--fg-muted); margin-bottom: 4px; }
+
     #controls {
+      /* Справа внизу — на месте прежней плашки подсказок. Слева панель
+         перекрывалась легендой, а после сжатия кнопок до иконок она стала
+         достаточно узкой, чтобы стоять здесь. */
       position: absolute;
       bottom: 20px;
-      left: 20px;
+      right: 20px;
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      justify-content: flex-end;
+      gap: 4px;
+      max-width: 320px;
       /* Рамка обязательна: тёмная панель поверх тёмного полотна без неё
          теряет край и сливается с графом. */
       background: var(--surface);
@@ -332,8 +429,18 @@
     #controls button {
       background: var(--accent);
       color: var(--fg);
+      /* ЦВЕТНЫЕ ЗНАЧКИ. Сами знаки цветные — в снимке кнопки 136 разных
+         цветов, — но шрифт кнопки был Arial, а в нём цветных начертаний
+         для них нет, и система подставляла чёрно-белое запасное. Семейство
+         указывается явно; какое из трёх подойдёт, решает та система, где
+         страницу открыли. */
+      font-family: 'Apple Color Emoji', 'Segoe UI Emoji', 'Noto Color Emoji',
+                   'Twemoji Mozilla', system-ui, sans-serif;
       border: none;
-      padding: 8px 15px;
+      /* Кнопка с одной иконкой квадратная; с подписью (PNG, SVG, JSON) —
+         растягивается по содержимому. */
+      min-width: 34px;
+      padding: 8px 10px;
       border-radius: 6px;
       cursor: pointer;
       margin: 3px;
@@ -355,6 +462,20 @@
       background: var(--success);
     }
 
+    /* Кнопка справки: тот же знак вопроса в кружке, что у типов связей. */
+    #aboutBtn {
+      background: transparent;
+      border: 1px solid var(--border-color);
+      border-radius: 50%;
+      width: 30px;
+      min-width: 30px;
+      height: 30px;
+      padding: 0;
+      font-size: 13px;
+      line-height: 1;
+    }
+    #aboutBtn:hover { background: var(--accent); }
+
     #info {
       position: absolute;
       bottom: 20px;
@@ -372,9 +493,4 @@
       transition: box-shadow 0.2s ease; /* Плавный переход для визуального эффекта */
     }
     
-    #info:hover {
-      z-index: 9999; /* Высокий приоритет при наведении */
-      box-shadow: 0 8px 25px rgba(0,0,0,0.4); /* Усиление тени для визуального эффекта */
-    }
-
     

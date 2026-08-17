@@ -1,16 +1,61 @@
 // Сгенерировано из philosophy_graph.html — правки вносить сюда, не в исходник.
 import { DATA, VIEWS } from '../core/ns.js';
-import { WEIGHT_WORDS } from '../core/labels.js';
-import { otherPhilosopher } from '../core/predicates.js';
+
 import { canEdit } from '../core/session.js';
 import { nearestPhilosophers } from '../metrics/similarity-philosophers.js';
-import { refreshEditHints } from './auth.js';
-import { closeUniversalModal, openUniversalModal } from './core.js';
+import { стрелкаСвязи } from './connection-view.js';
+
+import { refreshEditHints } from './edit-rights.js';
 import { openEditPhilosopherModal, showPhilosopherDetailModal } from './entry.js';
-import { showPhilosopherProfileModal } from './profile-philosopher.js';
-import { toggleAllPhilosopherConceptDescriptions, toggleAllPhilosopherConnectionDescriptions, toggleConnectionDescription, togglePhilosopherConceptDescription, toggleSubsection } from './toggles.js';
-import { formatBirthYear, getContrastColor, philosopherBirth, philosopherYears, sortPhilosophersByBirth } from '../util/format.js';
+
+import { highlightPhilosopherOnGraph } from '../render/selection.js';
+
+import { getContrastColor } from '../util/color.js';
+import { formatBirthYear, philosopherBirth, philosopherYears, sortPhilosophersByBirth } from '../util/philosopher-label.js';
 import { conjugateVerb, declinePhilosopher } from '../util/ru.js';
+
+function традицииФилософаБлок(имя) {
+      const свои = DATA_traditions_of(имя);
+      if (!свои.length) {
+        return `<div class="rubric-section">
+          <div class="rubric-description" style="color: var(--fg-muted);">
+            Этот философ пока не отнесён ни к одной традиции.
+          </div>
+        </div>`;
+      }
+
+      return свои.map(tr => {
+        const другие = DATA.philosophers
+          .filter(f => f.nameRu !== имя && (DATA.philosopherTraditions[f.nameRu] || []).includes(tr.id))
+          .sort((a, b) => (a.birth || 0) - (b.birth || 0));
+        return `
+          <div class="rubric-section">
+            <div class="rubric-title">🏛 Традиция: ${tr.name}</div>
+            <div class="rubric-description">${tr.description || ''}</div>
+            ${другие.length ? `
+              <div class="related-concepts">
+                <div class="related-title">Также в этой традиции (${другие.length}):</div>
+                ${другие.map(f => `
+                  <div class="concept-item" data-act-click="open-universal-modal-9" data-a1="${f.nameRu}">
+                    <div class="concept-color" style="background: ${DATA.philosopherConcepts[f.nameRu]
+                      ? DATA.philosopherConcepts[f.nameRu].color : '#6c5ce7'}"></div>
+                    <div class="concept-name">${f.nameRu}</div>
+                    <div class="concept-philosopher">${f.years}</div>
+                  </div>`).join('')}
+              </div>` : `
+              <div class="related-concepts">
+                <div class="related-title" style="color: var(--fg-muted);">
+                  Других философов этой традиции в базе нет
+                </div>
+              </div>`}
+          </div>`;
+      }).join('');
+    }
+
+function DATA_traditions_of(имя) {
+      const ids = DATA.philosopherTraditions[имя] || [];
+      return ids.map(id => DATA.traditions.find(t => t.id === id)).filter(Boolean);
+    }
 
 function similarPhilosophersBlock(philosopherName) {
       let byProfile, byStyle, byStructure;
@@ -57,6 +102,21 @@ VIEWS.generatePhilosopherViewContent = function generatePhilosopherViewContent(p
       const formattedDescription = philosopherData.description.replace(/\n\n/g, '<br><br>');
       
       let html = `
+        <div id="philSearch">
+          <div class="legend-search-header">
+            <div class="legend-search-icon">🔍</div>
+            <div class="legend-search-input-wrapper">
+              <input type="text"
+                   class="legend-search-input"
+                   id="philSearchInput"
+                   placeholder="Поиск других философов..."
+                   data-act-input="handle-philosopher-search-input"
+                   data-act-focus="handle-philosopher-search-focus">
+              <span class="legend-search-clear" data-act-click="clear-philosopher-search">×</span>
+              <div class="search-results" id="philSearchResults"></div>
+            </div>
+          </div>
+        </div>
         <h2>${philosopherName}</h2>
         <div class="philosopher-tag" style="background: ${philColor}; color: ${getContrastColor(philColor)}">
           ${philosopherData.years}
@@ -80,10 +140,7 @@ VIEWS.generatePhilosopherViewContent = function generatePhilosopherViewContent(p
 
       if (philTraditions.length > 0) {
         const traditionNames = philTraditions.map(t => `
-            <span class="rubric-name-tooltip">
-              ${t.name}
-              <span class="rubric-tooltip-text">${t.description}</span>
-            </span>
+            <span class="rubric-name-tooltip" data-tip="${t.description}">${t.name}</span>
         `).join(', ');
 
         html += `
@@ -221,7 +278,7 @@ VIEWS.generatePhilosopherViewContent = function generatePhilosopherViewContent(p
               .map(phil => {
                 const color = getPhilosopherColor(phil);
                 // D5: год рождения мелким шрифтом, полные даты — в подсказке
-                return `<span class="philosopher-box" style="background-color: ${color}; color: ${getContrastColor(color)};" title="${phil}, ${philosopherYears(phil)}" data-act-click="open-universal-modal-8" data-a1="${phil}">${phil}<small class="phil-box-year">${formatBirthYear(philosopherBirth(phil))}</small></span>`;
+                return `<span class="philosopher-box" style="background-color: ${color}; color: ${getContrastColor(color)};" data-tip="${phil}, ${philosopherYears(phil)}" data-act-click="open-universal-modal-10" data-a1="${phil}">${phil}<small class="phil-box-year">${formatBirthYear(philosopherBirth(phil))}</small></span>`;
               })
               .join(' ');
             html += `
@@ -237,7 +294,7 @@ VIEWS.generatePhilosopherViewContent = function generatePhilosopherViewContent(p
               .map(phil => {
                 const color = getPhilosopherColor(phil);
                 // D5: год рождения мелким шрифтом, полные даты — в подсказке
-                return `<span class="philosopher-box" style="background-color: ${color}; color: ${getContrastColor(color)};" title="${phil}, ${philosopherYears(phil)}" data-act-click="open-universal-modal-8" data-a1="${phil}">${phil}<small class="phil-box-year">${formatBirthYear(philosopherBirth(phil))}</small></span>`;
+                return `<span class="philosopher-box" style="background-color: ${color}; color: ${getContrastColor(color)};" data-tip="${phil}, ${philosopherYears(phil)}" data-act-click="open-universal-modal-10" data-a1="${phil}">${phil}<small class="phil-box-year">${formatBirthYear(philosopherBirth(phil))}</small></span>`;
               })
               .join(' ');
             html += `
@@ -253,7 +310,7 @@ VIEWS.generatePhilosopherViewContent = function generatePhilosopherViewContent(p
               .map(phil => {
                 const color = getPhilosopherColor(phil);
                 // D5: год рождения мелким шрифтом, полные даты — в подсказке
-                return `<span class="philosopher-box" style="background-color: ${color}; color: ${getContrastColor(color)};" title="${phil}, ${philosopherYears(phil)}" data-act-click="open-universal-modal-8" data-a1="${phil}">${phil}<small class="phil-box-year">${formatBirthYear(philosopherBirth(phil))}</small></span>`;
+                return `<span class="philosopher-box" style="background-color: ${color}; color: ${getContrastColor(color)};" data-tip="${phil}, ${philosopherYears(phil)}" data-act-click="open-universal-modal-10" data-a1="${phil}">${phil}<small class="phil-box-year">${formatBirthYear(philosopherBirth(phil))}</small></span>`;
               })
               .join(' ');
             html += `
@@ -289,10 +346,7 @@ VIEWS.generatePhilosopherViewContent = function generatePhilosopherViewContent(p
           const rubric = DATA.rubrics.find(r => r.id === rubricId);
           if (!rubric) return '';
           return `
-            <span class="rubric-name-tooltip">
-              ${rubric.name}
-              <span class="rubric-tooltip-text">${rubric.description}</span>
-            </span>
+            <span class="rubric-name-tooltip" data-tip="${rubric.description}">${rubric.name}</span>
           `;
         }).filter(r => r).join(', ');
         
@@ -407,12 +461,9 @@ VIEWS.generatePhilosopherViewContent = function generatePhilosopherViewContent(p
               <div class="connection-item">
                 <div class="concept-color" style="background: ${philColor}"></div>
                 <div style="flex-grow: 1; display: flex; align-items: center; gap: 8px;">
-                  <span data-act-click="open-universal-modal-9" data-a1="${srcNode.id}" style="cursor: pointer;">${srcNode.label}</span>
-                  <div class="connection-arrow cw-${conn.weight || 2}" style="color: ${linkColor};" title="${linkLabel}, вес ${conn.weight || 2} — ${WEIGHT_WORDS[conn.weight || 2]}">
-                    ${arrow}
-                    <span class="connection-arrow-tooltip">${linkLabel} · вес ${conn.weight || 2}</span>
-                  </div>
-                  <span data-act-click="open-universal-modal-10" data-a1="${tgtNode.id}" style="cursor: pointer;">${tgtNode.label}</span>
+                  <span data-act-click="open-universal-modal-11" data-a1="${srcNode.id}" style="cursor: pointer;">${srcNode.label}</span>
+                  ${стрелкаСвязи(arrow, linkColor, conn.weight, linkLabel, '', srcNode.id, tgtNode.id)}
+                  <span data-act-click="open-universal-modal-12" data-a1="${tgtNode.id}" style="cursor: pointer;">${tgtNode.label}</span>
                 </div>
                 ${conn.description ? `
                   <button class="connection-toggle" data-act-click="stop-propagation-4" data-a1="${srcNode.id}" data-a2="${tgtNode.id}">
@@ -457,13 +508,10 @@ VIEWS.generatePhilosopherViewContent = function generatePhilosopherViewContent(p
               <div class="connection-item">
                 <div class="concept-color" style="background: ${DATA.philosopherConcepts[srcNode.concept].color}"></div>
                 <div style="flex-grow: 1; display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
-                  <span data-act-click="open-universal-modal-9" data-a1="${srcNode.id}" style="cursor: pointer;">${srcNode.label}</span>
+                  <span data-act-click="open-universal-modal-11" data-a1="${srcNode.id}" style="cursor: pointer;">${srcNode.label}</span>
                   <span style="font-size: 10px; color: var(--fg-muted);">(${srcNode.concept})</span>
-                  <div class="connection-arrow cw-${conn.weight || 2}" style="color: ${linkColor};" title="${linkLabel}, вес ${conn.weight || 2} — ${WEIGHT_WORDS[conn.weight || 2]}">
-                    ${arrow}
-                    <span class="connection-arrow-tooltip">${linkLabel} · вес ${conn.weight || 2}</span>
-                  </div>
-                  <span data-act-click="open-universal-modal-10" data-a1="${tgtNode.id}" style="cursor: pointer;">${tgtNode.label}</span>
+                  ${стрелкаСвязи(arrow, linkColor, conn.weight, linkLabel, '', srcNode.id, tgtNode.id)}
+                  <span data-act-click="open-universal-modal-12" data-a1="${tgtNode.id}" style="cursor: pointer;">${tgtNode.label}</span>
                   <span style="font-size: 10px; color: var(--fg-muted);">(${tgtNode.concept})</span>
                 </div>
                 ${conn.description ? `
@@ -489,6 +537,7 @@ VIEWS.generatePhilosopherViewContent = function generatePhilosopherViewContent(p
         html += `</div>`;
       }
 
+      html += традицииФилософаБлок(philosopherName);
       html += similarPhilosophersBlock(philosopherName);
 
       return html;
@@ -527,13 +576,28 @@ function makeLegendsEditable() {
         if (checkbox) {
           const philosopherName = checkbox.value;
           
-          // Обработчик Shift+клик для редактирования
+          // ЩЕЛЧОК ПО СТРОКЕ ВЫБИРАЕТ ФИЛОСОФА НА ГРАФЕ, а не выключает
+          // его. Прежде подпись была привязана к галочке (`for`), и щелчок
+          // по строке снимал философа с отбора; двойной щелчок при этом
+          // успевал выключить и снова включить его — мигание на ровном
+          // месте. Галочка осталась галочкой, строка стала выбором.
+          //
+          // Порядок разбора важен: shift — правка (право спрашивается в миг
+          // нажатия), ctrl — добавить к выбору, как на полотне; простой
+          // щелчок — выбрать одного. Двойной щелчок открывает окно и
+          // отменяет выбор, сделанный первым нажатием этой пары.
           item.addEventListener('click', function(event) {
-            if (event.shiftKey && canEdit()) {     // ЗАСЛОН ПРАВКИ
-              event.preventDefault();
-              event.stopPropagation();
-              openEditPhilosopherModal(philosopherName);
+            if (event.target.matches('input[type="checkbox"]')) return;  // галочка сама по себе
+            if (event.shiftKey) {
+              if (canEdit()) {     // ЗАСЛОН ПРАВКИ
+                event.preventDefault();
+                event.stopPropagation();
+                openEditPhilosopherModal(philosopherName);
+              }
+              return;
             }
+            event.preventDefault();
+            highlightPhilosopherOnGraph(philosopherName, event.ctrlKey || event.metaKey);
           });
           
           // Обработчик двойного клика для детальной информации
@@ -544,11 +608,11 @@ function makeLegendsEditable() {
           });
           
           // Обновляем подсказку. Про shift — только правщику.
-          item.title = canEdit()
-            ? 'Двойной клик - детальная информация, Shift+клик - редактирование'
-            : 'Двойной клик - детальная информация';
+          item.setAttribute('data-tip', canEdit()
+            ? 'Щелчок — выбрать на графе, Ctrl+щелчок — добавить к выбору, двойной — окно философа, Shift+щелчок — правка'
+            : 'Щелчок — выбрать на графе, Ctrl+щелчок — добавить к выбору, двойной — окно философа');
         }
       });
     }
 
-export { makeLegendsEditable, similarPhilosophersBlock };
+export { DATA_traditions_of, makeLegendsEditable, similarPhilosophersBlock, традицииФилософаБлок };

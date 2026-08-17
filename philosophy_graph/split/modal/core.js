@@ -1,13 +1,17 @@
 // Сгенерировано из philosophy_graph.html — правки вносить сюда, не в исходник.
 import { S } from '../core/ns.js';
 import { canEdit } from '../core/session.js';
-import { cancelGraphSelection } from '../data/mutate.js';
+import { cancelGraphSelection } from '../graph/graph-selection.js';
+import { modalContentFor, modalEntityExists } from './assembly.js';
 import { initConnectionSearchFields } from './connection-view.js';
-import { MODAL_STACK_MAX, ModalContext, modalStack } from './context.js';
+import { ModalContext } from './context.js';
 import { hasUnsavedChanges } from './dirty.js';
-import { modalContentFor, modalEntityExists } from './registry.js';
+import { clearModalSearch } from './search.js';
 import { freezeSimulation, unfreezeSimulation } from '../render/simulation.js';
-import { clearModalSearch } from '../ui/search-core.js';
+
+const modalStack = [];
+
+const MODAL_STACK_MAX = 20;
 
 function pushModalState() {
       const modal = document.getElementById('universalModal');
@@ -78,7 +82,7 @@ function openUniversalModal(entityType, data, mode = 'view', opts = {}) {
       }
       if (modalStack.length > 0) {
         rightButtons.push('<button class="modal-back-btn" data-act-click="pop-modal-state" '
-               + 'title="Вернуться к предыдущему окну">\u2190 Назад</button>');
+               + 'data-tip="Вернуться к предыдущему окну">\u2190 Назад</button>');
       }
       // Полоса выводится ВСЕГДА: она отводит содержимому верхний отступ
       // и разводит его с кнопкой закрытия даже когда своих кнопок нет.
@@ -146,4 +150,4 @@ function toggleModalMode() {
                  { noPush: true });
     }
 
-export { closeUniversalModal, openUniversalModal, popModalState, pushModalState, toggleModalMode };
+export { MODAL_STACK_MAX, closeUniversalModal, modalStack, openUniversalModal, popModalState, pushModalState, toggleModalMode };

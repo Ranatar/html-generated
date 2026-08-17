@@ -29,19 +29,18 @@ import { ХЕШ as HASH, объяснить } from './snapshot.mjs';
 
 // площадка для модульной сборки: ввозим то, что нужно приборам
 const RIG_MODULE = `
-import { S, DATA, MET, VIEWS } from './core/ns.js';
-import { freezeSimulation, unfreezeSimulation } from './render/simulation.js';
-import { pickNode, pickLink, toGraph } from './render/picking.js';
-import { selectedNodes as выбранныеУзлы } from './state.js';
-import { closeUniversalModal, openUniversalModal } from './modal/core.js';
-import { openAuthModal, submitAuth, closeAuthModal } from './modal/auth.js';
-window.__rig = { S, DATA, MET, VIEWS, freezeSimulation, unfreezeSimulation, pickNode, pickLink, toGraph,
-  closeUniversalModal, openUniversalModal, openAuthModal, submitAuth, closeAuthModal,
-  nodes: () => DATA.nodes, links: () => DATA.links,
-  transform: () => S.renderState.transform, canvas: () => S.gfxCanvas,
-  simulation: () => S.simulation,
-  selectedNodes: () => (S.selectedNodes !== undefined ? S.selectedNodes : выбранныеУзлы),
-  tickCount: () => S.tickCount };
+import './_probe-rig.js';
+const A = window.__app;
+window.__rig = { S: A.S, DATA: A.DATA, MET: A.MET, VIEWS: A.VIEWS,
+  freezeSimulation: A.freezeSimulation, unfreezeSimulation: A.unfreezeSimulation,
+  pickNode: A.pickNode, pickLink: A.pickLink, toGraph: A.toGraph,
+  closeUniversalModal: A.closeUniversalModal, openUniversalModal: A.openUniversalModal,
+  openAuthModal: A.openAuthModal, submitAuth: A.submitAuth, closeAuthModal: A.closeAuthModal,
+  nodes: () => A.DATA.nodes, links: () => A.DATA.links,
+  transform: () => A.S.renderState.transform, canvas: () => A.S.gfxCanvas,
+  simulation: () => A.S.simulation,
+  selectedNodes: () => A.selectedNodes,
+  tickCount: () => A.S.tickCount };
 window.__rigReady = true;
 `;
 // та же площадка для исходника: там всё это и так глобально
@@ -138,7 +137,7 @@ async function run(pageName, isModule) {
     const u = (m.location() && m.location().url) || '';
     if (m.type() === 'error' && !u.includes('favicon')) errs.push('console: ' + m.text().slice(0, 160));
   });
-  await page.goto(BASE + pageName, { waitUntil: 'networkidle0', timeout: 60000 });
+  await page.goto(BASE + pageName, { waitUntil: 'domcontentloaded', timeout: 60000 });
   await wait(3000);
   await page.addScriptTag(isModule ? { type: 'module', content: RIG_MODULE } : { content: RIG_CLASSIC });
   await page.waitForFunction('window.__rigReady === true', { timeout: 20000 });

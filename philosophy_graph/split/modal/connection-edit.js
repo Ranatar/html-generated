@@ -1,13 +1,14 @@
 // Сгенерировано из philosophy_graph.html — правки вносить сюда, не в исходник.
 import { DATA, VIEWS } from '../core/ns.js';
-import { connectionsBetween } from '../core/graph-index.js';
-import { WEIGHT_OPTIONS, relationHint } from '../core/labels.js';
-import { isReflexiveLink } from '../core/predicates.js';
+import { isReflexiveLink } from '../core/link-facts.js';
+import { WEIGHT_OPTIONS, relationHint } from '../core/relation-types.js';
+import { внутренностиСтроки, отобратьКонцепции, пустойСписок } from '../core/search.js';
+import { connectionsBetween } from '../graph/graph-data.js';
+import { modalActions } from './assembly.js';
 import { initConnectionSearchFields } from './connection-view.js';
 import { ModalContext } from './context.js';
 import { openUniversalModal } from './core.js';
-import { modalActions } from './edit-common.js';
-import { deleteConnection, saveConnectionData } from './persist.js';
+
 import { escapeAttr } from '../util/html.js';
 
 function onConnTypeChange() {
@@ -110,7 +111,7 @@ VIEWS.generateConnectionEditContent = function generateConnectionEditContent(con
             <option value="">Выберите тип связи</option>
             ${Object.entries(DATA.relationTypesObj).map(([id, data]) => `
               <option value="${id}"
-                  title="${escapeAttr(typeof relationHint === 'function' ? relationHint(id) : data.label)}"
+                  data-tip="${escapeAttr(typeof relationHint === 'function' ? relationHint(id) : data.label)}"
                   ${connectionData && connectionData.type === id ? 'selected' : ''}>
                 ${data.label}
               </option>`).join('')}
@@ -185,21 +186,13 @@ function handleConnectionEditSearch(type, query) {
       const cap = type.charAt(0).toUpperCase() + type.slice(1);
       const box = document.getElementById(`conn${cap}Results`);
       if (!box) return;
-      if (!query || !query.trim()) { box.classList.remove('show'); return; }
 
-      const q = query.trim().toLowerCase();
-      const results = DATA.nodes.filter(n =>
-          n.label.toLowerCase().split(/\s+/).some(w => w.startsWith(q))
-         || n.concept.toLowerCase().split(/\s+/).some(w => w.startsWith(q)))
-        .sort((a, b) => {
-          const ao = DATA.philosopherOrder[a.concept] || 0;
-          const bo = DATA.philosopherOrder[b.concept] || 0;
-          return ao !== bo ? ao - bo : a.label.localeCompare(b.label);
-        })
-        .slice(0, 60);
+      // Список выпадает весь, как в окне просмотра связи: прежде пустой
+      // запрос закрывал его, а найденное урезалось шестьюдесятью строками.
+      const results = отобратьКонцепции(query);
 
       if (!results.length) {
-        box.innerHTML = '<div style="padding:15px;text-align:center;color: var(--fg-muted);font-size:11px;">Ничего не найдено</div>';
+        box.innerHTML = пустойСписок();
         box.classList.add('show');
         return;
       }
@@ -207,18 +200,13 @@ function handleConnectionEditSearch(type, query) {
       const other = ModalContext.editState[
         type === 'source' ? 'selectedTarget' : 'selectedSource'];
       box.innerHTML = results.map(n => {
-        const color = DATA.philosopherConcepts[n.concept]
-          ? DATA.philosopherConcepts[n.concept].color : '#6c5ce7';
-        const linked = other ? connectionsBetween(n.id, other).length : 0;
+        const связей = other ? connectionsBetween(n.id, other).length : 0;
+        const хвост = связей
+          ? `<div class="concept-row-note" data-tip="Связей с уже выбранной концепцией">${связей} св.</div>`
+          : '';
         return `
-          <div class="modal-concept-search-item"
-             data-act-click="select-connection-edit-concept" data-a1="${type}" data-a2="${n.id}">
-            <div style="width:12px;height:12px;border-radius:50%;background:${color};box-shadow:0 0 6px ${color};flex:none;"></div>
-            <div style="flex:1;min-width:0;">
-              <div style="font-weight:600;color:#e0e0e0;font-size:13px;">${n.label}</div>
-              <div style="font-size:11px;color: var(--fg-muted);font-style:italic;">${n.concept}</div>
-            </div>
-            ${linked ? `<div style="font-size:10px;color:#f39c12;flex:none;" title="Связей с уже выбранной концепцией">${linked} св.</div>` : ''}
+          <div class="concept-row" data-act-click="select-connection-edit-concept" data-a1="${type}" data-a2="${n.id}">
+            ${внутренностиСтроки(n, хвост)}
           </div>`;
       }).join('');
       box.classList.add('show');

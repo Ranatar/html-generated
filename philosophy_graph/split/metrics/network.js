@@ -842,4 +842,27 @@ function invalidateEigenvectorCache() {
       eigenvectorCalculating = false;
     }
 
-export { betweennessCache, betweennessCalculating, bfsFromSource, calculateBetweennessAsync, closenessCache, closenessCalculating, clusteringCache, dijkstraFromSource, eigenvectorCache, eigenvectorCalculating, invalidateBetweennessCache, invalidateClosenessCache, invalidateClusteringCache, invalidateEigenvectorCache, invalidateLocalCohesionCache, invalidatePageRankCache, invalidateRichClubCache, invalidateWeightedClusteringCache, localCohesionCache, pageRankCache, pageRankCalculating, richClubCache, weightedClusteringCache };
+S._medianDegreeCache = null;
+
+function medianNodeDegree() {
+      if (S._medianDegreeCache !== null) return S._medianDegreeCache;
+      const deg = new Map();
+      S._concepts.forEach(c => deg.set(c.id, 0));
+      S._relations.forEach(r => {
+        if (deg.has(r.source)) deg.set(r.source, deg.get(r.source) + 1);
+        if (deg.has(r.target)) deg.set(r.target, deg.get(r.target) + 1);
+      });
+      const a = [...deg.values()].sort((x, y) => x - y);
+      S._medianDegreeCache = a.length ? a[Math.floor(a.length / 2)] : 0;
+      return S._medianDegreeCache;
+    }
+
+function nodeDegreeOf(conceptId) {
+      let d = 0;
+      S._relations.forEach(r => {
+        if (r.source === conceptId || r.target === conceptId) d++;
+      });
+      return d;
+    }
+
+export { betweennessCache, betweennessCalculating, bfsFromSource, calculateBetweennessAsync, closenessCache, closenessCalculating, clusteringCache, dijkstraFromSource, eigenvectorCache, eigenvectorCalculating, invalidateBetweennessCache, invalidateClosenessCache, invalidateClusteringCache, invalidateEigenvectorCache, invalidateLocalCohesionCache, invalidatePageRankCache, invalidateRichClubCache, invalidateWeightedClusteringCache, localCohesionCache, medianNodeDegree, nodeDegreeOf, pageRankCache, pageRankCalculating, richClubCache, weightedClusteringCache };

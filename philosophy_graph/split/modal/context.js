@@ -7,8 +7,4 @@ const ModalContext = {
       editState: {}       // состояние форм: selectedSource и прочее
     };
 
-const modalStack = [];
-
-const MODAL_STACK_MAX = 20;
-
-export { MODAL_STACK_MAX, ModalContext, modalStack };
+export { ModalContext };

@@ -204,10 +204,13 @@
       padding: 8px; border-radius: 6px; cursor: pointer; font-size: 12px;
       transition: background 0.3s;
     }
-    .path-btn-blue { background: #3498db; }
-    .path-btn-blue:hover { background: #2980b9; }
-    .path-btn-red { background: #e74c3c; }
-    .path-btn-red:hover { background: #c0392b; }
+    /* Фон потемнее: белый текст на #3498db давал 3,15, на #e74c3c — 3,82
+       при пороге 4,5. Это остатки светлой темы: цвета брались из палитры,
+       где текст был тёмным. Стало 6,63 и 6,62. */
+    .path-btn-blue { background: #20618f; }
+    .path-btn-blue:hover { background: #1a5276; }
+    .path-btn-red { background: #a93226; }
+    .path-btn-red:hover { background: #922b21; }
 
     /* Кнопка сворачивания */
     /* Тёмная кнопка на тёмной панели была неразличима: подложка
@@ -382,7 +385,14 @@
     }
 
     .connection-description {
+      /* `width:100%` при отступах слева и справа даёт коробку ШИРЕ родителя
+         на сумму отступов (замер: 541 против 517) — описание вылезало за
+         край поля. box-sizing укладывает отступы ВНУТРЬ ширины.
+         overflow-wrap разрывает слишком длинное слово или ссылку, которые
+         иначе не переносятся вовсе. */
       width: 100%;
+      box-sizing: border-box;
+      overflow-wrap: anywhere;
       margin-top: 8px;
       padding: 8px 12px;
       background: rgba(52, 152, 219, 0.1);
@@ -432,6 +442,52 @@
       font-size: 16px;
       margin: 0 10px;
       position: relative;
+    }
+
+    /* ── ЕДИНАЯ ВСПЛЫВАЮЩАЯ ПОДСКАЗКА ──────────────────────────────
+       Было три способа разом: встроенные подсказки браузера (50 штук —
+       светлые, с тёмным текстом, вида страница не задаёт), собственный
+       ярлык у стрелки связи и такой же у рубрики. Стрелка показывала обе
+       сразу.
+
+       Теперь один короб на всю страницу. Он лежит в body, поэтому его не
+       режет прокрутка — а ярлык на CSS внутри списка со скруткой обрезался
+       бы (в стилях 30 правил с overflow). Текст переносится: подсказки
+       бывают длинными, самая длинная — 116 знаков. */
+    #hintBox {
+      position: fixed;
+      visibility: hidden;
+      opacity: 0;
+      transition: opacity 0.15s;
+      background: rgba(0, 0, 0, 0.92);
+      color: var(--fg);
+      border: 1px solid var(--border-color);
+      border-radius: 6px;
+      padding: 6px 10px;
+      font-size: 11px;
+      font-weight: 400;
+      line-height: 1.4;
+      text-shadow: none;
+      white-space: normal;
+      max-width: 320px;
+      pointer-events: none;
+      /* Поверх ВСЕГО. Прежде стояло 3000, а панель контроля при наведении
+         поднимается до 9999, окно правки — до 10001: подсказка пряталась
+         под тем самым, к чему относилась. Ей место выше любого слоя —
+         она ничего не перекрывает по смыслу (сквозная для мыши) и живёт
+         доли секунды. */
+      z-index: 100000;
+      box-shadow: 0 4px 14px rgba(0, 0, 0, 0.5);
+    }
+    #hintBox.show { visibility: visible; opacity: 1; }
+
+    [data-tip] { cursor: help; }
+
+    /* Стрелка, открывающая окно связи: щелчок доступен — и это видно. */
+    .connection-arrow.clickable { cursor: pointer; }
+    .connection-arrow.clickable:hover .connection-arrow-glyph {
+      filter: brightness(1.4);
+      text-shadow: 0 0 6px currentColor;
     }
 
     .connection-arrow-tooltip {

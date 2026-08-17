@@ -1,47 +1,9 @@
 // Сгенерировано из philosophy_graph.html — правки вносить сюда, не в исходник.
 import { S } from '../core/ns.js';
-import { METRIC_FIELD_LABELS } from '../core/labels.js';
 import { getMetricDescription } from '../metrics/descriptions.js';
-import { applyMetricMode, toggleMetricValueMode } from '../metrics/format.js';
-import { METRIC_COVERAGE_WARN } from '../metrics/thresholds.js';
-import { showConceptProfileModal } from '../modal/profile-concept.js';
-import { toggleMetricVisualization } from '../render/metric-visualization.js';
-import { highlightNodeById } from '../render/selection.js';
-import { calculateMetricFromModal } from './run.js';
+import { applyMetricMode } from '../metrics/format.js';
 
-let _metricCoverageCache = {};
-
-function metricCoverage(metricKey) {
-      if (_metricCoverageCache[metricKey]) return _metricCoverageCache[metricKey];
-      const fn = S.METRIC_COVERAGE_FN[metricKey];
-      if (!fn) return null;
-      let nonZero = 0;
-      const total = S._concepts.length;
-      for (const c of S._concepts) {
-        let v = 0;
-        try { const r = fn(c.id); v = (r && typeof r === 'object') ? (r.total || 0) : (r || 0); }
-        catch (e) { v = 0; }
-        if (v > 0) nonZero++;
-      }
-      const res = { nonZero, total, zeroShare: total ? (total - nonZero) / total : 0 };
-      _metricCoverageCache[metricKey] = res;
-      return res;
-    }
-
-function invalidateMetricCoverageCache() { _metricCoverageCache = {}; }
-
-function generateMetricCoverageBlock(metricKey) {
-      const cov = metricCoverage(metricKey);
-      if (!cov) return '';
-      const pct = Math.round(cov.zeroShare * 100);
-      const warn = cov.zeroShare > METRIC_COVERAGE_WARN;
-      return `
-        <div class="metric-coverage-note${warn ? ' metric-coverage-warn' : ''}">
-          ${warn ? '⚠️ ' : ''}Ненулевых значений: <strong>${cov.nonZero}</strong> из ${cov.total}
-          (нулей ${pct} %).${warn ? ' Метрика опирается на редкие типы связей — считайте её предварительной: ноль здесь означает отсутствие связей нужного типа, а не измеренный ноль.' : ''}
-        </div>
-      `;
-    }
+import { generateMetricCoverageBlock } from './coverage.js';
 
 function generateMetricDescriptionBlock(metricKey) {
       const desc = getMetricDescription(metricKey);
@@ -111,6 +73,70 @@ function rankKeep(r, i) {
       return keep;
     }
 
+const METRIC_FIELD_LABELS = {
+      total: 'Итог',
+      dialoguesIn: 'Диалогов входящих', dialoguesOut: 'Диалогов исходящих',
+      interlocutors: 'Разных собеседников',
+      rawCriticalActivity: 'Критическая активность (сырая)',
+      weightedCriticalActivity: 'Критическая активность (взвешенная)',
+      criticalConsequences: 'Следствий критики', ownDevelopments: 'Собственных развитий',
+      targetedPhilosophers: 'Философов под критикой', targetInfluence: 'Влиятельность целей',
+      retroactiveCritiques: 'Критика предшественников', contemporaryCritiques: 'Критика современников',
+      constructivenessRatio: 'Доля конструктивного', targets: 'Цели критики',
+      immanent: 'Имманентный ярус', polemical: 'Полемический ярус',
+      dialectical: 'Диалектический ярус', analytics: 'Производные показатели',
+      positive: 'Поддерживающих связей', negative: 'Конфликтующих связей',
+      authorSize: 'Концептов у автора',
+      presuppositions: 'Предпосылок (вх.)', conditions: 'Условий (исх.)',
+      emergences: 'Возникновений из него', applications: 'Применений',
+      developments: 'Развитий', culminations: 'Кульминаций',
+      dialogues: 'Диалогов', mutualDialogues: 'Взаимных диалогов',
+      complements: 'Дополнений', syntheses: 'Синтезов',
+      diverseInfluences: 'Разных истоков', thematicBreadth: 'Тематическая широта',
+      ratio: 'Отдача на заимствование', volume: 'Объём переработки',
+      influences: 'Заимствований', forward: 'Влияние на поздних',
+      contemporary: 'Диалог с современниками', incoming: 'Входящих связей',
+      instrumentality: 'Инструментальность', rubricsBreadth: 'Широта рубрик',
+      scope: 'Взгляд',
+      share: 'Доля межтрадиционных по весу, %', crossingLinks: 'Межтрадиционных связей',
+      crossWeight: 'Вес межтрадиционных связей',
+      externalLinks: 'Внешних связей', traditionsReached: 'Достигнуто традиций',
+      belowThreshold: 'Ниже порога связности',
+      laterAdopters: 'Поздних последователей', isMethodological: 'Рубрика «метод»',
+      immanentTension: 'Противоречие', polemicalTension: 'Опосредование',
+      dialecticalTension: 'Разрешение',
+      internalContradictions: 'Внутренних противоречий',
+      outgoingContradictions: 'Исходящих противоречий',
+      incomingCritiques: 'Полученной критики', incomingOppositions: 'Полученных оппозиций',
+      acknowledgedLimits: 'Признанных ограничений',
+      conditionalDependencies: 'Условных зависимостей',
+      conceptsEmergedFrom: 'Порождённых концептов',
+      independenceScore: 'Независимость от традиции', rubricDiversity: 'Разнообразие рубрик',
+      futureImpact: 'Влияние в будущее',
+      effectiveness: 'Эффективность критики', targets: 'Целей критики',
+      majorTargets: 'Центральных целей', eraSpan: 'Временной размах, лет',
+      weightedActivity: 'Взвешенная активность',
+      generativityScore: 'Генеративность (среднее по графу = 1)',
+      directSuccessors: 'Прямых преемников', successorAuthors: 'Авторов среди преемников',
+      outgoingLinks: 'Исходящих связей', exertedFlat: 'Оказанное влияние (плоский подсчёт)',
+      rawSynthetic: 'Синтетическая работа (до нормировки)',
+      mediations: 'Опосредований', incomingCount: 'Входящих связей',
+      exerted: 'Оказанное влияние',
+      rawDensity: 'Плотность без учёта типов, %',
+      systematicLinks: 'Систематических связей', disruptiveLinks: 'Разрушающих связей',
+      constructiveReach: 'Преемственный охват', polemicalReach: 'Полемический охват',
+      bridgedPairs: 'Наведено мостов между рубриками',
+      constructive: 'Преемственных ссылок', polemical: 'Полемических ссылок',
+      servesAsMethod: 'Служит методом для', domainsServed: 'Затронуто рубрик',
+      crossAuthor: 'Целей у других авторов', instrumentLinks: 'Связей «инструмент»',
+      illustratedBy: 'Его иллюстрируют', illustrates: 'Сам иллюстрирует',
+      distinctIllustrations: 'Разных иллюстраций',
+      directConsequences: 'Прямых следствий', derivationDepth: 'Глубина вывода',
+      breadth: 'Философов среди целей', consequenceLinks: 'Связей «следствие»',
+      generations: 'Поколений', gaps: 'Пропусков', laterReferences: 'Ссылок из будущего',
+      coverage: 'Покрытие поколений',
+    };
+
 function genericDetailsHTML(item, conceptDesc) {
       const d = item && item.details;
       const rows = [];
@@ -167,6 +193,8 @@ function genericDetailsHTML(item, conceptDesc) {
       `;
     }
 
+S.metricLayoutMode = 'cards';
+
 function applyMetricLayout() {
       const isRows = S.metricLayoutMode === 'rows';
       document.querySelectorAll('.metric-results-grid').forEach(grid => {
@@ -177,7 +205,7 @@ function applyMetricLayout() {
         const label = btn.querySelector('.layout-text');
         if (icon) icon.textContent = isRows ? '▦' : '▤';
         if (label) label.textContent = isRows ? 'Плитками' : 'Строками';
-        btn.title = isRows ? 'Показать плитками' : 'Показать строками';
+        btn.setAttribute('data-tip', isRows ? 'Показать плитками' : 'Показать строками');
       });
     }
 
@@ -245,14 +273,14 @@ function generateMetricResults(data, title, description, metricKey, valueKey, is
             </button>
             <button class="stats-action-btn secondary metric-layout-btn"
                 data-act-click="toggle-metric-layout"
-                title="${S.metricLayoutMode === 'rows' ? 'Показать плитками' : 'Показать строками'}">
+                data-tip="${S.metricLayoutMode === 'rows' ? 'Показать плитками' : 'Показать строками'}">
               <span class="layout-icon">${S.metricLayoutMode === 'rows' ? '▦' : '▤'}</span>
               <span class="layout-text">${S.metricLayoutMode === 'rows' ? 'Плитками' : 'Строками'}</span>
             </button>
             ${S.METRIC_COVERAGE_FN[metricKey] ? `
             <button class="stats-action-btn secondary metric-norm-btn"
                 data-act-click="toggle-metric-value-mode"
-                title="Сырое значение растёт вместе с числом связей автора; нормированное делится на степень узла и сравнимо между авторами">
+                data-tip="Сырое значение растёт вместе с числом связей автора; нормированное делится на степень узла и сравнимо между авторами">
               <span class="layout-icon">${S.metricValueMode === 'raw' ? '÷' : '×'}</span>
               <span class="layout-text">${S.metricValueMode === 'raw' ? 'Нормировать' : 'Сырые значения'}</span>
             </button>` : ''}
@@ -304,14 +332,14 @@ function generateMetricResults(data, title, description, metricKey, valueKey, is
                 
                 <button class="metric-expand-btn" 
                     data-act-click="stop-propagation-6" data-a1="${item.node.id}"
-                    title="Статистический профиль концепции"
+                    data-tip="Статистический профиль концепции"
                     style="right: 34px;">
                   <span class="expand-icon">📊</span>
                 </button>
                 ${hasDetails ? `
                   <button class="metric-expand-btn" 
                       data-act-click="stop-propagation-7"
-                      title="Показать детали">
+                      data-tip="Показать детали">
                     <span class="expand-icon">▼</span>
                   </button>
                 ` : ''}
@@ -346,4 +374,4 @@ function toggleMetricDetails(button) {
       }
     }
 
-export { _metricCoverageCache, applyMetricLayout, generateCalculateButton, generateMetricCoverageBlock, generateMetricDescriptionBlock, generateMetricResults, genericDetailsHTML, invalidateMetricCoverageCache, lastZeroCount, metricCoverage, rankKeep, toggleMetricDetails, toggleMetricLayout };
+export { METRIC_FIELD_LABELS, applyMetricLayout, generateCalculateButton, generateMetricDescriptionBlock, generateMetricResults, genericDetailsHTML, lastZeroCount, rankKeep, toggleMetricDetails, toggleMetricLayout };

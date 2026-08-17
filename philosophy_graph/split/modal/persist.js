@@ -1,14 +1,23 @@
 // Сгенерировано из philosophy_graph.html — правки вносить сюда, не в исходник.
 import { DATA, S } from '../core/ns.js';
-import { findConnection, getConceptConnections } from '../core/graph-index.js';
-import { isReflexiveLink } from '../core/predicates.js';
-import { addLinkToGraph, addNodeToGraph, afterDataChange, forgetLink, forgetNode, updateLinkOnGraph, updateNodeOnGraph } from '../data/mutate.js';
+import { isReflexiveLink } from '../core/link-facts.js';
+import { afterDataChange } from '../data/mutate.js';
+import { addLinkToGraph, addNodeToGraph, findConnection, forgetLink, forgetNode, getConceptConnections, updateLinkOnGraph, updateNodeOnGraph } from '../graph/graph-data.js';
+import { modalEntityExists } from './assembly.js';
 import { ModalContext } from './context.js';
 import { closeUniversalModal, openUniversalModal } from './core.js';
 import { getIsolatedConceptsAfterDeletion } from './entry.js';
-import { conceptIntegrityWarnings, confirmWarnings, connectionIntegrityWarnings, nConcepts, nLinks, philosopherIntegrityWarnings, relationIndexOf } from './integrity.js';
-import { modalEntityExists } from './registry.js';
-import { generateId } from '../util/misc.js';
+import { conceptIntegrityWarnings, connectionIntegrityWarnings, nConcepts, nLinks, philosopherIntegrityWarnings, relationIndexOf } from './integrity.js';
+
+function generateId(prefix = 'item') {
+      return `${prefix}_${Date.now()}_${Math.random().toString(36).slice(2, 11)}`;
+    }
+
+function confirmWarnings(title, warnings) {
+      if (!warnings.length) return true;
+      const body = warnings.map((s, i) => (i + 1) + '. ' + s).join('\n\n');
+      return confirm(title + '\n\n' + body + '\n\nВсё равно сохранить?');
+    }
 
 function savePhilosopherData() {
       const nameEl  = document.getElementById('philName');
@@ -346,4 +355,4 @@ function deleteConnection(sourceId = null, targetId = null) {
       }
     }
 
-export { deleteConcept, deleteConnection, deletePhilosopher, removeConceptEverywhere, removeLinkEverywhere, saveConceptData, saveConnectionData, savePhilosopherData };
+export { confirmWarnings, deleteConcept, deleteConnection, deletePhilosopher, generateId, removeConceptEverywhere, removeLinkEverywhere, saveConceptData, saveConnectionData, savePhilosopherData };

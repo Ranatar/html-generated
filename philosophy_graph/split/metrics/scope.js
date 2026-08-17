@@ -1,35 +1,13 @@
 // Сгенерировано из philosophy_graph.html — правки вносить сюда, не в исходник.
 import { DATA, MET, S } from '../core/ns.js';
+import { известить } from '../core/events.js';
 import { isNodeVisible } from '../core/visibility.js';
-import { invalidateAllMetricsCaches } from './cache.js';
 import { invalidateGraphCache } from './graph-cache.js';
-import { initializePhilosophyMetrics } from './init.js';
-import { invalidateBetweennessCache, invalidateClosenessCache, invalidateClusteringCache, invalidateEigenvectorCache, invalidateLocalCohesionCache, invalidatePageRankCache, invalidateRichClubCache, invalidateWeightedClusteringCache } from './network.js';
-import { loadStatsContent } from '../stats/modal.js';
-import { invalidateMetricCoverageCache } from '../stats/results.js';
+import { initializePhilosophyMetrics } from './link-indexes.js';
+import { invalidateEverythingForScope } from './scope-reset.js';
+import { METRIC_FLAGS, VIEW_METRIC, effectiveScopeFlags, transformForScope } from './scope-select.js';
 
-function metricsLinks() { return S.metricsLinkSource || DATA.links; }
-
-function metricsNodes() { return S.metricsNodeSource || DATA.nodes; }
-
-function transformForScope(list, useWeights, useDirection) {
-      if (useWeights && useDirection) return list;
-      return list.map(r => {
-        const copy = Object.assign({}, r);
-        if (!useWeights) copy.weight = 1;
-        if (!useDirection) copy.bidirectional = true;
-        return copy;
-      });
-    }
-
-function effectiveScopeFlags(viewName) {
-      const f = METRIC_FLAGS[VIEW_METRIC[viewName || S.currentStatsView]];
-      if (!f) return { weights: S.useWeightedPaths, direction: S.respectDirection };
-      return {
-        weights:   f.weights === 'yes' ? S.useWeightedPaths : true,
-        direction: f.direction === 'no' ? true : S.respectDirection
-      };
-    }
+S.lastScopeKey = null;
 
 function applyMetricsScope(viewName) {
       const eff = effectiveScopeFlags(viewName);
@@ -61,76 +39,6 @@ function applyMetricsScope(viewName) {
       // из старого кэша — ни пересчёта, ни кнопки «Рассчитать».
       invalidateEverythingForScope();
     }
-
-const METRIC_FLAGS = {
-      // путевые: галочки применимы начисто, это их родная область
-      calculateWeightedDegree:    { weights: 'yes', direction: 'yes' },
-      calculatePageRank:        { weights: 'yes', direction: 'yes' },
-      calculateBetweenness:       { weights: 'yes', direction: 'yes' },
-      calculateClosenessCentrality:   { weights: 'yes', direction: 'yes' },
-      calculateEigenvectorCentrality: { weights: 'yes', direction: 'yes' },
-      calculateClusteringCoefficient: { weights: 'yes', direction: 'yes' },
-      calculateWeightedClustering:  { weights: 'yes', direction: 'yes' },
-      calculateRichClubCoefficient:   { weights: 'yes', direction: 'yes' },
-      calculateLocalCohesion:     { weights: 'yes', direction: 'yes' },
-
-      // определены через ОДНО направление — галочка направленности гаснет
-      influenceIndex:      { weights: 'yes', direction: 'no' },
-      conceptualFertilityIndex:  { weights: 'yes',  direction: 'no' },
-      conceptualContinuityIndex: { weights: 'no',  direction: 'no' },
-      deductiveIndex:      { weights: 'yes',  direction: 'no' },
-      generativeIndex:       { weights: 'yes',  direction: 'no' },
-      instrumentalIndex:     { weights: 'yes',  direction: 'no' },
-      traditionBridgingIndex:  { weights: 'yes',  direction: 'no' },
-
-      // складывают входящие с исходящими — при снятой направленности вдвое
-      abstractionIndex:      { weights: 'yes', direction: 'no' },   // разностная метрика: без направленности тождественный ноль
-      criticalPowerIndex:    { weights: 'yes', direction: 'halve' },
-      dialogicalIndex:       { weights: 'yes',  direction: 'halve' },
-      internalCoherenceIndex:  { weights: 'yes',  direction: 'halve' },
-      paradigmShiftIndex:    { weights: 'yes',  direction: 'halve' },
-      problemGenerationIndex:  { weights: 'yes', direction: 'halve' },
-      revolutionaryIndex:    { weights: 'yes', direction: 'halve' },
-      syntheticIndex:      { weights: 'no',  direction: 'halve' },
-      transformationIndex:     { weights: 'yes',  direction: 'halve' },
-
-      // то же, но с ненаправленными слагаемыми от петель — приблизительно
-      conceptualComplexityIndex: { weights: 'no', direction: 'approx' },
-      foundationalIndex:     { weights: 'yes', direction: 'approx' },
-      tensionIndex:        { weights: 'yes', direction: 'approx' },
-
-      // Вес в формуле не участвует вовсе (ни одного упоминания weight),
-      // а направленность существенна.
-      temporalInfluencePattern:  { weights: 'no',  direction: 'yes' },
-
-      // не читают ни весов, ни направления
-      deductiveDepth:          { weights: 'no', direction: 'no' },
-      philosopherHistoricalReachIndex:   { weights: 'no', direction: 'no' },
-      philosopherInterdisciplinaryIndex: { weights: 'no', direction: 'no' },
-      philosopherSystematicIndex:    { weights: 'no', direction: 'no' }
-    };
-
-const VIEW_METRIC = {
-      'degree': 'calculateWeightedDegree', 'pagerank': 'calculatePageRank',
-      'betweenness': 'calculateBetweenness', 'closeness': 'calculateClosenessCentrality',
-      'eigenvector': 'calculateEigenvectorCentrality',
-      'weighted-clustering': 'calculateWeightedClustering',
-      'local-cohesion': 'calculateLocalCohesion', 'rich-club': 'calculateRichClubCoefficient',
-      'influence': 'influenceIndex', 'tension': 'tensionIndex',
-      'coherence': 'internalCoherenceIndex', 'complexity': 'conceptualComplexityIndex',
-      'problem-generation': 'problemGenerationIndex', 'critical-power': 'criticalPowerIndex',
-      'revolutionary': 'revolutionaryIndex', 'paradigm-shift': 'paradigmShiftIndex',
-      'foundational': 'foundationalIndex', 'synthetic': 'syntheticIndex',
-      'dialogical': 'dialogicalIndex', 'transformation': 'transformationIndex',
-      'fertility': 'conceptualFertilityIndex', 'continuity': 'conceptualContinuityIndex',
-      'generative': 'generativeIndex', 'instrumental': 'instrumentalIndex',
-      'abstraction': 'abstractionIndex', 'deductive': 'deductiveIndex',
-      'bridging': 'traditionBridgingIndex',
-      'temporal-influence': 'temporalInfluencePattern',
-      'philosopher-systematic': 'philosopherSystematicIndex',
-      'philosopher-reach': 'philosopherHistoricalReachIndex',
-      'philosopher-interdisciplinary': 'philosopherInterdisciplinaryIndex'
-    };
 
 function metricScopeFactor(metricName) {
       // Когда копия снята (окно закрыто), поправки быть не должно:
@@ -213,28 +121,13 @@ function updateMetricsScopeHint() {
       hint.textContent = `${c.n} концепций, ${c.l} связей`;
     }
 
-function invalidateEverythingForScope() {
-      invalidateAllMetricsCaches();
-      invalidateMetricCoverageCache();
-      if (typeof invalidateBetweennessCache === 'function') invalidateBetweennessCache();
-      if (typeof invalidatePageRankCache === 'function') invalidatePageRankCache();
-      if (typeof invalidateClosenessCache === 'function') invalidateClosenessCache();
-      if (typeof invalidateClusteringCache === 'function') invalidateClusteringCache();
-      if (typeof invalidateWeightedClusteringCache === 'function') invalidateWeightedClusteringCache();
-      if (typeof invalidateLocalCohesionCache === 'function') invalidateLocalCohesionCache();
-      if (typeof invalidateRichClubCache === 'function') invalidateRichClubCache();
-      if (typeof invalidateEigenvectorCache === 'function') invalidateEigenvectorCache();
-      if (typeof invalidateGraphCache === 'function') invalidateGraphCache();
-      S._medianDegreeCache = null;   // C5: порог связности зависит от области
-    }
-
 function handleMetricsScopeChange() {
       const el = document.getElementById('statsScopeToggle');
       S.metricsScope = (el && el.checked) ? 'filtered' : 'full';
       initializePhilosophyMetrics();
       invalidateEverythingForScope();
       updateMetricsScopeHint();
-      if (S.currentStatsView) loadStatsContent(S.currentStatsView);
+      известить('статистика-устарела');
     }
 
-export { METRIC_FLAGS, VIEW_METRIC, applyMetricsScope, effectiveScopeFlags, handleMetricsScopeChange, installMetricScopeWrappers, invalidateEverythingForScope, metricScopeFactor, metricsLinks, metricsNodes, metricsScopeCounts, transformForScope, updateMetricsScopeHint, updateScopeToggles };
+export { applyMetricsScope, handleMetricsScopeChange, installMetricScopeWrappers, metricScopeFactor, metricsScopeCounts, updateMetricsScopeHint, updateScopeToggles };

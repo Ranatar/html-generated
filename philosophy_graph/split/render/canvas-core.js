@@ -1,6 +1,6 @@
 // Сгенерировано из philosophy_graph.html — правки вносить сюда, не в исходник.
 import { S } from '../core/ns.js';
-import { requestDraw } from './scene.js';
+import { requestDraw } from './loop.js';
 
 const PICK_LINK_WIDTH = 10;
 

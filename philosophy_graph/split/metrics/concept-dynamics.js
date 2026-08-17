@@ -1,6 +1,6 @@
 // Сгенерировано из philosophy_graph.html — правки вносить сюда, не в исходник.
 import { MET, S } from '../core/ns.js';
-import { otherPhilosopher, reflexiveLinkOf, sumWeight } from '../core/predicates.js';
+import { otherPhilosopher, reflexiveLinkOf, sumWeight } from '../core/link-facts.js';
 
 let transformationIndexCache = null;
 

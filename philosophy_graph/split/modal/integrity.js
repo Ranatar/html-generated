@@ -1,8 +1,8 @@
 // Сгенерировано из philosophy_graph.html — правки вносить сюда, не в исходник.
-import { DATA, S } from '../core/ns.js';
-import { isReflexiveLink } from '../core/predicates.js';
+import { DATA } from '../core/ns.js';
+import { isReflexiveLink } from '../core/link-facts.js';
 import { isConceptIsolated } from './entry.js';
-import { philosopherBirth, philosopherYears } from '../util/format.js';
+import { philosopherBirth, philosopherYears } from '../util/philosopher-label.js';
 import { pluralRu } from '../util/ru.js';
 
 function relationIndexOf(srcId, tgtId, type) {
@@ -68,6 +68,11 @@ const nConcepts = n => pluralRu(n, 'концепцию', 'концепции', '
 
 const nLinks = n => pluralRu(n, 'связь', 'связи', 'связей');
 
+const labelOf = id => {
+      const n = DATA.nodes.find(x => x.id === id);
+      return n ? n.label : id;
+    };
+
 function connectionIntegrityWarnings(srcId, tgtId, type, weight, bidir, original) {
       const w = [];
       const t = DATA.relationTypesObj[type] || {};
@@ -111,7 +116,7 @@ function connectionIntegrityWarnings(srcId, tgtId, type, weight, bidir, original
       // 4. цикл порядка обоснования
       const cycle = groundingCyclePath(srcId, tgtId, type);
       if (cycle && cycle.length > 2) {
-        const names = cycle.map(S.labelOf);
+        const names = cycle.map(labelOf);
         const shown = names.length > 6
           ? names.slice(0, 5).join(' ⇒ ') + ' ⇒ … ⇒ ' + names[names.length - 1]
           : names.join(' ⇒ ');
@@ -243,10 +248,4 @@ function philosopherIntegrityWarnings(name, birth, death, original) {
       return w;
     }
 
-function confirmWarnings(title, warnings) {
-      if (!warnings.length) return true;
-      const body = warnings.map((s, i) => (i + 1) + '. ' + s).join('\n\n');
-      return confirm(title + '\n\n' + body + '\n\nВсё равно сохранить?');
-    }
-
-export { GROUNDING_TYPES, activityOverlap, conceptIntegrityWarnings, confirmWarnings, connectionIntegrityWarnings, groundingCyclePath, nConcepts, nLinks, philosopherIntegrityWarnings, relationIndexOf };
+export { GROUNDING_TYPES, activityOverlap, conceptIntegrityWarnings, connectionIntegrityWarnings, groundingCyclePath, labelOf, nConcepts, nLinks, philosopherIntegrityWarnings, relationIndexOf };

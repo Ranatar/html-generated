@@ -1,6 +1,68 @@
 // Сгенерировано из philosophy_graph.html — правки вносить сюда, не в исходник.
 import { DATA, S } from '../core/ns.js';
-import { selectedEdges, selectedNodes } from '../state.js';
+import { известить } from '../core/events.js';
+import { showTemporaryMessage } from '../core/long-task.js';
+import { gfxLinkAll, gfxNode } from './d3-layer.js';
+import { requestDraw } from './loop.js';
+import { выбранныеФилософы } from '../state/filters.js';
+import { selectedEdges, selectedNodes } from '../state/render.js';
+
+function highlightPhilosopherOnGraph(имя, добавить) {
+      if (добавить) {
+        if (выбранныеФилософы.has(имя)) выбранныеФилософы.delete(имя);
+        else выбранныеФилософы.add(имя);
+      } else {
+        выбранныеФилософы.clear();
+        выбранныеФилософы.add(имя);
+      }
+      if (!выбранныеФилософы.size) {
+        известить('философы-выбраны');
+        resetHighlight();
+        requestDraw();
+        return;
+      }
+
+      const свои = DATA.nodes.filter(n => выбранныеФилософы.has(n.concept));
+      if (!свои.length) return;
+
+      selectedNodes.clear();
+      selectedEdges.clear();
+      resetHighlight();
+
+      const мои = new Set(свои.map(n => n.id));
+      const конец = l => [l.source.id || l.source, l.target.id || l.target];
+      const касается = l => { const [a, b] = конец(l); return мои.has(a) || мои.has(b); };
+      const внутри  = l => { const [a, b] = конец(l); return мои.has(a) && мои.has(b); };
+
+      // СОСЕДИ ПО ВНЕШНИМ СВЯЗЯМ НЕ ГАСЯТСЯ. Прежде они гасли до 0,2, а сами
+      // связи оставались обычными — выходили «связи в никуда». У концепций
+      // четыре состояния, и третье как раз впору: выбранная (жёлтый ободок,
+      // толщина 6), подсвеченная (белый ободок 5 со свечением), обычная
+      // (белый 3), приглушённая (0,2). Жёлтый остаётся ТОЛЬКО за явным
+      // выбором — концепции философа берут подсвеченное состояние, соседи
+      // остаются обычными, и связь к ним ведёт к видимому.
+      const соседи = new Set();
+      DATA.links.forEach(l => {
+        const [a, b] = конец(l);
+        if (мои.has(a) && !мои.has(b)) соседи.add(b);
+        if (мои.has(b) && !мои.has(a)) соседи.add(a);
+      });
+
+      известить('философы-выбраны');
+      gfxNode.classed('highlighted', d => мои.has(d.id));
+      gfxNode.classed('dimmed', d => !мои.has(d.id) && !соседи.has(d.id));
+      gfxLinkAll.classed('highlighted', внутри);
+      gfxLinkAll.classed('dimmed', l => !касается(l));
+
+      requestDraw();
+      // Поле поиска чистит ВЫЗЫВАЮЩИЙ: подсветка на графе не должна знать о
+      // легенде — иначе она тянет за собой ввоз снизу вверх (замер: одно
+      // ребро 5→6 появилось ровно из-за этой строки).
+      const имена = [...выбранныеФилософы];
+      showTemporaryMessage(имена.length === 1
+        ? `${имена[0]}: концепций ${свои.length}, соседей ${соседи.size}`
+        : `Выбрано философов: ${имена.length}, концепций ${свои.length}`);
+    }
 
 function highlightNodeById(nodeId) {
       const nodeData = DATA.nodes.find(n => n.id === nodeId);
@@ -10,7 +72,7 @@ function highlightNodeById(nodeId) {
         highlightConnected([nodeData]);
         
         // Центрируем на узле
-        const nodeElement = S.gfxNode.filter(d => d.id === nodeId);
+        const nodeElement = gfxNode.filter(d => d.id === nodeId);
         if (nodeElement.size() > 0) {
           const d = nodeElement.datum();
           const transform = d3.zoomIdentity
@@ -49,6 +111,13 @@ function highlightCombined() {
       // Если ничего не выделено - сбрасываем всё
       if (selectedNodes.size === 0 && selectedEdges.size === 0) {
         resetHighlight();
+        // Показ поверх отбора держался РАДИ выделения: концепцию показали,
+        // чтобы её было видно выбранной. Выделения нет — нужды в ней нет,
+        // и кнопка «Вернуть отбор» предлагала бы отменить то, чего уже не
+        // делают. Сброс идёт ЗДЕСЬ, а не в resetHighlight: тот зовётся и
+        // при НОВОЙ подсветке, и показ снимался бы в тот же миг, что и
+        // ставился (проверено — снимался).
+        известить('выделение-снято');
         return;
       }
       
@@ -128,11 +197,11 @@ function highlightCombined() {
       // Применяем стили
       const selectedNodeIds = new Set(Array.from(selectedNodes).map(n => n.id));
       
-      S.gfxNode.classed("dimmed", d => !highlightedNodes.has(d.id))
+      gfxNode.classed("dimmed", d => !highlightedNodes.has(d.id))
         .classed("highlighted", d => highlightedNodes.has(d.id))
         .classed("selected", d => selectedNodeIds.has(d.id));
       
-      S.gfxLinkAll.classed("dimmed", l => !highlightedLinks.has(l))
+      gfxLinkAll.classed("dimmed", l => !highlightedLinks.has(l))
         .classed("highlighted", l => highlightedLinks.has(l))
         .classed("selected", l => selectedEdges.has(l));
     }
@@ -163,25 +232,25 @@ function highlightConnected(selectedDataArray) {
       // Применяем стили пакетно для лучшей производительности
       const selectedIds = new Set(selectedDataArray.map(sd => sd.id));
 
-      S.gfxNode.classed("dimmed", d => !connectedNodes.has(d.id))
+      gfxNode.classed("dimmed", d => !connectedNodes.has(d.id))
         .classed("highlighted", d => connectedNodes.has(d.id))
         .classed("selected", d => selectedIds.has(d.id));
 
       // Применяем стили к видимому пути внутри группы
-      S.gfxLinkAll.classed("dimmed", l => !connectedLinks.has(l))
+      gfxLinkAll.classed("dimmed", l => !connectedLinks.has(l))
         .classed("highlighted", l => connectedLinks.has(l));
     }
 
 function resetHighlight() {
       selectedNodes.clear();
       selectedEdges.clear();
-      S.gfxNode.classed("dimmed", false)
+      gfxNode.classed("dimmed", false)
         .classed("highlighted", false)
         .classed("selected", false);
-      S.gfxLinkAll.classed("dimmed", false)
+      gfxLinkAll.classed("dimmed", false)
         .classed("highlighted", false)
         .classed("selected", false)
         .classed("path-highlight", false);
     }
 
-export { highlightCombined, highlightConnected, highlightNodeById, isEdgeConnectedToNode, isEdgeConnectedToSelectedNodes, isNodeConnectedToSelectedEdges, resetHighlight };
+export { highlightCombined, highlightConnected, highlightNodeById, highlightPhilosopherOnGraph, isEdgeConnectedToNode, isEdgeConnectedToSelectedNodes, isNodeConnectedToSelectedEdges, resetHighlight };

@@ -1,8 +1,51 @@
 // Сгенерировано из philosophy_graph.html — правки вносить сюда, не в исходник.
 import { DATA, S } from '../core/ns.js';
+import { isReflexiveLink, isSymmetricLink } from '../core/link-facts.js';
 import { isNodeVisible } from '../core/visibility.js';
-import { initializeMetricsData } from './data.js';
-import { effectiveScopeFlags, transformForScope } from './scope.js';
+import { effectiveScopeFlags, transformForScope } from './scope-select.js';
+
+function buildIncomingLinks() {
+      const incoming = new Map();
+      S._concepts.forEach(c => incoming.set(c.id, []));
+      S._relations.forEach(r => {
+        if (isReflexiveLink(r)) return;
+        if (!incoming.has(r.target)) incoming.set(r.target, []);
+        incoming.get(r.target).push(r);
+        if (isSymmetricLink(r)) {
+          if (!incoming.has(r.source)) incoming.set(r.source, []);
+          incoming.get(r.source).push({...r, source: r.target, target: r.source});
+        }
+      });
+      return incoming;
+    }
+
+function buildOutgoingLinks() {
+      const outgoing = new Map();
+      S._concepts.forEach(c => outgoing.set(c.id, []));
+      // C3: комментарий обещал исключение петель, а кода не было:
+      // во входящих списках петель 0 из 23, в исходящих 23 из 23,
+      // и степень выхода у 23 концепций была завышена на единицу.
+      S._relations.forEach(r => {
+        if (isReflexiveLink(r)) return;
+        if (!outgoing.has(r.source)) outgoing.set(r.source, []);
+        outgoing.get(r.source).push(r);
+        if (isSymmetricLink(r)) {
+          if (!outgoing.has(r.target)) outgoing.set(r.target, []);
+          outgoing.get(r.target).push({...r, source: r.target, target: r.source});
+        }
+      });
+      return outgoing;
+    }
+
+function initializeMetricsData(conceptsData, relationsData, philosophersData) {
+      S._concepts = conceptsData;
+      S._relations = relationsData;
+      S._philosophers = philosophersData;
+      S._conceptMap = new Map(S._concepts.map(c => [c.id, c]));
+      S._philosopherMap = new Map(S._philosophers.map(p => [p.id, p]));
+      S._incomingLinks = buildIncomingLinks();
+      S._outgoingLinks = buildOutgoingLinks();
+    }
 
 function initializePhilosophyMetrics() {
       try {
@@ -73,4 +116,4 @@ function initializePhilosophyMetrics() {
       }
     }
 
-export { initializePhilosophyMetrics };
+export { buildIncomingLinks, buildOutgoingLinks, initializeMetricsData, initializePhilosophyMetrics };

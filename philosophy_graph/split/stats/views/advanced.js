@@ -1,7 +1,7 @@
 // Сгенерировано из philosophy_graph.html — правки вносить сюда, не в исходник.
 import { DATA, MET } from '../../core/ns.js';
-import { initializePhilosophyMetrics } from '../../metrics/init.js';
-import { highlightNodeById } from '../../render/selection.js';
+import { initializePhilosophyMetrics } from '../../metrics/link-indexes.js';
+
 import { generateMetricDescriptionBlock, generateMetricResults, rankKeep } from '../results.js';
 
 function generateGenerativeContent() {

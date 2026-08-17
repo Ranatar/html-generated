@@ -1,11 +1,11 @@
 // Сгенерировано из philosophy_graph.html — правки вносить сюда, не в исходник.
 import { DATA, MET, S } from '../core/ns.js';
-import { initializePhilosophyMetrics } from '../metrics/init.js';
-import { METRIC_COVERAGE_WARN } from '../metrics/thresholds.js';
-import { openUniversalModal } from './core.js';
+import { initializePhilosophyMetrics } from '../metrics/link-indexes.js';
+
+import { PROFILE_METRICS } from './profile-concept.js';
 import { freezeSimulation, unfreezeSimulation } from '../render/simulation.js';
-import { metricCoverage } from '../stats/results.js';
-import { getContrastColor } from '../util/format.js';
+import { METRIC_COVERAGE_WARN, metricCoverage } from '../stats/coverage.js';
+import { getContrastColor } from '../util/color.js';
 
 function showPhilosopherProfileModal(philosopherName) {
       if (!DATA.concepts || !DATA.relations) initializePhilosophyMetrics();
@@ -46,7 +46,7 @@ function showPhilosopherProfileModal(philosopherName) {
       };
       const allPhil = [...new Set(S._concepts.map(c => c.philosopher))];
       const philRows = [];
-      for (const [key, label, getFn] of S.PROFILE_METRICS) {
+      for (const [key, label, getFn] of PROFILE_METRICS) {
         let fn; try { fn = getFn(); } catch (e) { continue; }
         if (typeof fn !== 'function' || !own.length) continue;
         const avg = philAvg(fn, own);
@@ -63,7 +63,7 @@ function showPhilosopherProfileModal(philosopherName) {
         const cov = metricCoverage(key);
         const warn = cov && cov.zeroShare > METRIC_COVERAGE_WARN;
         philRows.push({ rank, avg, html: `<tr><td>${label}${warn ? ' <span class="profile-warn">⚠️</span>' : ''}</td>
-              <td class="profile-num">${avg.toFixed(2)}<span class="profile-rank" title="Место среди ${total} философов">&nbsp;(${rank})</span></td></tr>` });
+              <td class="profile-num">${avg.toFixed(2)}<span class="profile-rank" data-tip="Место среди ${total} философов">&nbsp;(${rank})</span></td></tr>` });
       }
       philRows.sort(S.profileOrderMode === 'rank'
         ? (a, b) => a.rank - b.rank

@@ -1,10 +1,11 @@
 // Сгенерировано из philosophy_graph.html — правки вносить сюда, не в исходник.
 import { DATA, S } from '../core/ns.js';
-import { findConnection, getConceptConnections } from '../core/graph-index.js';
 import { canEdit } from '../core/session.js';
+import { findConnection, getConceptConnections } from '../graph/graph-data.js';
 import { closeUniversalModal, openUniversalModal } from './core.js';
+import { gfxNode } from '../render/d3-layer.js';
 import { highlightConnected } from '../render/selection.js';
-import { selectedNodes } from '../state.js';
+import { selectedNodes } from '../state/render.js';
 
 function openConceptById(conceptId) {
       const node = DATA.nodes.find(n => n.id === conceptId);
@@ -74,7 +75,7 @@ function gotoNodeFromModal(nodeId) {
           highlightConnected([nodeData]);
           
           // Центрируем на узле
-          const nodeElement = S.gfxNode.filter(d => d.id === nodeId);
+          const nodeElement = gfxNode.filter(d => d.id === nodeId);
           if (nodeElement.size() > 0) {
             const d = nodeElement.datum();
             const transform = d3.zoomIdentity
@@ -103,7 +104,7 @@ function showAllConcepts(rubricId, currentConceptId) {
       if (container && button) {
         // Показываем все концепции
         container.innerHTML = relatedConcepts.map(c => `
-          <div class="concept-item" data-act-click="open-universal-modal-4" data-a1="${c.id}">
+          <div class="concept-item" data-act-click="open-universal-modal-3" data-a1="${c.id}">
             <div class="concept-color" style="background: ${DATA.philosopherConcepts[c.concept].color}"></div>
             <div class="concept-name">${c.label}</div>
             <div class="concept-philosopher">${c.concept}</div>

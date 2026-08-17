@@ -1,18 +1,14 @@
 // Сгенерировано из philosophy_graph.html — правки вносить сюда, не в исходник.
 import { DATA, S } from '../core/ns.js';
-import { isReflexiveLink } from '../core/predicates.js';
+import { isReflexiveLink } from '../core/link-facts.js';
 import { isLinkVisible, isNodeVisible } from '../core/visibility.js';
-import { LABEL_ALL_ABOVE, LABEL_HIDE_BELOW, arcParams, drawSelfLoop, fillArrow, hasNodeClass, linkDrawAlpha, linkDrawWidth, linkHoverStrokeWidth, linkVisualState, nodeLabelDy, nodeRadius, strokeLink } from './geometry.js';
+import { drawSelfLoop, fillArrow, linkDrawAlpha, linkDrawWidth, linkVisualState, strokeLink } from './draw-link.js';
+import { arcParams, linkHoverStrokeWidth } from './geometry.js';
+import { requestDraw } from './loop.js';
+import { rebuildQuadtree } from './picking.js';
+import { LABEL_ALL_ABOVE, LABEL_HIDE_BELOW, hasNodeClass, nodeLabelDy, nodeRadius } from './render-state.js';
 import { similarityColor } from './similarity-overlay.js';
-import { selectedNodes } from '../state.js';
-
-let drawScheduled = false;
-
-function requestDraw() {
-      if (drawScheduled) return;
-      drawScheduled = true;
-      requestAnimationFrame(() => { drawScheduled = false; draw(); });
-    }
+import { selectedNodes } from '../state/render.js';
 
 let animLoopRunning = false;
 
@@ -227,4 +223,18 @@ function stepRadiusAnimation() {
       if (p >= 1) S.renderState.anim = null;
     }
 
-export { DRAW_ORDER, animLoopRunning, draw, drawScheduled, ensureAnimLoop, graphIsCovered, needsContinuousAnimation, renderScene, requestDraw, startRadiusAnimation, stepRadiusAnimation };
+function updateGraphData() {
+      // nodes и links — те самые массивы, что переданы симуляции при
+      // создании, так что push/splice в них уже видны. Но d3 держит
+      // собственные индексы и предвычисленные силы, поэтому массивы
+      // надо передать заново.
+      S.simulation.nodes(DATA.nodes);
+      S.simulation.force('link').links(DATA.links);
+
+      rebuildQuadtree();   // хит-тест узлов
+      S.pickDirty = true;    // хит-тест связей (карта выбора)
+      requestDraw();
+      S.simulation.alpha(0.3).restart();
+    }
+
+export { DRAW_ORDER, animLoopRunning, draw, ensureAnimLoop, graphIsCovered, needsContinuousAnimation, renderScene, startRadiusAnimation, stepRadiusAnimation, updateGraphData };

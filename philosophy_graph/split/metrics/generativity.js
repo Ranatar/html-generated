@@ -1,6 +1,5 @@
 // Сгенерировано из philosophy_graph.html — правки вносить сюда, не в исходник.
 import { S } from '../core/ns.js';
-import { GENERATIVITY_DAMPING, GENERATIVITY_ITERATIONS } from './thresholds.js';
 
 function sameTraditionPhil(a, b) {
       if (a === b) return true;
@@ -17,6 +16,10 @@ function linkInInfluenceScope(r, ownPhilosopher, scope) {
       const same = sameTraditionPhil(ownPhilosopher, other);
       return (scope || S.influenceScope) === 'within' ? same : !same;
     }
+
+const GENERATIVITY_DAMPING = 0.85;
+
+const GENERATIVITY_ITERATIONS = 40;
 
 let _generativityCacheByScope = new Map();
 
@@ -71,4 +74,4 @@ function invalidateGenerativityCache() {
       _generativityCacheByScope = new Map();
     }
 
-export { _generativityCacheByScope, generativity, generativityScores, invalidateGenerativityCache, linkInInfluenceScope, sameTraditionPhil };
+export { GENERATIVITY_DAMPING, GENERATIVITY_ITERATIONS, _generativityCacheByScope, generativity, generativityScores, invalidateGenerativityCache, linkInInfluenceScope, sameTraditionPhil };

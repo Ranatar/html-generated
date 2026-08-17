@@ -1,6 +1,7 @@
 // Сгенерировано из philosophy_graph.html — правки вносить сюда, не в исходник.
 import { DATA, S } from '../core/ns.js';
-import { requestDraw, startRadiusAnimation } from './scene.js';
+import { requestDraw } from './loop.js';
+import { startRadiusAnimation } from './scene.js';
 
 const nodeHandlers = {};
 
@@ -46,6 +47,32 @@ function subSelection(kind, what) {
       return api;
     }
 
+const gfxNode = {
+      classed: makeClassed("node"),
+      style(name, value) { requestDraw(); return this; },
+      selectAll(what) { return subSelection("node", what === "circle" ? "circle" : "text"); },
+      on(name, fn) { nodeHandlers[name.split(".")[0]] = fn; return this; },
+      filter(fn) {
+        const hit = DATA.nodes.filter(fn);
+        return { size: () => hit.length, empty: () => hit.length === 0,
+             datum: () => hit[0], attr: () => {}, node: () => null };
+      },
+    };
+
+const gfxLink = {
+      classed: makeClassed("link"),
+      style(name, value) { requestDraw(); return this; },
+      on(name, fn) { linkHandlers[name.split(".")[0]] = fn; return this; },
+      filter(fn) { const hit = DATA.links.filter(fn);
+             return { size: () => hit.length, empty: () => hit.length === 0,
+                  datum: () => hit[0], attr: () => {} }; },
+    };
+
+const gfxLinkAll = {
+      classed(name, value) { gfxLink.classed(name, value); return gfxLinkAll; },
+      style(name, value)   { requestDraw(); return gfxLinkAll; },
+    };
+
 function updateArrows() { requestDraw(); }
 
 function dragstarted(event, d) {
@@ -63,4 +90,4 @@ function dragended(event, d) {
       d.fy = null;
     }
 
-export { dragended, dragstarted, linkHandlers, makeClassed, nodeHandlers, subSelection, updateArrows };
+export { dragended, dragstarted, gfxLink, gfxLinkAll, gfxNode, linkHandlers, makeClassed, nodeHandlers, subSelection, updateArrows };

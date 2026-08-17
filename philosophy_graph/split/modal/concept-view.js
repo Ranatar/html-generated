@@ -1,16 +1,10 @@
 // Сгенерировано из philosophy_graph.html — правки вносить сюда, не в исходник.
 import { DATA, VIEWS } from '../core/ns.js';
-import { WEIGHT_WORDS } from '../core/labels.js';
-import { medianNodeDegree, nodeDegreeOf } from '../metrics/data.js';
+import { medianNodeDegree, nodeDegreeOf } from '../metrics/network.js';
 import { nearestConcepts } from '../metrics/similarity-concepts.js';
-import { closeUniversalModal, openUniversalModal } from './core.js';
-import { gotoNodeFromModal, openConceptById, showAllConcepts } from './entry.js';
-import { showConceptProfileModal } from './profile-concept.js';
-import { toggleAllConnectionDescriptions, toggleConnectionDescription, toggleSubsection } from './toggles.js';
-import { showSimilarityOverlay } from '../render/similarity-overlay.js';
-import { clearModalSearch } from '../ui/search-core.js';
-import { handleModalSearch } from '../ui/search-modal.js';
-import { getContrastColor } from '../util/format.js';
+import { стрелкаСвязи } from './connection-view.js';
+
+import { getContrastColor } from '../util/color.js';
 
 function similarConceptsBlock(conceptId) {
       let byProfile, byStructure;
@@ -34,7 +28,7 @@ function similarConceptsBlock(conceptId) {
                 : '')
               + (x.tied ? '; неразличимо с соседней строкой' : '');
         return `
-          <div class="similar-item${x.tied ? ' similar-tied' : ''}" data-act-click="open-concept-by-id" data-a1="${x.id}" title="${tip}">
+          <div class="similar-item${x.tied ? ' similar-tied' : ''}" data-act-click="open-concept-by-id" data-a1="${x.id}" data-tip="${tip}">
             <span class="similar-name">${n.label}</span>
             <span class="similar-author">${n.concept}</span>
             <span class="similar-score">${score}${x.tied ? ' =' : ''}</span>
@@ -48,7 +42,7 @@ function similarConceptsBlock(conceptId) {
             Похожие концепции
             <button class="similar-map-btn"
                 data-act-click="show-similarity-overlay" data-a1="${conceptId}"
-                title="Раскрасить граф по сходству с этой концепцией">
+                data-tip="Раскрасить граф по сходству с этой концепцией">
               🗺️ Показать на графе
             </button>
           </div>
@@ -94,8 +88,8 @@ VIEWS.generateConceptViewContent = function generateConceptViewContent(conceptDa
         </div>
         <h2>${conceptData.label}</h2>
         <div class="philosopher-tag" style="background: ${DATA.philosopherConcepts[conceptData.concept].color}; color: ${getContrastColor(DATA.philosopherConcepts[conceptData.concept].color)}; cursor: pointer;" 
-           data-act-click="open-universal-modal-2" data-a1="${conceptData.concept}"
-           title="Кликните для просмотра информации о философе">
+           data-act-click="open-universal-modal" data-a1="${conceptData.concept}"
+           data-tip="Кликните для просмотра информации о философе">
           ${conceptData.concept}
         </div>
         <div class="description">${conceptData.extendedDescription}</div>
@@ -174,6 +168,11 @@ VIEWS.generateConceptViewContent = function generateConceptViewContent(conceptDa
           `;
           
           internalConnections.forEach(({ conn, connectedNode, isSource }) => {
+            // Пара концов нужна стрелке, чтобы открыть окно связи. Выше
+            // объявления с теми же именами живут в ДРУГОМ обходе — проверка
+            // модулей это и поймала, когда я взял их оттуда.
+            const src = conn.source.id || conn.source;
+            const tgt = conn.target.id || conn.target;
             const linkColor = DATA.relationTypesObj[conn.type].color;
             const linkLabel = DATA.relationTypesObj[conn.type].label;
             
@@ -190,11 +189,8 @@ VIEWS.generateConceptViewContent = function generateConceptViewContent(conceptDa
             html += `
               <div class="connection-item">
                 <div class="concept-color" style="background: ${DATA.philosopherConcepts[connectedNode.concept].color}"></div>
-                <div class="connection-arrow cw-${conn.weight || 2}" style="color: ${linkColor};" title="${linkLabel}, вес ${conn.weight || 2} — ${WEIGHT_WORDS[conn.weight || 2]}">
-                  ${arrow}
-                  <span class="connection-arrow-tooltip">${linkLabel} · вес ${conn.weight || 2}</span>
-                </div>
-                <div style="flex-grow: 1;" data-act-click="open-universal-modal-3" data-a1="${connectedNode.id}">
+                ${стрелкаСвязи(arrow, linkColor, conn.weight, linkLabel, '', src, tgt)}
+                <div style="flex-grow: 1;" data-act-click="open-universal-modal-2" data-a1="${connectedNode.id}">
                   <div class="concept-name">${connectedNode.label}</div>
                   <div class="concept-philosopher">${connectedNode.concept}</div>
                 </div>
@@ -233,6 +229,8 @@ VIEWS.generateConceptViewContent = function generateConceptViewContent(conceptDa
           `;
           
           externalConnections.forEach(({ conn, connectedNode, isSource }) => {
+            const src = conn.source.id || conn.source;
+            const tgt = conn.target.id || conn.target;
             const linkColor = DATA.relationTypesObj[conn.type].color;
             const linkLabel = DATA.relationTypesObj[conn.type].label;
             
@@ -249,11 +247,8 @@ VIEWS.generateConceptViewContent = function generateConceptViewContent(conceptDa
             html += `
               <div class="connection-item">
                 <div class="concept-color" style="background: ${DATA.philosopherConcepts[connectedNode.concept].color}"></div>
-                <div class="connection-arrow cw-${conn.weight || 2}" style="color: ${linkColor};" title="${linkLabel}, вес ${conn.weight || 2} — ${WEIGHT_WORDS[conn.weight || 2]}">
-                  ${arrow}
-                  <span class="connection-arrow-tooltip">${linkLabel} · вес ${conn.weight || 2}</span>
-                </div>
-                <div style="flex-grow: 1;" data-act-click="open-universal-modal-3" data-a1="${connectedNode.id}">
+                ${стрелкаСвязи(arrow, linkColor, conn.weight, linkLabel, '', src, tgt)}
+                <div style="flex-grow: 1;" data-act-click="open-universal-modal-2" data-a1="${connectedNode.id}">
                   <div class="concept-name">${connectedNode.label}</div>
                   <div class="concept-philosopher">${connectedNode.concept}</div>
                 </div>
@@ -306,7 +301,7 @@ VIEWS.generateConceptViewContent = function generateConceptViewContent(conceptDa
                   <div class="related-title">Также в этой рубрике (${relatedConcepts.length}):</div>
                   <div id="${showAllId}-container">
                     ${relatedConcepts.slice(0, initialDisplay).map(c => `
-                      <div class="concept-item" data-act-click="open-universal-modal-4" data-a1="${c.id}">
+                      <div class="concept-item" data-act-click="open-universal-modal-3" data-a1="${c.id}">
                         <div class="concept-color" style="background: ${DATA.philosopherConcepts[c.concept].color}"></div>
                         <div class="concept-name">${c.label}</div>
                         <div class="concept-philosopher">${c.concept}</div>

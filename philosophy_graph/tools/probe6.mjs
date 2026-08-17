@@ -28,22 +28,19 @@ import { ХЕШ as HASH, объяснить } from './snapshot.mjs';
 
 
 const RIG_MODULE = `
-import { S, DATA } from './core/ns.js';
-import { openConceptById } from './modal/entry.js';
-import { closeUniversalModal, openUniversalModal, toggleModalMode } from './modal/core.js';
-import { openEditConceptModal, openEditConnectionModal } from './modal/entry.js';
-import { openAuthModal, submitAuth, closeAuthModal } from './modal/auth.js';
-import { findConnection } from './core/graph-index.js';
-window.__rig = { openConceptById, closeUniversalModal, openUniversalModal, toggleModalMode,
-  openEditConceptModal, openEditConnectionModal, openAuthModal, submitAuth, closeAuthModal,
-  findConnection,
-  D: function (k) { return DATA[k]; },
-  nodes: function () { return DATA.nodes; },
-  links: function () { return DATA.links; },
-  индекс: function () { return {
-    philosopherConcepts: DATA.philosopherConcepts,
-    conceptToRubrics: DATA.conceptToRubrics,
-    philosopherIdToName: DATA.philosopherIdToName }; } };
+import './_probe-rig.js';
+const A = window.__app;
+window.__rig = { openConceptById: A.openConceptById, closeUniversalModal: A.closeUniversalModal,
+  openUniversalModal: A.openUniversalModal, toggleModalMode: A.toggleModalMode,
+  openEditConceptModal: A.openEditConceptModal, openEditConnectionModal: A.openEditConnectionModal,
+  openAuthModal: A.openAuthModal, submitAuth: A.submitAuth, closeAuthModal: A.closeAuthModal,
+  findConnection: A.findConnection,
+  D: k => A.DATA[k],
+  nodes: () => A.DATA.nodes,
+  links: () => A.DATA.links,
+  индекс: () => ({ philosopherConcepts: A.DATA.philosopherConcepts,
+    conceptToRubrics: A.DATA.conceptToRubrics,
+    philosopherIdToName: A.DATA.philosopherIdToName }) };
 window.__rigReady = true;`;
 
 const RIG_CLASSIC = `
@@ -84,7 +81,7 @@ async function run(label) {
     try { await d.accept(); } catch (e) {}
   });
 
-  await page.goto(BASE + label, { waitUntil: 'networkidle0', timeout: 60000 });
+  await page.goto(BASE + label, { waitUntil: 'domcontentloaded', timeout: 60000 });
   await wait(4000);
   await page.addScriptTag(label.startsWith('_ref')
     ? { content: RIG_CLASSIC } : { type: 'module', content: RIG_MODULE });

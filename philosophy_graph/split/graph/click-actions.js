@@ -1,11 +1,12 @@
 // Сгенерировано из philosophy_graph.html — правки вносить сюда, не в исходник.
 import { S } from '../core/ns.js';
+import { известить } from '../core/events.js';
 import { canEdit } from '../core/session.js';
-import { handleConceptSelection } from '../data/mutate.js';
-import { openUniversalModal } from '../modal/core.js';
-import { openEditConceptModal, openEditConnectionModal, showDetailModal } from '../modal/entry.js';
+import { handleConceptSelection } from './graph-selection.js';
+import { gfxNode } from '../render/d3-layer.js';
 import { highlightCombined, isEdgeConnectedToSelectedNodes, isNodeConnectedToSelectedEdges } from '../render/selection.js';
-import { editMode, selectedEdges, selectedNodes } from '../state.js';
+import { editMode } from '../state/edit.js';
+import { selectedEdges, selectedNodes } from '../state/render.js';
 
 let clickTimer = null;
 
@@ -42,17 +43,17 @@ function handleNodeClick(event, d) {
               // Второй клик на том же узле - редактирование концепции
               if (firstConceptId === d.id) {
                 editMode.pendingConceptSelection = [];
-                S.gfxNode.classed('selected', false);
-                openEditConceptModal(d.id);
+                gfxNode.classed('selected', false);
+                известить('править-концепцию', d.id);
               } else {
                 // Второй клик на другом узле - редактирование связи
                 editMode.pendingConceptSelection = [];
-                S.gfxNode.classed('selected', false);
-                openEditConnectionModal(firstConceptId, d.id);
+                gfxNode.classed('selected', false);
+                известить('править-связь', firstConceptId, d.id);
               }
             } else {
               editMode.pendingConceptSelection = [d.id];
-              S.gfxNode.classed('selected', n => n.id === d.id);
+              gfxNode.classed('selected', n => n.id === d.id);
             }
             
             clickCount = 0;
@@ -62,8 +63,8 @@ function handleNodeClick(event, d) {
         } else if (clickCount === 2) {
           // Shift+ДВОЙНОЙ клик - редактирование концепции
           editMode.pendingConceptSelection = [];
-          S.gfxNode.classed('selected', false);
-          openEditConceptModal(d.id);
+          gfxNode.classed('selected', false);
+          известить('править-концепцию', d.id);
           
           clickCount = 0;
           clickTimer = null;
@@ -75,7 +76,7 @@ function handleNodeClick(event, d) {
       // Отменяем выбор если кликнули без shift
       if (editMode.pendingConceptSelection.length > 0) {
         editMode.pendingConceptSelection = [];
-        S.gfxNode.classed('selected', false);
+        gfxNode.classed('selected', false);
       }
       
       // Обычная логика клика
@@ -123,7 +124,7 @@ function handleNodeClick(event, d) {
         }, 300);
       } else if (clickCount === 2) {
         // Двойной клик - детальная информация об узле
-        showDetailModal(d);
+        известить('открыть-концепцию', d);
         clickCount = 0;
         clickTimer = null;
         lastClickedNode = null;
@@ -139,7 +140,7 @@ function handleLinkClick(event, d) {
       
       // Shift+клик - редактирование связи
       if (event.shiftKey && canEdit()) {           // ЗАСЛОН ПРАВКИ
-        openEditConnectionModal(d.source.id || d.source, d.target.id || d.target);
+        известить('править-связь', d.source.id || d.source, d.target.id || d.target);
         return;
       }
 
@@ -157,7 +158,7 @@ function handleLinkClick(event, d) {
         }
         // двойной клик — окно связи
         linkClickCount = 0;
-        openUniversalModal('connection', d, 'view');
+        известить('открыть-связь', d);
         return;
       }
       handleLinkSelect(event, d);

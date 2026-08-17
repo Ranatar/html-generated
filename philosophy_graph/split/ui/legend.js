@@ -1,8 +1,16 @@
 // Сгенерировано из philosophy_graph.html — правки вносить сюда, не в исходник.
 import { DATA, S } from '../core/ns.js';
-import { relationHint } from '../core/labels.js';
+import { relationHint } from '../core/relation-types.js';
 import { applyFilters, philosopherPassesTraditions } from '../filters/filters.js';
 import { updateArrows } from '../render/d3-layer.js';
+import { выбранныеФилософы } from '../state/filters.js';
+
+function отметитьВыбранныхВЛегенде() {
+      document.querySelectorAll('#philosopherFilters .legend-item').forEach(item => {
+        const cb = item.querySelector('input[type="checkbox"]');
+        item.classList.toggle('phil-chosen', !!cb && выбранныеФилософы.has(cb.value));
+      });
+    }
 
 function initFilters() {
       // ДЕФЕКТ U-3: прежде функция ДОПИСЫВАЛА в контейнеры, не очищая их.
@@ -22,7 +30,7 @@ function initFilters() {
         item.className = 'legend-item';
         item.innerHTML = `
           <input type="checkbox" id="phil-${name}" value="${name}" checked data-act-change="toggle-philosopher-change" data-a1="${name}">
-          <label for="phil-${name}">
+          <label class="phil-row-label">
             <div class="legend-color" style="background: ${data.color}"></div>
             <span>${name}<small style="color: var(--fg-muted); font-size: 9px;"> (${data.years})</small></span>
           </label>
@@ -38,7 +46,7 @@ function initFilters() {
         const hint = relationHint(type).replace(/"/g, '&quot;');
         item.innerHTML = `
           <input type="checkbox" id="rel-${type}" checked data-act-change="toggle-relation-change" data-a1="${type}">
-          <label for="rel-${type}" title="${hint}">
+          <label for="rel-${type}" data-tip="${hint}">
             <div class="legend-line" style="background: ${typeData.color}"></div>
             <span>${typeData.label}<span class="legend-hint-mark">?</span></span>
           </label>
@@ -56,12 +64,12 @@ function initFilters() {
           const hint = (tr.description || '').replace(/"/g, '&quot;');
           item.innerHTML = `
             <input type="checkbox" id="trad-${tr.id}" checked data-act-change="toggle-tradition-change" data-a1="${tr.id}">
-            <label for="trad-${tr.id}" title="${hint}" style="flex:1;">
+            <label for="trad-${tr.id}" data-tip="${hint}" style="flex:1;">
               <span>${tr.name}<small style="color: var(--fg-muted);font-size:9px;"> (${members.length})</small></span>
             </label>
-            <button class="tradition-pick" title="Оставить в отборе только этих философов"
+            <button class="tradition-pick" data-tip="Оставить в отборе только этих философов"
                 data-act-click="only-tradition" data-a1="${tr.id}">=</button>
-            <button class="tradition-pick" title="Добавить этих к выбранным философам"
+            <button class="tradition-pick" data-tip="Добавить этих к выбранным философам"
                 data-act-click="add-tradition" data-a1="${tr.id}">+</button>
           `;
           tradContainer.appendChild(item);
@@ -272,7 +280,8 @@ function updatePhilosopherDimming() {
         if (!row) return;
         const dim = cb.checked && !philosopherPassesTraditions(name);
         row.style.opacity = dim ? '0.35' : '';
-        row.title = dim ? 'Отсечён отбором по традициям' : '';
+        if (dim) row.setAttribute('data-tip', 'Отсечён отбором по традициям');
+        else row.removeAttribute('data-tip');
       });
     }
 
@@ -288,4 +297,40 @@ function updateFilterStats() {
         `Показано: ${visibleNodesCount}/${totalNodes} концепций, ${visibleLinksCount}/${totalLinks} связей`;
     }
 
-export { addTradition, changeFilterMode, deselectAllPhilosophers, deselectAllRelations, deselectAllRubrics, deselectAllTraditions, initFilters, onlyTradition, selectAllPhilosophers, selectAllRelations, selectAllRubrics, selectAllTraditions, syncPhilosopherCheckboxes, togglePhilosopher, toggleRelation, toggleRubric, toggleSection, toggleTradition, toggleUniformLinkWidth, traditionMembers, updateFilterStats, updatePhilosopherDimming };
+function togglePanel(panelId) {
+      const panel = document.getElementById(panelId);
+      const isCollapsed = panel.classList.contains('collapsed');
+      
+      if (isCollapsed) {
+        panel.classList.remove('collapsed');
+        // Меняем иконку на минус
+        const btn = panel.querySelector('.collapse-btn .expand-icon');
+        btn.textContent = '−';
+        // Сохраняем состояние
+        localStorage.setItem(`${panelId}_collapsed`, 'false');
+      } else {
+        panel.classList.add('collapsed');
+        // Меняем иконку на плюс
+        const btn = panel.querySelector('.collapse-btn .expand-icon');
+        btn.textContent = '+';
+        // Сохраняем состояние
+        localStorage.setItem(`${panelId}_collapsed`, 'true');
+      }
+    }
+
+function restorePanelStates() {
+      const panels = ['pathFinder', 'statsPanel'];
+      
+      panels.forEach(panelId => {
+        const collapsed = localStorage.getItem(`${panelId}_collapsed`) === 'true';
+        if (collapsed) {
+          const panel = document.getElementById(panelId);
+          if (!panel) return;   // Б15: statsPanel в разметке отсутствует
+          panel.classList.add('collapsed');
+          const btn = panel.querySelector('.collapse-btn .expand-icon');
+          if (btn) btn.textContent = '+';
+        }
+      });
+    }
+
+export { addTradition, changeFilterMode, deselectAllPhilosophers, deselectAllRelations, deselectAllRubrics, deselectAllTraditions, initFilters, onlyTradition, restorePanelStates, selectAllPhilosophers, selectAllRelations, selectAllRubrics, selectAllTraditions, syncPhilosopherCheckboxes, togglePanel, togglePhilosopher, toggleRelation, toggleRubric, toggleSection, toggleTradition, toggleUniformLinkWidth, traditionMembers, updateFilterStats, updatePhilosopherDimming, отметитьВыбранныхВЛегенде };

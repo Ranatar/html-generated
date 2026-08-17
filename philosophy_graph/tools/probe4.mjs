@@ -21,17 +21,15 @@ import { ХЕШ as HASH, объяснить } from './snapshot.mjs';
 
 
 const RIG_MODULE = `
-import { S, DATA } from './core/ns.js';
-import { freezeSimulation } from './render/simulation.js';
-import { pickNode, toGraph } from './render/picking.js';
-import { exportToSVG, exportToPNG } from './ui/export.js';
-window.__rig = { S: S, DATA: DATA, freezeSimulation: freezeSimulation,
-  pickNode: pickNode, toGraph: toGraph, exportToSVG: exportToSVG, exportToPNG: exportToPNG,
-  nodes: function () { return DATA.nodes; },
-  transform: function () { return S.renderState.transform; },
-  canvas: function () { return S.gfxCanvas; },
-  simulation: function () { return S.simulation; },
-  tickCount: function () { return S.tickCount; } };
+import './_probe-rig.js';
+const A = window.__app;
+window.__rig = { S: A.S, DATA: A.DATA, freezeSimulation: A.freezeSimulation,
+  pickNode: A.pickNode, toGraph: A.toGraph, exportToSVG: A.exportToSVG, exportToPNG: A.exportToPNG,
+  nodes: function () { return A.DATA.nodes; },
+  transform: function () { return A.S.renderState.transform; },
+  canvas: function () { return A.S.gfxCanvas; },
+  simulation: function () { return A.S.simulation; },
+  tickCount: function () { return A.S.tickCount; } };
 window.__rigReady = true;`;
 
 const RIG_CLASSIC = `
@@ -77,7 +75,7 @@ async function run(label) {
     if (m.type() === 'error' && !u.includes('favicon')) errs.push('console: ' + m.text().slice(0, 160));
   });
 
-  await page.goto(BASE + label, { waitUntil: 'networkidle0', timeout: 60000 });
+  await page.goto(BASE + label, { waitUntil: 'domcontentloaded', timeout: 60000 });
   await wait(3500);
   const модуль = !label.startsWith('_ref');
   await page.addScriptTag(модуль ? { type: 'module', content: RIG_MODULE } : { content: RIG_CLASSIC });

@@ -3,6 +3,8 @@ import { MET, S } from '../core/ns.js';
 import { applyMetricMode } from './format.js';
 import { philosopherProfile } from './philosopher.js';
 
+S.generateRankingsCache = null;
+
 function generateRankings() {
       // C1: рейтинги подчиняются тому же переключателю ÷/×, что и карточки
       // отдельных метрик. Кеш зависит от режима, иначе переключение

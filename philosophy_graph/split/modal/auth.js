@@ -1,7 +1,8 @@
 // Сгенерировано из philosophy_graph.html — правки вносить сюда, не в исходник.
-import { AUTH_ADMIN, authAccounts, authSession, canEdit } from '../core/session.js';
+import { AUTH_ADMIN, authAccounts, authSession } from '../core/session.js';
 import { ModalContext } from './context.js';
-import { openUniversalModal, toggleModalMode } from './core.js';
+import { toggleModalMode } from './core.js';
+import { refreshEditHints, refreshOpenModalToolbar, renderAuthControls } from './edit-rights.js';
 
 let authModalKind = 'login';
 
@@ -157,46 +158,4 @@ function authLogout() {
       }
     }
 
-function refreshOpenModalToolbar() {
-      const modal = document.getElementById('universalModal');
-      if (!modal || !modal.classList.contains('show')) return;
-      if (!ModalContext.currentEntity) return;
-      openUniversalModal(ModalContext.currentEntity,
-                 ModalContext.currentData,
-                 ModalContext.currentMode,
-                 { noPush: true });
-    }
-
-function renderAuthControls() {
-      const box = document.getElementById('authButtons');
-      if (!box) return;
-      const u = authSession.user;
-      if (!u) {
-        box.innerHTML =
-          '<button data-act-click="open-auth-modal">🔑 Вход</button>'
-        + '<button data-act-click="open-auth-modal-2">📝 Регистрация</button>';
-      } else {
-        box.innerHTML =
-          '<button data-act-click="auth-logout">🚪 Выйти</button>'
-        + '<span id="authWho">' + u.login
-        + (u.role === 'admin' ? ' · правка открыта' : '') + '</span>';
-      }
-    }
-
-function refreshEditHints() {
-      const may = canEdit();
-      const philHeader = Array.from(document.querySelectorAll('.legend-section h4'))
-        .find(h => h.textContent.includes('Философ'));
-      if (philHeader) {
-        philHeader.style.cursor = may ? 'pointer' : '';
-        if (may) philHeader.title = 'Shift+клик для добавления философа';
-        else philHeader.removeAttribute('title');
-      }
-      document.querySelectorAll('.legend-item').forEach(item => {
-        item.title = may
-          ? 'Двойной клик - детальная информация, Shift+клик - редактирование'
-          : 'Двойной клик - детальная информация';
-      });
-    }
-
-export { authError, authLogout, authModalEl, authModalKind, authNoticeAdmin, authNoticeMember, closeAuthModal, openAuthModal, refreshEditHints, refreshOpenModalToolbar, renderAuthControls, showAuthNotice, submitAuth };
+export { authError, authLogout, authModalEl, authModalKind, authNoticeAdmin, authNoticeMember, closeAuthModal, openAuthModal, showAuthNotice, submitAuth };

@@ -1,11 +1,13 @@
 // Сгенерировано из philosophy_graph.html — правки вносить сюда, не в исходник.
 import { DATA, S } from '../core/ns.js';
-import { isSymmetricLink } from '../core/predicates.js';
+import { isSymmetricLink } from '../core/link-facts.js';
+import { showTemporaryMessage } from '../core/long-task.js';
 import { isLinkVisible, isNodeVisible } from '../core/visibility.js';
-import { arrowPoints, arrowPointsStart, hasNodeClass, linkDrawAlpha, linkDrawWidth, linkHasTwoHeads, linkVisualState, nodeLabelDy, nodeRadius } from '../render/geometry.js';
+import { linkDrawAlpha, linkDrawWidth, linkVisualState } from '../render/draw-link.js';
+import { arrowPoints, arrowPointsStart, linkHasTwoHeads } from '../render/geometry.js';
+import { hasNodeClass, nodeLabelDy, nodeRadius } from '../render/render-state.js';
 import { DRAW_ORDER, renderScene } from '../render/scene.js';
-import { selectedNodes } from '../state.js';
-import { showTemporaryMessage } from './feedback.js';
+import { selectedNodes } from '../state/render.js';
 
 function exportToPNG() {
       try {

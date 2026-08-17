@@ -1,9 +1,9 @@
 // Сгенерировано из philosophy_graph.html — правки вносить сюда, не в исходник.
 import { DATA, MET } from '../../core/ns.js';
-import { initializePhilosophyMetrics } from '../../metrics/init.js';
+import { initializePhilosophyMetrics } from '../../metrics/link-indexes.js';
 import { philosopherProfile } from '../../metrics/philosopher.js';
-import { influenceScopeSwitcher } from '../../metrics/philosophical.js';
 import { generateMetricDescriptionBlock, rankKeep } from '../results.js';
+import { influenceScopeSwitcher } from './philosophical.js';
 
 function generatePhilosopherProfileContent() {
       if (!DATA.concepts || !DATA.relations) {

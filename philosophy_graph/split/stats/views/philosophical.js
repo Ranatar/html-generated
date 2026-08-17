@@ -1,8 +1,36 @@
 // Сгенерировано из philosophy_graph.html — правки вносить сюда, не в исходник.
-import { DATA, MET } from '../../core/ns.js';
-import { initializePhilosophyMetrics } from '../../metrics/init.js';
-import { influenceScopeSwitcher } from '../../metrics/philosophical.js';
+import { DATA, MET, S } from '../../core/ns.js';
+import { известить } from '../../core/events.js';
+import { initializePhilosophyMetrics } from '../../metrics/link-indexes.js';
+import { INFLUENCE_SCOPE_LABELS, invalidateInfluenceIndexCache } from '../../metrics/philosophical.js';
+import { invalidateGeneratePhilosopherRankingsCache } from '../../metrics/rankings.js';
 import { generateMetricResults, rankKeep } from '../results.js';
+
+function setInfluenceScope(scope) {
+      if (!INFLUENCE_SCOPE_LABELS[scope] || scope === S.influenceScope) return;
+      S.influenceScope = scope;
+      invalidateInfluenceIndexCache();
+      invalidateGeneratePhilosopherRankingsCache();
+      // Рейтинги концепций сложены в третий кеш и тоже держали бы
+      // прежние числа: у них есть своя строка «Самые влиятельные».
+      S.generateRankingsCache = null;
+      известить('статистика-устарела');
+    }
+
+function influenceScopeSwitcher() {
+      return `
+        <div class="influence-scope">
+          <span class="influence-scope-label">Влияние:</span>
+          ${Object.entries(INFLUENCE_SCOPE_LABELS).map(([k, v]) => `
+            <button class="influence-scope-btn${S.influenceScope === k ? ' active' : ''}"
+                data-act-click="set-influence-scope" data-a1="${k}">${v}</button>
+          `).join('')}
+          <span class="influence-scope-note">${S.influenceScope === 'all'
+            ? 'итог в точности прежний'
+            : 'считается по разметке традиций'}</span>
+        </div>
+      `;
+    }
 
 function generateProblemGenerationContent() {
       if (!DATA.concepts || !DATA.relations) {
@@ -274,15 +302,15 @@ function generateTensionContent() {
               <div class="tension-breakdown-bar">
                 <div class="tension-segment tension-immanent" 
                    style="width: ${immanentPercent}%"
-                   title="Противоречие: ${r.immanent.toFixed(1)}">
+                   data-tip="Противоречие: ${r.immanent.toFixed(1)}">
                 </div>
                 <div class="tension-segment tension-polemical" 
                    style="width: ${polemicalPercent}%"
-                   title="Опосредование: ${r.polemical.toFixed(1)}">
+                   data-tip="Опосредование: ${r.polemical.toFixed(1)}">
                 </div>
                 <div class="tension-segment tension-dialectical" 
                    style="width: ${dialecticalPercent}%"
-                   title="Разрешение: ${r.dialectical.toFixed(1)}">
+                   data-tip="Разрешение: ${r.dialectical.toFixed(1)}">
                 </div>
               </div>
               
@@ -416,4 +444,4 @@ function generateTensionContent() {
       );
     }
 
-export { generateCoherenceContent, generateCriticalPowerContent, generateDialogicalContent, generateFoundationalContent, generateInfluenceContent, generateParadigmShiftContent, generateProblemGenerationContent, generateRevolutionaryContent, generateSyntheticContent, generateTensionContent };
+export { generateCoherenceContent, generateCriticalPowerContent, generateDialogicalContent, generateFoundationalContent, generateInfluenceContent, generateParadigmShiftContent, generateProblemGenerationContent, generateRevolutionaryContent, generateSyntheticContent, generateTensionContent, influenceScopeSwitcher, setInfluenceScope };

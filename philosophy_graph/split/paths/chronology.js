@@ -1,6 +1,24 @@
 // Сгенерировано из philosophy_graph.html — правки вносить сюда, не в исходник.
 import { DATA, S } from '../core/ns.js';
-import { CHRONOLOGY_MODES, MATURITY_AGE } from '../core/labels.js';
+import { CHRONOLOGY_MODES, MATURITY_AGE } from '../core/time.js';
+
+function летУзла(id) {
+      const n = DATA_nodes_find(id);
+      if (!n) return null;
+      const ф = DATA.philosophers.find(p => p.nameRu === n.concept);
+      return ф ? ф.birth : null;
+    }
+
+function DATA_nodes_find(id) { return DATA.nodes.find(n => n.id === id); }
+
+function шагБезРазрыва(отId, кId, ход, крайний) {
+      const a = DATA_nodes_find(отId), b = DATA_nodes_find(кId);
+      if (!a || !b) return true;
+      if (a.concept === b.concept) return true;   // внутри философа — свободно
+      const г = летУзла(кId);
+      if (г === null || крайний === null) return true;
+      return ход > 0 ? г >= крайний : г <= крайний;
+    }
 
 function strictChronologyCheck(fromPhil, toPhil) {
       // Периоды активной деятельности (с MATURITY_AGE лет до смерти)
@@ -119,4 +137,4 @@ function isChronologicallyValid(fromNodeId, toNodeId, mode = S.currentChronology
       }
     }
 
-export { isChronologicallyValid, looseChronologyCheck, moderateChronologyCheck, strictChronologyCheck };
+export { DATA_nodes_find, isChronologicallyValid, looseChronologyCheck, moderateChronologyCheck, strictChronologyCheck, летУзла, шагБезРазрыва };

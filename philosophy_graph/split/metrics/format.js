@@ -1,6 +1,6 @@
 // Сгенерировано из philosophy_graph.html — правки вносить сюда, не в исходник.
 import { S } from '../core/ns.js';
-import { loadStatsContent } from '../stats/modal.js';
+import { известить } from '../core/events.js';
 
 function conceptDegreeForNorm(conceptId) {
       let d = 0;
@@ -25,7 +25,7 @@ function applyMetricMode(conceptId, value) {
 function toggleMetricValueMode() {
       S.metricValueMode = S.metricValueMode === 'raw' ? 'normalized' : 'raw';
       S.generateRankingsCache = null;   // C1: рейтинги пересчитываются в новом режиме
-      if (S.currentStatsView) loadStatsContent(S.currentStatsView);
+      известить('статистика-устарела');
     }
 
 export { applyMetricMode, conceptDegreeForNorm, normalizeMetricValue, toggleMetricValueMode };

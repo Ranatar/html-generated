@@ -1,14 +1,34 @@
 // Сгенерировано из philosophy_graph.html — правки вносить сюда, не в исходник.
-import { DATA, S } from '../core/ns.js';
-import { initializePhilosophyMetrics } from '../metrics/init.js';
+import { DATA, MET, S } from '../core/ns.js';
+import { initializePhilosophyMetrics } from '../metrics/link-indexes.js';
 import { metricsScopeCounts } from '../metrics/scope.js';
-import { METRIC_COVERAGE_WARN } from '../metrics/thresholds.js';
-import { openUniversalModal } from './core.js';
-import { showPhilosopherProfileModal } from './profile-philosopher.js';
+
 import { freezeSimulation, unfreezeSimulation } from '../render/simulation.js';
-import { openStatsModal, switchStatsView } from '../stats/modal.js';
-import { metricCoverage } from '../stats/results.js';
-import { getContrastColor } from '../util/format.js';
+import { METRIC_COVERAGE_WARN, metricCoverage } from '../stats/coverage.js';
+
+import { getContrastColor } from '../util/color.js';
+
+const PROFILE_METRICS = [
+      ['problem-generation', 'Проблемность',    () => MET.problemGenerationIndex],
+      ['critical-power',   'Критическая сила',  () => MET.criticalPowerIndex],
+      ['revolutionary',    'Революционность',   () => MET.revolutionaryIndex],
+      ['paradigm-shift',   'Смена парадигмы',   () => MET.paradigmShiftIndex],
+      ['influence',      'Влияние',       () => MET.influenceIndex],
+      ['foundational',     'Фундаментальность',   () => MET.foundationalIndex],
+      ['synthetic',      'Синтетичность',     () => MET.syntheticIndex],
+      ['dialogical',     'Диалогичность',     () => MET.dialogicalIndex],
+      ['coherence',      'Связность',       () => MET.internalCoherenceIndex],
+      ['tension',      'Напряжение',      () => MET.tensionIndex],
+      ['transformation',   'Трансформация',     () => MET.transformationIndex],
+      ['fertility',      'Плодовитость',    () => MET.conceptualFertilityIndex],
+      ['complexity',     'Сложность',       () => MET.conceptualComplexityIndex],
+      ['continuity',     'Преемственность',   () => MET.conceptualContinuityIndex],
+      ['generative',     'Генеративность',    () => MET.generativeIndex],
+      ['instrumental',     'Инструментальность',  () => MET.instrumentalIndex],
+      ['abstraction',    'Абстрактность',     () => MET.abstractionIndex],
+      ['deductive',      'Дедуктивность',     () => MET.deductiveIndex],
+      ['bridging',       'Мостовость',      () => MET.traditionBridgingIndex]
+    ];
 
 function metricPercentile(fn, conceptId, value) {
       const vals = [];
@@ -89,7 +109,7 @@ function showConceptProfileModal(conceptId) {
       // и сильные стороны понятия приходилось выискивать глазами.
       // Теперь метрики идут по убыванию процентиля.
       const profileRows = [];
-      for (const [key, label, getFn] of S.PROFILE_METRICS) {
+      for (const [key, label, getFn] of PROFILE_METRICS) {
         let fn; try { fn = getFn(); } catch (e) { continue; }
         if (typeof fn !== 'function') continue;
         let res, val = 0;
@@ -103,11 +123,11 @@ function showConceptProfileModal(conceptId) {
         const parts = metricPartsText(res);
         profileRows.push({ pct, rank: rk.rank, html: `
           <tr class="profile-row" data-act-click="close-concept-profile-modal-2" data-a1="${key}"
-            title="Открыть окно статистики на вкладке «${label}»">
-            <td>${label}${warn ? ' <span class="profile-warn" title="Ненулевых значений ' + cov.nonZero + ' из ' + cov.total + ' — метрика предварительная">⚠️</span>' : ''}</td>
+            data-tip="Открыть окно статистики на вкладке «${label}»">
+            <td>${label}${warn ? ' <span class="profile-warn" data-tip="Ненулевых значений ' + cov.nonZero + ' из ' + cov.total + ' — метрика предварительная">⚠️</span>' : ''}</td>
             <td class="profile-num">${val.toFixed(2)}</td>
             <td class="profile-num">${norm.toFixed(3)}</td>
-            <td class="profile-num">${pct}<span class="profile-rank" title="Место среди ${rk.total} концепций базы">&nbsp;(${rk.rank})</span></td>
+            <td class="profile-num">${pct}<span class="profile-rank" data-tip="Место среди ${rk.total} концепций базы">&nbsp;(${rk.rank})</span></td>
             <td><div class="profile-bar"><span style="width:${pct}%"></span></div></td>
           </tr>
           ${parts ? `<tr><td colspan="5" class="profile-parts">${parts}</td></tr>` : ''}
@@ -138,7 +158,7 @@ function showConceptProfileModal(conceptId) {
         <table class="profile-table">
           <thead><tr>
             <th>Метрика</th><th class="profile-num">Сырое</th>
-            <th class="profile-num">На связь</th><th class="profile-num">%</th><th>Процентиль <button class="profile-order-btn" data-act-click="stop-propagation-5" data-a1="${conceptId}" title="Порядок строк: по месту в рейтинге или по процентилю">${S.profileOrderMode === 'rank' ? 'по месту' : 'по процентилю'}</button></th>
+            <th class="profile-num">На связь</th><th class="profile-num">%</th><th>Процентиль <button class="profile-order-btn" data-act-click="stop-propagation-5" data-a1="${conceptId}" data-tip="Порядок строк: по месту в рейтинге или по процентилю">${S.profileOrderMode === 'rank' ? 'по месту' : 'по процентилю'}</button></th>
           </tr></thead>
           <tbody>${rows}</tbody>
         </table>
@@ -156,4 +176,4 @@ function closeConceptProfileModal() {
       unfreezeSimulation();
     }
 
-export { closeConceptProfileModal, conceptDegreesDetailed, metricPartsText, metricPercentile, metricRank, showConceptProfileModal, toggleProfileOrder };
+export { PROFILE_METRICS, closeConceptProfileModal, conceptDegreesDetailed, metricPartsText, metricPercentile, metricRank, showConceptProfileModal, toggleProfileOrder };

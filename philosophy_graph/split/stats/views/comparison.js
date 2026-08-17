@@ -1,13 +1,12 @@
 // Сгенерировано из philosophy_graph.html — правки вносить сюда, не в исходник.
 import { DATA, S } from '../../core/ns.js';
-import { PHIL_SIM_LABELS, SIM_METRIC_LABELS } from '../../core/labels.js';
-import { initializePhilosophyMetrics } from '../../metrics/init.js';
+import { известить } from '../../core/events.js';
+import { LoadingIndicator } from '../../core/long-task.js';
+import { initializePhilosophyMetrics } from '../../metrics/link-indexes.js';
 import { philosopherProfile } from '../../metrics/philosopher.js';
 import { _pairCalculating, allConceptPairs, allConceptPairsAsync, profileSimilarity, similarityData, structuralSimilarity } from '../../metrics/similarity-concepts.js';
-import { philosopherSimilarity, philosopherSimilarityData } from '../../metrics/similarity-philosophers.js';
-import { switchStatsView } from '../modal.js';
+import { PHIL_SIM_LABELS, SIM_METRIC_LABELS, philosopherSimilarity, philosopherSimilarityData } from '../../metrics/similarity-philosophers.js';
 import { generateMetricDescriptionBlock } from '../results.js';
-import { filterCustomSelect, showCustomSelectDropdown } from '../../ui/custom-select.js';
 
 function generatePhilosopherComparisonContent() {
       if (!DATA.concepts || !DATA.relations) initializePhilosophyMetrics();
@@ -72,7 +71,7 @@ function renderPhilosopherComparison() {
               <div class="cmp-bar cmp-bar-a" style="width:${pa}%"></div>
               <div class="cmp-bar cmp-bar-b" style="width:${pb}%"></div>
             </div>
-            <div class="cmp-nums" title="среднее ± разброс">${va.toFixed(1)}±${sa.toFixed(1)} / ${vb.toFixed(1)}±${sb.toFixed(1)}</div>
+            <div class="cmp-nums" data-tip="среднее ± разброс">${va.toFixed(1)}±${sa.toFixed(1)} / ${vb.toFixed(1)}±${sb.toFixed(1)}</div>
           </div>`;
       }).join('');
 
@@ -148,7 +147,7 @@ function renderPhilosopherPairs() {
         <div class="pairs-count">Мера: ${PHIL_SIM_LABELS[S._philPairsKind]}. Показаны первые ${top.length} из ${all.length}.</div>
         <div class="pairs-rows">
           ${top.map(([v, a, b], i) => `
-            <div class="pairs-row" data-act-click="open-philosopher-pair" data-a1="${a}" data-a2="${b}" title="Открыть в сравнении философов">
+            <div class="pairs-row" data-act-click="open-philosopher-pair" data-a1="${a}" data-a2="${b}" data-tip="Открыть в сравнении философов">
               <div class="pairs-rank">#${i + 1}</div>
               <div class="pairs-names">
                 <span class="pairs-name">${a}</span>
@@ -164,7 +163,7 @@ function renderPhilosopherPairs() {
 
 function openPhilosopherPair(a, b) {
       S._pcmpA = a; S._pcmpB = b;
-      switchStatsView('philosopher-comparison');
+      известить('переключить-вид', 'philosopher-comparison');
     }
 
 function generateClosestPairsContent() {
@@ -221,7 +220,7 @@ async function renderClosestPairs() {
           box.innerHTML = '<div class="pairs-count">Расчёт уже идёт…</div>';
           return;
         }
-        const indicator = S.LoadingIndicator.create(
+        const indicator = LoadingIndicator.create(
           'Расчёт близости концепций',
           `Сравнение ${(S._concepts.length * (S._concepts.length - 1) / 2).toLocaleString('ru')} пар по 17 метрикам и по общим соседям`,
           '#6c5ce7'
@@ -284,7 +283,7 @@ async function renderClosestPairs() {
         const same = philOf[a] === philOf[b];
         return `
           <div class="pairs-row" data-act-click="open-pair-in-comparison" data-a1="${a}" data-a2="${b}"
-             title="Открыть в сравнении концепций">
+             data-tip="Открыть в сравнении концепций">
             <div class="pairs-rank">#${idx + 1}</div>
             <div class="pairs-names">
               <span class="pairs-name">${labOf[a]}</span>
@@ -307,7 +306,7 @@ async function renderClosestPairs() {
 
 function openPairInComparison(a, b) {
       S._cmpA = a; S._cmpB = b;
-      switchStatsView('comparison');
+      известить('переключить-вид', 'comparison');
     }
 
 function generateComparisonContent() {

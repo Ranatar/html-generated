@@ -1,9 +1,10 @@
 // Сгенерировано из philosophy_graph.html — правки вносить сюда, не в исходник.
 import { DATA, S } from '../core/ns.js';
-import { isReflexiveLink } from '../core/predicates.js';
+import { isReflexiveLink } from '../core/link-facts.js';
 import { isLinkVisible, isNodeVisible } from '../core/visibility.js';
 import { PICK_LINK_WIDTH } from './canvas-core.js';
-import { drawSelfLoop, fillArrow, linkDrawWidth, linkVisualState, nodeRadius, strokeLink } from './geometry.js';
+import { drawSelfLoop, fillArrow, linkDrawWidth, linkVisualState, strokeLink } from './draw-link.js';
+import { nodeRadius } from './render-state.js';
 
 let quadtree = null;
 

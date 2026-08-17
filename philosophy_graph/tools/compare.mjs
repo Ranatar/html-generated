@@ -35,7 +35,7 @@ async function run(page, label) {
     const u = (m.location() && m.location().url) || '';
     if (m.type() === 'error' && !u.includes('favicon')) errs.push('console: ' + m.text().slice(0, 160));
   });
-  await page.goto(BASE + label, { waitUntil: 'networkidle0', timeout: 60000 });
+  await page.goto(BASE + label, { waitUntil: 'domcontentloaded', timeout: 60000 });
   await wait(4000);
 
 
@@ -72,7 +72,10 @@ async function run(page, label) {
     await page.waitForFunction('window.__appReady === true', { timeout: 20000 });
   }
 
+  let шаг = 0;
   const H = async (expr) => {
+    шаг++;
+    if (process.env.SHOW) console.error('шаг', шаг, '|', String(expr).replace(/\s+/g, ' ').slice(0, 70));
     try { return await page.evaluate(`(${HASH})(${expr})`); }
     catch (e) { return { h: 'ОШИБКА', n: e.message.slice(0, 80) }; }
   };
@@ -123,7 +126,7 @@ async function run(page, label) {
   // Идентификатор берётся из обеих записей: у исходника он внутри onclick,
   // у переведённой сборки — в data-a2.
   const ids = await page.evaluate(() =>
-    [...document.querySelectorAll('#sourceSelectDropdown .custom-select-option')]
+    [...document.querySelectorAll('#sourceSelectDropdown .concept-row')]
       .slice(0, 400).map(o => {
         const d = o.getAttribute('data-a2');
         if (d) return d;

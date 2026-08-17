@@ -6,42 +6,6 @@ const groupPositions = {};
 
 const cols = 6;
 
-function togglePanel(panelId) {
-      const panel = document.getElementById(panelId);
-      const isCollapsed = panel.classList.contains('collapsed');
-      
-      if (isCollapsed) {
-        panel.classList.remove('collapsed');
-        // Меняем иконку на минус
-        const btn = panel.querySelector('.collapse-btn .expand-icon');
-        btn.textContent = '−';
-        // Сохраняем состояние
-        localStorage.setItem(`${panelId}_collapsed`, 'false');
-      } else {
-        panel.classList.add('collapsed');
-        // Меняем иконку на плюс
-        const btn = panel.querySelector('.collapse-btn .expand-icon');
-        btn.textContent = '+';
-        // Сохраняем состояние
-        localStorage.setItem(`${panelId}_collapsed`, 'true');
-      }
-    }
-
-function restorePanelStates() {
-      const panels = ['pathFinder', 'statsPanel'];
-      
-      panels.forEach(panelId => {
-        const collapsed = localStorage.getItem(`${panelId}_collapsed`) === 'true';
-        if (collapsed) {
-          const panel = document.getElementById(panelId);
-          if (!panel) return;   // Б15: statsPanel в разметке отсутствует
-          panel.classList.add('collapsed');
-          const btn = panel.querySelector('.collapse-btn .expand-icon');
-          if (btn) btn.textContent = '+';
-        }
-      });
-    }
-
 function toggleGrouping() {
       S.isGrouped = !S.isGrouped;
       const btn = document.getElementById('groupBtn');
@@ -50,7 +14,8 @@ function toggleGrouping() {
       
       if (S.isGrouped) {
         btn.classList.add('active');
-        btn.textContent = '📦 Разгруппировать';
+        btn.textContent = '📦';
+        btn.setAttribute('data-tip', 'Разгруппировать: вернуть свободную раскладку');
         
         // Добавляем силы группировки
         S.simulation
@@ -60,7 +25,8 @@ function toggleGrouping() {
           .force("collision", d3.forceCollide().radius(40));
       } else {
         btn.classList.remove('active');
-        btn.textContent = '📦 Группировать';
+        btn.textContent = '📦';
+        btn.setAttribute('data-tip', 'Сгруппировать узлы по философам');
         
         // Убираем силы группировки
         S.simulation
@@ -74,4 +40,4 @@ function toggleGrouping() {
       S.simulation.alpha(0.5).restart();
     }
 
-export { cols, groupPositions, restorePanelStates, toggleGrouping, togglePanel };
+export { cols, groupPositions, toggleGrouping };

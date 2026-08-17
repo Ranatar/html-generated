@@ -58,7 +58,11 @@ const поИсходному = new Map(Object.entries(карта).map(([k, v]) =
 function имяДействия(attr, code) {
   const было = поИсходному.get(attr + ' :: ' + code);
   if (было) return было;
-  // читаемое имя из первого вызова: openStatsModal() -> open-stats-modal
+  // читаемое имя из первого вызова: openStatsModal() -> open-stats-modal.
+  // ТОЛЬКО ЛАТИНИЦА: кириллическое имя сюда не попадёт, и действие получит
+  // имя атрибута («onclick»), слившись с любым другим таким же. Поэтому то,
+  // что зовётся ИЗ РАЗМЕТКИ, называется латиницей — проверка модулей это
+  // ловит, но лучше знать заранее.
   const m = code.match(/([A-Za-z_$][\w$]*)\s*\(/);
   let base = (m ? m[1] : attr).replace(/([a-z0-9])([A-Z])/g, '$1-$2').toLowerCase();
   if (attr !== 'onclick') base += '-' + attr.slice(2);   // -input, -focus, -change
@@ -256,26 +260,59 @@ if (ЗАХОД === 'static') {
 // делегировании имя функции ничего не значит, а куску кода взяться неоткуда.
 // Поэтому три места правятся явно: доводы передаются НАБОРОМ ЗНАЧЕНИЙ,
 // а вызов идёт через таблицу имён с руганью на промах.
+// ИСКАТЬ НАДО ПО ОБЪЯВЛЕНИЮ В ДЕРЕВЕ, А НЕ ПО ВЫВОЗУ: сущности пространств
+// (VIEWS.generateConceptEditContent и подобные) поимённо НЕ ВЫВОЗЯТСЯ, и
+// exportsOf их не знает. Первая попытка опереться на вывоз молча пропустила
+// три правки из пяти — удаление сущности перестало работать, а поймал это
+// только probe6.
+let беда = false;
+function модульСущности(имя) {
+  const рв = new RegExp(
+    `(?:^|\\n)\\s*(?:async\\s+)?(?:function|const|let|var)\\s+${имя}\\b` +
+    `|(?:^|\\n)\\s*(?:DATA|S|MET|VIEWS)\\.${имя}\\s*=`);
+  for (const f of файлыДерева()) {
+    if (рв.test(fs.readFileSync(path.join(ROOT, f), 'utf8'))) return f;
+  }
+  return null;
+}
+function файлыДерева(д = '') {
+  const из = [];
+  for (const n of fs.readdirSync(path.join(ROOT, д))) {
+    const отн = д ? д + '/' + n : n;
+    if (fs.statSync(path.join(ROOT, отн)).isDirectory()) {
+      if (n !== 'vendor' && n !== 'css' && n !== 'data') из.push(...файлыДерева(отн));
+    } else if (n.endsWith('.js')) из.push(отн);
+  }
+  return из;
+}
+
+// МЕСТО ИЩЕТСЯ ПО ИМЕНИ СУЩНОСТИ, А НЕ ПО ПУТИ К ФАЙЛУ. Зашитый путь
+// превращает всякое переименование модуля в поломку сборки: переименование
+// modal/edit-common.js в modal/form-buttons.js уронило этот шаг с ENOENT.
+// Модуль сущности берётся из вывозов дерева — из того же места, откуда его
+// берёт всё остальное в этой программе.
 function ручнаяСтатья() {
   const правки = [
-    ['modal/edit-common.js',
+    ['modalActions',
      'onclick="${saveFn}()"',
      'data-act-click="сохранить-сущность" data-a1="${saveFn}"'],
-    ['modal/edit-common.js',
+    ['modalActions',
      'onclick="${deleteFn}(${deleteArg})"',
      'data-act-click="удалить-сущность" data-a1="${deleteFn}"' +
      ' data-a2="${(deleteArg || [])[0] || \'\'}" data-a3="${(deleteArg || [])[1] || \'\'}"'],
-    ['modal/concept-edit.js',
+    ['generateConceptEditContent',
      "conceptData && conceptData.id ? `'${conceptData.id}'` : 'null'",
      'conceptData && conceptData.id ? [conceptData.id] : []'],
-    ['modal/connection-edit.js',
+    ['generateConnectionEditContent',
      "(srcId && tgtId) ? `'${srcId}', '${tgtId}'` : ''",
      '(srcId && tgtId) ? [srcId, tgtId] : []'],
-    ['modal/philosopher-edit.js',
+    ['generatePhilosopherEditContent',
      "philosopherData ? `'${escapeAttr(philosopherName)}'` : 'null'",
      'philosopherData ? [philosopherName] : []'],
   ];
-  for (const [файл, было, стало] of правки) {
+  for (const [сущность, было, стало] of правки) {
+    const файл = модульСущности(сущность);
+    if (!файл) { console.error('ручная статья: НЕ НАЙДЕНА сущность', сущность); беда = true; continue; }
     const q = path.join(ROOT, файл);
     let t = fs.readFileSync(q, 'utf8');
     if (t.includes(стало)) continue;
@@ -284,6 +321,10 @@ function ручнаяСтатья() {
   }
 }
 ручнаяСтатья();
+// ОТКАЗ ДОЛЖЕН БЫТЬ ГРОМКИМ: пропущенная правка не ломает сборку и не мешает
+// странице открыться — ломается только удаление сущности, и увидит это лишь
+// probe6. Поэтому останавливаемся здесь.
+if (беда) { console.error('ручная статья не применена целиком — сборка остановлена'); process.exit(1); }
 
 // таблица «имя функции → сама функция»: нужна только этой статье
 {

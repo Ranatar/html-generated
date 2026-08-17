@@ -102,7 +102,10 @@ for (const e of entities) {
   if (e.decl === 'statement') { moduleOfLate.set(e.id, 'boot.js'); continue; }
   if (RAW_DATA.includes(e.name)) continue;
   const m = assignNames[e.name];
-  if (!m) { безМодуля.push(e.name + ' (стр. ' + lineIn(e.range[0]) + ')'); continue; }
+  // Строку берём из самой сущности: прежде здесь звалась несуществующая
+  // lineIn, и вместо внятного «имя без модуля» вылетало «lineIn is not
+  // defined» — сообщение об ошибке само было сломано и прятало причину.
+  if (!m) { безМодуля.push(e.name + ' (стр. ' + (e.line || '?') + ')'); continue; }
   moduleOfLate.set(e.name, m);
 }
 if (безМодуля.length) {
@@ -151,11 +154,26 @@ for (const h of [...mapJson.markup.static, ...mapJson.markup.dynamic]) {
 }
 
 // имена, к которым обращается начальный вид объявления
+// ССЫЛКИ, ЧИТАЕМЫЕ ПРИ ВЫЧИСЛЕНИИ ОБЪЯВЛЕНИЯ — И ТОЛЬКО ОНИ.
+//
+// Имя внутри тела вложенной функции при инициализации НЕ ЧИТАЕТСЯ: оно
+// сработает потом, когда функцию позовут, и к тому времени данные загружены.
+// Прежняя проверка смотрела на весь начальный вид разом и потому откладывала
+// таблицы, состоящие из одних ленивых замыканий. Замер: так напрасно уезжали
+// в boot() metricDescriptions (456 строк), FilterModes (171), LoadingIndicator
+// (57), PROFILE_METRICS (21) — а у последней автор САМ написал `() => …`,
+// чтобы отложить чтение.
+//
+// Различать надо вычисляемость, а не наличие имени в тексте: METRIC_COVERAGE_FN
+// ссылается на метрики ПРЯМО ('problem-generation': problemGenerationIndex),
+// собирается при вычислении и потому откладывается по-прежнему.
+const ФУНКЦИЯ = new Set(['FunctionExpression', 'FunctionDeclaration', 'ArrowFunctionExpression']);
 function initRefs(e) {
   const out = new Set();
   if (!e.init) return out;
   (function walk(n) {
     if (!n || typeof n.type !== 'string') return;
+    if (ФУНКЦИЯ.has(n.type)) return;          // тело сработает позже — не читаем
     if (n.type === 'Identifier') out.add(n.name);
     if (n.type === 'MemberExpression' && !n.computed) { walk(n.object); return; }
     if (n.type === 'Property' && !n.computed && n.key.type === 'Identifier') { walk(n.value); return; }
@@ -169,6 +187,9 @@ function initRefs(e) {
   return out;
 }
 const ENV = new Set(['document', 'window', 'd3', 'localStorage', 'performance', 'navigator']);
+// Встроенные: их наличие в начальном виде НЕ ДЕЛАЕТ значение зависимым.
+const ВСТРОЕННЫЕ = new Set(['Set', 'Map', 'WeakMap', 'WeakSet', 'Array', 'Object',
+  'Date', 'Math', 'JSON', 'Number', 'String', 'Boolean', 'Infinity', 'NaN', 'undefined']);
 
 // отложено: трогает окружение, данные или другую отложенную ячейку.
 // Считается до неподвижной точки — иначе `const ctx = gfxCanvas.getContext()`
@@ -315,7 +336,18 @@ for (const e of entities) {
   } else {
     const init = e.init ? render(e.init.range[0], e.init.range[1]) : 'undefined';
     if (ns === 'S') {
-      bootChunks.push({ line: e.range[0], text: `S.${e.name} = ${init};` });
+      // НАЧАЛЬНОЕ ЗНАЧЕНИЕ ЖИВЁТ С ИМЕНЕМ, ЕСЛИ ОНО НИ ОТ ЧЕГО НЕ ЗАВИСИТ.
+      // Ячейка попадает в S не только из-за отложенного вычисления, но и
+      // потому, что в неё пишут из чужого модуля (useWeightedPaths правят и
+      // paths/, и stats/). У такой ячейки значение — простой литерал, порядок
+      // ему безразличен, а boot() он раздувал: 52 присваивания подряд.
+      // Заодно раскладка перестаёт обещать модуль, которого сборка не создаёт:
+      // приписка ячейки к модулю наконец даёт файл.
+      // Всё, что читает данные или другую ячейку, по-прежнему уходит в boot.
+      const refs = [...initRefs(e)];
+      const простое = e.init && refs.every(r => ВСТРОЕННЫЕ.has(r));
+      if (простое) add(mod, `S.${e.name} = ${init};`);
+      else bootChunks.push({ line: e.range[0], text: `S.${e.name} = ${init};` });
     } else if (ns) {
       add(mod, `${ns}.${e.name} = ${init};`);
     } else {

@@ -1,8 +1,8 @@
 // Сгенерировано из philosophy_graph.html — правки вносить сюда, не в исходник.
 import { DATA } from '../core/ns.js';
-import { traditionsOfPhilosopher } from '../core/graph-index.js';
-import { CHRONOLOGY_MODES } from '../core/labels.js';
-import { isSymmetricLink } from '../core/predicates.js';
+import { isSymmetricLink } from '../core/link-facts.js';
+import { CHRONOLOGY_MODES } from '../core/time.js';
+import { traditionsOfPhilosopher } from '../graph/graph-data.js';
 import { isChronologicallyValid } from './chronology.js';
 
 function analyzePath(path, mode = CHRONOLOGY_MODES.STRICT) {

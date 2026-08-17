@@ -1,6 +1,7 @@
 // Сгенерировано из philosophy_graph.html — правки вносить сюда, не в исходник.
 import { DATA, S } from '../core/ns.js';
-import { isSymmetricLink } from '../core/predicates.js';
+import { isSymmetricLink } from '../core/link-facts.js';
+import { CHAIN_SEARCH } from '../core/long-task.js';
 
 function buildAdjacencyGraph(filteredNodes, nodeById) {
       // pathLinkAllowed отсекает петли и, при включённом переключателе,
@@ -37,34 +38,6 @@ function buildAdjacencyGraph(filteredNodes, nodeById) {
       
       return adjacency;
     }
-
-const CHAIN_SEARCH = {
-      // Бюджет зависит от режима: уникальному хватает восьми секунд
-      // (33 системы исчерпываются за 5.3 с), «Связанным сетям» нужно
-      // около двадцати пяти (194 узла при 57 философах).
-      budgetUniqueMs: 8000,
-      budgetChainsMs: 30000,
-      timeBudgetMs: 8000,
-      strategy: 'exact',
-      deadline: 0,
-      expanded: 0,
-      aborted: false,
-      cancelled: false,
-      reset(uniqueMode) {
-        this.timeBudgetMs = uniqueMode ? this.budgetUniqueMs : this.budgetChainsMs;
-        this.strategy = uniqueMode ? 'exact' : 'fast';
-        this.expanded = 0;
-        this.aborted = false;
-        this.cancelled = false;
-        this.deadline = Date.now() + this.timeBudgetMs;
-      },
-      outOfTime() {
-        // Date.now() дорог в горячем цикле — проверяем раз в 4096 раскрытий
-        if ((++this.expanded & 4095) !== 0) return false;
-        return Date.now() > this.deadline;
-      },
-      cancel() { this.cancelled = true; }
-    };
 
 function processBFS(startNode, startPhil, philsArray, adjacency, nodeById, 
               nodesInChains, linksInChains, uniqueMode) {
@@ -295,4 +268,4 @@ async function findUniquePhilosopherChains(selectedPhils, progressCallback = nul
       return { nodes: nodesInChains, links: linksInChains };
     }
 
-export { CHAIN_SEARCH, CHAIN_WARN_THRESHOLD, buildAdjacencyGraph, confirmLongChainSearch, findChainsThroughAllPhilosophers, findUniquePhilosopherChains, processBFS };
+export { CHAIN_WARN_THRESHOLD, buildAdjacencyGraph, confirmLongChainSearch, findChainsThroughAllPhilosophers, findUniquePhilosopherChains, processBFS };

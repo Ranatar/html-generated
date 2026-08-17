@@ -22,16 +22,15 @@ import { ХЕШ as HASH, объяснить } from './snapshot.mjs';
 
 
 const RIG_MODULE = `
-import { S } from './core/ns.js';
-import { openStatsModal, closeStatsModal } from './stats/modal.js';
-import { openConceptById } from './modal/entry.js';
-import { closeUniversalModal } from './modal/core.js';
-import { DATA } from './core/ns.js';
-window.__rig = { openStatsModal, closeStatsModal, openConceptById, closeUniversalModal,
+import './_probe-rig.js';
+const A = window.__app;
+window.__rig = { openStatsModal: A.openStatsModal, closeStatsModal: A.closeStatsModal,
+  openConceptById: A.openConceptById, closeUniversalModal: A.closeUniversalModal,
   замок: () => document.getElementById('freezeBtn').classList.contains('frozen-by-hand'),
-  alpha: () => (S.simulation ? S.simulation.alpha() : -1),
-  tick: () => S.tickCount,
-  узел: () => { const n = DATA.nodes[0]; return [n.x, n.y]; } };
+  alpha: () => (A.S.simulation ? A.S.simulation.alpha() : -1),
+  tick: () => A.S.tickCount,
+  узел: () => { const n = A.DATA.nodes[0]; return [n.x, n.y]; },
+  первая: () => A.DATA.concepts[0].id };
 window.__rigReady = true;`;
 
 const RIG_CLASSIC = `
@@ -40,7 +39,8 @@ window.__rig = { openStatsModal: openStatsModal, closeStatsModal: closeStatsModa
   замок: function () { return document.getElementById('freezeBtn').classList.contains('frozen-by-hand'); },
   alpha: function () { return simulation ? simulation.alpha() : -1; },
   tick: function () { return tickCount; },
-  узел: function () { var n = nodes[0]; return [n.x, n.y]; } };
+  узел: function () { var n = nodes[0]; return [n.x, n.y]; },
+  первая: function () { return concepts[0].id; } };
 window.__rigReady = true;`;
 
 async function run(label) {
@@ -57,7 +57,7 @@ async function run(label) {
     if (m.type() === 'error' && !u.includes('favicon')) errs.push('console: ' + m.text().slice(0, 160));
   });
 
-  await page.goto(BASE + label, { waitUntil: 'networkidle0', timeout: 60000 });
+  await page.goto(BASE + label, { waitUntil: 'domcontentloaded', timeout: 60000 });
   await wait(3000);
   await page.addScriptTag(label.startsWith('_ref')
     ? { content: RIG_CLASSIC } : { type: 'module', content: RIG_MODULE });
@@ -82,7 +82,13 @@ async function run(label) {
     var b = document.getElementById('freezeBtn');
     return b ? b.textContent.trim() : 'нет'; })()`);
   out['замок при загрузке снят'] = await H(`String(window.__rig.замок())`);
-  out['раскладка при загрузке едет'] = await H(JSON.stringify(await едет()));
+  // Спрашиваем ровно то, что проверяется по смыслу: НЕ ЗАМОРОЖЕНА ЛИ
+  // раскладка до нажатия. Прежние два вопроса оба гуляли: «едет ли сейчас»
+  // — потому что время до остановки скачет от 1 до 22 с, а прибор
+  // подключается через фиксированные 3 с; «есть ли куда ехать» (число
+  // шагов) — по той же причине. Признак заморозки от скорости не зависит.
+  out['раскладка при загрузке не заморожена'] = await H(JSON.stringify(
+    await page.evaluate(() => !window.__rig.замок())));
 
   // ── заморозка рукой ───────────────────────────────────────────────
   await жмём();
@@ -100,11 +106,10 @@ async function run(label) {
   out['окно статистики: замок цел'] = await H(`String(window.__rig.замок())`);
   out['окно статистики: раскладка стоит'] = await H(JSON.stringify(!(await едет())));
 
-  const id = await page.evaluate(() => {
-    const o = document.querySelector('#sourceSelectDropdown .custom-select-option');
-    return o ? (o.getAttribute('data-a2') ||
-      ((o.getAttribute('onclick') || '').match(/'([^']+)'\s*\)$/) || [])[1]) : null;
-  });
+  // Из данных, а не из разметки: разметка списка меняется по замыслу,
+  // и прибор не должен от неё зависеть там, где ему нужен просто
+  // идентификатор концепции.
+  const id = await page.evaluate(() => window.__rig.первая());
   if (id) {
     await page.evaluate(i => window.__rig.openConceptById(i), id);
     await wait(800);

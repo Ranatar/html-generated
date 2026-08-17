@@ -1,6 +1,6 @@
 // Сгенерировано из philosophy_graph.html — правки вносить сюда, не в исходник.
 import { MET, S } from '../core/ns.js';
-import { medianNodeDegree, nodeDegreeOf } from './data.js';
+import { medianNodeDegree, nodeDegreeOf } from './network.js';
 import { invalidatePhilosopherSimilarityCache } from './similarity-philosophers.js';
 
 function profileIsMeaningful(conceptId) {

@@ -1,10 +1,7 @@
 // Сгенерировано из philosophy_graph.html — правки вносить сюда, не в исходник.
 import { DATA, S } from '../core/ns.js';
-import { renderComparison } from '../stats/views/comparison.js';
-
-let selectedSourceNode = null;
-
-let selectedTargetNode = null;
+import { известить } from '../core/events.js';
+import { внутренностиСтроки, отобратьКонцепции, пустойСписок } from '../core/search.js';
 
 function initializeCustomSelects() {
       // Инициализация выпадающих списков с полным списком узлов
@@ -26,44 +23,16 @@ function initializeCustomSelects() {
 function populateCustomSelect(type, query = '') {
       const dropdown = document.getElementById(`${type}SelectDropdown`);
       if (!dropdown) return;
-      
-      // Фильтруем и сортируем узлы
-      let filteredNodes = DATA.nodes;
-      
-      if (query && query.trim() !== '') {
-        const lowerQuery = query.toLowerCase();
-        filteredNodes = DATA.nodes.filter(node => {
-          const labelWords = node.label.toLowerCase().split(/\s+/);
-          const philosopherWords = node.concept.toLowerCase().split(/\s+/);
-          
-          const labelMatch = labelWords.some(word => word.startsWith(lowerQuery));
-          const philosopherMatch = philosopherWords.some(word => word.startsWith(lowerQuery));
-          
-          return labelMatch || philosopherMatch;
-        });
-      }
-      
-      // Сортировка по хронологии философа, затем по названию
-      const sortedNodes = filteredNodes.sort((a, b) => {
-        const aOrder = DATA.philosopherOrder[a.concept] || 0;
-        const bOrder = DATA.philosopherOrder[b.concept] || 0;
-        
-        if (aOrder !== bOrder) {
-          return aOrder - bOrder;
-        }
-        return a.label.localeCompare(b.label);
-      });
-      
-      if (sortedNodes.length === 0) {
-        dropdown.innerHTML = '<div class="search-no-results">Ничего не найдено</div>';
-      } else {
-        dropdown.innerHTML = sortedNodes.map(node => `
-          <div class="custom-select-option" data-act-click="select-custom-option" data-a1="${type}" data-a2="${node.id}">
-            <div class="custom-select-option-label">${node.label}</div>
-            <div class="custom-select-option-philosopher">${node.concept}</div>
-          </div>
-        `).join('');
-      }
+
+      // Тот же отбор и та же строка, что везде: прежде здесь список
+      // выпадал весь, но без цветного кружка философа.
+      const узлы = отобратьКонцепции(query);
+      dropdown.innerHTML = узлы.length
+        ? узлы.map(n => `
+            <div class="concept-row" data-act-click="select-custom-option" data-a1="${type}" data-a2="${n.id}">
+              ${внутренностиСтроки(n)}
+            </div>`).join('')
+        : пустойСписок();
     }
 
 function showCustomSelectDropdown(type) {
@@ -104,14 +73,14 @@ function selectCustomOption(type, nodeId) {
       }
       
       if (type === 'source') {
-        selectedSourceNode = nodeId;
+        S.selectedSourceNode = nodeId;
       } else if (type === 'target') {
-        selectedTargetNode = nodeId;
+        S.selectedTargetNode = nodeId;
       } else if (type === 'cmpA' || type === 'cmpB') {
         // П2: те же поля обслуживают сравнение концепций
         if (type === 'cmpA') S._cmpA = nodeId; else S._cmpB = nodeId;
-        if (typeof renderComparison === 'function') renderComparison();
+        известить('сравнение-обновить');
       }
     }
 
-export { filterCustomSelect, initializeCustomSelects, populateCustomSelect, selectCustomOption, selectedSourceNode, selectedTargetNode, showCustomSelectDropdown };
+export { filterCustomSelect, initializeCustomSelects, populateCustomSelect, selectCustomOption, showCustomSelectDropdown };

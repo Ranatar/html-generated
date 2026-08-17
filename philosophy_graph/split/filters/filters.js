@@ -1,16 +1,28 @@
 // Сгенерировано из philosophy_graph.html — правки вносить сюда, не в исходник.
 import { DATA, S } from '../core/ns.js';
+import { известить } from '../core/events.js';
+import { CHAIN_SEARCH, LoadingIndicator, showTemporaryMessage } from '../core/long-task.js';
 import { isLinkVisible, isNodeVisible } from '../core/visibility.js';
-import { pinnedVisibleNodes } from '../data/mutate.js';
-import { CHAIN_SEARCH, confirmLongChainSearch, findChainsThroughAllPhilosophers, findUniquePhilosopherChains } from './chains.js';
-import { initializePhilosophyMetrics } from '../metrics/init.js';
-import { invalidateEverythingForScope, updateMetricsScopeHint } from '../metrics/scope.js';
+import { confirmLongChainSearch, findChainsThroughAllPhilosophers, findUniquePhilosopherChains } from './chains.js';
+import { initializePhilosophyMetrics } from '../metrics/link-indexes.js';
+import { invalidateEverythingForScope } from '../metrics/scope-reset.js';
+import { updateMetricsScopeHint } from '../metrics/scope.js';
+import { gfxLinkAll, gfxNode } from '../render/d3-layer.js';
 import { highlightConnected, resetHighlight } from '../render/selection.js';
-import { selectedNodes } from '../state.js';
-import { loadStatsContent } from '../stats/modal.js';
-import { showTemporaryMessage } from '../ui/feedback.js';
-import { updateFilterStats, updatePhilosopherDimming } from '../ui/legend.js';
-import { debounce } from '../util/misc.js';
+import { pinnedVisibleNodes, показанныеВопрекиОтбору } from '../state/filters.js';
+import { selectedNodes } from '../state/render.js';
+
+function debounce(func, wait) {
+      let timeout;
+      return function executedFunction(...args) {
+        const later = () => {
+          clearTimeout(timeout);
+          func(...args);
+        };
+        clearTimeout(timeout);
+        timeout = setTimeout(later, wait);
+      };
+    }
 
 function philTraditionsSelected(name) {
       const tl = DATA.philosopherTraditions[name] || [];
@@ -29,8 +41,180 @@ function linkPassesTraditions(l, both) {
       return both ? (s && t) : (s || t);
     }
 
+const FilterModes = {
+      all: {
+        name: 'Только выбранные философы',
+        linkFilter: (l) => {
+          // Проверка типа связи и философов
+          const baseCheck = S.selectedRelations.has(l.type) &&
+                   S.selectedPhilosophers.has(l.source.concept) &&
+                   S.selectedPhilosophers.has(l.target.concept);
+          
+          if (!baseCheck) return false;
+
+          if (!linkPassesTraditions(l, true)) return false;
+          
+          // Проверка рубрик
+          const sourceId = l.source.id || l.source;
+          const targetId = l.target.id || l.target;
+          const sourceRubrics = DATA.conceptToRubrics[sourceId] || [];
+          const targetRubrics = DATA.conceptToRubrics[targetId] || [];
+          
+          // Связь видна, если хотя бы одна рубрика source или target выбрана
+          const sourceHasSelectedRubric = sourceRubrics.length === 0 || 
+                           sourceRubrics.some(r => S.selectedRubrics.has(r));
+          const targetHasSelectedRubric = targetRubrics.length === 0 || 
+                           targetRubrics.some(r => S.selectedRubrics.has(r));
+          
+          return sourceHasSelectedRubric && targetHasSelectedRubric;
+        }
+      },
+      internal: {
+        name: 'Только внутренние связи',
+        linkFilter: (l) => {
+          // Проверка типа связи, философов и внутренней связи
+          const baseCheck = S.selectedRelations.has(l.type) &&
+                   S.selectedPhilosophers.has(l.source.concept) &&
+                   S.selectedPhilosophers.has(l.target.concept) &&
+                   l.source.concept === l.target.concept;
+          
+          if (!baseCheck) return false;
+
+          if (!linkPassesTraditions(l, true)) return false;
+          
+          // Проверка рубрик
+          const sourceId = l.source.id || l.source;
+          const targetId = l.target.id || l.target;
+          const sourceRubrics = DATA.conceptToRubrics[sourceId] || [];
+          const targetRubrics = DATA.conceptToRubrics[targetId] || [];
+          
+          const sourceHasSelectedRubric = sourceRubrics.length === 0 || 
+                           sourceRubrics.some(r => S.selectedRubrics.has(r));
+          const targetHasSelectedRubric = targetRubrics.length === 0 || 
+                           targetRubrics.some(r => S.selectedRubrics.has(r));
+          
+          return sourceHasSelectedRubric && targetHasSelectedRubric;
+        }
+      },
+      context: {
+        name: 'С соседними узлами',
+        linkFilter: (l) => {
+          // Проверка типа связи и хотя бы одного философа
+          const baseCheck = S.selectedRelations.has(l.type) &&
+                   (S.selectedPhilosophers.has(l.source.concept) ||
+                    S.selectedPhilosophers.has(l.target.concept));
+          
+          if (!baseCheck) return false;
+
+          if (!linkPassesTraditions(l, false)) return false;
+          
+          // Проверка рубрик
+          const sourceId = l.source.id || l.source;
+          const targetId = l.target.id || l.target;
+          const sourceRubrics = DATA.conceptToRubrics[sourceId] || [];
+          const targetRubrics = DATA.conceptToRubrics[targetId] || [];
+          
+          const sourceHasSelectedRubric = sourceRubrics.length === 0 || 
+                           sourceRubrics.some(r => S.selectedRubrics.has(r));
+          const targetHasSelectedRubric = targetRubrics.length === 0 || 
+                           targetRubrics.some(r => S.selectedRubrics.has(r));
+          
+          return sourceHasSelectedRubric && targetHasSelectedRubric;
+        }
+      },
+      external: {
+        name: 'Только внешние связи',
+        linkFilter: (l) => {
+          // Проверка типа связи, философов и внешней связи
+          const baseCheck = S.selectedRelations.has(l.type) &&
+                   (S.selectedPhilosophers.has(l.source.concept) ||
+                    S.selectedPhilosophers.has(l.target.concept)) &&
+                   l.source.concept !== l.target.concept;
+          
+          if (!baseCheck) return false;
+
+          if (!linkPassesTraditions(l, false)) return false;
+          
+          // Проверка рубрик
+          const sourceId = l.source.id || l.source;
+          const targetId = l.target.id || l.target;
+          const sourceRubrics = DATA.conceptToRubrics[sourceId] || [];
+          const targetRubrics = DATA.conceptToRubrics[targetId] || [];
+          
+          const sourceHasSelectedRubric = sourceRubrics.length === 0 || 
+                           sourceRubrics.some(r => S.selectedRubrics.has(r));
+          const targetHasSelectedRubric = targetRubrics.length === 0 || 
+                           targetRubrics.some(r => S.selectedRubrics.has(r));
+          
+          return sourceHasSelectedRubric && targetHasSelectedRubric;
+        }
+      },
+      within_traditions: {
+        name: 'Только внутри выбранных традиций',
+        linkFilter: (l) => {
+          if (!S.selectedRelations.has(l.type)) return false;
+          if (!S.selectedPhilosophers.has(l.source.concept)) return false;
+          if (!S.selectedPhilosophers.has(l.target.concept)) return false;
+          if (l.source.concept === l.target.concept) return false;
+          const s = philTraditionsSelected(l.source.concept);
+          const t = philTraditionsSelected(l.target.concept);
+          if (!s.some(x => t.includes(x))) return false;
+          const sr = DATA.conceptToRubrics[l.source.id || l.source] || [];
+          const tr = DATA.conceptToRubrics[l.target.id || l.target] || [];
+          return (sr.length === 0 || sr.some(r => S.selectedRubrics.has(r)))
+              && (tr.length === 0 || tr.some(r => S.selectedRubrics.has(r)));
+        }
+      },
+      between_traditions: {
+        name: 'Только между выбранными традициями',
+        linkFilter: (l) => {
+          if (!S.selectedRelations.has(l.type)) return false;
+          if (!S.selectedPhilosophers.has(l.source.concept)) return false;
+          if (!S.selectedPhilosophers.has(l.target.concept)) return false;
+          if (l.source.concept === l.target.concept) return false;
+          const s = philTraditionsSelected(l.source.concept);
+          const t = philTraditionsSelected(l.target.concept);
+          if (!s.length || !t.length) return false;
+          if (s.some(x => t.includes(x))) return false;
+          const sr = DATA.conceptToRubrics[l.source.id || l.source] || [];
+          const tr = DATA.conceptToRubrics[l.target.id || l.target] || [];
+          return (sr.length === 0 || sr.some(r => S.selectedRubrics.has(r)))
+              && (tr.length === 0 || tr.some(r => S.selectedRubrics.has(r)));
+        }
+      },
+      cross_selected: {
+        name: 'Межфилософские связи выбранных',
+        linkFilter: (l) => {
+          // Проверка типа связи, философов и межфилософской связи
+          const isDifferent = S.selectedPhilosophers.size === 1 || 
+                     l.source.concept !== l.target.concept;
+          const baseCheck = S.selectedRelations.has(l.type) &&
+                   S.selectedPhilosophers.has(l.source.concept) &&
+                   S.selectedPhilosophers.has(l.target.concept) &&
+                   isDifferent;
+          
+          if (!baseCheck) return false;
+
+          if (!linkPassesTraditions(l, true)) return false;
+          
+          // Проверка рубрик
+          const sourceId = l.source.id || l.source;
+          const targetId = l.target.id || l.target;
+          const sourceRubrics = DATA.conceptToRubrics[sourceId] || [];
+          const targetRubrics = DATA.conceptToRubrics[targetId] || [];
+          
+          const sourceHasSelectedRubric = sourceRubrics.length === 0 || 
+                           sourceRubrics.some(r => S.selectedRubrics.has(r));
+          const targetHasSelectedRubric = targetRubrics.length === 0 || 
+                           targetRubrics.some(r => S.selectedRubrics.has(r));
+          
+          return sourceHasSelectedRubric && targetHasSelectedRubric;
+        }
+      }
+    };
+
 function applyBasicFilter(mode) {
-      const config = S.FilterModes[mode];
+      const config = FilterModes[mode];
       if (!config) return;
       
       const allRelationsSelected = S.selectedRelations.size === Object.keys(DATA.relationTypesObj).length;
@@ -50,6 +234,11 @@ function applyBasicFilter(mode) {
       // связей ещё нет, и она исчезала бы с экрана в тот же миг.
       if (typeof pinnedVisibleNodes !== 'undefined') {
         Array.from(pinnedVisibleNodes).forEach(id => {
+          // Показанное ВОПРЕКИ ОТБОРУ держится, пока его не снимут: у такой
+          // концепции связи есть, и прежнее правило («есть связи — снять
+          // закрепление») её тут же отпускало, а поиск получал подсветку
+          // вокруг пустого места.
+          if (показанныеВопрекиОтбору.has(id)) { visibleNodes.add(id); return; }
           const linked = DATA.links.some(l => (l.source.id || l.source) === id
                         || (l.target.id || l.target) === id);
           if (linked) pinnedVisibleNodes.delete(id);
@@ -62,20 +251,27 @@ function applyBasicFilter(mode) {
       S.visibleLinkSet = new Set(DATA.links.filter(l => {
         const sourceVisible = visibleNodes.has(l.source.id || l.source);
         const targetVisible = visibleNodes.has(l.target.id || l.target);
-        return config.linkFilter(l) && sourceVisible && targetVisible;
+        if (!sourceVisible || !targetVisible) return false;
+        // Показанная ВОПРЕКИ ОТБОРУ концепция должна быть видна со своими
+        // связями: отбор для неё уже отменён, а связи оставались скрытыми —
+        // концепция висела в пустоте, хотя соседи рядом. Показываем связь,
+        // если один её конец показан поверх отбора, а другой и так виден.
+        const a = l.source.id || l.source, b = l.target.id || l.target;
+        if (показанныеВопрекиОтбору.has(a) || показанныеВопрекиОтбору.has(b)) return true;
+        return config.linkFilter(l);
       }));
 
       // Применяем видимость к узлам и связям (базовый фильтр)
-      S.gfxNode.style("display", d => isNodeVisible(d) ? null : "none");
-      S.gfxLinkAll.style("display", l => isLinkVisible(l) ? null : "none");
+      gfxNode.style("display", d => isNodeVisible(d) ? null : "none");
+      gfxLinkAll.style("display", l => isLinkVisible(l) ? null : "none");
     }
 
 function applyChainVisibility(chainNodes, chainLinks) {
       // Б11: видимость цепочек — тоже в JS-состоянии
       S.visibleNodeIds = chainNodes;
       S.visibleLinkSet = chainLinks;
-      S.gfxNode.style("display", d => isNodeVisible(d) ? null : "none");
-      S.gfxLinkAll.style("display", l => isLinkVisible(l) ? null : "none");
+      gfxNode.style("display", d => isNodeVisible(d) ? null : "none");
+      gfxLinkAll.style("display", l => isLinkVisible(l) ? null : "none");
     }
 
 async function handleChainsMode() {
@@ -84,7 +280,7 @@ async function handleChainsMode() {
         const { nodes: chainNodes, links: chainLinks } = 
           await findChainsThroughAllPhilosophers(S.selectedPhilosophers);
         applyChainVisibility(chainNodes, chainLinks);
-        updateFilterStats();
+        известить('фильтры-применены');
       } else {
         // F2: предупреждение при большом выборе
         if (!confirmLongChainSearch(S.selectedPhilosophers.size)) {
@@ -92,11 +288,11 @@ async function handleChainsMode() {
           const sel = document.getElementById('filterMode');
           if (sel) sel.value = 'all';
           applyBasicFilter('all');
-          updateFilterStats();
+          известить('фильтры-применены');
           return;
         }
         // Асинхронный режим с прогрессом для 3+ философов
-        const indicator = S.LoadingIndicator.create(
+        const indicator = LoadingIndicator.create(
           ' Поиск сквозных цепочек',
           `Анализ связей между ${S.selectedPhilosophers.size} философами`
         );
@@ -115,7 +311,7 @@ async function handleChainsMode() {
             
             applyChainVisibility(chainNodes, chainLinks);
             indicator.remove();
-            updateFilterStats();
+            известить('фильтры-применены');
             
             if (chainNodes.size === 0) {
               // F3: три разных исхода различаются явно
@@ -142,14 +338,14 @@ async function handleUniqueChainsMode() {
       if (S.selectedPhilosophers.size === 1) {
         // Для 1 философа - показываем внутренние связи
         applyBasicFilter('internal');
-        updateFilterStats();
+        известить('фильтры-применены');
         return;
       }
       
       if (S.selectedPhilosophers.size === 2) {
         // Для 2 философов - как cross_selected
         applyBasicFilter('cross_selected');
-        updateFilterStats();
+        известить('фильтры-применены');
         return;
       }
       
@@ -159,12 +355,12 @@ async function handleUniqueChainsMode() {
         const sel = document.getElementById('filterMode');
         if (sel) sel.value = 'all';
         applyBasicFilter('all');
-        updateFilterStats();
+        известить('фильтры-применены');
         return;
       }
       
       // Для 3+ философов - поиск уникальных цепочек с прогрессом
-      const indicator = S.LoadingIndicator.create(
+      const indicator = LoadingIndicator.create(
         '⚡ Поиск уникальных цепочек',
         `Однократное участие каждого из ${S.selectedPhilosophers.size} философов`,
         '#9b59b6'
@@ -182,7 +378,7 @@ async function handleUniqueChainsMode() {
           
           applyChainVisibility(chainNodes, chainLinks);
           indicator.remove();
-          updateFilterStats();
+          известить('фильтры-применены');
           
           if (chainNodes.size === 0) {
             // F3: «нет решения» и «поиск прерван» — разные ответы
@@ -224,7 +420,7 @@ function refreshMetricsIfScoped() {
       initializePhilosophyMetrics();
       invalidateEverythingForScope();
       updateMetricsScopeHint();
-      if (S.isStatsModalOpen && S.currentStatsView) loadStatsContent(S.currentStatsView);
+      известить('статистика-устарела');
     }
 
 function applyFiltersImmediate() {
@@ -242,9 +438,9 @@ function applyFiltersImmediate() {
       // Базовые режимы фильтрации
       applyBasicFilter(S.filterMode);
       
-      // Общая пост-обработка
-      updateFilterStats();
-      updatePhilosopherDimming();
+      // Общая пост-обработка: фильтры не зовут легенду напрямую — они
+      // извещают, а подписку ставит сборка (см. шину событий).
+      известить('фильтры-применены');
       cleanupInvisibleSelections();
       refreshMetricsIfScoped();   // C3
     }
@@ -253,4 +449,4 @@ const debouncedApplyFilters = debounce(applyFiltersImmediate, 150);
 
 function applyFilters() { debouncedApplyFilters(); }
 
-export { applyBasicFilter, applyChainVisibility, applyFilters, applyFiltersImmediate, cleanupInvisibleSelections, debouncedApplyFilters, handleChainsMode, handleUniqueChainsMode, linkPassesTraditions, philTraditionsSelected, philosopherPassesTraditions, refreshMetricsIfScoped };
+export { FilterModes, applyBasicFilter, applyChainVisibility, applyFilters, applyFiltersImmediate, cleanupInvisibleSelections, debounce, debouncedApplyFilters, handleChainsMode, handleUniqueChainsMode, linkPassesTraditions, philTraditionsSelected, philosopherPassesTraditions, refreshMetricsIfScoped };

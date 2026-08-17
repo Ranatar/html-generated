@@ -34,4 +34,20 @@ function modalContentFor(entityType, data, mode) {
       return note;
     }
 
-export { modalContentFor, modalEntityExists };
+function modalActions(saveFn, deleteFn, deleteArg, isNew) {
+      return `
+        <div class="modal-actions">
+          <button class="modal-btn modal-btn-primary" data-act-click="сохранить-сущность" data-a1="${saveFn}">
+            💾 Сохранить
+          </button>
+          <button class="modal-btn modal-btn-secondary" data-act-click="close-universal-modal">
+            ✖️ Отмена
+          </button>
+          ${isNew ? '' : `
+            <button class="modal-btn modal-btn-danger" data-act-click="удалить-сущность" data-a1="${deleteFn}" data-a2="${(deleteArg || [])[0] || ''}" data-a3="${(deleteArg || [])[1] || ''}">
+              🗑️ Удалить
+            </button>`}
+        </div>`;
+    }
+
+export { modalActions, modalContentFor, modalEntityExists };

@@ -1,7 +1,7 @@
 // Сгенерировано из philosophy_graph.html — правки вносить сюда, не в исходник.
 import { DATA } from '../core/ns.js';
+import { modalEntityExists } from './assembly.js';
 import { ModalContext } from './context.js';
-import { modalEntityExists } from './registry.js';
 
 function hasUnsavedChanges() {
       if (ModalContext.currentMode !== 'edit') return false;

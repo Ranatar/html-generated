@@ -1,11 +1,13 @@
 // Сгенерировано из philosophy_graph.html — правки вносить сюда, не в исходник.
 import { DATA, S } from '../core/ns.js';
-import { isSymmetricLink } from '../core/predicates.js';
+import { isSymmetricLink } from '../core/link-facts.js';
+import { CHRONOLOGY_MODES } from '../core/time.js';
+
 import { analyzePath, analyzePathTraditions } from './analysis.js';
+
 import { findShortestPath } from './shortest-path.js';
+import { gfxLinkAll, gfxNode } from '../render/d3-layer.js';
 import { resetHighlight } from '../render/selection.js';
-import { freezeSimulation, unfreezeSimulation } from '../render/simulation.js';
-import { selectedSourceNode, selectedTargetNode } from '../ui/custom-select.js';
 
 function initPathFinder() {
       const sourceSelect = document.getElementById('sourceSelect');
@@ -33,8 +35,8 @@ function initPathFinder() {
 
 function findAndShowPath() {
       // ИЗМЕНЕНО: используем новые переменные вместо старых select
-      const sourceId = selectedSourceNode;
-      const targetId = selectedTargetNode;
+      const sourceId = S.selectedSourceNode;
+      const targetId = S.selectedTargetNode;
       
       const resultDiv = document.getElementById('pathResult');
       
@@ -122,7 +124,9 @@ function findAndShowPath() {
         pathHTML += `
           <span class="path-node-container">
             <span class="path-philosopher">${node.concept}</span>
-            <span class="path-node" style="border-color: ${philosopherColor};" title="${node.concept}: ${node.description}">
+            <span class="path-node path-open" style="border-color: ${philosopherColor};"
+                  data-act-click="open-concept-by-id-3" data-a1="${node.id}"
+                  data-tip="${node.concept}: ${node.description} · щёлкните, чтобы открыть">
               ${node.label}
             </span>
           </span>
@@ -166,9 +170,10 @@ function findAndShowPath() {
             
             // Используем data-атрибуты для хранения информации о связи
             pathHTML += `
-              <span class="path-arrow ${link.bidirectional ? 'bidirectional' : ''}${trCross ? ' tradition-crossing' : ''}" 
-                  style="color: ${linkColor};" 
-                  title="${trHint}"
+              <span class="path-arrow path-open ${link.bidirectional ? 'bidirectional' : ''}${trCross ? ' tradition-crossing' : ''}" 
+                  style="color: ${linkColor};"
+                  data-act-click="open-universal-modal-15" data-a1="${currentNode.id}" data-a2="${nextNode.id}" 
+                  data-tip="${trHint}"
                   data-link-type="${linkLabel}"
                   data-link-description="${linkDescription.replace(/"/g, '&quot;').replace(/'/g, '&#39;')}"
                   data-act-enter="handle-path-arrow-hover-mouseenter"
@@ -187,13 +192,45 @@ function findAndShowPath() {
       const modeNames = {
         strict: 'строгий',
         moderate: 'умеренный', 
-        loose: 'свободный'
+        loose: 'свободный',
+        seamless: 'без разрывов'
       };
-      
+
+      // ХОД ВРЕМЕНИ ПО ПУТИ, а не только его концы. Прежде писалось
+      // «428-348 до н.э. → 121-180», и путь, ушедший в 1788 год и
+      // вернувшийся в 121-й, выглядел безупречно: прыжок на две тысячи лет
+      // прятался между концами. Годы у каждого узла загромоздили бы цепочку,
+      // поэтому они собраны в одну строку — подряд идущие повторы (шаги
+      // внутри одного философа) сливаются.
+      const ходЛет = [];
+      pathNodes.forEach(n => {
+        const ф = DATA.philosophers.find(p => p.nameRu === n.concept);
+        if (!ф) return;
+        const год = ф.birth < 0 ? Math.abs(ф.birth) + ' до н.э.' : String(ф.birth);
+        if (ходЛет[ходЛет.length - 1] !== год) ходЛет.push(год);
+      });
+
+      // Разрыв — это шаг против общего хода времени. Считаем по числам, а не
+      // по типам связей: тип говорит, как связь читается, а не куда идёт путь.
+      let разрывов = 0;
+      {
+        const годы = pathNodes.map(n => {
+          const ф = DATA.philosophers.find(p => p.nameRu === n.concept);
+          return ф ? ф.birth : null;
+        }).filter(г => г !== null);
+        const ход = годы.length > 1 && годы[годы.length - 1] < годы[0] ? -1 : 1;
+        let край = годы[0];
+        for (const г of годы.slice(1)) {
+          if (ход > 0 ? г < край : г > край) разрывов++;
+          край = ход > 0 ? Math.max(край, г) : Math.min(край, г);
+        }
+      }
+
       const chronologyInfo = respectChronology ? 
         `<div style="margin-top: 8px; font-size: 10px; color: var(--fg-muted);">
-          <strong>Хронология:</strong> ${years[0]} → ${years[years.length - 1]}<br>
-          <strong>Режим:</strong> ${modeNames[selectedChronologyMode]}
+          <strong>Ход времени:</strong> ${ходЛет.join(' → ')}<br>
+          <strong>Режим:</strong> ${modeNames[selectedChronologyMode]}${
+            разрывов ? ` · <span style="color:#e0b83a;">разрывов: ${разрывов}</span>` : ''}
         </div>` : '';
       
       // Сводка по традициям. Различных традиций и переходов — порознь:
@@ -228,7 +265,7 @@ function findAndShowPath() {
                 <strong>${w.to}</strong> (${w.toPhil}, ${w.toYears})
               </div>
             `).join('')}
-            <div style="font-size: 9px; color: #856404; margin-top: 6px; font-style: italic;">
+            <div style="font-size: 9px; color: #e0b83a; margin-top: 6px; font-style: italic;">
               Эти переходы могут быть хронологически некорректны в строгом режиме.
             </div>
           </div>
@@ -249,7 +286,7 @@ function findAndShowPath() {
         </button>
       `;
 
-      currentPathData = {
+      S.currentPathData = {
         path: path,
         pathNodes: pathNodes,
         respectDirection: respectDirectionPath
@@ -307,13 +344,19 @@ function handlePathArrowHover(event, isEntering) {
 
 function resolvePathLinkList(path, respectDirectionFlag = true) {
       const list = [];
+      // В режиме без разрывов путь идёт по ГОДАМ, а не по стрелкам, и ребро
+      // сплошь и рядом пройдено против своей стрелки. Разбор об этом не знал
+      // и возвращал null: в панели путь ещё показывался, а в окне описаний
+      // оставался один исходный узел — связи не находились, а вместе с ними
+      // пропадали и следующие за ними узлы.
+      const безРазрывов = S.currentChronologyMode === CHRONOLOGY_MODES.SEAMLESS;
       for (let i = 0; i < path.length - 1; i++) {
         const a = typeof path[i] === 'object' ? path[i].id : path[i];
         const b = typeof path[i + 1] === 'object' ? path[i + 1].id : path[i + 1];
         list.push(DATA.links.find(l => {
           const src = l.source.id || l.source;
           const tgt = l.target.id || l.target;
-          if (respectDirectionFlag) {
+          if (respectDirectionFlag && !безРазрывов) {
             // C1: прежде читался только флаг. После снятия флага
             // у симметричных типов (D8) ребро, пройденное назад,
             // возвращалось бы null и путь рвался.
@@ -334,11 +377,11 @@ function highlightPath(path, respectDirection = true) {
       const pathLinks = new Set(resolvePathLinkList(path, respectDirection).filter(Boolean));
       
       // Применяем стили
-      S.gfxNode.classed("dimmed", d => !pathSet.has(d.id))
+      gfxNode.classed("dimmed", d => !pathSet.has(d.id))
         .classed("highlighted", d => pathSet.has(d.id));
       
       // Применяем к видимому пути внутри группы
-      S.gfxLinkAll.classed("dimmed", l => !pathLinks.has(l))
+      gfxLinkAll.classed("dimmed", l => !pathLinks.has(l))
         .classed("path-highlight", l => pathLinks.has(l));
     }
 
@@ -349,142 +392,4 @@ function clearPathHighlight() {
       resultDiv.innerHTML = '';
     }
 
-let currentPathData = null;
-
-function showPathDescriptionsModal() {
-      if (!currentPathData) return;
-      
-      const { path, pathNodes, respectDirection } = currentPathData;
-      // Б9: тот же единый источник
-      const pathLinkList = resolvePathLinkList(path, respectDirection);
-      const modal = document.getElementById('pathDescriptionsModal');
-      const overlay = document.getElementById('modalOverlay');
-      const content = document.getElementById('pathDescriptionsContent');
-
-      freezeSimulation();
-      
-      const modalTraditions = analyzePathTraditions(pathNodes);
-      let html = '<h3>📋 Описания связей в пути</h3>';
-      html += `
-        <div class="path-traditions-info" style="margin-bottom:14px;">
-          <strong>Традиции:</strong> цепочка проходит через
-          ${modalTraditions.distinct} и делает ${modalTraditions.crossings}
-          ${modalTraditions.crossings === 1 ? 'переход' : 'переходов'}
-        </div>
-      `;
-      
-      // Кнопка для показа/скрытия описаний узлов
-      html += `
-        <button class="toggle-nodes-descriptions-btn" data-act-click="toggle-path-nodes-descriptions">
-          Показать описания узлов
-        </button>
-      `;
-      
-      // Проходим по всем связям в пути
-      for (let i = 0; i < pathNodes.length - 1; i++) {
-        const currentNode = pathNodes[i];
-        const nextNode = pathNodes[i + 1];
-        
-        // Б9: берём готовое ребро сегмента
-        const link = pathLinkList[i];
-        
-        if (link) {
-          const linkColor = DATA.relationTypesObj[link.type].color;
-          const linkLabel = DATA.relationTypesObj[link.type].label;
-          const src = link.source.id || link.source;
-          const tgt = link.target.id || link.target;
-          
-          let arrow;
-          if (link.bidirectional) {
-            arrow = '↔';
-          } else if (src === currentNode.id && tgt === nextNode.id) {
-            arrow = '→';
-          } else {
-            arrow = '←';
-          }
-          
-          html += `
-            <div class="path-description-item">
-              <div class="path-description-header">
-                <span class="path-description-nodes">${currentNode.label}</span>
-                <span class="path-description-arrow" style="color: ${linkColor};">${arrow}</span>
-                <span class="path-description-nodes">${nextNode.label}</span>
-              </div>
-              <div class="path-description-type">Тип связи: ${linkLabel}</div>
-              ${(() => {
-                const s = modalTraditions.segments[i];
-                if (!s || s.kind === 'internal') return '';
-                return s.kind === 'crossing'
-                  ? `<div class="path-description-type tradition-crossing-line">
-                       Переход между традициями: ${s.from.join(', ')} → ${s.to.join(', ')}
-                     </div>`
-                  : `<div class="path-description-type">
-                       Продолжение в традиции: ${s.shared.join(', ')}
-                     </div>`;
-              })()}
-              ${link.description ? `
-                <div class="path-description-text">${link.description}</div>
-              ` : `
-                <div class="path-description-text" style="color: var(--fg-muted); font-style: italic;">
-                  Описание связи отсутствует
-                </div>
-              `}
-              
-              <!-- Скрытые описания узлов -->
-              <div class="path-node-full-description" id="node-desc-${i}">
-                <h4>Узел: ${currentNode.label}</h4>
-                <p><strong>Философ:</strong> ${currentNode.concept}</p>
-                <p><strong>Описание:</strong> ${currentNode.extendedDescription || 'Описание отсутствует'}</p>
-              </div>
-            </div>
-          `;
-        }
-      }
-      
-      // Добавляем описание последнего узла
-      const lastNode = pathNodes[pathNodes.length - 1];
-      html += `
-        <div class="path-node-full-description" id="node-desc-${pathNodes.length - 1}">
-          <h4>Конечный узел: ${lastNode.label}</h4>
-          <p><strong>Философ:</strong> ${lastNode.concept}</p>
-          <p><strong>Описание:</strong> ${lastNode.extendedDescription || 'Описание отсутствует'}</p>
-        </div>
-      `;
-      
-      content.innerHTML = html;
-      modal.classList.add('show');
-      overlay.classList.add('show');
-    }
-
-function closePathDescriptionsModal() {
-      const modal = document.getElementById('pathDescriptionsModal');
-      const overlay = document.getElementById('modalOverlay');
-      
-      modal.classList.remove('show');
-      overlay.classList.remove('show');
-
-      unfreezeSimulation();
-    }
-
-let nodesDescriptionsVisible = false;
-
-function togglePathNodesDescriptions() {
-      const nodeDescriptions = document.querySelectorAll('.path-node-full-description');
-      const toggleBtn = event.target;
-      
-      nodesDescriptionsVisible = !nodesDescriptionsVisible;
-      
-      nodeDescriptions.forEach(desc => {
-        if (nodesDescriptionsVisible) {
-          desc.classList.add('show');
-        } else {
-          desc.classList.remove('show');
-        }
-      });
-      
-      toggleBtn.textContent = nodesDescriptionsVisible ? 
-        'Скрыть описания узлов' : 
-        'Показать описания узлов';
-    }
-
-export { ARROW_HOVER_DELAY, arrowHoverTimer, clearPathHighlight, closePathDescriptionsModal, currentPathData, findAndShowPath, handlePathArrowHover, highlightPath, initPathFinder, nodesDescriptionsVisible, resolvePathLinkList, showPathDescriptionsModal, togglePathNodesDescriptions };
+export { ARROW_HOVER_DELAY, arrowHoverTimer, clearPathHighlight, findAndShowPath, handlePathArrowHover, highlightPath, initPathFinder, resolvePathLinkList };

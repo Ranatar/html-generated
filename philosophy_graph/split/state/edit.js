@@ -8,8 +8,4 @@ let editMode = {
       pendingConceptSelection: [] // Для последовательного выбора двух концепций
     };
 
-let selectedNodes = new Set();
-
-let selectedEdges = new Set();
-
-export { editMode, selectedEdges, selectedNodes };
+export { editMode };

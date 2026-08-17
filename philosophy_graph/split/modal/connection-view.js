@@ -1,12 +1,32 @@
 // Сгенерировано из philosophy_graph.html — правки вносить сюда, не в исходник.
 import { DATA, VIEWS } from '../core/ns.js';
-import { connectionsBetween, traditionsOfPhilosopher } from '../core/graph-index.js';
-import { CONN_WEIGHT_WORDS, relationHint } from '../core/labels.js';
-import { isReflexiveLink } from '../core/predicates.js';
-import { selectConceptOnGraph } from '../data/mutate.js';
+import { isReflexiveLink } from '../core/link-facts.js';
+import { CONN_WEIGHT_WORDS, WEIGHT_WORDS, relationHint } from '../core/relation-types.js';
+import { внутренностиСтроки, отобратьКонцепции, пустойСписок } from '../core/search.js';
+import { connectionsBetween, traditionsOfPhilosopher } from '../graph/graph-data.js';
+import { selectConceptOnGraph } from '../graph/graph-selection.js';
 import { ModalContext } from './context.js';
-import { openUniversalModal } from './core.js';
-import { getContrastColor } from '../util/format.js';
+
+import { getContrastColor } from '../util/color.js';
+
+function стрелкаСвязи(глиф, цвет, вес, подпись, ещё, откуда, куда) {
+      const в = вес || 2;
+      // Щелчок по стрелке открывает окно связи. Прежде войти в него можно
+      // было лишь с полотна да из формы правки концепции: в списках связей
+      // окна концепции, окна философа и описаний пути сама связь была
+      // видна, а открыть её было нечем — щелчок по строке вёл к соседней
+      // КОНЦЕПЦИИ, и до связи добраться было неоткуда.
+      const открыть = откуда && куда;
+      const текст = `${подпись} · вес ${в} — ${WEIGHT_WORDS[в]}` +
+                    (открыть ? ' · щёлкните, чтобы открыть связь' : '');
+      const действие = открыть
+        ? ` data-act-click="open-universal-modal-4" data-a1="${откуда}" data-a2="${куда}"`
+        : '';
+      return `<div class="connection-arrow${открыть ? ' clickable' : ''}"` +
+             ` style="color:${цвет};${ещё || ''}" data-tip="${текст}"${действие}>` +
+             `<span class="connection-arrow-glyph cw-${в}">${глиф}</span>` +
+             `</div>`;
+    }
 
 function conceptCircle(node, size) {
       const color = DATA.philosopherConcepts[node.concept]
@@ -148,7 +168,7 @@ function generateConnectionVisualization(sourceNode, targetNode, connectionData)
           <div style="background:rgba(255,255,255,0.03);border-radius:10px;padding:20px;margin-bottom:15px;border:1px solid rgba(255,255,255,0.1);">
             <div style="display:flex;justify-content:space-around;align-items:flex-start;gap:10px;margin-bottom:10px;">
               ${reflexive ? '' : conceptPlate(dispSrc)}
-              <div style="flex:1.4;display:flex;align-items:center;justify-content:center;" title="${hint}">
+              <div style="flex:1.4;display:flex;align-items:center;justify-content:center;" data-tip="${hint}">
                 ${connectionArrowSvg(conn, index)}
               </div>
               ${reflexive ? conceptPlate(dispSrc) : conceptPlate(dispTgt)}
@@ -156,7 +176,7 @@ function generateConnectionVisualization(sourceNode, targetNode, connectionData)
 
             <div style="margin-top:15px;padding-top:15px;border-top:1px solid rgba(255,255,255,0.1);">
               <div style="display:flex;flex-wrap:wrap;gap:8px 20px;font-size:12px;color: var(--fg-muted);">
-                <div><strong>Тип:</strong> <span title="${hint}" style="border-bottom: 1px dotted var(--fg-muted);cursor:help;">${t.label || conn.type}</span></div>
+                <div><strong>Тип:</strong> <span data-tip="${hint}" style="border-bottom: 1px dotted var(--fg-muted);cursor:help;">${t.label || conn.type}</span></div>
                 <div><strong>Вес:</strong> ${conn.weight || 2} — ${weightWord}</div>
                 <div><strong>Направление:</strong> ${
                   reflexive ? 'рефлексивная (петля)'
@@ -301,37 +321,19 @@ function handleConnectionViewSearch(type, query) {
       // Прежде пустой запрос просто закрывал список, и выбрать глазами
       // было нечего. Отсечки по числу тоже нет: панель поиска пути
       // выводит все 453 и прокручивается.
-      const q = (query || '').trim().toLowerCase();
-      const results = pool.filter(n => !q
-          || n.label.toLowerCase().split(/\s+/).some(w => w.startsWith(q))
-          || n.concept.toLowerCase().split(/\s+/).some(w => w.startsWith(q)))
-        .sort((a, b) => {
-          const ao = DATA.philosopherOrder[a.concept] || 0;
-          const bo = DATA.philosopherOrder[b.concept] || 0;
-          return ao !== bo ? ao - bo : a.label.localeCompare(b.label);
-        });
+      const results = отобратьКонцепции(query, pool);
 
       if (!results.length) {
-        box.innerHTML = '<div style="padding:15px;text-align:center;color: var(--fg-muted);font-size:11px;">'
-                + (other ? 'Среди связанных концепций ничего не найдено'
-                     : 'Ничего не найдено') + '</div>';
+        box.innerHTML = пустойСписок(other
+          ? 'Среди связанных концепций ничего не найдено' : 'Ничего не найдено');
         box.classList.add('show');
         return;
       }
 
-      box.innerHTML = results.map(n => {
-        const color = DATA.philosopherConcepts[n.concept]
-          ? DATA.philosopherConcepts[n.concept].color : '#6c5ce7';
-        return `
-          <div class="modal-concept-search-item"
-             data-act-click="select-connection-view-concept" data-a1="${type}" data-a2="${n.id}">
-            <div style="width:12px;height:12px;border-radius:50%;background:${color};box-shadow:0 0 6px ${color};flex:none;"></div>
-            <div style="flex:1;min-width:0;">
-              <div style="font-weight:600;color:#e0e0e0;font-size:13px;">${n.label}</div>
-              <div style="font-size:11px;color: var(--fg-muted);font-style:italic;">${n.concept}</div>
-            </div>
-          </div>`;
-      }).join('');
+      box.innerHTML = results.map(n => `
+        <div class="concept-row" data-act-click="select-connection-view-concept" data-a1="${type}" data-a2="${n.id}">
+          ${внутренностиСтроки(n)}
+        </div>`).join('');
       box.classList.add('show');
     }
 
@@ -407,4 +409,4 @@ function initConnectionSearchFields(mode = 'edit') {
       });
     }
 
-export { conceptCircle, conceptPlate, connectionArrowSvg, connectionTraditionNote, generateConnectionVisualization, handleConnectionViewSearch, initConnectionSearchFields, selectConnectionViewConcept, toggleConnectionSearchSection, updateConnectionVisualization };
+export { conceptCircle, conceptPlate, connectionArrowSvg, connectionTraditionNote, generateConnectionVisualization, handleConnectionViewSearch, initConnectionSearchFields, selectConnectionViewConcept, toggleConnectionSearchSection, updateConnectionVisualization, стрелкаСвязи };

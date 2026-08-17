@@ -1,8 +1,12 @@
 // Сгенерировано из philosophy_graph.html — правки вносить сюда, не в исходник.
 import { DATA, MET, S } from '../core/ns.js';
+import { известить } from '../core/events.js';
 import { betweennessCache, closenessCache, eigenvectorCache, localCohesionCache, pageRankCache, richClubCache, weightedClusteringCache } from '../metrics/network.js';
-import { updateArrows } from './d3-layer.js';
-import { closeStatsModal } from '../stats/modal.js';
+import { gfxNode, updateArrows } from './d3-layer.js';
+
+let isVisualizingBySize = false;
+
+let currentVisualizedMetric = null;
 
 let originalRadii = new Map();
 
@@ -14,7 +18,7 @@ function updateVisualizationControlSection() {
       
       if (!section) return; // Если секции нет в HTML
       
-      if (S.isVisualizingBySize && S.currentVisualizedMetric) {
+      if (isVisualizingBySize && currentVisualizedMetric) {
         section.style.display = 'block';
         if (metricLabel) {
           // Получаем читаемое имя метрики
@@ -42,7 +46,7 @@ function updateVisualizationControlSection() {
             'complexity': 'Концептуальная сложность',
             'continuity': 'Индекс преемственности'
           };
-          metricLabel.textContent = metricNames[S.currentVisualizedMetric] || S.currentVisualizedMetric;
+          metricLabel.textContent = metricNames[currentVisualizedMetric] || currentVisualizedMetric;
         }
       } else {
         section.style.display = 'none';
@@ -62,18 +66,18 @@ function saveOriginalRadii() {
     }
 
 function toggleMetricVisualization(metricKey) {
-      if (S.isVisualizingBySize && S.currentVisualizedMetric === metricKey) {
+      if (isVisualizingBySize && currentVisualizedMetric === metricKey) {
         // Если уже визуализируем эту метрику - сбрасываем
         resetNodeSizes();
         return;
       }
 
-      if (S.isStatsModalOpen) {
-        closeStatsModal();
-        console.log('🔽 Модальное окно закрыто для визуализации');
-      }
-      
-      // Получаем данные метрики
+      // Данные метрики берутся ДО закрытия окна статистики. Закрытие
+      // возвращает метрики к живым массивам и сбрасывает все кеши
+      // (invalidateEverythingForScope) — а именно из кешей мы их и читаем.
+      // Прежде порядок был обратным, и визуализация получала пустоту:
+      // выскакивало «Нет данных для визуализации», размеры не менялись,
+      // и кнопка сброса в легенде, разумеется, не появлялась.
       let metricData = null;
       
       switch(metricKey) {
@@ -184,7 +188,13 @@ function toggleMetricVisualization(metricKey) {
         alert('Нет данных для визуализации. Сначала рассчитайте метрику.');
         return;
       }
-      
+
+      // Данные на руках — теперь можно убирать окно.
+      if (S.isStatsModalOpen) {
+        известить('закрыть-статистику');
+        console.log('🔽 Модальное окно закрыто для визуализации');
+      }
+
       visualizeMetricBySize(metricData, metricKey);
     }
 
@@ -194,7 +204,7 @@ function updateVisualizationButtonText(metricKey) {
       
       if (!iconElement || !textElement) return;
       
-      if (S.isVisualizingBySize && S.currentVisualizedMetric === metricKey) {
+      if (isVisualizingBySize && currentVisualizedMetric === metricKey) {
         // Визуализация активна
         iconElement.textContent = '🔄';
         textElement.textContent = 'Сбросить визуализацию';
@@ -206,7 +216,12 @@ function updateVisualizationButtonText(metricKey) {
     }
 
 function visualizeMetricBySize(metricData, metricName) {
-      updateVisualizationControlSection();
+      // Раздел легенды обновляется ПОСЛЕ смены признаков, а не до неё:
+      // updateVisualizationControlSection читает isVisualizingBySize и
+      // currentVisualizedMetric, а они выставляются в конце этой функции.
+      // Вызов в начале показывал ПРОШЛОЕ состояние — кнопка «Сбросить
+      // визуализацию» не появлялась вовсе, а при повторном нажатии
+      // появлялась уже после сброса.
       saveOriginalRadii();
       
       // Создаём мапу значений
@@ -276,7 +291,7 @@ function visualizeMetricBySize(metricData, metricName) {
       };
       
       // Применяем новые радиусы
-      S.gfxNode.selectAll("circle")
+      gfxNode.selectAll("circle")
         .transition()
         .duration(500)
         .attr("r", d => {
@@ -285,7 +300,7 @@ function visualizeMetricBySize(metricData, metricName) {
         });
       
       // Обновляем позицию текста
-      S.gfxNode.selectAll("text")
+      gfxNode.selectAll("text")
         .transition()
         .duration(500)
         .attr("dy", d => {
@@ -302,33 +317,35 @@ function visualizeMetricBySize(metricData, metricName) {
       }));
       updateArrows();
       
-      S.isVisualizingBySize = true;
-      S.currentVisualizedMetric = metricName;
+      isVisualizingBySize = true;
+      currentVisualizedMetric = metricName;
 
       updateVisualizationButtonText(metricName);
-      
+      updateVisualizationControlSection();
+
       console.log(`✅ Визуализация метрики "${metricName}" размером узлов активирована`);
     }
 
 function resetNodeSizes() {
+      if (!isVisualizingBySize) return;
 
-      updateVisualizationControlSection();
-
-      if (!S.isVisualizingBySize) return;
-
-      const oldMetric = S.currentVisualizedMetric;
+      const oldMetric = currentVisualizedMetric;
       
-      S.isVisualizingBySize = false;
-      S.currentVisualizedMetric = null;
+      isVisualizingBySize = false;
+      currentVisualizedMetric = null;
+
+      // Тот же порядок: сперва признаки, потом вид. Прежде раздел легенды
+      // обновлялся ДО сброса и потому оставался показанным.
+      updateVisualizationControlSection();
       
       // Восстановить радиусы
-      S.gfxNode.selectAll("circle")
+      gfxNode.selectAll("circle")
         .transition()
         .duration(500)
         .attr("r", d => originalRadii.get(d.id) || 18);
       
       // Восстановить позицию текста (используем сохраненные значения)
-      S.gfxNode.selectAll("text")
+      gfxNode.selectAll("text")
         .transition()
         .duration(500)
         .attr("dy", d => {
@@ -349,4 +366,4 @@ function resetNodeSizes() {
       console.log('✅ Оригинальные размеры узлов восстановлены');
     }
 
-export { originalRadii, originalTextDy, resetNodeSizes, saveOriginalRadii, toggleMetricVisualization, updateVisualizationButtonText, updateVisualizationControlSection, visualizeMetricBySize };
+export { currentVisualizedMetric, isVisualizingBySize, originalRadii, originalTextDy, resetNodeSizes, saveOriginalRadii, toggleMetricVisualization, updateVisualizationButtonText, updateVisualizationControlSection, visualizeMetricBySize };

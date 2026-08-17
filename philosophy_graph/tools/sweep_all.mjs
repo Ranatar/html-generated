@@ -66,7 +66,42 @@ window.__snap = function () {
   var checked = function (sel) { return document.querySelectorAll(sel + ' input:checked').length; };
   return [
     g('legend'), g('pathFinder'), g('controls'), g('authButtons'),
-    g('statsContentArea'), g('universalModalContent'), g('conceptProfileContent'),
+    // ВИД СТАТИСТИКИ: берём не содержимое целиком, а его ОБЛИК. Считать
+    // ли метрику, решает кнопка «Рассчитать», которая срабатывает один раз
+    // на весь обход, — и какой вид достанется счёту, гуляет от прогона к
+    // прогону: длина скакала между 1359 и 22261 знаком, а поведение при
+    // этом одинаково.
+    //
+    // ОБЛИК ТОЖЕ ЗАВИСЕЛ ОТ СЧЁТА, и это вылезло позже: у вида pagerank
+    // «кнопок» было 1 либо 62, смотря успела ли метрика посчитаться. После
+    // того как boot() укоротился вдвое, она стала успевать, и снимок разошёлся
+    // с эталоном — при том что ИСХОДНИК давал ровно эталонное значение, то
+    // есть поведение сторон не различалось ничем.
+    //
+    // Лечение общее для всех таких случаев и применялось в этом наборе уже
+    // трижды: не подгонять состояние под прибор, а СПРОСИТЬ О НЕИЗМЕННОМ.
+    // Считается ТОЛЬКО ТО, ЧТО ЕСТЬ ДО СЧЁТА, — заголовок вида, пояснение к
+    // метрике и кнопка «Рассчитать». Всё, что дорисовывает счёт (шапка с
+    // действиями, сетка карточек, таблицы, подробности), из счёта исключено
+    // целиком: убирать его по одному классу мало — первая попытка вычёркивала
+    // только сетку, и «кнопок» продолжало гулять между 1 и 2.
+    //
+    // Показательность сохранена: прибавь или убери орган управления видом,
+    // заголовок или блок пояснения — снимок это увидит; от часов он больше
+    // не зависит. Проверено двумя прогонами одной стороны.
+    (function () {
+      var e = document.getElementById('statsContentArea');
+      if (!e) return 'нет';
+      var c = e.cloneNode(true);
+      var убрать = c.querySelectorAll('.stats-content-actions, .metric-results-grid,'
+        + ' .metric-result-card, .metric-details, table, .empty-state');
+      for (var i = 0; i < убрать.length; i++) убрать[i].remove();
+      return ['кнопок:' + c.querySelectorAll('button').length,
+              'полей:' + c.querySelectorAll('input,select').length,
+              'заголовков:' + c.querySelectorAll('h1,h2,h3,h4').length,
+              'пояснений:' + c.querySelectorAll('.metric-description-section').length].join(',');
+    })(),
+    g('universalModalContent'), g('conceptProfileContent'),
     g('philosopherProfileContent'), g('pathDescriptionsContent'), g('authModal'),
     vis('statsModal'), vis('universalModal'), vis('conceptProfileModal'),
     vis('philosopherProfileModal'), vis('pathDescriptionsModal'), vis('modalOverlay'),
@@ -200,7 +235,7 @@ async function run(pageName, part) {
   // окна подтверждения отклоняем, извещения закрываем — одинаково с обеих сторон
   page.on('dialog', async d => { try { await d.dismiss(); } catch (e) {} });
 
-  await page.goto(BASE + pageName, { waitUntil: 'networkidle0', timeout: 60000 });
+  await page.goto(BASE + pageName, { waitUntil: 'domcontentloaded', timeout: 60000 });
   await wait(4000);
 
   // Оснастка: у переведённой сборки точки входа даёт _probe-rig.js
@@ -234,6 +269,13 @@ async function run(pageName, part) {
     const list = await page.evaluate(sel => window.__handlers(sel), rootSel);
     for (const h of list) {
       const before = errs.length;
+      // Окно статистики до действия: часть действий его закрывает (включение
+      // визуализации), и если не вернуть — все дальнейшие снимки этого
+      // прохода поедут.
+      const окноБыло = await page.evaluate(() => {
+        const m = document.getElementById('statsModal');
+        return m ? getComputedStyle(m).display : null;
+      });
       const res = await page.evaluate(k => window.__fire(k), h.key);
       await wait(220);
       // Снимок берётся УСТОЯВШИЙСЯ. Часть действий тянет за собой отложенную
@@ -242,6 +284,35 @@ async function run(pageName, part) {
       // расхождение сторон получилось бы от разной скорости, а не от разного
       // поведения. Поэтому: снять, переснять, и если разошлось — дать ещё.
       let snap = await page.evaluate(() => window.__snap());
+
+      // ВОЗВРАТ СОСТОЯНИЯ. Визуализация метрики размером оставляет след:
+      // раздел в легенде и изменённые радиусы. А срабатывает она в разных
+      // видах от прогона к прогону — метрика считается порциями, и кнопка
+      // «Визуализировать размером» появляется то раньше, то позже. След
+      // тянулся во все дальнейшие снимки, и прибор расходился сам с собой.
+      // Снимок этого действия уже взят выше; дальше состояние возвращается.
+      await page.evaluate(() => {
+        const s = document.getElementById('visualizationControlSection');
+        if (s && getComputedStyle(s).display !== 'none') {
+          const b = s.querySelector('button');
+          if (b) b.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true, view: window }));
+        }
+      });
+
+      // Окно статистики тоже возвращается: включение визуализации его
+      // закрывает. Прежде возвращались только радиусы и раздел легенды —
+      // и прибор снова разошёлся сам с собой на 34 снимках.
+      if (окноБыло && окноБыло !== 'none') {
+        const стало = await page.evaluate(() => {
+          const m = document.getElementById('statsModal');
+          return m ? getComputedStyle(m).display : null;
+        });
+        if (стало === 'none') {
+          await page.evaluate(() => window.__app.openStatsModal());
+          await wait(400);
+        }
+      }
+
       await wait(320);
       let snap2 = await page.evaluate(() => window.__snap());
       if (snap !== snap2) {
@@ -294,7 +365,7 @@ async function run(pageName, part) {
   // внутри onclick, у переведённой сборки — в data-a2. Прибор обязан
   // понимать обе записи, иначе после перевода ему не за что зацепиться.
   const ids0 = await page.evaluate(() =>
-    [...document.querySelectorAll('#sourceSelectDropdown .custom-select-option')]
+    [...document.querySelectorAll('#sourceSelectDropdown .concept-row')]
       .map(o => {
         const d = o.getAttribute('data-a2');
         if (d) return d;
@@ -396,10 +467,16 @@ async function run(pageName, part) {
     await safe('вид ' + v, () => page.evaluate(n => window.__app.switchStatsView(n), v));
     // строки близких пар считаются порциями и появляются не сразу
     await wait(МЕДЛЕННЫЕ.includes(v) ? 5000 : 1700);
-    vсум += (await safe('обход ' + v, () => sweep('#statsContentArea', 'вид ' + v))) || 0;
+    // ПОДПИСЬ БЕЗ ИМЕНИ ВИДА. Обработчик срабатывает в том виде, где он
+    // попался первым, а это гуляет: метрика считается порциями, и кнопка
+    // «Визуализировать размером» появляется то в betweenness, то в
+    // problem-generation. Ключ со ссылкой на вид расходился между сторонами
+    // на 39 снимках — при том что поведение одинаково. Область та же
+    // («виды статистики»), и её довольно, чтобы понять, где искать.
+    vсум += (await safe('обход ' + v, () => sweep('#statsContentArea', 'виды статистики'))) || 0;
     if (МЕДЛЕННЫЕ.includes(v)) {
       await wait(2500);
-      vсум += (await safe('добор ' + v, () => sweep('#statsContentArea', 'вид ' + v))) || 0;
+      vсум += (await safe('добор ' + v, () => sweep('#statsContentArea', 'виды статистики'))) || 0;
     }
     await record('вид ' + v);
   }

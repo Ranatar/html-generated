@@ -1,7 +1,8 @@
 // Сгенерировано из philosophy_graph.html — правки вносить сюда, не в исходник.
 import { DATA, S } from '../core/ns.js';
-import { isSymmetricLink, isTypologicalLink } from '../core/predicates.js';
-import { isChronologicallyValid } from './chronology.js';
+import { isSymmetricLink, isTypologicalLink } from '../core/link-facts.js';
+import { CHRONOLOGY_MODES } from '../core/time.js';
+import { isChronologicallyValid, летУзла, шагБезРазрыва } from './chronology.js';
 
 function pathLinkAllowed(l) {
       // Петля не ведёт никуда: путь через неё удлиняется, ничего
@@ -26,6 +27,12 @@ function findShortestPath(sourceId, targetId, respectChronology = true, useDirec
 
 function findShortestPathWeighted(sourceId, targetId, respectChronology = true, shouldRespectDirection = true) {
       if (sourceId === targetId) return [sourceId];
+
+      // Режим без разрывов: ход выбирается по концам. Цель раньше источника —
+      // ищем ход НАЗАД, и путь читается как родословная: «восходит к».
+      const безРазрывов = respectChronology && S.currentChronologyMode === CHRONOLOGY_MODES.SEAMLESS;
+      const годА = летУзла(sourceId), годБ = летУзла(targetId);
+      const ход = (годА !== null && годБ !== null && годБ < годА) ? -1 : +1;
       
       const distances = {};
       const previous = {};
@@ -66,7 +73,12 @@ function findShortestPathWeighted(sourceId, targetId, respectChronology = true, 
           let neighbor = null;
           let canTraverse = false;
           
-          if (shouldRespectDirection) {
+          if (безРазрывов) {
+            // Ход времени задают ГОДЫ, а не стрелка: связь, пройденная
+            // против стрелки, читается как «восходит к».
+            if (src === current) { neighbor = tgt; canTraverse = true; }
+            else if (tgt === current) { neighbor = src; canTraverse = true; }
+          } else if (shouldRespectDirection) {
             // Учитываем направленность
             if (src === current) {
               neighbor = tgt;
@@ -92,7 +104,12 @@ function findShortestPathWeighted(sourceId, targetId, respectChronology = true, 
             const cost = 4 - weight;
             const alt = distances[current] + cost;
             
-            if (respectChronology) {
+            if (безРазрывов) {
+              // Проверяется ПУТЬ, а не ребро: при монотонности крайний
+              // достигнутый год равен году текущего узла, поэтому условие
+              // местное и Дейкстра работает без изменений.
+              if (!шагБезРазрыва(current, neighbor, ход, летУзла(current))) return;
+            } else if (respectChronology) {
               // B1: тип ребра определяет, в какую сторону оно читается
               if (!isChronologicallyValid(current, neighbor, S.currentChronologyMode, link.type)) {
                 return; // Пропускаем этот переход как хронологически некорректный
@@ -122,6 +139,12 @@ function findShortestPathWeighted(sourceId, targetId, respectChronology = true, 
 
 function findShortestPathUnweighted(sourceId, targetId, respectChronology = true, shouldRespectDirection = true) {
       if (sourceId === targetId) return [sourceId];
+
+      // Режим без разрывов: ход выбирается по концам. Цель раньше источника —
+      // ищем ход НАЗАД, и путь читается как родословная: «восходит к».
+      const безРазрывов = respectChronology && S.currentChronologyMode === CHRONOLOGY_MODES.SEAMLESS;
+      const годА = летУзла(sourceId), годБ = летУзла(targetId);
+      const ход = (годА !== null && годБ !== null && годБ < годА) ? -1 : +1;
       
       const queue = [[sourceId]];
       const visited = new Set([sourceId]);
@@ -135,7 +158,12 @@ function findShortestPathUnweighted(sourceId, targetId, respectChronology = true
         const src = l.source.id || l.source;
         const tgt = l.target.id || l.target;
         
-        if (shouldRespectDirection) {
+        if (безРазрывов || !shouldRespectDirection) {
+          // Без разрывов ход времени задают ГОДЫ, а не стрелка: связь,
+          // пройденная против стрелки, читается как «восходит к».
+          adjacency[src].push({ id: tgt, type: l.type });
+          adjacency[tgt].push({ id: src, type: l.type });
+        } else if (shouldRespectDirection) {
           adjacency[src].push({ id: tgt, type: l.type });
           if (isSymmetricLink(l)) {
             adjacency[tgt].push({ id: src, type: l.type });
@@ -158,7 +186,9 @@ function findShortestPathUnweighted(sourceId, targetId, respectChronology = true
         for (const edge of neighbors) {
           const neighborId = edge.id;
           if (!visited.has(neighborId)) {
-            if (respectChronology) {
+            if (безРазрывов) {
+              if (!шагБезРазрыва(currentNodeId, neighborId, ход, летУзла(currentNodeId))) continue;
+            } else if (respectChronology) {
               // B1: тип ребра определяет, в какую сторону оно читается
               if (!isChronologicallyValid(currentNodeId, neighborId, S.currentChronologyMode, edge.type)) {
                 continue; // Пропускаем этот переход как хронологически некорректный

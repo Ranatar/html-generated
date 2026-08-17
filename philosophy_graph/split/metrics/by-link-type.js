@@ -1,8 +1,7 @@
 // Сгенерировано из philosophy_graph.html — правки вносить сюда, не в исходник.
 import { MET, S } from '../core/ns.js';
-import { sumWeight } from '../core/predicates.js';
+import { sumWeight } from '../core/link-facts.js';
 import { generativity } from './generativity.js';
-import { BRIDGING_MIN_EXTERNAL, BRIDGING_WEIGHT_REF } from './thresholds.js';
 
 MET.generativeIndex = function generativeIndex(conceptId) {
       const concept = S._conceptMap.get(conceptId);
@@ -55,6 +54,10 @@ MET.instrumentalIndex = function instrumentalIndex(conceptId) {
         instrumentLinks: asMethod.length
       };
     };
+
+const BRIDGING_MIN_EXTERNAL = 5;
+
+const BRIDGING_WEIGHT_REF = 50;
 
 let traditionBridgingCache = null;
 
@@ -199,4 +202,4 @@ function invalidateDeductiveIndexCache() {
       deductiveIndexCache = new Map();
     }
 
-export { abstractionIndexCache, deductiveIndexCache, instrumentalIndexCache, invalidateAbstractionIndexCache, invalidateDeductiveIndexCache, invalidateInstrumentalIndexCache, invalidateTraditionBridgingCache, traditionBridgingCache };
+export { BRIDGING_MIN_EXTERNAL, BRIDGING_WEIGHT_REF, abstractionIndexCache, deductiveIndexCache, instrumentalIndexCache, invalidateAbstractionIndexCache, invalidateDeductiveIndexCache, invalidateInstrumentalIndexCache, invalidateTraditionBridgingCache, traditionBridgingCache };

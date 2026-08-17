@@ -1,6 +1,12 @@
 // Сгенерировано из philosophy_graph.html — правки вносить сюда, не в исходник.
 import { MET, S } from '../core/ns.js';
-import { CONSTRUCTIVE_TYPES, DISRUPTIVE_TYPES, POLEMICAL_TYPES, SYSTEMATIC_TYPES } from './thresholds.js';
+import { DISRUPTIVE_TYPES, SYSTEMATIC_TYPES } from './philosophical.js';
+
+const CONSTRUCTIVE_TYPES = ['influence', 'develop', 'apply', 'synthesize',
+      'instrument', 'exemplify', 'presuppose', 'consequence'];
+
+const POLEMICAL_TYPES = ['critique', 'oppose', 'dialogue', 'limit',
+      'internal_contradiction'];
 
 let philosopherProfileCache = null;
 
@@ -298,4 +304,4 @@ function invalidateTemporalInfluencePatternCache() {
       temporalInfluencePatternCache = null;
     }
 
-export { invalidatePhilosopherHistoricalReachIndexCache, invalidatePhilosopherInterdisciplinaryIndexCache, invalidatePhilosopherProfileCache, invalidatePhilosopherSystematicIndexCache, invalidateTemporalInfluencePatternCache, philosopherHistoricalReachIndexCache, philosopherInterdisciplinaryIndexCache, philosopherProfile, philosopherProfileCache, philosopherSystematicIndexCache, temporalInfluencePatternCache };
+export { CONSTRUCTIVE_TYPES, POLEMICAL_TYPES, invalidatePhilosopherHistoricalReachIndexCache, invalidatePhilosopherInterdisciplinaryIndexCache, invalidatePhilosopherProfileCache, invalidatePhilosopherSystematicIndexCache, invalidateTemporalInfluencePatternCache, philosopherHistoricalReachIndexCache, philosopherInterdisciplinaryIndexCache, philosopherProfile, philosopherProfileCache, philosopherSystematicIndexCache, temporalInfluencePatternCache };

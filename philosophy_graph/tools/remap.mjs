@@ -166,6 +166,7 @@ if (команда === 'где') {
     ['delegate.mjs', [ДЕРЕВО, 'dyn']],
     ['rig.mjs', [ДЕРЕВО]],
     ['unbridge.mjs', [ДЕРЕВО]],
+    ['prune_imports.mjs', [ДЕРЕВО]],
     ['split_css.mjs', [ДЕРЕВО]],
   ];
   fs.rmSync(ДЕРЕВО, { recursive: true, force: true });

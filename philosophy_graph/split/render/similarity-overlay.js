@@ -1,10 +1,10 @@
 // Сгенерировано из philosophy_graph.html — правки вносить сюда, не в исходник.
 import { DATA, S } from '../core/ns.js';
-import { initializePhilosophyMetrics } from '../metrics/init.js';
+import { известить } from '../core/events.js';
+import { showTemporaryMessage } from '../core/long-task.js';
+import { initializePhilosophyMetrics } from '../metrics/link-indexes.js';
 import { _simCache, profileSimilarity, structuralSimilarity } from '../metrics/similarity-concepts.js';
-import { closeDetailModal } from '../modal/entry.js';
-import { requestDraw } from './scene.js';
-import { showTemporaryMessage } from '../ui/feedback.js';
+import { requestDraw } from './loop.js';
 
 const SIMILARITY_KEEP_QUANTILE = 0.85;
 
@@ -60,7 +60,7 @@ function showSimilarityOverlay(sourceId, kind) {
 
       S.similarityOverlay = { sourceId, kind, values, nearest,
                   rowMax: rowMax || 1, dimBelow };
-      if (typeof closeDetailModal === 'function') closeDetailModal();
+      известить('закрыть-окна');
       requestDraw();
       updateSimilarityLegend();
     }

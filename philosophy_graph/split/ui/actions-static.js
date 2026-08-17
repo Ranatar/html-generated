@@ -1,29 +1,46 @@
 // Сгенерировано tools/delegate.mjs — правки вносить туда.
 import { registerActions } from './actions.js';
 import { downloadData, saveToFolder } from '../data/save.js';
+import { resetBeyondFilter } from '../filters/beyond-filter.js';
 import { handleMetricsScopeChange } from '../metrics/scope.js';
 import { closeUniversalModal } from '../modal/core.js';
 import { closeConceptProfileModal } from '../modal/profile-concept.js';
 import { closePhilosopherProfileModal } from '../modal/profile-philosopher.js';
-import { closePathDescriptionsModal, findAndShowPath } from '../paths/path-ui.js';
-import { toggleGrouping, togglePanel } from '../render/grouping.js';
+import { closePathDescriptionsModal } from '../paths/path-descriptions.js';
+import { findAndShowPath } from '../paths/path-ui.js';
+import { toggleGrouping } from '../render/grouping.js';
 import { resetNodeSizes } from '../render/metric-visualization.js';
 import { centerGraph, resetSimulation, toggleSimulationFreeze } from '../render/simulation.js';
 import { closeStatsModal, handleStatsParameterChange, openStatsModal, switchStatsView } from '../stats/modal.js';
-import { filterCustomSelect, showCustomSelectDropdown } from './custom-select.js';
+import { closeAboutModal, onAboutBackdropClick, openAboutModal } from './about.js';
 import { exportToPNG, exportToSVG } from './export.js';
-import { changeFilterMode, deselectAllPhilosophers, deselectAllRelations, deselectAllRubrics, deselectAllTraditions, selectAllPhilosophers, selectAllRelations, selectAllRubrics, selectAllTraditions, toggleSection, toggleUniformLinkWidth } from './legend.js';
-import { clearLegendSearch, handleLegendSearch } from './search-legend.js';
+import { changeFilterMode, deselectAllPhilosophers, deselectAllRelations, deselectAllRubrics, deselectAllTraditions, selectAllPhilosophers, selectAllRelations, selectAllRubrics, selectAllTraditions, togglePanel, toggleSection, toggleUniformLinkWidth } from './legend.js';
+import { clearLegendSearch, handleLegendSearch, setSearchKind, toggleLegendSearch } from './search-legend.js';
+import { handleLegendLinkSearch } from './search-link.js';
+import { clearLegendPhilSearch, handleLegendPhilSearch } from './search-philosopher.js';
+import { filterCustomSelect, showCustomSelectDropdown } from '../widgets/custom-select.js';
 
 registerActions({
   "close-universal-modal": (el, ev) => { closeUniversalModal(); },
   "close-concept-profile-modal": (el, ev) => { closeConceptProfileModal(); },
   "close-philosopher-profile-modal": (el, ev) => { closePhilosopherProfileModal(); },
   "close-path-descriptions-modal": (el, ev) => { closePathDescriptionsModal(); },
+  "toggle-legend-search": (el, ev) => { toggleLegendSearch(); },
+  "set-search-kind": (el, ev) => { setSearchKind('philosopher'); },
+  "set-search-kind-2": (el, ev) => { setSearchKind('concept'); },
+  "set-search-kind-3": (el, ev) => { setSearchKind('connection'); },
   "handle-legend-search-input": (el, ev) => { handleLegendSearch(el.value); },
   "handle-legend-search-focus": (el, ev) => { handleLegendSearch(el.value); },
   "clear-legend-search": (el, ev) => { clearLegendSearch(); },
+  "handle-legend-phil-search-input": (el, ev) => { handleLegendPhilSearch(el.value); },
+  "handle-legend-phil-search-focus": (el, ev) => { handleLegendPhilSearch(el.value); },
+  "clear-legend-phil-search": (el, ev) => { clearLegendPhilSearch(); },
+  "handle-legend-link-search-input": (el, ev) => { handleLegendLinkSearch('from', el.value); },
+  "handle-legend-link-search-focus": (el, ev) => { handleLegendLinkSearch('from', el.value); },
+  "handle-legend-link-search-input-2": (el, ev) => { handleLegendLinkSearch('to', el.value); },
+  "handle-legend-link-search-focus-2": (el, ev) => { handleLegendLinkSearch('to', el.value); },
   "open-stats-modal": (el, ev) => { openStatsModal(); },
+  "reset-beyond-filter": (el, ev) => { resetBeyondFilter(); },
   "reset-node-sizes": (el, ev) => { resetNodeSizes(); },
   "toggle-section": (el, ev) => { toggleSection('philosophers'); },
   "select-all-philosophers": (el, ev) => { selectAllPhilosophers(); },
@@ -53,6 +70,9 @@ registerActions({
   "save-to-folder": (el, ev) => { saveToFolder(); },
   "export-to-png": (el, ev) => { exportToPNG(); },
   "export-to-svg": (el, ev) => { exportToSVG(); },
+  "open-about-modal": (el, ev) => { openAboutModal(); },
+  "on-about-backdrop-click": (el, ev) => { onAboutBackdropClick(ev); },
+  "close-about-modal": (el, ev) => { closeAboutModal(); },
   "handle-stats-parameter-change-change": (el, ev) => { handleStatsParameterChange(); },
   "handle-stats-parameter-change-change-2": (el, ev) => { handleStatsParameterChange(); },
   "handle-metrics-scope-change-change": (el, ev) => { handleMetricsScopeChange(); },

@@ -80,21 +80,21 @@ async function run(страница) {
     if (!r.url().endsWith('favicon.ico')) errs.push('не загрузилось: ' + r.url().split('/').pop());
   });
 
-  await page.goto(BASE + страница, { waitUntil: 'networkidle0', timeout: 60000 });
+  await page.goto(BASE + страница, { waitUntil: 'domcontentloaded', timeout: 60000 });
   await wait(4000);
 
   const модуль = !страница.startsWith('_ref');
   await page.addScriptTag(модуль
     ? { type: 'module', content: `
-        import { openStatsModal, closeStatsModal } from './stats/modal.js';
-        import { openConceptById } from './modal/entry.js';
-        import { closeUniversalModal, openUniversalModal } from './modal/core.js';
-        import { openEditConceptModal } from './modal/entry.js';
-        import { openAuthModal, submitAuth, closeAuthModal } from './modal/auth.js';
-        import { DATA } from './core/ns.js';
-        window.__a = { openStatsModal, closeStatsModal, openConceptById, closeUniversalModal,
-          openUniversalModal, openEditConceptModal, openAuthModal, submitAuth, closeAuthModal,
-          первая: () => DATA.concepts[0].id, философ: () => DATA.philosophers[0].nameRu };
+        // Путей к модулям здесь нет: оснастка _probe-rig.js порождается из
+        // дерева и знает их сама, а прибор знать не должен.
+        import './_probe-rig.js';
+        const A = window.__app;
+        window.__a = { openStatsModal: A.openStatsModal, closeStatsModal: A.closeStatsModal,
+          openConceptById: A.openConceptById, closeUniversalModal: A.closeUniversalModal,
+          openUniversalModal: A.openUniversalModal, openEditConceptModal: A.openEditConceptModal,
+          openAuthModal: A.openAuthModal, submitAuth: A.submitAuth, closeAuthModal: A.closeAuthModal,
+          первая: () => A.DATA.concepts[0].id, философ: () => A.DATA.philosophers[0].nameRu };
         window.__aReady = true;` }
     : { content: `
         window.__a = { openStatsModal: openStatsModal, closeStatsModal: closeStatsModal,

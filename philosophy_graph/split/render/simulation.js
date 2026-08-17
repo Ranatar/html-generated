@@ -1,8 +1,8 @@
 // Сгенерировано из philosophy_graph.html — правки вносить сюда, не в исходник.
 import { DATA, S } from '../core/ns.js';
+import { showTemporaryMessage } from '../core/long-task.js';
 import { ensureAnimLoop, needsContinuousAnimation } from './scene.js';
 import { resetHighlight } from './selection.js';
-import { showTemporaryMessage } from '../ui/feedback.js';
 
 const maxTicks = 300;
 
@@ -31,10 +31,13 @@ function toggleSimulationFreeze() {
 function updateFreezeButton() {
       const b = document.getElementById('freezeBtn');
       if (!b) return;
-      b.textContent = simLockedByHand ? '▶️ Разморозить' : '❄️ Заморозить';
-      b.title = simLockedByHand
+      // Только значок: панель держится на значках, а слово живёт в
+      // подсказке. Прежде кнопка переписывала себе подпись при нажатии, и
+      // панель на глазах раздувалась.
+      b.textContent = simLockedByHand ? '▶️' : '❄️';
+      b.setAttribute('data-tip', simLockedByHand
         ? 'Раскладка остановлена вручную и не оттаивает при закрытии окон'
-        : 'Остановить раскладку насовсем — окна её больше не запустят';
+        : 'Остановить раскладку насовсем — окна её больше не запустят');
       b.classList.toggle('frozen-by-hand', !!simLockedByHand);
     }
 

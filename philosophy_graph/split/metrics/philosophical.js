@@ -1,10 +1,7 @@
 // Сгенерировано из philosophy_graph.html — правки вносить сюда, не в исходник.
 import { DATA, MET, S } from '../core/ns.js';
-import { INFLUENCE_SCOPE_LABELS } from '../core/labels.js';
-import { isSymmetricLink, otherPhilosopher, reflexiveLinkOf, sumWeight } from '../core/predicates.js';
+import { isSymmetricLink, otherPhilosopher, reflexiveLinkOf, sumWeight } from '../core/link-facts.js';
 import { generativity, linkInInfluenceScope } from './generativity.js';
-import { invalidateGeneratePhilosopherRankingsCache } from './rankings.js';
-import { loadStatsContent } from '../stats/modal.js';
 
 let problemGenerationIndexCache = null;
 
@@ -595,35 +592,13 @@ function invalidateInfluenceIndexCache() {
       influenceIndexCache = null;
     }
 
-function setInfluenceScope(scope) {
-      if (!INFLUENCE_SCOPE_LABELS[scope] || scope === S.influenceScope) return;
-      S.influenceScope = scope;
-      invalidateInfluenceIndexCache();
-      invalidateGeneratePhilosopherRankingsCache();
-      // Рейтинги концепций сложены в третий кеш и тоже держали бы
-      // прежние числа: у них есть своя строка «Самые влиятельные».
-      S.generateRankingsCache = null;
-      if (typeof S.currentStatsView !== 'undefined' && S.currentStatsView) {
-        loadStatsContent(S.currentStatsView);
-      }
-    }
-
-function influenceScopeSwitcher() {
-      return `
-        <div class="influence-scope">
-          <span class="influence-scope-label">Влияние:</span>
-          ${Object.entries(INFLUENCE_SCOPE_LABELS).map(([k, v]) => `
-            <button class="influence-scope-btn${S.influenceScope === k ? ' active' : ''}"
-                data-act-click="set-influence-scope" data-a1="${k}">${v}</button>
-          `).join('')}
-          <span class="influence-scope-note">${S.influenceScope === 'all'
-            ? 'итог в точности прежний'
-            : 'считается по разметке традиций'}</span>
-        </div>
-      `;
-    }
-
 let foundationalIndexCache = null;
+
+const SYSTEMATIC_TYPES = ['presuppose', 'consequence', 'condition', 'exemplify',
+      'instrument', 'culminate', 'mediate', 'apply', 'complement', 'emerge_from',
+      'develop', 'synthesize'];
+
+const DISRUPTIVE_TYPES = ['internal_contradiction', 'oppose'];
 
 MET.foundationalIndex = function foundationalIndex(conceptId) {
 
@@ -1054,4 +1029,8 @@ function invalidateTensionIndexCache() {
       tensionIndexCache = null;
     }
 
-export { criticalPowerIndexCache, dialogicalIndexCache, foundationalIndexCache, influenceIndexCache, influenceScopeSwitcher, internalCoherenceIndexCache, invalidateCriticalPowerIndexCache, invalidateDialogicalIndexCache, invalidateFoundationalIndexCache, invalidateInfluenceIndexCache, invalidateInternalCoherenceIndexCache, invalidateParadigmShiftIndexCache, invalidateProblemGenerationIndexCache, invalidateRevolutionaryIndexCache, invalidateSyntheticIndexCache, invalidateTensionIndexCache, paradigmShiftIndexCache, problemGenerationIndexCache, revolutionaryIndexCache, setInfluenceScope, syntheticIndexCache, tensionIndexCache };
+const INFLUENCE_SCOPE_LABELS = {
+      all: 'вся', within: 'внутри традиций', cross: 'за пределы традиций'
+    };
+
+export { DISRUPTIVE_TYPES, INFLUENCE_SCOPE_LABELS, SYSTEMATIC_TYPES, criticalPowerIndexCache, dialogicalIndexCache, foundationalIndexCache, influenceIndexCache, internalCoherenceIndexCache, invalidateCriticalPowerIndexCache, invalidateDialogicalIndexCache, invalidateFoundationalIndexCache, invalidateInfluenceIndexCache, invalidateInternalCoherenceIndexCache, invalidateParadigmShiftIndexCache, invalidateProblemGenerationIndexCache, invalidateRevolutionaryIndexCache, invalidateSyntheticIndexCache, invalidateTensionIndexCache, paradigmShiftIndexCache, problemGenerationIndexCache, revolutionaryIndexCache, syntheticIndexCache, tensionIndexCache };

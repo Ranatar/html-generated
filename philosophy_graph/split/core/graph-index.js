@@ -1,39 +1,6 @@
 // Сгенерировано из philosophy_graph.html — правки вносить сюда, не в исходник.
 import { DATA } from './ns.js';
 
-function traditionsOfPhilosopher(name) {
-      return (DATA.philosopherTraditions[name] || [])
-        .map(id => (DATA.traditions.find(t => t.id === id) || {}).name)
-        .filter(Boolean);
-    }
-
-function findConnection(sourceId, targetId, bidirectional = true) {
-      return DATA.links.find(l => {
-        const srcId = l.source.id || l.source;
-        const tgtId = l.target.id || l.target;
-        if (srcId === sourceId && tgtId === targetId) return true;
-        if (bidirectional && srcId === targetId && tgtId === sourceId) return true;
-        return false;
-      }) || null;
-    }
-
-function getConceptConnections(conceptId) {
-      return DATA.links.filter(l => {
-        const srcId = l.source.id || l.source;
-        const tgtId = l.target.id || l.target;
-        return srcId === conceptId || tgtId === conceptId;
-      });
-    }
-
-function connectionsBetween(sourceId, targetId) {
-      return DATA.links.filter(l => {
-        const s = l.source.id || l.source;
-        const t = l.target.id || l.target;
-        return (s === sourceId && t === targetId)
-          || (s === targetId && t === sourceId);
-      });
-    }
-
 export function buildIndexes() {
   DATA.philosopherIdToName = {};
   
@@ -99,5 +66,3 @@ export function buildIndexes() {
   
   DATA.philosopherTraditions = {};
 }
-
-export { connectionsBetween, findConnection, getConceptConnections, traditionsOfPhilosopher };

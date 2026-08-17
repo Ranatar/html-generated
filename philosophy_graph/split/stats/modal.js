@@ -1,8 +1,9 @@
 // Сгенерировано из philosophy_graph.html — правки вносить сюда, не в исходник.
 import { DATA, S } from '../core/ns.js';
 import { invalidateGraphCache } from '../metrics/graph-cache.js';
-import { initializePhilosophyMetrics } from '../metrics/init.js';
-import { applyMetricsScope, installMetricScopeWrappers, invalidateEverythingForScope, updateMetricsScopeHint, updateScopeToggles } from '../metrics/scope.js';
+import { initializePhilosophyMetrics } from '../metrics/link-indexes.js';
+import { invalidateEverythingForScope } from '../metrics/scope-reset.js';
+import { applyMetricsScope, installMetricScopeWrappers, updateMetricsScopeHint, updateScopeToggles } from '../metrics/scope.js';
 import { resetNodeSizes } from '../render/metric-visualization.js';
 import { ensureAnimLoop, needsContinuousAnimation } from '../render/scene.js';
 import { freezeSimulation, unfreezeSimulation } from '../render/simulation.js';

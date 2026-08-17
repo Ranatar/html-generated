@@ -1,7 +1,7 @@
 // Сгенерировано из philosophy_graph.html — правки вносить сюда, не в исходник.
 import { DATA, MET, S } from '../../core/ns.js';
 import { betweennessCache, closenessCache, eigenvectorCache, localCohesionCache, pageRankCache, richClubCache, weightedClusteringCache } from '../../metrics/network.js';
-import { highlightNodeById } from '../../render/selection.js';
+
 import { generateCalculateButton, generateMetricDescriptionBlock, generateMetricResults } from '../results.js';
 
 function generateOverviewContent() {

@@ -1,14 +1,14 @@
 // Сгенерировано из philosophy_graph.html — правки вносить сюда, не в исходник.
 import { S } from '../core/ns.js';
+import { известить } from '../core/events.js';
 import { canEdit } from '../core/session.js';
-import { cancelGraphSelection, handleConceptSelection } from '../data/mutate.js';
 import { handleLinkClick, handleNodeClick } from '../graph/click-actions.js';
-import { openEditConceptModal } from '../modal/entry.js';
-import { linkHandlers, nodeHandlers } from './d3-layer.js';
+import { cancelGraphSelection, handleConceptSelection } from '../graph/graph-selection.js';
+import { gfxLink, gfxNode, linkHandlers, nodeHandlers } from './d3-layer.js';
+import { requestDraw } from './loop.js';
 import { pickLink, pickNode, toGraph } from './picking.js';
-import { requestDraw } from './scene.js';
 import { resetHighlight } from './selection.js';
-import { editMode } from '../state.js';
+import { editMode } from '../state/edit.js';
 
 let lastHoverNode = null;
 
@@ -64,7 +64,7 @@ function dispatchClick(event) {
       if (l) { if (linkHandlers.click) linkHandlers.click(event, l); return; }
       // фон
       if (event.shiftKey && canEdit()) {           // ЗАСЛОН ПРАВКИ
-        openEditConceptModal();
+        известить('править-концепцию');
       } else {
         resetHighlight();
         editMode.pendingConceptSelection = [];
@@ -73,8 +73,8 @@ function dispatchClick(event) {
     }
 
 function initGraphEventHandlers() {
-      S.gfxLink.on("click", handleLinkClick);
-      S.gfxNode.on("click", handleNodeClick);
+      gfxLink.on("click", handleLinkClick);
+      gfxNode.on("click", handleNodeClick);
       S.gfxCanvas.addEventListener("mousemove", dispatchMove);
       S.gfxCanvas.addEventListener("mouseleave", (event) => {
         if (lastHoverNode && nodeHandlers.mouseout) nodeHandlers.mouseout(event, lastHoverNode);

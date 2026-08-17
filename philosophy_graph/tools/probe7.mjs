@@ -27,14 +27,12 @@ import { ХЕШ as HASH, объяснить } from './snapshot.mjs';
 
 
 const RIG_MODULE = `
-import { DATA } from './core/ns.js';
-import { collectData, hasUnsaved, DATA_SETS } from './data/save.js';
-import { openEditConceptModal } from './modal/entry.js';
-import { closeUniversalModal } from './modal/core.js';
-import { openAuthModal, submitAuth, closeAuthModal } from './modal/auth.js';
-window.__rig = { собратьБазу: collectData, естьПравки: hasUnsaved, НАБОРЫ: DATA_SETS,
-  openEditConceptModal, closeUniversalModal, openAuthModal, submitAuth, closeAuthModal,
-  D: k => DATA[k] };
+import './_probe-rig.js';
+const A = window.__app;
+window.__rig = { собратьБазу: A.collectData, естьПравки: A.hasUnsaved, НАБОРЫ: A.DATA_SETS,
+  openEditConceptModal: A.openEditConceptModal, closeUniversalModal: A.closeUniversalModal,
+  openAuthModal: A.openAuthModal, submitAuth: A.submitAuth, closeAuthModal: A.closeAuthModal,
+  D: k => A.DATA[k] };
 window.__rigReady = true;`;
 
 const RIG_CLASSIC = `
@@ -80,7 +78,7 @@ async function run(label) {
   });
   page.on('dialog', async d => { try { await d.accept(); } catch (e) {} });
 
-  await page.goto(BASE + label, { waitUntil: 'networkidle0', timeout: 60000 });
+  await page.goto(BASE + label, { waitUntil: 'domcontentloaded', timeout: 60000 });
   await wait(4000);
   await page.addScriptTag(label.startsWith('_ref')
     ? { content: RIG_CLASSIC } : { type: 'module', content: RIG_MODULE });

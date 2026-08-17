@@ -44,17 +44,13 @@ const TENSION_WEIGHTS = {
       dialectical: 0.85  // снятие противоречий через синтез и опосредование
     };
 
-let _tensionScales = null;
-
-let _tensionScalesComputing = false;
-
 function tensionScales() {
-      if (_tensionScales) return _tensionScales;
+      if (S._tensionScales) return S._tensionScales;
       // Защита от рекурсии: пока считаем сигмы, tensionIndex вызывается
       // ради самих ярусов, а его total нам не нужен.
-      if (_tensionScalesComputing) return { imm: 1, pol: 1, dial: 1 };
+      if (S._tensionScalesComputing) return { imm: 1, pol: 1, dial: 1 };
 
-      _tensionScalesComputing = true;
+      S._tensionScalesComputing = true;
       const imm = [], pol = [], dial = [];
       for (const c of S._concepts) {
         const t = MET.tensionIndex(c.id);
@@ -62,18 +58,14 @@ function tensionScales() {
         pol.push(t.polemicalTension || 0);
         dial.push(t.dialecticalTension || 0);
       }
-      _tensionScalesComputing = false;
+      S._tensionScalesComputing = false;
 
       const sigma = a => {
         const m = a.reduce((s, v) => s + v, 0) / a.length;
         return Math.sqrt(a.reduce((s, v) => s + (v - m) * (v - m), 0) / a.length) || 1;
       };
-      _tensionScales = { imm: sigma(imm), pol: sigma(pol), dial: sigma(dial) };
-      return _tensionScales;
-    }
-
-function invalidateTensionScales() {
-      _tensionScales = null;
+      S._tensionScales = { imm: sigma(imm), pol: sigma(pol), dial: sigma(dial) };
+      return S._tensionScales;
     }
 
 function toggleSimilarityKind() {
@@ -82,4 +74,4 @@ function toggleSimilarityKind() {
         S.similarityOverlay.kind === 'profile' ? 'structure' : 'profile');
     }
 
-export { TENSION_WEIGHTS, _tensionScales, _tensionScalesComputing, findConnectedComponents, invalidateTensionScales, tensionScales, toggleSimilarityKind };
+export { TENSION_WEIGHTS, findConnectedComponents, tensionScales, toggleSimilarityKind };
