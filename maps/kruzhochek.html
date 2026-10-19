@@ -1,0 +1,203 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<title>Кружочек через атлас</title>
+<style>
+  body { margin: 0; background: #111; color: #ddd; font: 14px/1.4 Georgia, serif; }
+  header { padding: 14px 20px 4px; }
+  h1 { font-weight: normal; font-size: 22px; margin: 0; letter-spacing: .05em; }
+  .sub { color: #999; font-size: 12px; }
+  main { display: flex; gap: 20px; padding: 10px 20px; align-items: flex-start; }
+  canvas { background: #111; cursor: grab; border: 1px solid #333; }
+  aside { width: 300px; font-size: 13px; }
+  select, button { background: #222; color: #ddd; border: 1px solid #444; padding: 4px 6px; font: inherit; }
+  label { display: block; margin: 8px 0; }
+  #info { color: #aaa; white-space: pre-wrap; margin-top: 12px; }
+  .note { color: #888; font-size: 12px; margin-top: 16px; }
+</style>
+</head>
+<body>
+<header>
+  <h1>Кружочек через атлас</h1>
+  <div class="sub">цветовое тело «Кружочка» (2017) × движок проекций <code>maps</code> (2026) · Третий, 18.10.2026</div>
+</header>
+<main>
+  <canvas id="c" width="640" height="420"></canvas>
+  <aside>
+    <label>Проекция: <select id="proj"></select></label>
+    <label>Тело:
+      <select id="telo">
+        <option value="cube">RGB-куб (как в 2017)</option>
+        <option value="hsl">двойной конус HSL (как с 2018)</option>
+      </select></label>
+    <label><input type="checkbox" id="setka" checked> сетка через 30°</label>
+    <label><input type="checkbox" id="bereg"> берега Земли (Natural Earth 110m из <code>maps/data</code>)</label>
+    <button id="sbros">белое — на север</button>
+    <button id="pirs">белое — в центр</button>
+    <div id="info"></div>
+    <div class="note">Тяните мышью — поворачивается не карта, а цветовое тело внутри неё: меняется аспект.
+    Белое — полюс серой оси, красный — нулевой меридиан. Пиксель берётся обратной проекцией движка;
+    у проекций без обратной (Пирс и др.) — нет в списке.</div>
+  </aside>
+</main>
+<script type="module">
+import * as M from 'projections.js';
+
+const cv = document.getElementById('c'), cx = cv.getContext('2d');
+const W = cv.width, H = cv.height;
+const sel = document.getElementById('proj'), telo = document.getElementById('telo');
+const info = document.getElementById('info'), setka = document.getElementById('setka');
+
+// проекции с прямой и обратной
+const ids = Object.keys(M.PROJECTIONS).filter(id => M.hasForward(id) && typeof M.PROJECTIONS[id].inverse === 'function');
+for (const id of ids) { const o = document.createElement('option'); o.value = o.textContent = id; sel.appendChild(o); }
+sel.value = ids.includes('mollweide') ? 'mollweide' : ids[0];
+
+// поворот тела: матрица 3×3 (строки)
+let R = [[1, 0, 0], [0, 1, 0], [0, 0, 1]];
+const mul = (A, B) => A.map(r => [0, 1, 2].map(j => r[0] * B[0][j] + r[1] * B[1][j] + r[2] * B[2][j]));
+const rotX = a => [[1, 0, 0], [0, Math.cos(a), -Math.sin(a)], [0, Math.sin(a), Math.cos(a)]];
+const rotZ = a => [[Math.cos(a), -Math.sin(a), 0], [Math.sin(a), Math.cos(a), 0], [0, 0, 1]];
+
+// куб: серая диагональ — ось z (как kub.py: X ∝ (2,−1,−1), Z ∝ (1,1,1))
+const s3 = Math.sqrt(3), s6 = Math.sqrt(6), s2 = Math.sqrt(2);
+const AX = [[2 / s6, -1 / s6, -1 / s6], [0, 1 / s2, -1 / s2], [1 / s3, 1 / s3, 1 / s3]];
+function cvetKub(d) {
+  const c = [0, 1, 2].map(k => AX[0][k] * d[0] + AX[1][k] * d[1] + AX[2][k] * d[2]);
+  const m = Math.max(Math.abs(c[0]), Math.abs(c[1]), Math.abs(c[2]));
+  return c.map(v => 0.5 + 0.5 * v / m);
+}
+function cvetHSL(d) {  // широта — светлота, долгота — тон, на экваторе полная насыщенность
+  const L = 0.5 + 0.5 * d[2], h = (Math.atan2(d[1], d[0]) / (2 * Math.PI) + 1) % 1;
+  const C = 1 - Math.abs(2 * L - 1), X = C * (1 - Math.abs((h * 6) % 2 - 1)), m = L - C / 2;
+  const k = Math.floor(h * 6) % 6;
+  const t = [[C, X, 0], [X, C, 0], [0, C, X], [0, X, C], [X, 0, C], [C, 0, X]][k];
+  return t.map(v => v + m);
+}
+
+let ramka = null;
+function rama(id) {
+  let x0 = Infinity, x1 = -Infinity, y0 = Infinity, y1 = -Infinity;
+  const D = Math.PI / 180;
+  for (let L = -180; L <= 180; L += 2) for (let F = -90; F <= 90; F += 2) {
+    const [x, y] = M.project(id, L * D, F * D);
+    if (Number.isFinite(x) && Number.isFinite(y)) { x0 = Math.min(x0, x); x1 = Math.max(x1, x); y0 = Math.min(y0, y); y1 = Math.max(y1, y); }
+  }
+  const s = Math.min((W - 20) / (x1 - x0), (H - 20) / (y1 - y0));
+  return { x0, x1, y0, y1, s, ox: (W - s * (x1 - x0)) / 2, oy: (H - s * (y1 - y0)) / 2 };
+}
+
+let kesh = null;  // (λ, φ) по пикселям — не зависит от поворота, считается один раз на проекцию
+function obratnaya(id) {
+  const r = ramka, ll = new Float64Array(W * H * 2).fill(NaN);
+  for (let j = 0; j < H; j++) for (let i = 0; i < W; i++) {
+    const x = r.x0 + (i + 0.5 - r.ox) / r.s, y = r.y1 - (j + 0.5 - r.oy) / r.s;
+    if (x < r.x0 || x > r.x1 || y < r.y0 || y > r.y1) continue;
+    const q = M.unproject(id, x, y);
+    if (!q || !Number.isFinite(q[0]) || !Number.isFinite(q[1])) continue;
+    if (Math.abs(q[0]) > Math.PI + 1e-9 || Math.abs(q[1]) > Math.PI / 2 + 1e-9) continue;  // ловушка Молльвейде (λ = 22 рад)
+    const [xb, yb] = M.project(id, q[0], q[1]);
+    if (!(Math.hypot(xb - x, yb - y) < 1e-6 * (r.x1 - r.x0))) continue;
+    ll[2 * (j * W + i)] = q[0]; ll[2 * (j * W + i) + 1] = q[1];
+  }
+  return ll;
+}
+
+function risuj() {
+  const t0 = performance.now();
+  const img = cx.createImageData(W, H), px = img.data;
+  const f = telo.value === 'hsl' ? cvetHSL : cvetKub;
+  let n = 0;
+  for (let k = 0; k < W * H; k++) {
+    const lam = kesh[2 * k], phi = kesh[2 * k + 1];
+    if (Number.isNaN(lam)) { px[4 * k + 3] = 0; continue; }
+    const v = [Math.cos(phi) * Math.cos(lam), Math.cos(phi) * Math.sin(lam), Math.sin(phi)];
+    const d = [0, 1, 2].map(a => R[a][0] * v[0] + R[a][1] * v[1] + R[a][2] * v[2]);
+    const c = f(d);
+    px[4 * k] = 255 * c[0]; px[4 * k + 1] = 255 * c[1]; px[4 * k + 2] = 255 * c[2]; px[4 * k + 3] = 255; n++;
+  }
+  cx.clearRect(0, 0, W, H);
+  cx.putImageData(img, 0, 0);
+  if (setka.checked) {
+    const r = ramka, D = Math.PI / 180;
+    cx.strokeStyle = 'rgba(0,0,0,.35)'; cx.lineWidth = 0.7;
+    const linia = (pts) => { cx.beginPath(); let pen = false, prev = null;
+      for (const [L, F] of pts) { const [x, y] = M.project(sel.value, L * D, F * D);
+        if (!Number.isFinite(x) || !Number.isFinite(y)) { pen = false; continue; }
+        const X = r.ox + (x - r.x0) * r.s, Y = r.oy + (r.y1 - y) * r.s;
+        if (pen && prev && Math.hypot(X - prev[0], Y - prev[1]) < W / 6) cx.lineTo(X, Y); else cx.moveTo(X, Y);
+        pen = true; prev = [X, Y]; }
+      cx.stroke(); };
+    for (let L = -180; L <= 180; L += 30) linia(Array.from({ length: 91 }, (_, k) => [L, -90 + 2 * k]));
+    for (let F = -60; F <= 60; F += 30) linia(Array.from({ length: 181 }, (_, k) => [-180 + 2 * k, F]));
+  }
+  if (document.getElementById('bereg').checked && BEREG) {
+    const r = ramka;
+    cx.strokeStyle = 'rgba(0,0,0,.8)'; cx.lineWidth = 0.9;
+    for (const arc of BEREG) {
+      cx.beginPath(); let prev = null;
+      for (const [L, F] of arc) {
+        const [x, y] = M.project(sel.value, L, F);
+        if (!Number.isFinite(x) || !Number.isFinite(y)) { prev = null; continue; }
+        const X = r.ox + (x - r.x0) * r.s, Y = r.oy + (r.y1 - y) * r.s;
+        if (prev && Math.hypot(X - prev[0], Y - prev[1]) < W / 8) cx.lineTo(X, Y); else cx.moveTo(X, Y);
+        prev = [X, Y];
+      }
+      cx.stroke();
+    }
+  }
+  const def = M.PROJECTIONS[sel.value];
+  info.textContent = `${sel.value} · ${def.family || ''}\n${def.notes || ''}\nпикселей на карте: ${n}, кадр ${(performance.now() - t0).toFixed(0)} мс`;
+}
+
+// берега: TopoJSON (квантованные дуги с дельта-кодированием) → массивы [λ, φ] в радианах
+let BEREG = null;
+async function zagruzitBerega() {
+  try {
+    const t = await (await fetch('../../../inbox/html-generated/maps/data/world-110m.json')).json();
+    const [sx, sy] = t.transform.scale, [tx, ty] = t.transform.translate, D = Math.PI / 180;
+    const arcs = t.arcs.map(a => { let x = 0, y = 0;
+      return a.map(([dx, dy]) => { x += dx; y += dy; return [(x * sx + tx) * D, (y * sy + ty) * D]; }); });
+    const nuzhnye = new Set();
+    const sobrat = g => { const walk = v => Array.isArray(v) ? v.forEach(walk) : nuzhnye.add(v < 0 ? ~v : v); walk(g.arcs); };
+    t.objects.land.geometries.forEach(sobrat);
+    BEREG = [...nuzhnye].map(i => arcs[i]);
+  } catch (e) { BEREG = null; info.textContent += '\nберега не загрузились: ' + e; }
+}
+zagruzitBerega().then(() => { if (kesh) risuj(); });
+document.getElementById('bereg').onchange = () => risuj();
+
+function smena() { ramka = rama(sel.value); kesh = obratnaya(sel.value); risuj(); }
+sel.onchange = smena; telo.onchange = risuj; setka.onchange = risuj;
+document.getElementById('sbros').onclick = () => { R = [[1, 0, 0], [0, 1, 0], [0, 0, 1]]; risuj(); };
+// центр карты (λ = 0, φ = 0) — вектор (1, 0, 0); чтобы туда пришло белое (0, 0, 1), нужен поворот вокруг y
+// (сначала стояло rotX: он оставляет (1, 0, 0) на месте — ошибка, поймана на снимке)
+const rotY = a => [[Math.cos(a), 0, Math.sin(a)], [0, 1, 0], [-Math.sin(a), 0, Math.cos(a)]];
+document.getElementById('pirs').onclick = () => { R = rotY(-Math.PI / 2); risuj(); };
+
+let tyanem = null;
+cv.onmousedown = e => { tyanem = [e.clientX, e.clientY]; cv.style.cursor = 'grabbing'; };
+window.onmouseup = () => { tyanem = null; cv.style.cursor = 'grab'; };
+window.onmousemove = e => {
+  if (!tyanem) return;
+  const dx = e.clientX - tyanem[0], dy = e.clientY - tyanem[1];
+  tyanem = [e.clientX, e.clientY];
+  R = mul(mul(rotZ(dx * 0.01), rotX(dy * 0.01)), R);
+  risuj();
+};
+// ?proj=peirce&rx=… — для снимков без мыши
+// или #проекция,тело,rx,rz — без «=» (в моей оболочке «x=y» в аргументе не пропускают)
+const q = new URLSearchParams(location.search);
+if (location.hash.length > 1) {
+  const [p, t, rx, rz] = decodeURIComponent(location.hash.slice(1)).split(',');
+  if (p) q.set('proj', p); if (t) q.set('telo', t); if (rx) q.set('rx', rx); if (rz) q.set('rz', rz);
+}
+if (q.get('proj') && ids.includes(q.get('proj'))) sel.value = q.get('proj');
+if (q.get('telo')) telo.value = q.get('telo');
+if (q.get('rx')) R = mul(rotX(+q.get('rx') * Math.PI / 180), R);
+if (q.get('rz')) R = mul(rotZ(+q.get('rz') * Math.PI / 180), R);
+smena();
+</script>
+</body>
+</html>
