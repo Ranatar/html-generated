@@ -383,6 +383,10 @@
           <input id="sN0" type="range" min="12" max="80" step="1" value="51" />
         </div>
         <div class="ctl">
+          <label title="Радиус шара. Влияет на движение только в режиме «физический маятник»; на рисунке — всегда">Радиус шарика, см <span class="v" id="vR">2.0</span></label>
+          <input id="sR" type="range" min="0.5" max="3" step="0.1" value="2" />
+        </div>
+        <div class="ctl">
           <label title="Наибольшее начальное отклонение; как оно распределено по ряду — задаёт профиль">Амплитуда <span class="v" id="vA">15°</span></label>
           <input id="sA" type="range" min="2" max="45" step="1" value="15" />
         </div>
@@ -416,6 +420,9 @@
         <div class="togs">
           <div class="tog on" id="tNonlin" title="Точное уравнение с sin θ вместо линейного θ">нелинейность</div>
           <div class="tog" id="tCorr" title="Длины подобраны по эллиптическому интегралу так, чтобы периоды были точны при заданной амплитуде">поправка на амплитуду</div>
+          <div class="tog" id="tPhys" title="Шар с моментом инерции 2mr²/5 вместо точечной массы">физический маятник</div>
+          <div class="tog" id="tPhysCorr" title="Длины подобраны так, чтобы физический маятник имел нужный период">длины под шар</div>
+          <div class="tog" id="tGhost" title="Полупрозрачная копия ряда с теми же длинами и стартом, но в другой модели (точечной ↔ физической)">призрак для сравнения</div>
           <div class="tog" id="tColor">цвет по номеру</div>
           <div class="tog on" id="tThreads">нити</div>
           <div class="tog" id="tSound">звук</div>
@@ -459,10 +466,12 @@
             <div class="val" id="rAmp">—</div>
             <div class="k">длины, см</div>
             <div class="val" id="rLen">—</div>
-            <div class="k">периоды, с</div>
+            <div class="k" title="Малые колебания, с учётом шара, если он включён">периоды, с</div>
             <div class="val" id="rPer">—</div>
             <div class="k" title="Насколько при текущем размахе фазы разойдутся за цикл (разброс по маятникам, в долях колебания)">уход фаз за цикл</div>
             <div class="val" id="rDrift">—</div>
+            <div class="k" id="kGhost" style="display:none" title="Наибольшее расхождение фаз с призраком по ряду">отрыв от призрака</div>
+            <div class="val" id="rGhost" style="display:none">—</div>
           </div>
           <div class="carpet-hdr">
             <span>ковёр · <span class="sw" id="carpetMode">фаза относительно № 0</span></span>
@@ -492,6 +501,12 @@
    шарики лежат на «волне», волновое число которой растёт со временем. В моменты
    t = T·p/q фазы принимают q значений — q групп; в t = T строй возрождается.
    Интегрирование — RK4 с фиксированным шагом, независимо для каждого маятника.
+   Физический маятник: шар радиуса r на невесомой нити, центр на расстоянии L,
+   I = m(L² + 2r²/5), поэтому θ'' = −g·L/(L² + 2r²/5)·sin θ − γθ'. Без поправки
+   длин такой маятник медленнее точечного той же длины, и тем заметнее, чем он
+   короче. «Длины под шар» решают L² − L·ℓ + 2r²/5 = 0 относительно L, где ℓ —
+   длина эквивалентного математического маятника. «Призрак» — вторая, невидимая
+   для физики копия ряда с теми же длинами и стартом, но другой моделью.
    ========================================================================== */
       const THREE = window.THREE;
       const G = 9.81; // м/с²
@@ -510,6 +525,9 @@
         gamma: 0,
         nonlin: true,
         corr: false,
+        phys: false, // шар с моментом инерции
+        physCorr: false, // длины подобраны под шар
+        r: 0.02, // радиус шара, м
         profile: "same", // same | travel | shape | tilt | single | random
         waves: 1, // волн по ряду (travel, shape)
         pick: 0, // номер отклоняемого маятника (single)
@@ -520,6 +538,9 @@
         om: new Float64Array(0),
         k: new Float64Array(0), // g / L
         Lm: new Float64Array(0), // длины, м
+        kAlt: new Float64Array(0), // g_eff/L в другой модели — для призрака
+        gth: new Float64Array(0), // состояние призрака
+        gom: new Float64Array(0),
         running: true,
       };
       let SPEED = 1;
@@ -544,32 +565,48 @@
         if (!nonlin || A <= 0) return P0;
         return ((P0 * 2) / Math.PI) * ellipK(Math.sin(A / 2));
       }
+      // g_eff/L: для точечного маятника g/L, для шара на нити g·L/(L² + 2r²/5)
+      function kPoint(L) {
+        return G / L;
+      }
+      function kBall(L) {
+        return (G * L) / (L * L + 0.4 * P.r * P.r);
+      }
       function computeLengths() {
         const N = P.N;
         const Lm = new Float64Array(N),
-          k = new Float64Array(N);
+          k = new Float64Array(N),
+          kAlt = new Float64Array(N);
         const useCorr = P.corr && P.nonlin;
         const Kf = useCorr ? (2 / Math.PI) * ellipK(Math.sin(P.A / 2)) : 1;
         for (let n = 0; n < N; n++) {
           const Pn = P.T / (P.N0 + n);
-          // T_real = 2π√(L/g) · Kf  ⇒  L = g (Pn / (2π Kf))²
-          Lm[n] = G * Math.pow(Pn / (2 * Math.PI * Kf), 2);
-          k[n] = G / Lm[n];
+          // приведённая длина: T_real = 2π√(ℓ/g) · Kf  ⇒  ℓ = g (Pn / (2π Kf))²
+          const ell = G * Math.pow(Pn / (2 * Math.PI * Kf), 2);
+          // под шар: ℓ = (L² + 2r²/5)/L  ⇒  L = (ℓ + √(ℓ² − 1.6 r²)) / 2
+          const disc = ell * ell - 1.6 * P.r * P.r;
+          Lm[n] = P.phys && P.physCorr && disc > 0 ? 0.5 * (ell + Math.sqrt(disc)) : ell;
+          k[n] = P.phys ? kBall(Lm[n]) : kPoint(Lm[n]);
+          kAlt[n] = P.phys ? kPoint(Lm[n]) : kBall(Lm[n]);
         }
         S.Lm = Lm;
         S.k = k;
+        S.kAlt = kAlt;
       }
 
       /* ----------------------------------------------------------------------------
    Интегратор (RK4, независимо по маятникам)
    ---------------------------------------------------------------------------- */
       function physicsStep(h) {
+        rk4(S.th, S.om, S.k, h, AUD.on);
+        if (UI.ghost) rk4(S.gth, S.gom, S.kAlt, h, false);
+        S.t += h;
+        carpetSample();
+      }
+      function rk4(th, om, kk, h, listen) {
         const N = P.N,
           gam = P.gamma,
           nl = P.nonlin;
-        const th = S.th,
-          om = S.om,
-          kk = S.k;
         const f = nl ? Math.sin : (x) => x;
         for (let i = 0; i < N; i++) {
           const k = kk[i];
@@ -588,10 +625,8 @@
           th[i] = x0 + (h / 6) * (v0 + 2 * v1 + 2 * v2 + v3);
           om[i] = v0 + (h / 6) * (a1 + 2 * a2 + 2 * a3 + a4);
           // звук: прохождение через ноль снизу вверх — раз за период
-          if (AUD.on && x0 < 0 && th[i] >= 0) AUD.queue.push(i);
+          if (listen && x0 < 0 && th[i] >= 0) AUD.queue.push(i);
         }
-        S.t += h;
-        carpetSample();
       }
 
       /* Начальные условия по профилю. Для профилей с фазой (travel, random)
@@ -643,6 +678,8 @@
         const st = initialState();
         S.th = st.th;
         S.om = st.om;
+        S.gth = Float64Array.from(st.th);
+        S.gom = Float64Array.from(st.om);
         S.t = 0;
         AUD.queue.length = 0;
         carpetReset();
@@ -789,7 +826,7 @@
         const N = P.N;
         const g = new THREE.Group();
         const s = 6.2; // шаг ряда
-        const r = Math.min(2.0, s * 0.33);
+        const r = Math.min(P.r * UNIT, s * 0.45);
         const d = s * 0.36;
         RIG.r = r;
         RIG.d = d;
@@ -797,6 +834,7 @@
         RIG.y = [];
         RIG.L = [];
         RIG.bobs = [];
+        RIG.ghosts = [];
         RIG.rowLen = s * (N - 1);
         for (let n = 0; n < N; n++) {
           const L = S.Lm[n] * UNIT;
@@ -891,6 +929,25 @@
           RIG.bobs.push(m);
         }
 
+        // призраки: та же геометрия подвеса, другая модель
+        if (UI.ghost) {
+          const gm = new THREE.MeshStandardMaterial({
+            color: 0xf1e7cf,
+            metalness: 0.0,
+            roughness: 0.4,
+            transparent: true,
+            opacity: 0.3,
+            depthWrite: false,
+          });
+          for (let n = 0; n < N; n++) {
+            const m = new THREE.Mesh(bobGeo, gm);
+            m.userData.ownMat = n === 0; // материал общий — освободить один раз
+            m.renderOrder = 2;
+            g.add(m);
+            RIG.ghosts.push(m);
+          }
+        }
+
         // нити: по две на маятник, общий буфер
         const tg = new THREE.BufferGeometry();
         tg.setAttribute("position", new THREE.BufferAttribute(new Float32Array(N * 4 * 3), 3));
@@ -951,6 +1008,11 @@
           pos[o + 11] = tz;
         }
         RIG.threads.geometry.attributes.position.needsUpdate = true;
+        for (let n = 0; n < RIG.ghosts.length; n++) {
+          const th = S.gth[n] || 0,
+            L = RIG.L[n];
+          RIG.ghosts[n].position.set(RIG.x[n], RIG.y[n] - L * Math.cos(th), L * Math.sin(th));
+        }
       }
 
       /* ----------------------------------------------------------------------------
@@ -1337,7 +1399,7 @@
       /* ----------------------------------------------------------------------------
    Пульт
    ---------------------------------------------------------------------------- */
-      const UI = { color: false, threads: true };
+      const UI = { color: false, threads: true, ghost: false };
       function tog(id, on, fn) {
         const el = document.getElementById(id);
         el.classList.toggle("on", on);
@@ -1359,7 +1421,7 @@
         v.textContent = fmt(+s.value);
       }
       function rebuild() {
-        if (typeof syncProfileUI === "function") syncProfileUI();
+        syncProfileUI();
         computeLengths();
         release();
         buildRig();
@@ -1438,7 +1500,25 @@
       });
       function syncCorrDep() {
         document.getElementById("tCorr").classList.toggle("off-dep", !P.nonlin);
+        document.getElementById("tPhysCorr").classList.toggle("off-dep", !P.phys);
       }
+      slider("sR", "vR", (x) => x.toFixed(1), (x, c) => {
+        P.r = x / 100;
+        if (c) rebuild();
+      });
+      tog("tPhys", false, (v) => {
+        P.phys = v;
+        syncCorrDep();
+        rebuild();
+      });
+      tog("tPhysCorr", false, (v) => {
+        P.physCorr = v;
+        rebuild();
+      });
+      tog("tGhost", false, (v) => {
+        UI.ghost = v;
+        rebuild();
+      });
       tog("tNonlin", true, (v) => {
         P.nonlin = v;
         syncCorrDep();
@@ -1542,8 +1622,12 @@
         const Lmin = S.Lm[N - 1] * 100,
           Lmax = S.Lm[0] * 100;
         document.getElementById("rLen").textContent = Lmin.toFixed(1) + " – " + Lmax.toFixed(1);
-        document.getElementById("rPer").textContent =
-          (P.T / (P.N0 + N - 1)).toFixed(3) + " – " + (P.T / P.N0).toFixed(3);
+        // фактические периоды малых колебаний выбранной модели
+        const per = (i) => (2 * Math.PI) / Math.sqrt(S.k[i]);
+        document.getElementById("rPer").textContent = per(N - 1).toFixed(4) + " – " + per(0).toFixed(4);
+        const showG = UI.ghost;
+        document.getElementById("kGhost").style.display = showG ? "" : "none";
+        document.getElementById("rGhost").style.display = showG ? "" : "none";
       }
       let hudT = 0;
       function updateHUD(dt) {
@@ -1591,13 +1675,25 @@
         let lo = Infinity,
           hi = -Infinity;
         for (let i = 0; i < N; i++) {
-          const n = P.T / periodAt(S.Lm[i], amp, P.nonlin) - (P.N0 + i);
+          // приведённая длина g/k учитывает шар, если он включён
+          const n = P.T / periodAt(G / S.k[i], amp, P.nonlin) - (P.N0 + i);
           if (n < lo) lo = n;
           if (n > hi) hi = n;
         }
         const drift = hi - lo;
         document.getElementById("rDrift").textContent =
           drift < 5e-4 ? "≈ 0" : drift.toFixed(3) + " колеб.";
+        if (UI.ghost) {
+          let dmax = 0;
+          for (let i = 0; i < N; i++) {
+            const a = phaseOf(i);
+            const w = Math.sqrt(S.kAlt[i]);
+            const b = Math.atan2(-S.gom[i] / w, S.gth[i]);
+            const d = Math.abs(Math.atan2(Math.sin(a - b), Math.cos(a - b)));
+            if (d > dmax) dmax = d;
+          }
+          document.getElementById("rGhost").textContent = ((dmax * 180) / Math.PI).toFixed(1) + "°";
+        }
       }
 
       /* ----------------------------------------------------------------------------
@@ -1652,6 +1748,8 @@
         om: Array.from(S.om),
         L: Array.from(S.Lm),
         phase: Array.from({ length: P.N }, (_, i) => phaseOf(i)),
+        k: Array.from(S.k),
+        gth: Array.from(S.gth),
       });
       window.__set = (o) => {
         Object.assign(P, o);
