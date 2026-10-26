@@ -1,0 +1,1681 @@
+<!doctype html>
+<html lang="ru">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Волна маятников · pendulum wave · 3D</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&display=swap"
+      rel="stylesheet"
+    />
+    <style>
+      :root {
+        --ink: #0c0f13;
+        --ink2: #11151b;
+        --brass: #c79f49;
+        --brass-dim: #9c7b34;
+        --steel: #94badd;
+        --enamel: #f1e7cf;
+        --line: #2a323c;
+        --text: #cdd6e2;
+        --mut: #7d8794;
+        --rec: #d0533f;
+      }
+      * {
+        box-sizing: border-box;
+        margin: 0;
+        padding: 0;
+      }
+      html,
+      body {
+        height: 100%;
+        background: radial-gradient(1200px 800px at 70% -10%, #182029 0%, var(--ink) 60%);
+        color: var(--text);
+        font-family: Georgia, "Times New Roman", serif;
+        overflow: hidden;
+      }
+      #app {
+        position: fixed;
+        inset: 0;
+      }
+      canvas {
+        display: block;
+      }
+      /* ---- overlays ---- */
+      .overlay {
+        position: fixed;
+        pointer-events: none;
+        font-family: "IBM Plex Mono", ui-monospace, Menlo, monospace;
+      }
+      #titlebar,
+      #controls,
+      #instr {
+        position: fixed;
+      }
+      .panel {
+        pointer-events: auto;
+        background: rgba(12, 15, 19, 0.72);
+        border: 1px solid var(--line);
+        border-radius: 12px;
+        backdrop-filter: blur(6px);
+      }
+      #titlebar {
+        top: 18px;
+        left: 22px;
+      }
+      #titlebar h1 {
+        font-family: Georgia, serif;
+        font-weight: 600;
+        font-size: 25px;
+        letter-spacing: 0.3px;
+        color: #eadfbf;
+      }
+      #titlebar h1 b {
+        color: var(--brass);
+      }
+      #titlebar .sub {
+        font-family: "IBM Plex Mono", monospace;
+        font-size: 11px;
+        letter-spacing: 3px;
+        text-transform: uppercase;
+        color: var(--brass-dim);
+        margin-bottom: 6px;
+      }
+      #titlebar .tag {
+        font-family: Georgia, serif;
+        font-style: italic;
+        color: var(--mut);
+        font-size: 13px;
+        max-width: 430px;
+        margin-top: 7px;
+        line-height: 1.45;
+      }
+      #recInd {
+        display: none;
+        margin-top: 8px;
+        font-family: "IBM Plex Mono", monospace;
+        font-size: 11px;
+        letter-spacing: 2px;
+        color: var(--rec);
+        animation: recPulse 1.4s ease-in-out infinite;
+      }
+      @keyframes recPulse {
+        0%,
+        100% {
+          opacity: 1;
+        }
+        50% {
+          opacity: 0.35;
+        }
+      }
+      /* controls */
+      #controls {
+        right: 20px;
+        top: 18px;
+        width: 282px;
+        padding: 14px 16px 16px;
+        max-height: calc(100vh - 70px);
+        overflow-y: auto;
+      }
+      #controls h2 {
+        font-family: "IBM Plex Mono", monospace;
+        font-size: 11px;
+        letter-spacing: 2px;
+        color: var(--brass-dim);
+        text-transform: uppercase;
+        margin-bottom: 10px;
+      }
+      #controls h2.next {
+        margin-top: 16px;
+      }
+      .ctl {
+        margin: 9px 0;
+      }
+      .ctl label {
+        display: flex;
+        justify-content: space-between;
+        font-family: "IBM Plex Mono", monospace;
+        font-size: 11px;
+        color: var(--mut);
+        margin-bottom: 4px;
+        letter-spacing: 0.5px;
+      }
+      .ctl label[title] {
+        cursor: help;
+      }
+      .ctl label .v {
+        color: var(--brass);
+      }
+      input[type="range"] {
+        width: 100%;
+        -webkit-appearance: none;
+        height: 3px;
+        border-radius: 3px;
+        background: #2c343d;
+        outline: none;
+      }
+      input[type="range"]::-webkit-slider-thumb {
+        -webkit-appearance: none;
+        width: 13px;
+        height: 13px;
+        border-radius: 50%;
+        background: var(--brass);
+        cursor: pointer;
+        box-shadow: 0 0 0 3px rgba(199, 159, 73, 0.18);
+      }
+      input[type="range"]::-moz-range-thumb {
+        width: 13px;
+        height: 13px;
+        border: none;
+        border-radius: 50%;
+        background: var(--brass);
+        cursor: pointer;
+      }
+      select.sel {
+        width: 100%;
+        padding: 6px 8px;
+        font-family: "IBM Plex Mono", monospace;
+        font-size: 11px;
+        color: var(--text);
+        background: rgba(20, 26, 32, 0.85);
+        border: 1px solid var(--line);
+        border-radius: 8px;
+        outline: none;
+        cursor: pointer;
+      }
+      select.sel:focus {
+        border-color: var(--brass-dim);
+      }
+      select.sel option {
+        background: var(--ink2);
+      }
+      .ctl.hidden {
+        display: none;
+      }
+      .togs {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 7px;
+        margin-top: 11px;
+      }
+      .tog {
+        pointer-events: auto;
+        font-family: "IBM Plex Mono", monospace;
+        font-size: 10.5px;
+        letter-spacing: 0.5px;
+        padding: 6px 9px;
+        border: 1px solid var(--line);
+        border-radius: 8px;
+        color: var(--mut);
+        cursor: pointer;
+        user-select: none;
+        background: rgba(20, 26, 32, 0.6);
+      }
+      .tog.on {
+        color: var(--ink);
+        background: var(--brass);
+        border-color: var(--brass);
+      }
+      .tog.off-dep {
+        opacity: 0.4;
+        pointer-events: none;
+      }
+      .btns {
+        display: flex;
+        gap: 7px;
+        margin-top: 12px;
+      }
+      .btn {
+        pointer-events: auto;
+        flex: 1;
+        text-align: center;
+        font-family: "IBM Plex Mono", monospace;
+        font-size: 11px;
+        letter-spacing: 1px;
+        padding: 8px 0;
+        border: 1px solid var(--line);
+        border-radius: 8px;
+        color: var(--text);
+        cursor: pointer;
+        user-select: none;
+        background: rgba(20, 26, 32, 0.7);
+        text-transform: uppercase;
+      }
+      .btn:hover {
+        border-color: var(--brass-dim);
+      }
+      .btn.primary {
+        border-color: var(--brass);
+        color: var(--brass);
+      }
+      .btn.rec {
+        border-color: var(--rec);
+        color: var(--rec);
+      }
+      .seg {
+        display: grid;
+        grid-template-columns: repeat(5, 1fr);
+        gap: 5px;
+      }
+      .seg.four {
+        grid-template-columns: repeat(4, 1fr);
+      }
+      .seg .btn {
+        padding: 7px 0;
+        font-size: 10.5px;
+        letter-spacing: 0.3px;
+        text-transform: none;
+      }
+      /* instruments overlay (collapsible) */
+      #instr {
+        left: 22px;
+        bottom: 20px;
+        width: 330px;
+        padding: 12px 14px;
+      }
+      #instr.collapsed .body {
+        display: none;
+      }
+      #instr h2 {
+        font-family: "IBM Plex Mono", monospace;
+        font-size: 11px;
+        letter-spacing: 2px;
+        color: var(--brass-dim);
+        text-transform: uppercase;
+        margin-bottom: 8px;
+        display: flex;
+        justify-content: space-between;
+        cursor: pointer;
+      }
+      #instr .rows {
+        display: grid;
+        grid-template-columns: 1fr auto;
+        gap: 3px 10px;
+        font-family: "IBM Plex Mono", monospace;
+        font-size: 11.5px;
+      }
+      #instr .rows .k {
+        color: var(--mut);
+      }
+      #instr .rows .val {
+        color: var(--enamel);
+        text-align: right;
+      }
+      #instr .rows .val.hit {
+        color: var(--brass);
+      }
+      .carpet-hdr {
+        display: flex;
+        justify-content: space-between;
+        margin-top: 11px;
+        font-family: "IBM Plex Mono", monospace;
+        font-size: 10.5px;
+        color: var(--mut);
+        letter-spacing: 0.5px;
+      }
+      .carpet-hdr span.sw {
+        color: var(--brass);
+        cursor: pointer;
+        user-select: none;
+        border-bottom: 1px dotted var(--brass-dim);
+      }
+      #carpet {
+        margin-top: 5px;
+        width: 100%;
+        height: 150px;
+        border: 1px solid var(--line);
+        border-radius: 7px;
+        background: #0b0e12;
+        cursor: pointer;
+      }
+      #hint {
+        right: 20px;
+        bottom: 18px;
+        font-family: "IBM Plex Mono", monospace;
+        font-size: 10.5px;
+        color: var(--mut);
+        letter-spacing: 0.5px;
+        text-align: right;
+        line-height: 1.7;
+      }
+      #boot {
+        position: fixed;
+        inset: 0;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-family: "IBM Plex Mono", monospace;
+        color: var(--brass-dim);
+        letter-spacing: 2px;
+        font-size: 13px;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="app"></div>
+    <div id="boot">НАТЯГИВАЕМ НИТИ…</div>
+
+    <div class="overlay">
+      <div id="titlebar">
+        <div class="sub">Pendulum wave · расфазировка и возрождение</div>
+        <h1>Волна <b>маятников</b></h1>
+        <div class="tag">
+          Независимые маятники; за цикл T маятник № n делает N₀ + n колебаний. Строй расходится,
+          в моменты T·p/q дробится на q групп и к моменту T собирается заново.
+        </div>
+        <div id="recInd">⏺ ИДЁТ ЗАПИСЬ</div>
+      </div>
+
+      <div id="controls" class="panel">
+        <h2>Устройство</h2>
+        <div class="ctl">
+          <label title="Число маятников в ряду">Маятников <span class="v" id="vN">15</span></label>
+          <input id="sN" type="range" min="6" max="30" step="1" value="15" />
+        </div>
+        <div class="ctl">
+          <label title="Время, за которое все маятники снова сходятся в фазе">Цикл T, с <span class="v" id="vT">60</span></label>
+          <input id="sT" type="range" min="20" max="120" step="1" value="60" />
+        </div>
+        <div class="ctl">
+          <label title="Сколько колебаний за цикл делает самый длинный маятник; у n-го их N₀ + n">Колебаний длинного N₀ <span class="v" id="vN0">51</span></label>
+          <input id="sN0" type="range" min="12" max="80" step="1" value="51" />
+        </div>
+        <div class="ctl">
+          <label title="Наибольшее начальное отклонение; как оно распределено по ряду — задаёт профиль">Амплитуда <span class="v" id="vA">15°</span></label>
+          <input id="sA" type="range" min="2" max="45" step="1" value="15" />
+        </div>
+        <div class="ctl">
+          <label title="Как распределены начальные отклонения и скорости по ряду">Начальный профиль</label>
+          <select id="selProfile" class="sel">
+            <option value="same">одинаковое отклонение</option>
+            <option value="travel">бегущая волна (сдвиг фаз)</option>
+            <option value="shape">синусоида по ряду, без скоростей</option>
+            <option value="tilt">наклон: от +A до −A</option>
+            <option value="single">один маятник</option>
+            <option value="random">случайно</option>
+          </select>
+        </div>
+        <div class="ctl hidden" id="cWaves">
+          <label id="lWaves" title="">Волн по ряду <span class="v" id="vWaves">1</span></label>
+          <input id="sWaves" type="range" min="-5" max="5" step="0.5" value="1" />
+        </div>
+        <div class="ctl hidden" id="cPick">
+          <label title="Какой маятник отклонён (0 — самый длинный)">Маятник № <span class="v" id="vPick">0</span></label>
+          <input id="sPick" type="range" min="0" max="14" step="1" value="0" />
+        </div>
+        <div class="ctl">
+          <label title="Коэффициент вязкого затухания γ в θ'' = −(g/L)·sin θ − γ·θ'">Затухание γ, 1/с <span class="v" id="vG">0.000</span></label>
+          <input id="sG" type="range" min="0" max="0.06" step="0.001" value="0" />
+        </div>
+        <div class="ctl">
+          <label>Скорость показа <span class="v" id="vSpd">1×</span></label>
+          <input id="sSpd" type="range" min="0" max="100" step="1" value="33" />
+        </div>
+        <div class="togs">
+          <div class="tog on" id="tNonlin" title="Точное уравнение с sin θ вместо линейного θ">нелинейность</div>
+          <div class="tog" id="tCorr" title="Длины подобраны по эллиптическому интегралу так, чтобы периоды были точны при заданной амплитуде">поправка на амплитуду</div>
+          <div class="tog" id="tColor">цвет по номеру</div>
+          <div class="tog on" id="tThreads">нити</div>
+          <div class="tog" id="tSound">звук</div>
+          <div class="tog" id="tSpin">авто-облёт</div>
+        </div>
+        <div class="btns">
+          <div class="btn primary" id="bRelease">Отпустить</div>
+          <div class="btn" id="bPause">Пауза</div>
+          <div class="btn" id="bRec">Запись</div>
+        </div>
+
+        <h2 class="next">Перейти к моменту</h2>
+        <div class="seg">
+          <div class="btn" data-jump="0.25">T/4</div>
+          <div class="btn" data-jump="0.3333333333333333">T/3</div>
+          <div class="btn" data-jump="0.5">T/2</div>
+          <div class="btn" data-jump="0.6666666666666666">2T/3</div>
+          <div class="btn" data-jump="1">T</div>
+        </div>
+
+        <h2 class="next">Вид</h2>
+        <div class="seg four">
+          <div class="btn" data-view="oblique">наискось</div>
+          <div class="btn" data-view="front">спереди</div>
+          <div class="btn" data-view="top">сверху</div>
+          <div class="btn" data-view="along">вдоль</div>
+        </div>
+      </div>
+
+      <div id="instr" class="panel">
+        <h2 id="instrHdr"><span>Приборы</span><span id="instrTgl">▾</span></h2>
+        <div class="body">
+          <div class="rows">
+            <div class="k">время, с</div>
+            <div class="val" id="rT">—</div>
+            <div class="k">доля цикла t/T</div>
+            <div class="val" id="rFrac">—</div>
+            <div class="k">ближайшая дробь</div>
+            <div class="val" id="rPQ">—</div>
+            <div class="k">размах сейчас</div>
+            <div class="val" id="rAmp">—</div>
+            <div class="k">длины, см</div>
+            <div class="val" id="rLen">—</div>
+            <div class="k">периоды, с</div>
+            <div class="val" id="rPer">—</div>
+            <div class="k" title="Насколько при текущем размахе фазы разойдутся за цикл (разброс по маятникам, в долях колебания)">уход фаз за цикл</div>
+            <div class="val" id="rDrift">—</div>
+          </div>
+          <div class="carpet-hdr">
+            <span>ковёр · <span class="sw" id="carpetMode">фаза относительно № 0</span></span>
+          </div>
+          <canvas id="carpet" width="600" height="300"></canvas>
+          <div class="carpet-hdr"><span>строки — маятники сверху вниз, столбцы — t mod T</span></div>
+        </div>
+      </div>
+
+      <div id="hint" class="overlay">
+        тащить — облёт · колесо — приближение · правый клик — сдвиг<br />
+        щелчок по ковру — сменить величину
+      </div>
+    </div>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script>
+      "use strict";
+      /* ============================================================================
+   Волна маятников 3D (Three.js r128)
+   N независимых маятников на бифилярном подвесе (две нити в виде V держат
+   плоскость качания). За цикл T маятник № n совершает N0 + n колебаний,
+   так что частоты образуют арифметическую прогрессию:
+        P_n = T / (N0 + n),  L_n = g · (P_n / 2π)²            (малые колебания)
+        L_n = g · (P_n / 4K(sin(θ0/2)))²                     (поправка на амплитуду)
+   Фаза n-го маятника φ_n(t) = 2π (N0 + n) t / T линейна по n: в каждый момент
+   шарики лежат на «волне», волновое число которой растёт со временем. В моменты
+   t = T·p/q фазы принимают q значений — q групп; в t = T строй возрождается.
+   Интегрирование — RK4 с фиксированным шагом, независимо для каждого маятника.
+   ========================================================================== */
+      const THREE = window.THREE;
+      const G = 9.81; // м/с²
+      const UNIT = 100; // единиц сцены в метре
+      const H_STEP = 1 / 500; // шаг интегрирования, с
+      const CATCHUP = 0.5; // сколько модельного времени максимум досчитываем за кадр, с
+
+      /* ----------------------------------------------------------------------------
+   Состояние модели
+   ---------------------------------------------------------------------------- */
+      const P = {
+        N: 15,
+        T: 60,
+        N0: 51,
+        A: (15 * Math.PI) / 180,
+        gamma: 0,
+        nonlin: true,
+        corr: false,
+        profile: "same", // same | travel | shape | tilt | single | random
+        waves: 1, // волн по ряду (travel, shape)
+        pick: 0, // номер отклоняемого маятника (single)
+      };
+      const S = {
+        t: 0,
+        th: new Float64Array(0),
+        om: new Float64Array(0),
+        k: new Float64Array(0), // g / L
+        Lm: new Float64Array(0), // длины, м
+        running: true,
+      };
+      let SPEED = 1;
+      let phAccum = 0; // накопитель модельного времени
+
+      // полный эллиптический интеграл первого рода через AGM
+      function ellipK(m) {
+        // m = k (модуль), не параметр
+        let a = 1,
+          b = Math.sqrt(1 - m * m);
+        for (let i = 0; i < 24; i++) {
+          const an = 0.5 * (a + b);
+          b = Math.sqrt(a * b);
+          a = an;
+          if (Math.abs(a - b) < 1e-15) break;
+        }
+        return Math.PI / (2 * a);
+      }
+      // период математического маятника длины L при амплитуде A
+      function periodAt(L, A, nonlin) {
+        const P0 = 2 * Math.PI * Math.sqrt(L / G);
+        if (!nonlin || A <= 0) return P0;
+        return ((P0 * 2) / Math.PI) * ellipK(Math.sin(A / 2));
+      }
+      function computeLengths() {
+        const N = P.N;
+        const Lm = new Float64Array(N),
+          k = new Float64Array(N);
+        const useCorr = P.corr && P.nonlin;
+        const Kf = useCorr ? (2 / Math.PI) * ellipK(Math.sin(P.A / 2)) : 1;
+        for (let n = 0; n < N; n++) {
+          const Pn = P.T / (P.N0 + n);
+          // T_real = 2π√(L/g) · Kf  ⇒  L = g (Pn / (2π Kf))²
+          Lm[n] = G * Math.pow(Pn / (2 * Math.PI * Kf), 2);
+          k[n] = G / Lm[n];
+        }
+        S.Lm = Lm;
+        S.k = k;
+      }
+
+      /* ----------------------------------------------------------------------------
+   Интегратор (RK4, независимо по маятникам)
+   ---------------------------------------------------------------------------- */
+      function physicsStep(h) {
+        const N = P.N,
+          gam = P.gamma,
+          nl = P.nonlin;
+        const th = S.th,
+          om = S.om,
+          kk = S.k;
+        const f = nl ? Math.sin : (x) => x;
+        for (let i = 0; i < N; i++) {
+          const k = kk[i];
+          const x0 = th[i],
+            v0 = om[i];
+          const a1 = -k * f(x0) - gam * v0;
+          const x1 = x0 + 0.5 * h * v0,
+            v1 = v0 + 0.5 * h * a1;
+          const a2 = -k * f(x1) - gam * v1;
+          const x2 = x0 + 0.5 * h * v1,
+            v2 = v0 + 0.5 * h * a2;
+          const a3 = -k * f(x2) - gam * v2;
+          const x3 = x0 + h * v2,
+            v3 = v0 + h * a3;
+          const a4 = -k * f(x3) - gam * v3;
+          th[i] = x0 + (h / 6) * (v0 + 2 * v1 + 2 * v2 + v3);
+          om[i] = v0 + (h / 6) * (a1 + 2 * a2 + 2 * a3 + a4);
+          // звук: прохождение через ноль снизу вверх — раз за период
+          if (AUD.on && x0 < 0 && th[i] >= 0) AUD.queue.push(i);
+        }
+        S.t += h;
+        carpetSample();
+      }
+
+      /* Начальные условия по профилю. Для профилей с фазой (travel, random)
+         маятник n стартует с точки эллипса θ = a·cos φ, θ' = −a·Ω_n·sin φ,
+         т. е. с полной амплитудой a, но в фазе φ. Ω_n = √(g/L_n) — линейная
+         частота; при больших амплитудах это лишь приближение к той же энергии. */
+      function initialState() {
+        const N = P.N,
+          A = P.A;
+        const th = new Float64Array(N),
+          om = new Float64Array(N);
+        const span = Math.max(1, N - 1);
+        for (let n = 0; n < N; n++) {
+          const W = Math.sqrt(S.k[n]);
+          let a = A,
+            phi = 0;
+          switch (P.profile) {
+            case "travel":
+              phi = (-2 * Math.PI * P.waves * n) / N;
+              break;
+            case "shape":
+              a = A * Math.cos((2 * Math.PI * P.waves * n) / span);
+              break;
+            case "tilt":
+              a = A * (1 - (2 * n) / span);
+              break;
+            case "single":
+              a = n === Math.min(P.pick, N - 1) ? A : 0;
+              break;
+            case "random":
+              a = A * (0.25 + 0.75 * rnd());
+              phi = 2 * Math.PI * rnd();
+              break;
+          }
+          th[n] = a * Math.cos(phi);
+          om[n] = -a * W * Math.sin(phi);
+        }
+        return { th, om };
+      }
+      // свой генератор, чтобы «случайно» менялось при каждом отпускании, но
+      // было воспроизводимо из консоли через __seed
+      let seed = (Date.now() % 2147483647) | 0 || 1;
+      function rnd() {
+        seed = (seed * 48271) % 2147483647;
+        return (seed - 1) / 2147483646;
+      }
+      function release() {
+        const N = P.N;
+        const st = initialState();
+        S.th = st.th;
+        S.om = st.om;
+        S.t = 0;
+        AUD.queue.length = 0;
+        carpetReset();
+        phAccum = 0;
+      }
+
+      // фаза маятника (угол на фазовой плоскости, нормированной на частоту)
+      function phaseOf(i) {
+        const w = Math.sqrt(S.k[i]);
+        return Math.atan2(-S.om[i] / w, S.th[i]);
+      }
+
+      /* ----------------------------------------------------------------------------
+   THREE: renderer / scene / camera  (как в clockwork3d)
+   ---------------------------------------------------------------------------- */
+      const appEl = document.getElementById("app");
+      const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+      renderer.setPixelRatio(Math.min(devicePixelRatio || 1, 2));
+      renderer.setSize(innerWidth, innerHeight);
+      renderer.outputEncoding = THREE.sRGBEncoding;
+      renderer.toneMapping = THREE.ACESFilmicToneMapping;
+      renderer.toneMappingExposure = 1.05;
+      renderer.shadowMap.enabled = true;
+      renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+      appEl.appendChild(renderer.domElement);
+
+      const scene = new THREE.Scene();
+      const camera = new THREE.PerspectiveCamera(40, innerWidth / innerHeight, 1, 6000);
+
+      function makeEnv() {
+        const c = document.createElement("canvas");
+        c.width = 16;
+        c.height = 256;
+        const g = c.getContext("2d");
+        const grd = g.createLinearGradient(0, 0, 0, 256);
+        grd.addColorStop(0.0, "#2b3440");
+        grd.addColorStop(0.45, "#171d24");
+        grd.addColorStop(0.55, "#10151b");
+        grd.addColorStop(1.0, "#05070a");
+        g.fillStyle = grd;
+        g.fillRect(0, 0, 16, 256);
+        const tex = new THREE.CanvasTexture(c);
+        tex.mapping = THREE.EquirectangularReflectionMapping;
+        const pmrem = new THREE.PMREMGenerator(renderer);
+        pmrem.compileEquirectangularShader();
+        const env = pmrem.fromEquirectangular(tex).texture;
+        tex.dispose();
+        pmrem.dispose();
+        return env;
+      }
+      scene.environment = makeEnv();
+
+      scene.add(new THREE.HemisphereLight(0x9fb4cc, 0x14181d, 0.55));
+      const key = new THREE.DirectionalLight(0xfff1d6, 1.15);
+      key.position.set(70, 160, 120);
+      key.castShadow = true;
+      key.shadow.mapSize.set(2048, 2048);
+      key.shadow.bias = -0.0004;
+      scene.add(key);
+      scene.add(key.target);
+      const fill = new THREE.DirectionalLight(0x9ec0ff, 0.35);
+      fill.position.set(-90, 40, 60);
+      scene.add(fill);
+      const rim = new THREE.DirectionalLight(0xffd9a0, 0.5);
+      rim.position.set(20, 60, -140);
+      scene.add(rim);
+
+      // пол растворяется к краю, чтобы не было видно горизонта-диска
+      function makeFloorFade() {
+        const c = document.createElement("canvas");
+        c.width = c.height = 256;
+        const g = c.getContext("2d");
+        const grd = g.createRadialGradient(128, 128, 0, 128, 128, 128);
+        grd.addColorStop(0.0, "#ffffff");
+        grd.addColorStop(0.45, "#bbbbbb");
+        grd.addColorStop(1.0, "#000000");
+        g.fillStyle = grd;
+        g.fillRect(0, 0, 256, 256);
+        return new THREE.CanvasTexture(c);
+      }
+      const MAT = {
+        brass: new THREE.MeshStandardMaterial({ color: 0xc69a44, metalness: 0.95, roughness: 0.34 }),
+        brassDark: new THREE.MeshStandardMaterial({ color: 0x9a7a33, metalness: 0.92, roughness: 0.45 }),
+        steel: new THREE.MeshStandardMaterial({ color: 0x8fb0d6, metalness: 0.96, roughness: 0.2, envMapIntensity: 1.15 }),
+        enamel: new THREE.MeshStandardMaterial({ color: 0xf1e7cf, metalness: 0.0, roughness: 0.6 }),
+        walnut: new THREE.MeshStandardMaterial({ color: 0x24160d, metalness: 0.05, roughness: 0.5, envMapIntensity: 0.6 }),
+        floor: new THREE.MeshStandardMaterial({
+          color: 0x0b0e12,
+          metalness: 0.0,
+          roughness: 0.95,
+          envMapIntensity: 0.15,
+          transparent: true,
+          alphaMap: makeFloorFade(),
+        }),
+        thread: new THREE.LineBasicMaterial({ color: 0xd8c9a2, transparent: true, opacity: 0.85 }),
+      };
+
+      const floor = new THREE.Mesh(new THREE.CircleGeometry(420, 64), MAT.floor);
+      floor.rotation.x = -Math.PI / 2;
+      floor.position.y = -6.01;
+      floor.receiveShadow = true;
+      scene.add(floor);
+
+      /* ----------------------------------------------------------------------------
+   Установка: основание, стойки, изогнутая балка, колодки, нити, шарики
+   Ряд идёт вдоль X, маятники качаются в плоскости YZ (к зрителю и от него).
+   ---------------------------------------------------------------------------- */
+      const RIG = {
+        group: null,
+        bobs: [],
+        x: [], // x центра маятника
+        y: [], // высота оси подвеса
+        L: [], // длина до центра шарика, ед. сцены
+        d: 0, // полуразнос точек подвеса вдоль X
+        r: 0, // радиус шарика
+        threads: null,
+        rowLen: 0,
+        yBob: 14, // высота центров шариков в покое над основанием
+        Lmax: 0,
+        Lmin: 0,
+      };
+
+      function disposeTree(o) {
+        o.traverse((c) => {
+          if (c.geometry) c.geometry.dispose();
+          if (c.material && c.userData.ownMat) c.material.dispose();
+        });
+      }
+
+      function bobMaterial(i, N) {
+        if (!UI.color) return MAT.steel;
+        const m = new THREE.MeshStandardMaterial({ metalness: 0.75, roughness: 0.25 });
+        // от латуни через медь к стали
+        const t = N > 1 ? i / (N - 1) : 0;
+        m.color.setHSL(0.11 + t * 0.47, 0.55, 0.55);
+        return m;
+      }
+
+      function buildRig() {
+        if (RIG.group) {
+          scene.remove(RIG.group);
+          disposeTree(RIG.group);
+        }
+        const N = P.N;
+        const g = new THREE.Group();
+        const s = 6.2; // шаг ряда
+        const r = Math.min(2.0, s * 0.33);
+        const d = s * 0.36;
+        RIG.r = r;
+        RIG.d = d;
+        RIG.x = [];
+        RIG.y = [];
+        RIG.L = [];
+        RIG.bobs = [];
+        RIG.rowLen = s * (N - 1);
+        for (let n = 0; n < N; n++) {
+          const L = S.Lm[n] * UNIT;
+          RIG.x.push((n - (N - 1) / 2) * s);
+          RIG.L.push(L);
+          RIG.y.push(RIG.yBob + L);
+        }
+        RIG.Lmax = RIG.L[0];
+        RIG.Lmin = RIG.L[N - 1];
+
+        // размах качания по Z (для ширины основания)
+        const swing = RIG.Lmax * Math.sin(Math.min(P.A, 1.2)) + r;
+        const baseW = RIG.rowLen + 2 * s + 14,
+          baseD = Math.max(28, 2 * swing + 14);
+        const base = new THREE.Mesh(new THREE.BoxGeometry(baseW, 4, baseD), MAT.walnut);
+        base.position.y = -2;
+        base.castShadow = base.receiveShadow = true;
+        g.add(base);
+        // латунная окантовка
+        const lip = new THREE.Mesh(new THREE.BoxGeometry(baseW + 1.2, 1.2, baseD + 1.2), MAT.brassDark);
+        lip.position.y = -4.6;
+        lip.receiveShadow = true;
+        g.add(lip);
+        // ножки
+        for (const sx of [-1, 1])
+          for (const sz of [-1, 1]) {
+            const foot = new THREE.Mesh(new THREE.CylinderGeometry(1.6, 2.0, 1.4, 20), MAT.brass);
+            foot.position.set(sx * (baseW / 2 - 4), -5.6, sz * (baseD / 2 - 4));
+            foot.castShadow = true;
+            g.add(foot);
+          }
+        // шкала-линейка вдоль переднего края: риски под каждым маятником
+        const tickGeo = new THREE.BoxGeometry(0.35, 0.12, 2.2);
+        for (let n = 0; n < N; n++) {
+          const tk = new THREE.Mesh(tickGeo, MAT.brass);
+          tk.position.set(RIG.x[n], 0.06, baseD / 2 - 3);
+          g.add(tk);
+        }
+
+        // стойки и балка: балка проходит над осями подвеса, монотонно спускаясь
+        const xL = RIG.x[0] - s,
+          xR = RIG.x[N - 1] + s;
+        const topL = RIG.y[0] + 3,
+          topR = RIG.y[N - 1] + 3;
+        for (const [px, top] of [
+          [xL, topL],
+          [xR, topR],
+        ]) {
+          const post = new THREE.Mesh(new THREE.CylinderGeometry(1.1, 1.3, top, 24), MAT.brass);
+          post.position.set(px, top / 2, 0);
+          post.castShadow = true;
+          g.add(post);
+          const boss = new THREE.Mesh(new THREE.CylinderGeometry(2.3, 2.6, 1.6, 24), MAT.brassDark);
+          boss.position.set(px, 0.8, 0);
+          boss.castShadow = true;
+          g.add(boss);
+          const cap = new THREE.Mesh(new THREE.SphereGeometry(1.6, 20, 14), MAT.brass);
+          cap.position.set(px, top, 0);
+          cap.castShadow = true;
+          g.add(cap);
+        }
+        const pts = [new THREE.Vector3(xL, topL, 0)];
+        for (let n = 0; n < N; n++) pts.push(new THREE.Vector3(RIG.x[n], RIG.y[n] + 3, 0));
+        pts.push(new THREE.Vector3(xR, topR, 0));
+        const curve = new THREE.CatmullRomCurve3(pts, false, "centripetal");
+        const beam = new THREE.Mesh(new THREE.TubeGeometry(curve, N * 12, 0.85, 14, false), MAT.brass);
+        beam.castShadow = true;
+        g.add(beam);
+        // колодки подвеса: эмалевые бруски под балкой с двумя ушками
+        const blockGeo = new THREE.BoxGeometry(2 * d + 1.6, 2.2, 2.6);
+        const eyeGeo = new THREE.TorusGeometry(0.42, 0.14, 8, 16);
+        for (let n = 0; n < N; n++) {
+          const b = new THREE.Mesh(blockGeo, MAT.enamel);
+          b.position.set(RIG.x[n], RIG.y[n] + 1.3, 0);
+          b.castShadow = true;
+          g.add(b);
+          for (const sx of [-1, 1]) {
+            const eye = new THREE.Mesh(eyeGeo, MAT.brassDark);
+            eye.position.set(RIG.x[n] + sx * d, RIG.y[n] - 0.05, 0);
+            eye.rotation.y = Math.PI / 2;
+            g.add(eye);
+          }
+        }
+
+        // шарики
+        const bobGeo = new THREE.SphereGeometry(r, 32, 20);
+        for (let n = 0; n < N; n++) {
+          const m = new THREE.Mesh(bobGeo, bobMaterial(n, N));
+          m.userData.ownMat = m.material !== MAT.steel;
+          m.castShadow = true;
+          g.add(m);
+          RIG.bobs.push(m);
+        }
+
+        // нити: по две на маятник, общий буфер
+        const tg = new THREE.BufferGeometry();
+        tg.setAttribute("position", new THREE.BufferAttribute(new Float32Array(N * 4 * 3), 3));
+        RIG.threads = new THREE.LineSegments(tg, MAT.thread);
+        RIG.threads.visible = UI.threads;
+        RIG.threads.frustumCulled = false;
+        g.add(RIG.threads);
+
+        scene.add(g);
+        RIG.group = g;
+
+        // тени: охватить установку
+        const ext = Math.max(baseW, baseD, RIG.y[0]) * 0.75 + 20;
+        key.shadow.camera.left = -ext;
+        key.shadow.camera.right = ext;
+        key.shadow.camera.top = ext;
+        key.shadow.camera.bottom = -ext;
+        key.shadow.camera.near = 10;
+        key.shadow.camera.far = 900;
+        key.position.set(ext * 0.6, RIG.y[0] + ext * 1.4, ext * 1.1);
+        key.target.position.set(0, RIG.yBob, 0);
+        key.shadow.camera.updateProjectionMatrix();
+
+        poseRig();
+      }
+
+      const _v = new THREE.Vector3();
+      function poseRig() {
+        const N = P.N,
+          r = RIG.r,
+          d = RIG.d;
+        const pos = RIG.threads.geometry.attributes.position.array;
+        for (let n = 0; n < N; n++) {
+          const th = S.th[n] || 0,
+            L = RIG.L[n],
+            y0 = RIG.y[n],
+            x = RIG.x[n];
+          const c = Math.cos(th),
+            s = Math.sin(th);
+          const by = y0 - L * c,
+            bz = L * s;
+          RIG.bobs[n].position.set(x, by, bz);
+          // крепление нитей — макушка шарика, обращённая к оси
+          const ty = by + r * c,
+            tz = bz - r * s;
+          const o = n * 12;
+          pos[o + 0] = x - d;
+          pos[o + 1] = y0;
+          pos[o + 2] = 0;
+          pos[o + 3] = x;
+          pos[o + 4] = ty;
+          pos[o + 5] = tz;
+          pos[o + 6] = x + d;
+          pos[o + 7] = y0;
+          pos[o + 8] = 0;
+          pos[o + 9] = x;
+          pos[o + 10] = ty;
+          pos[o + 11] = tz;
+        }
+        RIG.threads.geometry.attributes.position.needsUpdate = true;
+      }
+
+      /* ----------------------------------------------------------------------------
+   Самодельный облёт и приближение (как в clockwork3d) + плавные виды
+   ---------------------------------------------------------------------------- */
+      const cam = {
+        target: new THREE.Vector3(0, 30, 0),
+        theta: 1.05,
+        phi: 1.2,
+        radius: 260,
+        autoSpin: false,
+        tween: null,
+      };
+      function applyCamera() {
+        const s = Math.sin(cam.phi),
+          x = Math.cos(cam.theta) * s,
+          z = Math.sin(cam.theta) * s,
+          y = Math.cos(cam.phi);
+        camera.position.set(cam.target.x + cam.radius * x, cam.target.y + cam.radius * y, cam.target.z + cam.radius * z);
+        camera.lookAt(cam.target);
+      }
+      function fitRadius() {
+        const span = Math.max(RIG.rowLen + 30, RIG.y[0] * 1.3, 60);
+        const aspectFix = Math.max(1, 1.25 / camera.aspect);
+        return span * 1.45 * aspectFix + 40;
+      }
+      const VIEWS = {
+        oblique: () => ({ theta: 1.05, phi: 1.2, ty: RIG.yBob + RIG.Lmax * 0.45 }),
+        front: () => ({ theta: Math.PI / 2, phi: 1.48, ty: RIG.yBob + RIG.Lmax * 0.5 }),
+        top: () => ({ theta: Math.PI / 2, phi: 0.04, ty: RIG.yBob, rk: 0.85 }),
+        along: () => ({ theta: 0.24, phi: 1.12, ty: RIG.yBob + RIG.Lmax * 0.3, rk: 0.78 }),
+      };
+      function setView(name, instant) {
+        const v = VIEWS[name]();
+        const to = {
+          theta: v.theta,
+          phi: v.phi,
+          radius: fitRadius() * (v.rk || 1),
+          tx: 0,
+          ty: v.ty,
+          tz: 0,
+        };
+        // кратчайший путь по азимуту
+        let dth = to.theta - cam.theta;
+        dth = Math.atan2(Math.sin(dth), Math.cos(dth));
+        to.theta = cam.theta + dth;
+        cam.autoSpin = false;
+        document.getElementById("tSpin").classList.remove("on");
+        if (instant) {
+          cam.theta = to.theta;
+          cam.phi = to.phi;
+          cam.radius = to.radius;
+          cam.target.set(to.tx, to.ty, to.tz);
+          cam.tween = null;
+          return;
+        }
+        cam.tween = {
+          from: { theta: cam.theta, phi: cam.phi, radius: cam.radius, tx: cam.target.x, ty: cam.target.y, tz: cam.target.z },
+          to,
+          t: 0,
+        };
+      }
+      function stepTween(dt) {
+        const tw = cam.tween;
+        if (!tw) return;
+        tw.t = Math.min(1, tw.t + dt / 0.9);
+        const e = tw.t < 0.5 ? 2 * tw.t * tw.t : 1 - Math.pow(-2 * tw.t + 2, 2) / 2;
+        const L = (a, b) => a + (b - a) * e;
+        cam.theta = L(tw.from.theta, tw.to.theta);
+        cam.phi = L(tw.from.phi, tw.to.phi);
+        cam.radius = L(tw.from.radius, tw.to.radius);
+        cam.target.set(L(tw.from.tx, tw.to.tx), L(tw.from.ty, tw.to.ty), L(tw.from.tz, tw.to.tz));
+        if (tw.t >= 1) cam.tween = null;
+      }
+
+      (function bindOrbit() {
+        const el = renderer.domElement;
+        let drag = false,
+          pan = false,
+          lx = 0,
+          ly = 0;
+        const stopAuto = () => {
+          cam.autoSpin = false;
+          cam.tween = null;
+          document.getElementById("tSpin").classList.remove("on");
+        };
+        el.addEventListener("mousedown", (e) => {
+          drag = e.button === 0;
+          pan = e.button === 2;
+          lx = e.clientX;
+          ly = e.clientY;
+          stopAuto();
+        });
+        addEventListener("mouseup", () => {
+          drag = pan = false;
+        });
+        addEventListener("mousemove", (e) => {
+          const dx = e.clientX - lx,
+            dy = e.clientY - ly;
+          lx = e.clientX;
+          ly = e.clientY;
+          if (drag) {
+            cam.theta -= dx * 0.006;
+            cam.phi = Math.max(0.04, Math.min(2.96, cam.phi - dy * 0.006));
+          } else if (pan) {
+            const k = cam.radius * 0.0016;
+            cam.target.x -= dx * k * Math.sin(cam.theta);
+            cam.target.z += dx * k * Math.cos(cam.theta);
+            cam.target.y += dy * k;
+          }
+        });
+        el.addEventListener("contextmenu", (e) => e.preventDefault());
+        el.addEventListener(
+          "wheel",
+          (e) => {
+            e.preventDefault();
+            cam.tween = null;
+            cam.radius = Math.max(40, Math.min(2500, cam.radius * (1 + Math.sign(e.deltaY) * 0.08)));
+          },
+          { passive: false },
+        );
+        let pt = null,
+          pd = 0;
+        el.addEventListener(
+          "touchstart",
+          (e) => {
+            stopAuto();
+            if (e.touches.length === 1) pt = { x: e.touches[0].clientX, y: e.touches[0].clientY };
+            else if (e.touches.length === 2)
+              pd = Math.hypot(e.touches[0].clientX - e.touches[1].clientX, e.touches[0].clientY - e.touches[1].clientY);
+          },
+          { passive: true },
+        );
+        el.addEventListener(
+          "touchmove",
+          (e) => {
+            if (e.touches.length === 1 && pt) {
+              const dx = e.touches[0].clientX - pt.x,
+                dy = e.touches[0].clientY - pt.y;
+              pt = { x: e.touches[0].clientX, y: e.touches[0].clientY };
+              cam.theta -= dx * 0.006;
+              cam.phi = Math.max(0.04, Math.min(2.96, cam.phi - dy * 0.006));
+            } else if (e.touches.length === 2) {
+              const nd = Math.hypot(e.touches[0].clientX - e.touches[1].clientX, e.touches[0].clientY - e.touches[1].clientY);
+              if (pd) cam.radius = Math.max(40, Math.min(2500, (cam.radius * pd) / nd));
+              pd = nd;
+            }
+          },
+          { passive: true },
+        );
+      })();
+
+      /* ----------------------------------------------------------------------------
+   Ковёр: строки — маятники, столбцы — t mod T. Отсчёт берётся ровно на
+   границе столбца, поэтому картина не зависит от частоты кадров и скорости.
+   Режимы: θ/A (видно и сам алиасинг) или фаза относительно маятника № 0.
+   ---------------------------------------------------------------------------- */
+      const CW = 600; // столбцов на цикл
+      const cv = document.getElementById("carpet"),
+        cctx = cv.getContext("2d");
+      const off = document.createElement("canvas");
+      const octx = off.getContext("2d");
+      const CARPET = {
+        mode: "phase",
+        theta: null, // Float32Array CW*N, NaN — пусто
+        phase: null,
+        nextCol: 0, // номер следующего столбца (сквозной, не по модулю)
+        lastCol: -1,
+      };
+      function carpetReset() {
+        const N = P.N;
+        CARPET.theta = new Float32Array(CW * N).fill(NaN);
+        CARPET.phase = new Float32Array(CW * N).fill(NaN);
+        CARPET.nextCol = 0;
+        CARPET.lastCol = -1;
+        off.width = CW;
+        off.height = N;
+        octx.fillStyle = "#0b0e12";
+        octx.fillRect(0, 0, CW, N);
+      }
+      function carpetSample() {
+        // столбец c отвечает моменту t_c = c·T/CW
+        const dtc = P.T / CW;
+        while (S.t + 1e-9 >= CARPET.nextCol * dtc) {
+          const c = CARPET.nextCol % CW,
+            N = P.N;
+          const ph0 = phaseOf(0);
+          for (let i = 0; i < N; i++) {
+            CARPET.theta[c * N + i] = S.th[i];
+            let dp = phaseOf(i) - ph0;
+            dp = dp - 2 * Math.PI * Math.floor(dp / (2 * Math.PI));
+            CARPET.phase[c * N + i] = dp;
+          }
+          paintColumn(c);
+          CARPET.lastCol = CARPET.nextCol;
+          CARPET.nextCol++;
+        }
+      }
+      const colImg = { data: null };
+      function colorFor(v, mode, amp) {
+        if (isNaN(v)) return [11, 14, 18];
+        if (mode === "theta") {
+          const u = Math.max(-1, Math.min(1, v / (amp || 1e-9)));
+          const a = Math.abs(u);
+          const tgt = u >= 0 ? [214, 170, 80] : [128, 176, 222];
+          return [11 + (tgt[0] - 11) * a, 14 + (tgt[1] - 14) * a, 18 + (tgt[2] - 18) * a];
+        }
+        // циклическая карта: латунь → медь → эмаль → сталь → синий → латунь
+        const h = v / (2 * Math.PI);
+        return hsl2rgb(0.11 + h, 0.5, 0.36 + 0.16 * Math.cos(2 * Math.PI * h));
+      }
+      function hsl2rgb(h, s, l) {
+        h = h - Math.floor(h);
+        const q = l < 0.5 ? l * (1 + s) : l + s - l * s,
+          p = 2 * l - q;
+        const f = (t) => {
+          t = t - Math.floor(t);
+          if (t < 1 / 6) return p + (q - p) * 6 * t;
+          if (t < 1 / 2) return q;
+          if (t < 2 / 3) return p + (q - p) * (2 / 3 - t) * 6;
+          return p;
+        };
+        return [f(h + 1 / 3) * 255, f(h) * 255, f(h - 1 / 3) * 255];
+      }
+      function paintColumn(c) {
+        const N = P.N;
+        if (!colImg.data || colImg.data.height !== N) colImg.data = octx.createImageData(1, N);
+        const d = colImg.data.data;
+        const src = CARPET.mode === "theta" ? CARPET.theta : CARPET.phase;
+        for (let i = 0; i < N; i++) {
+          const rgb = colorFor(src[c * N + i], CARPET.mode, P.A);
+          d[i * 4] = rgb[0];
+          d[i * 4 + 1] = rgb[1];
+          d[i * 4 + 2] = rgb[2];
+          d[i * 4 + 3] = 255;
+        }
+        octx.putImageData(colImg.data, c, 0);
+      }
+      function carpetRepaintAll() {
+        octx.fillStyle = "#0b0e12";
+        octx.fillRect(0, 0, CW, P.N);
+        for (let c = 0; c < CW; c++) paintColumn(c);
+      }
+      const FRAC_MARKS = [
+        [1, 4],
+        [1, 3],
+        [1, 2],
+        [2, 3],
+        [3, 4],
+      ];
+      function drawCarpet() {
+        const w = cv.width,
+          h = cv.height;
+        cctx.imageSmoothingEnabled = false;
+        cctx.clearRect(0, 0, w, h);
+        cctx.drawImage(off, 0, 0, CW, P.N, 0, 0, w, h);
+        // отметки T·p/q
+        cctx.font = "18px 'IBM Plex Mono', monospace";
+        cctx.textAlign = "center";
+        for (const [p, q] of FRAC_MARKS) {
+          const x = (p / q) * w;
+          cctx.strokeStyle = "rgba(241,231,207,.28)";
+          cctx.setLineDash([4, 6]);
+          cctx.beginPath();
+          cctx.moveTo(x, 22);
+          cctx.lineTo(x, h);
+          cctx.stroke();
+          cctx.setLineDash([]);
+          cctx.fillStyle = "rgba(241,231,207,.7)";
+          cctx.fillText(p + "/" + q, x, 17);
+        }
+        // курсор текущего времени
+        const x = ((S.t / P.T) % 1) * w;
+        cctx.strokeStyle = "#f1e7cf";
+        cctx.lineWidth = 2;
+        cctx.beginPath();
+        cctx.moveTo(x, 0);
+        cctx.lineTo(x, h);
+        cctx.stroke();
+        cctx.lineWidth = 1;
+      }
+      function setCarpetMode(m) {
+        CARPET.mode = m;
+        document.getElementById("carpetMode").textContent = m === "theta" ? "отклонение θ / A" : "фаза относительно № 0";
+        carpetRepaintAll();
+      }
+      cv.addEventListener("click", () => setCarpetMode(CARPET.mode === "phase" ? "theta" : "phase"));
+      document.getElementById("carpetMode").addEventListener("click", () => setCarpetMode(CARPET.mode === "phase" ? "theta" : "phase"));
+
+      /* ----------------------------------------------------------------------------
+   Звук: щелчок-нота, когда маятник проходит низ слева направо (раз за период).
+   Высота — по номеру, пентатоника; короткие маятники звучат выше.
+   ---------------------------------------------------------------------------- */
+      const AUD = { on: false, ctx: null, out: null, queue: [] };
+      const PENTA = [0, 2, 4, 7, 9];
+      function noteFreq(i) {
+        const oct = Math.floor(i / 5),
+          deg = PENTA[i % 5];
+        return 220 * Math.pow(2, (oct * 12 + deg) / 12);
+      }
+      function audioInit() {
+        if (AUD.ctx) return;
+        const AC = window.AudioContext || window.webkitAudioContext;
+        if (!AC) return;
+        AUD.ctx = new AC();
+        const comp = AUD.ctx.createDynamicsCompressor();
+        AUD.out = AUD.ctx.createGain();
+        AUD.out.gain.value = 0.55;
+        AUD.out.connect(comp);
+        comp.connect(AUD.ctx.destination);
+      }
+      function audioFlush() {
+        const q = AUD.queue;
+        if (!AUD.on || !AUD.ctx || !q.length) {
+          q.length = 0;
+          return;
+        }
+        // на большой скорости — не больше 10 нот за кадр
+        const n = Math.min(q.length, 10);
+        const now = AUD.ctx.currentTime;
+        for (let j = 0; j < n; j++) {
+          const i = q[j];
+          const o = AUD.ctx.createOscillator(),
+            g = AUD.ctx.createGain();
+          o.type = "triangle";
+          o.frequency.value = noteFreq(i);
+          g.gain.setValueAtTime(0.0001, now);
+          g.gain.exponentialRampToValueAtTime(0.18 / Math.sqrt(1 + j * 0.3), now + 0.008);
+          g.gain.exponentialRampToValueAtTime(0.0001, now + 0.35);
+          o.connect(g);
+          g.connect(AUD.out);
+          o.start(now);
+          o.stop(now + 0.4);
+        }
+        q.length = 0;
+      }
+
+      /* ----------------------------------------------------------------------------
+   Запись видео (MediaRecorder по canvas сцены)
+   ---------------------------------------------------------------------------- */
+      const REC = { mr: null, chunks: [] };
+      function recToggle() {
+        const btn = document.getElementById("bRec"),
+          ind = document.getElementById("recInd");
+        if (REC.mr) {
+          REC.mr.stop();
+          return;
+        }
+        if (!renderer.domElement.captureStream || !window.MediaRecorder) {
+          btn.textContent = "Нет записи";
+          return;
+        }
+        const stream = renderer.domElement.captureStream(30);
+        let mime = "video/webm;codecs=vp9";
+        if (!MediaRecorder.isTypeSupported(mime)) mime = "video/webm;codecs=vp8";
+        if (!MediaRecorder.isTypeSupported(mime)) mime = "video/webm";
+        REC.chunks = [];
+        REC.mr = new MediaRecorder(stream, { mimeType: mime, videoBitsPerSecond: 8e6 });
+        REC.mr.ondataavailable = (e) => {
+          if (e.data && e.data.size) REC.chunks.push(e.data);
+        };
+        REC.mr.onstop = () => {
+          const blob = new Blob(REC.chunks, { type: "video/webm" });
+          const a = document.createElement("a");
+          a.href = URL.createObjectURL(blob);
+          a.download = "pendulum-wave-" + Date.now() + ".webm";
+          document.body.appendChild(a);
+          a.click();
+          setTimeout(() => {
+            URL.revokeObjectURL(a.href);
+            a.remove();
+          }, 1500);
+          REC.mr = null;
+          btn.textContent = "Запись";
+          btn.classList.remove("rec");
+          ind.style.display = "none";
+        };
+        REC.mr.start(250);
+        btn.textContent = "Стоп";
+        btn.classList.add("rec");
+        ind.style.display = "block";
+      }
+
+      /* ----------------------------------------------------------------------------
+   Пульт
+   ---------------------------------------------------------------------------- */
+      const UI = { color: false, threads: true };
+      function tog(id, on, fn) {
+        const el = document.getElementById(id);
+        el.classList.toggle("on", on);
+        el.addEventListener("click", () => {
+          on = !el.classList.contains("on");
+          el.classList.toggle("on", on);
+          fn(on);
+        });
+      }
+      function slider(id, vid, fmt, fn) {
+        const s = document.getElementById(id),
+          v = document.getElementById(vid);
+        const upd = (commit) => {
+          v.textContent = fmt(+s.value);
+          fn(+s.value, commit);
+        };
+        s.addEventListener("input", () => upd(false));
+        s.addEventListener("change", () => upd(true));
+        v.textContent = fmt(+s.value);
+      }
+      function rebuild() {
+        if (typeof syncProfileUI === "function") syncProfileUI();
+        computeLengths();
+        release();
+        buildRig();
+        updateStatic();
+      }
+      // параметры устройства перестраивают установку по отпусканию ползунка
+      slider("sN", "vN", (x) => x, (x, c) => {
+        P.N = x;
+        if (c) {
+          rebuild();
+          setView(currentView, false);
+        }
+      });
+      slider("sT", "vT", (x) => x, (x, c) => {
+        P.T = x;
+        if (c) {
+          rebuild();
+          setView(currentView, false);
+        }
+      });
+      slider("sN0", "vN0", (x) => x, (x, c) => {
+        P.N0 = x;
+        if (c) {
+          rebuild();
+          setView(currentView, false);
+        }
+      });
+      slider("sA", "vA", (x) => x + "°", (x, c) => {
+        P.A = (x * Math.PI) / 180;
+        if (c) rebuild();
+      });
+      slider("sG", "vG", (x) => x.toFixed(3), (x) => {
+        P.gamma = x;
+      });
+      slider("sSpd", "vSpd", (x) => {
+        const sp = x <= 0 ? 0 : Math.pow(x / 33, 1.9);
+        return sp < 1 ? sp.toFixed(2) + "×" : sp < 10 ? sp.toFixed(1) + "×" : Math.round(sp) + "×";
+      }, (x) => {
+        SPEED = x <= 0 ? 0 : Math.pow(x / 33, 1.9);
+      });
+
+      const PROFILE_NEEDS = {
+        travel: { waves: "Волн по ряду (знак — направление)" },
+        shape: { waves: "Волн по ряду" },
+        single: { pick: true },
+      };
+      function syncProfileUI() {
+        const need = PROFILE_NEEDS[P.profile] || {};
+        document.getElementById("cWaves").classList.toggle("hidden", !need.waves);
+        document.getElementById("cPick").classList.toggle("hidden", !need.pick);
+        if (need.waves) document.getElementById("lWaves").firstChild.nodeValue = need.waves + " ";
+        const sp = document.getElementById("sPick");
+        sp.max = String(P.N - 1);
+        if (P.pick > P.N - 1) {
+          P.pick = P.N - 1;
+          sp.value = String(P.pick);
+          document.getElementById("vPick").textContent = P.pick;
+        }
+      }
+      function restart() {
+        release();
+        poseRig();
+      }
+      document.getElementById("selProfile").addEventListener("change", (e) => {
+        P.profile = e.target.value;
+        syncProfileUI();
+        restart();
+      });
+      slider("sWaves", "vWaves", (x) => (x > 0 ? "+" : "") + x, (x) => {
+        P.waves = x;
+        restart();
+      });
+      slider("sPick", "vPick", (x) => x, (x) => {
+        P.pick = x;
+        restart();
+      });
+      function syncCorrDep() {
+        document.getElementById("tCorr").classList.toggle("off-dep", !P.nonlin);
+      }
+      tog("tNonlin", true, (v) => {
+        P.nonlin = v;
+        syncCorrDep();
+        rebuild();
+      });
+      tog("tCorr", false, (v) => {
+        P.corr = v;
+        rebuild();
+      });
+      tog("tColor", false, (v) => {
+        UI.color = v;
+        buildRig();
+      });
+      tog("tThreads", true, (v) => {
+        UI.threads = v;
+        if (RIG.threads) RIG.threads.visible = v;
+      });
+      tog("tSound", false, (v) => {
+        AUD.on = v;
+        if (v) {
+          audioInit();
+          if (AUD.ctx && AUD.ctx.state === "suspended") AUD.ctx.resume();
+        }
+      });
+      tog("tSpin", false, (v) => {
+        cam.autoSpin = v;
+        if (v) cam.tween = null;
+      });
+
+      document.getElementById("bRelease").addEventListener("click", () => {
+        release();
+        poseRig();
+      });
+      document.getElementById("bPause").addEventListener("click", (e) => {
+        S.running = !S.running;
+        e.target.textContent = S.running ? "Пауза" : "Пуск";
+      });
+      document.getElementById("bRec").addEventListener("click", recToggle);
+
+      // переход к ближайшему впереди моменту T·frac текущего (или следующего) цикла
+      function advanceTo(target) {
+        if (target <= S.t) return;
+        const steps = Math.round((target - S.t) / H_STEP);
+        const audWas = AUD.on;
+        AUD.on = false;
+        for (let i = 0; i < steps; i++) physicsStep(H_STEP);
+        // добить остаток до точного момента
+        const rest = target - S.t;
+        if (rest > 1e-12) physicsStep(rest);
+        AUD.on = audWas;
+        phAccum = 0;
+        poseRig();
+      }
+      document.querySelectorAll("[data-jump]").forEach((b) =>
+        b.addEventListener("click", () => {
+          const f = +b.dataset.jump;
+          const cyc = Math.floor(S.t / P.T + 1e-9);
+          let target = (cyc + f) * P.T;
+          if (target <= S.t + 1e-6) target += P.T;
+          advanceTo(target);
+        }),
+      );
+      let currentView = "oblique";
+      document.querySelectorAll("[data-view]").forEach((b) =>
+        b.addEventListener("click", () => {
+          currentView = b.dataset.view;
+          setView(currentView, false);
+        }),
+      );
+      document.getElementById("instrHdr").addEventListener("click", () => {
+        const el = document.getElementById("instr");
+        el.classList.toggle("collapsed");
+        document.getElementById("instrTgl").textContent = el.classList.contains("collapsed") ? "▸" : "▾";
+      });
+
+      /* ----------------------------------------------------------------------------
+   Приборы
+   ---------------------------------------------------------------------------- */
+      function nearestFraction(x, qmax) {
+        let best = null;
+        for (let q = 1; q <= qmax; q++) {
+          const p = Math.round(x * q);
+          const err = Math.abs(x - p / q);
+          if (!best || err < best.err - 1e-12) best = { p, q, err };
+        }
+        return best;
+      }
+      function gcd(a, b) {
+        while (b) [a, b] = [b, a % b];
+        return a;
+      }
+      function groupsWord(q) {
+        const m10 = q % 10,
+          m100 = q % 100;
+        if (m10 === 1 && m100 !== 11) return "группа";
+        if (m10 >= 2 && m10 <= 4 && (m100 < 12 || m100 > 14)) return "группы";
+        return "групп";
+      }
+      function updateStatic() {
+        const N = P.N;
+        const Lmin = S.Lm[N - 1] * 100,
+          Lmax = S.Lm[0] * 100;
+        document.getElementById("rLen").textContent = Lmin.toFixed(1) + " – " + Lmax.toFixed(1);
+        document.getElementById("rPer").textContent =
+          (P.T / (P.N0 + N - 1)).toFixed(3) + " – " + (P.T / P.N0).toFixed(3);
+      }
+      let hudT = 0;
+      function updateHUD(dt) {
+        hudT += dt;
+        if (hudT < 0.08) return;
+        hudT = 0;
+        const N = P.N;
+        const x = (S.t / P.T) % 1;
+        document.getElementById("rT").textContent = S.t.toFixed(2);
+        document.getElementById("rFrac").textContent = (S.t / P.T).toFixed(3);
+        const qmax = Math.min(N, 12);
+        const fr = nearestFraction(x, qmax);
+        const el = document.getElementById("rPQ");
+        // группы различимы, пока полный разброс фаз внутри каждой, 2π(N−1)·err,
+        // не больше восьмой части промежутка между группами 2π/q
+        const tol = 1 / (8 * fr.q * Math.max(1, N - 1));
+        if (fr.err < tol) {
+          let p = fr.p,
+            q = fr.q;
+          // «группы» — только для одинакового старта; при других профилях в
+          // моменты T·p/q исходный узор повторяется, домноженный на q-периодический
+          // сдвиг фаз, а в T возвращается целиком
+          const same = P.profile === "same";
+          if (p === 0 || p === q) {
+            el.textContent = same ? "строй · все в фазе" : "исходный узор";
+          } else {
+            const g = gcd(p, q);
+            p /= g;
+            q /= g;
+            el.textContent = p + "/" + q + (same ? " · " + q + " " + groupsWord(q) : "");
+          }
+          el.classList.add("hit");
+        } else {
+          el.textContent = "—";
+          el.classList.remove("hit");
+        }
+        let amp = 0;
+        for (let i = 0; i < N; i++) {
+          const w = Math.sqrt(S.k[i]);
+          const a = Math.hypot(S.th[i], S.om[i] / w);
+          if (a > amp) amp = a;
+        }
+        document.getElementById("rAmp").textContent = ((amp * 180) / Math.PI).toFixed(2) + "°";
+        // предсказанный разброс числа колебаний за цикл при текущем размахе
+        let lo = Infinity,
+          hi = -Infinity;
+        for (let i = 0; i < N; i++) {
+          const n = P.T / periodAt(S.Lm[i], amp, P.nonlin) - (P.N0 + i);
+          if (n < lo) lo = n;
+          if (n > hi) hi = n;
+        }
+        const drift = hi - lo;
+        document.getElementById("rDrift").textContent =
+          drift < 5e-4 ? "≈ 0" : drift.toFixed(3) + " колеб.";
+      }
+
+      /* ----------------------------------------------------------------------------
+   Пуск
+   ---------------------------------------------------------------------------- */
+      addEventListener("resize", () => {
+        camera.aspect = innerWidth / innerHeight;
+        camera.updateProjectionMatrix();
+        renderer.setSize(innerWidth, innerHeight);
+      });
+
+      computeLengths();
+      release();
+      buildRig();
+      updateStatic();
+      syncCorrDep();
+      setView("oblique", true);
+      applyCamera();
+
+      let last = performance.now();
+      function animate(now) {
+        requestAnimationFrame(animate);
+        window.__frames = (window.__frames || 0) + 1;
+        if (window.__frames === 1) last = now;
+        const wall = Math.min(0.25, (now - last) / 1000);
+        last = now;
+        if (cam.autoSpin) cam.theta += wall * 0.12;
+        stepTween(wall);
+        applyCamera();
+        if (S.running) {
+          phAccum = Math.min(phAccum + wall * SPEED, CATCHUP * Math.max(1, SPEED));
+          while (phAccum >= H_STEP) {
+            physicsStep(H_STEP);
+            phAccum -= H_STEP;
+          }
+        }
+        audioFlush();
+        poseRig();
+        drawCarpet();
+        updateHUD(wall);
+        renderer.render(scene, camera);
+      }
+      requestAnimationFrame(animate);
+
+      // крючки для проверки из консоли / автоматических прогонов
+      window.__advance = (secs) => advanceTo(S.t + secs);
+      window.__advanceTo = advanceTo;
+      window.__state = () => ({
+        t: S.t,
+        N: P.N,
+        th: Array.from(S.th),
+        om: Array.from(S.om),
+        L: Array.from(S.Lm),
+        phase: Array.from({ length: P.N }, (_, i) => phaseOf(i)),
+      });
+      window.__set = (o) => {
+        Object.assign(P, o);
+        rebuild();
+      };
+      window.__view = (name) => setView(name, true);
+      window.__carpet = setCarpetMode;
+      window.__pause = (v) => {
+        S.running = !v;
+      };
+      window.__profile = (name, waves, pick) => {
+        P.profile = name;
+        if (waves != null) P.waves = waves;
+        if (pick != null) P.pick = pick;
+        document.getElementById("selProfile").value = name;
+        syncProfileUI();
+        restart();
+      };
+      window.__seed = (v) => {
+        seed = v | 0 || 1;
+      };
+      window.__READY = true;
+      const boot = document.getElementById("boot");
+      if (boot) boot.style.display = "none";
+    </script>
+  </body>
+</html>
