@@ -1,0 +1,2144 @@
+<!doctype html>
+<html lang="ru">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
+    <title>Кульман · координатный чертёжный прибор · 3D</title>
+    <style>
+      :root {
+        --ink: #e8e3d6;
+        --dim: #9aa0aa;
+        --acc: #d9a441;
+        --pnl: rgba(16, 19, 24, 0.9);
+        --brd: rgba(216, 209, 190, 0.14);
+      }
+      * {
+        box-sizing: border-box;
+      }
+      html,
+      body {
+        margin: 0;
+        height: 100%;
+        overflow: hidden;
+        background: #0a0c10;
+        color: var(--ink);
+        font: 13px/1.45 "Iowan Old Style", "Palatino Linotype", Georgia, serif;
+      }
+      canvas.gl {
+        display: block;
+        touch-action: none;
+      }
+      .hdr {
+        position: fixed;
+        left: 18px;
+        top: 12px;
+        z-index: 5;
+        pointer-events: none;
+        max-width: 560px;
+      }
+      .hdr .kick {
+        letter-spacing: 0.3em;
+        font-size: 10px;
+        color: var(--dim);
+        text-transform: uppercase;
+      }
+      .hdr h1 {
+        margin: 2px 0 4px;
+        font-size: 26px;
+        font-weight: 600;
+      }
+      .hdr h1 em {
+        color: var(--acc);
+        font-style: normal;
+      }
+      .hdr p {
+        margin: 0;
+        font-size: 12.5px;
+        color: var(--dim);
+        font-style: italic;
+      }
+      .pnl {
+        position: fixed;
+        z-index: 6;
+        background: var(--pnl);
+        border: 1px solid var(--brd);
+        border-radius: 12px;
+        padding: 12px 14px;
+        backdrop-filter: blur(9px);
+        width: 268px;
+      }
+      #pLeft {
+        left: 14px;
+        top: 104px;
+      }
+      #pRight {
+        right: 14px;
+        top: 104px;
+        width: 250px;
+      }
+      #pHud {
+        right: 14px;
+        bottom: 14px;
+        width: 250px;
+      }
+      .ttl {
+        font-size: 10px;
+        letter-spacing: 0.22em;
+        text-transform: uppercase;
+        color: var(--acc);
+        margin-bottom: 9px;
+      }
+      .ctl {
+        margin: 9px 0;
+      }
+      .ctl label {
+        display: flex;
+        justify-content: space-between;
+        font-size: 12px;
+        color: var(--dim);
+      }
+      .ctl .v {
+        color: var(--ink);
+        font-variant-numeric: tabular-nums;
+      }
+      input[type="range"] {
+        width: 100%;
+        margin-top: 4px;
+        -webkit-appearance: none;
+        background: transparent;
+      }
+      input[type="range"]::-webkit-slider-runnable-track {
+        height: 3px;
+        background: rgba(216, 209, 190, 0.25);
+        border-radius: 2px;
+      }
+      input[type="range"]::-webkit-slider-thumb {
+        -webkit-appearance: none;
+        width: 13px;
+        height: 13px;
+        margin-top: -5px;
+        border-radius: 50%;
+        background: var(--acc);
+      }
+      input[type="range"]::-moz-range-track {
+        height: 3px;
+        background: rgba(216, 209, 190, 0.25);
+      }
+      input[type="range"]::-moz-range-thumb {
+        width: 13px;
+        height: 13px;
+        border: 0;
+        border-radius: 50%;
+        background: var(--acc);
+      }
+      .togs {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 6px;
+        margin-top: 10px;
+      }
+      .tog,
+      .btn {
+        font: 11px/1 ui-monospace, monospace;
+        letter-spacing: 0.06em;
+        padding: 7px 9px;
+        border: 1px solid var(--brd);
+        border-radius: 7px;
+        color: var(--dim);
+        cursor: pointer;
+        user-select: none;
+      }
+      .tog.on {
+        background: rgba(217, 164, 65, 0.16);
+        border-color: rgba(217, 164, 65, 0.55);
+        color: var(--acc);
+      }
+      .btn:hover,
+      .tog:hover {
+        border-color: rgba(216, 209, 190, 0.4);
+      }
+      .row {
+        display: flex;
+        justify-content: space-between;
+        font-size: 12px;
+        padding: 2px 0;
+      }
+      .row span:first-child {
+        color: var(--dim);
+      }
+      .row span:last-child {
+        font-variant-numeric: tabular-nums;
+      }
+      .warn {
+        color: #d98a41;
+      }
+      .ok {
+        color: #86b07a;
+      }
+      .angs {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 5px;
+        margin-top: 7px;
+      }
+      .angs div {
+        font: 11px/1 ui-monospace, monospace;
+        padding: 6px 7px;
+        border: 1px solid var(--brd);
+        border-radius: 6px;
+        cursor: pointer;
+        color: var(--dim);
+      }
+      .hint {
+        position: fixed;
+        right: 16px;
+        top: 76px;
+        font-size: 11px;
+        color: var(--dim);
+        z-index: 5;
+        pointer-events: none;
+      }
+      .foot {
+        position: fixed;
+        left: 50%;
+        transform: translateX(-50%);
+        bottom: 12px;
+        font-size: 11px;
+        color: rgba(154, 160, 170, 0.75);
+        z-index: 5;
+        pointer-events: none;
+      }
+      @media (max-width: 900px) {
+        #pRight,
+        #pHud {
+          display: none;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="hdr">
+      <div class="kick">Kuhlmann · координатный прибор</div>
+      <h1>Кульман <em>в объёме</em></h1>
+      <p>
+        Траверса катится по двум планкам доски, каретка ходит по траверсе, головка держит угол.
+        Вес каретки на наклонной доске уравновешен пружинным барабаном — перетянешь или недотянешь,
+        и головка поползёт сама.
+      </p>
+    </div>
+
+    <div class="pnl" id="pLeft">
+      <div class="ttl">Режим</div>
+      <div class="togs" style="margin-top: 0">
+        <div class="tog on" id="mOrbit">обзор</div>
+        <div class="tog" id="mDraft">черчение</div>
+      </div>
+      <div class="ttl" style="margin-top: 14px">Прибор</div>
+      <div class="ctl">
+        <label>Наклон доски <span class="v" id="vTilt">55°</span></label>
+        <input id="sTilt" type="range" min="0" max="75" step="1" value="55" />
+      </div>
+      <div class="ctl">
+        <label>Высота доски <span class="v" id="vLift">0 мм</span></label>
+        <input id="sLift" type="range" min="-150" max="250" step="5" value="0" />
+      </div>
+      <div class="ctl">
+        <label>Натяг пружины <span class="v" id="vSpr">23.3 Н</span></label>
+        <input id="sSpr" type="range" min="0" max="45" step="0.1" value="23.3" />
+      </div>
+      <div class="ctl">
+        <label>Трение роликов μ <span class="v" id="vMu">0.020</span></label>
+        <input id="sMu" type="range" min="0.002" max="0.09" step="0.002" value="0.02" />
+      </div>
+      <div class="togs">
+        <div class="btn" id="bBalance">уравновесить</div>
+        <div class="tog" id="tBrakeX">тормоз X</div>
+        <div class="tog" id="tBrakeY">тормоз Y</div>
+        <div class="tog on" id="tSpin">авто-облёт</div>
+        <div class="tog" id="tGhost">призрачная доска</div>
+      </div>
+    </div>
+
+    <div class="pnl" id="pRight">
+      <div class="ttl">Головка</div>
+      <div class="ctl">
+        <label>Угол лимба <span class="v" id="vAng">0°00′</span></label>
+        <input id="sAng" type="range" min="-180" max="180" step="0.0833333" value="0" />
+      </div>
+      <div class="ctl">
+        <label>Установка нуля <span class="v" id="vZero">0°00′</span></label>
+        <input id="sZero" type="range" min="-5" max="5" step="0.0833333" value="0" />
+      </div>
+      <div class="angs">
+        <div data-a="0">0°</div>
+        <div data-a="15">15°</div>
+        <div data-a="30">30°</div>
+        <div data-a="45">45°</div>
+        <div data-a="60">60°</div>
+        <div data-a="90">90°</div>
+        <div data-a="-45">−45°</div>
+        <div data-a="-30">−30°</div>
+      </div>
+      <div class="togs">
+        <div class="tog on" id="tRast">растр 15°</div>
+        <div class="tog" id="tClamp">зажим лимба</div>
+      </div>
+      <div class="ttl" style="margin-top: 14px">Лист</div>
+      <div class="ctl">
+        <label>Раствор циркуля <span class="v" id="vRad">70 мм</span></label>
+        <input id="sRad" type="range" min="8" max="250" step="1" value="70" />
+      </div>
+      <div class="ctl">
+        <label>Толщина линии <span class="v" id="vPen">0.70 мм</span></label>
+        <input id="sPen" type="range" min="0.13" max="1.4" step="0.01" value="0.7" />
+      </div>
+      <div class="togs">
+        <div class="tog on" id="tInk">тушь</div>
+        <div class="tog on" id="tGuide">направляющие</div>
+        <div class="tog" id="tCompass">циркуль</div>
+        <div class="tog" id="tSq0">угольник 45°</div>
+        <div class="btn" id="bSq0">↻ 45°</div>
+        <div class="tog" id="tSq1">угольник 30/60°</div>
+        <div class="btn" id="bSq1">↻ 30/60°</div>
+        <div class="tog" id="tStack">30/60° на 45°</div>
+        <div class="btn" id="bUndo">отменить</div>
+        <div class="btn" id="bClear">новый лист</div>
+        <div class="btn" id="bSvg">выгрузить SVG</div>
+        <div class="btn" id="bPng">выгрузить PNG</div>
+      </div>
+    </div>
+
+    <div class="pnl" id="pHud">
+      <div class="ttl">Приборы</div>
+      <div class="row"><span>угол кромок X, мм</span><span id="rX">0.0</span></div>
+      <div class="row"><span>угол кромок Y, мм</span><span id="rY">0.0</span></div>
+      <div class="row"><span>угол с нониусом</span><span id="rA">0°00′</span></div>
+      <div class="row"><span>нужен натяг, Н</span><span id="rNeed">—</span></div>
+      <div class="row"><span>уравновешивание</span><span id="rBal">—</span></div>
+      <div class="row"><span>сполз за минуту</span><span id="rDrift">0 мм</span></div>
+      <div class="row"><span>углы угольников</span><span id="rSq">—</span></div>
+      <div class="row"><span>раствор циркуля</span><span id="rOpen">—</span></div>
+      <div class="row"><span>линий на листе</span><span id="rN">0</span></div>
+    </div>
+
+    <div class="hint" id="hintTxt">
+      тащить линейку — вести головку · правая кнопка — облёт · чертить можно в режиме черчения
+    </div>
+    <div class="foot">левая — облёт (в обзоре) · правая — сдвиг · колесо — приближение · пробел — режим</div>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script>
+      "use strict";
+      /* ============================================================================
+   КУЛЬМАН КООРДИНАТНОГО ТИПА — 3D + физическая симуляция
+   Единицы: миллиметры, килограммы, секунды. g = 9810 мм/с².
+   Две степени свободы: X — траверса по планкам доски, Y — каретка по траверсе.
+   На наклонной доске по Y действует mg·sin(наклон), ей противостоит пружинный
+   барабан. Трение роликов — сухое, со срывом покоя (stick-slip), тормоза
+   умножают его. Угол головки — отдельная величина с растром 15° и установкой нуля.
+   ========================================================================== */
+
+      /* ---------------------------------------------------------------- РЕНДЕР */
+      const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+      renderer.setPixelRatio(Math.min(devicePixelRatio || 1, 2));
+      renderer.setSize(innerWidth, innerHeight);
+      renderer.outputEncoding = THREE.sRGBEncoding;
+      renderer.toneMapping = THREE.ACESFilmicToneMapping;
+      renderer.toneMappingExposure = 0.94;
+      renderer.shadowMap.enabled = true;
+      renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+      renderer.domElement.className = "gl";
+      document.body.appendChild(renderer.domElement);
+
+      const scene = new THREE.Scene();
+      const camera = new THREE.PerspectiveCamera(38, innerWidth / innerHeight, 5, 40000);
+
+      // окружение без HDR: вертикальный градиент на canvas -> PMREM
+      (function env() {
+        const c = document.createElement("canvas");
+        c.width = 16;
+        c.height = 256;
+        const g = c.getContext("2d").createLinearGradient(0, 0, 0, 256);
+        g.addColorStop(0, "#9fb0c6");
+        g.addColorStop(0.42, "#5a6472");
+        g.addColorStop(0.72, "#23282f");
+        g.addColorStop(1, "#0a0c10");
+        const x = c.getContext("2d");
+        x.fillStyle = g;
+        x.fillRect(0, 0, 16, 256);
+        const tex = new THREE.CanvasTexture(c);
+        tex.mapping = THREE.EquirectangularReflectionMapping;
+        const pm = new THREE.PMREMGenerator(renderer);
+        scene.environment = pm.fromEquirectangular(tex).texture;
+        pm.dispose();
+        tex.dispose();
+      })();
+
+      scene.add(new THREE.HemisphereLight(0xbcd0e8, 0x14171c, 0.5));
+      const key = new THREE.DirectionalLight(0xfff0dc, 1.25);
+      key.position.set(-900, 1500, 1400);
+      key.castShadow = true;
+      key.shadow.mapSize.set(2048, 2048);
+      key.shadow.camera.left = -1400;
+      key.shadow.camera.right = 1400;
+      key.shadow.camera.top = 1400;
+      key.shadow.camera.bottom = -1400;
+      key.shadow.camera.far = 5200;
+      key.shadow.bias = -0.0006;
+      scene.add(key);
+      const fill = new THREE.DirectionalLight(0x9fb6d8, 0.42);
+      fill.position.set(1200, 500, 900);
+      scene.add(fill);
+      const rim = new THREE.DirectionalLight(0xffd9a0, 0.3);
+      rim.position.set(300, 700, -1400);
+      scene.add(rim);
+
+      const MAT = {
+        steel: new THREE.MeshStandardMaterial({ color: 0x9aa3ad, metalness: 0.92, roughness: 0.3 }),
+        dark: new THREE.MeshStandardMaterial({ color: 0x3c424b, metalness: 0.7, roughness: 0.45 }),
+        alu: new THREE.MeshStandardMaterial({ color: 0xb9c0c7, metalness: 0.75, roughness: 0.38 }),
+        paintGrey: new THREE.MeshStandardMaterial({ color: 0x5b636d, metalness: 0.25, roughness: 0.6 }),
+        board: new THREE.MeshStandardMaterial({ color: 0x2f5d52, metalness: 0.05, roughness: 0.82 }),
+        wood: new THREE.MeshStandardMaterial({ color: 0x6b4c31, metalness: 0.05, roughness: 0.75 }),
+        acrylic: new THREE.MeshStandardMaterial({
+          color: 0xdfe6ea,
+          metalness: 0.0,
+          roughness: 0.15,
+          transparent: true,
+          opacity: 0.42,
+        }),
+        knob: new THREE.MeshStandardMaterial({ color: 0x24282e, metalness: 0.5, roughness: 0.4 }),
+        brass: new THREE.MeshStandardMaterial({ color: 0xc9a44a, metalness: 0.9, roughness: 0.32 }),
+      };
+
+      /* ------------------------------------------------------- РАЗМЕРЫ ПРИБОРА */
+      const BOARD = { W: 1200, H: 900, T: 22 }; // доска (формат А0 с полями)
+      const PAPER = { W: 1189, H: 841 }; // лист А0 лёжа
+      const RAIL_T = 9; // толщина стальной планки-направляющей
+      const TRAV = { w: 38, d: 34 }; // сечение траверсы
+      const CARR = { w: 96, h: 86, d: 26 }; // каретка
+      const HEAD_R = 58; // радиус лимба
+      const RUL_H = { len: 460, wid: 34, th: 5 }; // горизонтальная линейка
+      const RUL_V = { len: 330, wid: 34, th: 5 }; // вертикальная линейка
+      // Головка вынесена вбок и вниз от каретки: траверса проходит СЛЕВА от лимба,
+      // иначе беам перекрыл бы шкалу — так сделано и в настоящих машинах.
+      const HEAD_OFF = { x: 95, y: -92, z: 26 };
+      // ход головки в системе доски (точка пересечения рабочих кромок)
+      const LIM = { x0: -430, x1: 560, y0: -352, y1: 352 };
+
+      /* ------------------------------------------------------------- СТАНИНА */
+      const stand = new THREE.Group();
+      scene.add(stand);
+
+      function box(w, h, d, mat, x, y, z, parent) {
+        const m = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), mat);
+        m.position.set(x || 0, y || 0, z || 0);
+        m.castShadow = true;
+        m.receiveShadow = true;
+        (parent || stand).add(m);
+        return m;
+      }
+      function cyl(r1, r2, h, mat, seg) {
+        const m = new THREE.Mesh(new THREE.CylinderGeometry(r1, r2, h, seg || 20), mat);
+        m.castShadow = true;
+        return m;
+      }
+
+      // основание и стойки
+      box(900, 26, 420, MAT.dark, 0, -700, -140);
+      for (const s of [-1, 1]) {
+        box(70, 40, 360, MAT.dark, s * 330, -668, -140);
+        const col = box(64, 660, 64, MAT.paintGrey, s * 330, -330, -170);
+        col.castShadow = true;
+      }
+      box(700, 44, 60, MAT.paintGrey, 0, -640, -170); // поперечина
+
+      // подъёмная каретка станины -> к ней крепится узел наклона
+      const liftGroup = new THREE.Group();
+      stand.add(liftGroup);
+      for (const s of [-1, 1]) box(86, 110, 86, MAT.dark, s * 330, 0, -170, liftGroup);
+      box(700, 46, 66, MAT.dark, 0, 0, -170, liftGroup); // траверса подъёма
+      // сектор наклона
+      const tiltPivot = new THREE.Group();
+      tiltPivot.position.set(0, 0, -132);
+      liftGroup.add(tiltPivot);
+      for (const s of [-1, 1]) {
+        const sec = new THREE.Mesh(new THREE.CylinderGeometry(96, 96, 16, 28, 1, false, -0.2, 1.9), MAT.dark);
+        sec.rotation.z = Math.PI / 2;
+        sec.position.set(s * 300, 0, 0);
+        sec.castShadow = true;
+        tiltPivot.add(sec);
+        const kn = cyl(17, 17, 26, MAT.knob);
+        kn.rotation.z = Math.PI / 2;
+        kn.position.set(s * 316, 0, 0);
+        tiltPivot.add(kn);
+      }
+
+      /* ---------------------------------------------------------------- ДОСКА */
+      // локальная система доски: X вправо, Y вверх по доске, Z из плоскости листа
+      const boardGroup = new THREE.Group();
+      boardGroup.position.set(0, BOARD.H / 2 - 40, 0);
+      tiltPivot.add(boardGroup);
+
+      const boardPanel = box(BOARD.W, BOARD.H, BOARD.T, MAT.board, 0, 0, -BOARD.T / 2, boardGroup);
+      // обвязка из твёрдой древесины
+      for (const s of [-1, 1]) {
+        box(24, BOARD.H + 48, BOARD.T + 6, MAT.wood, s * (BOARD.W / 2 + 12), 0, -BOARD.T / 2, boardGroup);
+        box(BOARD.W + 48, 24, BOARD.T + 6, MAT.wood, 0, s * (BOARD.H / 2 + 12), -BOARD.T / 2, boardGroup);
+      }
+      // стальные планки-направляющие по верхней и нижней кромке
+      const railY = BOARD.H / 2 - 16;
+      for (const s of [-1, 1]) box(BOARD.W + 40, 26, RAIL_T, MAT.steel, 0, s * railY, RAIL_T / 2, boardGroup);
+
+      /* ------------------------------------------------ ЛИСТ: холст для черчения */
+      const PX_MM = 2.1;
+      const sheetCv = document.createElement("canvas");
+      sheetCv.width = Math.round(PAPER.W * PX_MM);
+      sheetCv.height = Math.round(PAPER.H * PX_MM);
+      const baseCv = document.createElement("canvas"); // накопленные линии
+      baseCv.width = sheetCv.width;
+      baseCv.height = sheetCv.height;
+      const sctx = sheetCv.getContext("2d"),
+        bctx = baseCv.getContext("2d");
+      const sheetTex = new THREE.CanvasTexture(sheetCv);
+      sheetTex.anisotropy = renderer.capabilities.getMaxAnisotropy();
+      // без мип-уровней: тонкая линия иначе размывается в ничто уже на среднем плане
+      sheetTex.generateMipmaps = false;
+      sheetTex.minFilter = THREE.LinearFilter;
+      const sheet = new THREE.Mesh(
+        new THREE.PlaneGeometry(PAPER.W, PAPER.H),
+        new THREE.MeshStandardMaterial({ map: sheetTex, color: 0xcfc9bb, roughness: 0.96, metalness: 0 }),
+      );
+      sheet.position.set(0, 0, 0.6);
+      sheet.receiveShadow = true;
+      boardGroup.add(sheet);
+
+      const strokes = []; // {x1,y1,x2,y2,w,ink}
+      function mmToPx(x, y) {
+        return [(x + PAPER.W / 2) * PX_MM, (PAPER.H / 2 - y) * PX_MM];
+      }
+      function paintBase() {
+        bctx.fillStyle = "#efe9da";
+        bctx.fillRect(0, 0, baseCv.width, baseCv.height);
+        // слабая сетка 100 мм — как разметка на подложке
+        bctx.strokeStyle = "rgba(90,110,120,0.13)";
+        bctx.lineWidth = 1;
+        for (let x = -500; x <= 500; x += 100) {
+          const a = mmToPx(x, PAPER.H / 2),
+            b = mmToPx(x, -PAPER.H / 2);
+          bctx.beginPath();
+          bctx.moveTo(a[0], a[1]);
+          bctx.lineTo(b[0], b[1]);
+          bctx.stroke();
+        }
+        for (let y = -400; y <= 400; y += 100) {
+          const a = mmToPx(-PAPER.W / 2, y),
+            b = mmToPx(PAPER.W / 2, y);
+          bctx.beginPath();
+          bctx.moveTo(a[0], a[1]);
+          bctx.lineTo(b[0], b[1]);
+          bctx.stroke();
+        }
+        for (const s of strokes) drawSeg(bctx, s);
+        blit();
+      }
+      function drawSeg(ctx, s) {
+        ctx.strokeStyle = s.ink ? "#0d1014" : "rgba(46,50,58,0.85)";
+        ctx.lineWidth = Math.max(1.7, s.w * PX_MM);
+        ctx.lineCap = "round";
+        ctx.beginPath();
+        if (s.arc) {
+          // у холста ось Y вниз, поэтому углы берутся с обратным знаком
+          const c = mmToPx(s.cx, s.cy);
+          ctx.arc(c[0], c[1], s.r * PX_MM, -s.a0, -s.a1, s.a1 > s.a0);
+        } else {
+          const a = mmToPx(s.x1, s.y1),
+            b = mmToPx(s.x2, s.y2);
+          ctx.moveTo(a[0], a[1]);
+          ctx.lineTo(b[0], b[1]);
+        }
+        ctx.stroke();
+      }
+      function blit(live) {
+        sctx.drawImage(baseCv, 0, 0);
+        if (live) for (const s of Array.isArray(live) ? live : [live]) drawSeg(sctx, s);
+        sheetTex.needsUpdate = true;
+      }
+
+      /* ------------------------------------------------ ТРАВЕРСА И КАРЕТКА */
+      const traverse = new THREE.Group(); // ходит по X
+      boardGroup.add(traverse);
+      const travBody = box(TRAV.w, BOARD.H + 30, TRAV.d, MAT.alu, 0, 0, RAIL_T + TRAV.d / 2 + 1, traverse);
+      travBody.castShadow = true;
+      // ролики на эксцентриковых осях, опирающиеся на планки
+      for (const sy of [-1, 1])
+        for (const sx of [-1, 1]) {
+          const r = cyl(13, 13, 11, MAT.dark, 18);
+          r.rotation.x = Math.PI / 2;
+          r.position.set(sx * 17, sy * railY, RAIL_T + 5);
+          traverse.add(r);
+        }
+      // пружинный барабан уравновешивания в верхнем конце траверсы
+      const drum = cyl(26, 26, 20, MAT.brass, 24);
+      drum.rotation.x = Math.PI / 2;
+      drum.position.set(0, BOARD.H / 2 - 4, RAIL_T + TRAV.d + 4);
+      traverse.add(drum);
+      const cable = box(2.4, 10, 2.4, MAT.steel, 0, 0, RAIL_T + TRAV.d + 4, traverse);
+
+      const carriage = new THREE.Group(); // ходит по Y внутри траверсы
+      traverse.add(carriage);
+      box(CARR.w, CARR.h, CARR.d, MAT.paintGrey, 0, 0, RAIL_T + TRAV.d + CARR.d / 2, carriage);
+      for (const s of [-1, 1]) {
+        const lever = box(13, 34, 13, MAT.knob, s * 54, -12, RAIL_T + TRAV.d + 16, carriage);
+        lever.rotation.z = s * 0.25;
+      }
+
+      /* ------------------------------------------------------------- ГОЛОВКА */
+      // Начало системы головки — точка пересечения рабочих кромок линеек.
+      const headPivot = new THREE.Group();
+      headPivot.position.set(HEAD_OFF.x, HEAD_OFF.y, HEAD_OFF.z);
+      carriage.add(headPivot);
+      // неподвижная часть головки (с нониусом) — не вращается
+      const headFixed = new THREE.Group();
+      headPivot.add(headFixed);
+      // корпус — кольцо вокруг лимба (сплошной диск закрыл бы шкалу)
+      const corpus = new THREE.Mesh(
+        new THREE.CylinderGeometry(HEAD_R + 22, HEAD_R + 22, 22, 56, 1, true),
+        MAT.paintGrey,
+      );
+      corpus.rotation.x = Math.PI / 2;
+      corpus.position.z = -9;
+      corpus.castShadow = true;
+      headFixed.add(corpus);
+      const backPlate = cyl(HEAD_R + 22, HEAD_R + 22, 4, MAT.dark, 56);
+      backPlate.rotation.x = Math.PI / 2;
+      backPlate.position.z = -19;
+      headFixed.add(backPlate);
+      // кронштейн к каретке — вилкой, чтобы не закрывать шкалу лимба и нониус
+      for (const sx of [-1, 1]) box(15, 92, 22, MAT.paintGrey, sx * 40, 98, 18, headFixed);
+      box(96, 16, 22, MAT.paintGrey, 0, 138, 18, headFixed);
+
+      // лимб: круговая шкала текстурой на торце цилиндра
+      function limbTexture() {
+        const N = 1024,
+          c = document.createElement("canvas");
+        c.width = c.height = N;
+        const g = c.getContext("2d");
+        g.fillStyle = "#e9e4d8";
+        g.fillRect(0, 0, N, N);
+        g.translate(N / 2, N / 2);
+        const R = N / 2 - 2,
+          RIN = R - 118; // лимб — кольцо: середину занимает маховичок зажима
+        g.fillStyle = "#2b3038";
+        g.beginPath();
+        g.arc(0, 0, RIN, 0, 7);
+        g.fill();
+        g.strokeStyle = "#20242b";
+        for (let d = 0; d < 360; d++) {
+          const big = d % 10 === 0,
+            mid = d % 5 === 0;
+          g.lineWidth = big ? 3.4 : mid ? 2.2 : 1.1;
+          const len = big ? 46 : mid ? 30 : 17;
+          const a = ((d - 90) * Math.PI) / 180;
+          g.beginPath();
+          g.moveTo(Math.cos(a) * R, Math.sin(a) * R);
+          g.lineTo(Math.cos(a) * (R - len), Math.sin(a) * (R - len));
+          g.stroke();
+        }
+        // оцифровка сдвоенная: 0 наверху, в обе стороны до 180 внизу
+        g.font = "bold 36px ui-monospace, monospace";
+        g.textAlign = "center";
+        g.textBaseline = "middle";
+        g.fillStyle = "#20242b";
+        for (let d = 0; d < 360; d += 10) {
+          const lbl = d <= 180 ? d : 360 - d;
+          const a = ((d - 90) * Math.PI) / 180,
+            r = R - 74;
+          g.save();
+          g.translate(Math.cos(a) * r, Math.sin(a) * r);
+          g.rotate(a + Math.PI / 2);
+          g.fillText(String(lbl), 0, 0);
+          g.restore();
+        }
+        // лунки растра через 15°
+        g.fillStyle = "#8a1f12";
+        for (let d = 0; d < 360; d += 15) {
+          const a = ((d - 90) * Math.PI) / 180;
+          g.beginPath();
+          g.arc(Math.cos(a) * (RIN + 14), Math.sin(a) * (RIN + 14), 6, 0, 7);
+          g.fill();
+        }
+        const t = new THREE.CanvasTexture(c);
+        t.anisotropy = renderer.capabilities.getMaxAnisotropy();
+        return t;
+      }
+      const headRot = new THREE.Group(); // поворотная часть: лимб + крестовина + линейки
+      headPivot.add(headRot);
+      const limbMat = new THREE.MeshStandardMaterial({ map: limbTexture(), roughness: 0.55, metalness: 0.05 });
+      const limb = new THREE.Mesh(
+        new THREE.CylinderGeometry(HEAD_R, HEAD_R, 7, 64),
+        [MAT.dark, limbMat, MAT.dark],
+      );
+      limb.rotation.x = Math.PI / 2; // торец со шкалой — наружу, к чертёжнику
+      limb.position.z = -12;
+      limb.castShadow = true;
+      headRot.add(limb);
+
+      // маховичок зажима лимба — он же закрывает середину кольца
+      const clampWheel = cyl(34, 34, 14, MAT.knob, 36);
+      clampWheel.rotation.x = Math.PI / 2;
+      clampWheel.position.z = -3;
+      clampWheel.castShadow = true;
+      headFixed.add(clampWheel);
+      const clampCap = cyl(27, 27, 3, MAT.brass, 36);
+      clampCap.rotation.x = Math.PI / 2;
+      clampCap.position.z = 5;
+      headFixed.add(clampCap);
+      // подпружиненный фиксатор растра на ободе
+      (function detent() {
+        const a = (-52 * Math.PI) / 180;
+        const lv = box(9, 26, 8, MAT.steel, Math.cos(a) * (HEAD_R + 8), Math.sin(a) * (HEAD_R + 8), -6, headFixed);
+        lv.rotation.z = a + Math.PI / 2;
+        const bl = new THREE.Mesh(new THREE.SphereGeometry(6, 14, 14), MAT.steel);
+        bl.position.set(Math.cos(a) * (HEAD_R + 21), Math.sin(a) * (HEAD_R + 21), -6);
+        headFixed.add(bl);
+      })();
+
+      /* Нониус. Это ДУГА, соосная лимбу и лежащая сразу снаружи его штрихов, а не
+         прямая планка: делить круговую шкалу можно только такой же круговой.
+         12 делений нониуса укладываются в 11° лимба, поэтому цена отсчёта 5′.
+         Шкала сдвоенная — нуль посередине, деления в обе стороны, как и сам лимб. */
+      const VERN = { rIn: HEAD_R + 0.5, rOut: HEAD_R + 15, div: 12, span: 11 };
+      function vernierTexture() {
+        const N = 1024,
+          c = document.createElement("canvas");
+        c.width = c.height = N;
+        const g = c.getContext("2d");
+        const k = N / 2 / VERN.rOut;
+        g.translate(N / 2, N / 2);
+        g.scale(k, -k); // рисуем прямо в миллиметрах головки
+        g.fillStyle = "#cdd2d8";
+        g.beginPath();
+        g.arc(0, 0, VERN.rOut, 0, 7);
+        g.fill();
+        g.strokeStyle = "#20242b";
+        const step = VERN.span / VERN.div; // 11/12 градуса на деление
+        for (let i = -VERN.div; i <= VERN.div; i++) {
+          const a = ((90 + i * step) * Math.PI) / 180;
+          const big = i === 0,
+            mid = Math.abs(i) % 6 === 0;
+          g.lineWidth = big ? 1.1 : mid ? 0.8 : 0.45;
+          const rTop = big ? VERN.rOut - 1.5 : mid ? VERN.rOut - 3.5 : VERN.rOut - 6;
+          g.beginPath();
+          g.moveTo(Math.cos(a) * VERN.rIn, Math.sin(a) * VERN.rIn);
+          g.lineTo(Math.cos(a) * rTop, Math.sin(a) * rTop);
+          g.stroke();
+        }
+        const t = new THREE.CanvasTexture(c);
+        t.anisotropy = renderer.capabilities.getMaxAnisotropy();
+        return t;
+      }
+      // сектор кольца: UV RingGeometry нормированы по внешнему радиусу — ровно то,
+      // подо что нарисована текстура выше
+      const vernSpanRad = ((VERN.span + 3) * Math.PI) / 180;
+      const vern = new THREE.Mesh(
+        new THREE.RingGeometry(VERN.rIn, VERN.rOut, 96, 1, Math.PI / 2 - vernSpanRad, 2 * vernSpanRad),
+        new THREE.MeshStandardMaterial({ map: vernierTexture(), roughness: 0.5, metalness: 0.25 }),
+      );
+      vern.position.z = -8.4;
+      headFixed.add(vern);
+      // подложка нониуса — трапециевидная пластинка на одном винте
+      const vernPlate = new THREE.Mesh(
+        new THREE.RingGeometry(VERN.rIn - 1, VERN.rOut + 4, 96, 1, Math.PI / 2 - vernSpanRad * 1.25, 2.5 * vernSpanRad),
+        MAT.alu,
+      );
+      vernPlate.position.z = -9.4;
+      headFixed.add(vernPlate);
+      const vernScrew = cyl(3, 3, 4, MAT.steel, 12);
+      vernScrew.rotation.x = Math.PI / 2;
+      vernScrew.position.set(0, VERN.rOut + 1, -7);
+      headFixed.add(vernScrew);
+
+      const zeroKnob = cyl(8, 8, 13, MAT.brass);
+      zeroKnob.rotation.x = Math.PI / 2;
+      zeroKnob.position.set(-HEAD_R - 2, 30, 4);
+      headFixed.add(zeroKnob);
+
+      /* ---------------------------------------------------------- ЛИНЕЙКИ */
+      function rulerTexture(lenMM, flip) {
+        const px = 3,
+          W = Math.round(lenMM * px),
+          H = Math.round(34 * px),
+          c = document.createElement("canvas");
+        c.width = W;
+        c.height = H;
+        const g = c.getContext("2d");
+        g.clearRect(0, 0, W, H);
+        g.fillStyle = "rgba(245,248,250,0.30)";
+        g.fillRect(0, 0, W, H);
+        g.strokeStyle = "#1b1f26";
+        g.fillStyle = "#1b1f26";
+        g.font = "bold " + 9 * px + "px ui-monospace, monospace";
+        g.textAlign = "center";
+        const edgeY = flip ? 0 : H; // рабочая кромка
+        for (let mm = 0; mm <= lenMM; mm++) {
+          const big = mm % 10 === 0,
+            mid = mm % 5 === 0;
+          if (!mid && lenMM > 400 && mm % 2) continue;
+          const x = mm * px,
+            L = (big ? 13 : mid ? 8 : 4.5) * px;
+          g.lineWidth = big ? 1.6 : 1;
+          g.beginPath();
+          g.moveTo(x, edgeY);
+          g.lineTo(x, flip ? L : H - L);
+          g.stroke();
+          if (big && mm % 50 === 0 && mm > 0)
+            g.fillText(String(mm / 10), x, flip ? L + 11 * px : H - L - 4 * px);
+        }
+        // подрезанная кромка (Tuschekante) — тёмная полоска у рабочего края
+        g.fillStyle = "rgba(27,31,38,0.55)";
+        g.fillRect(0, flip ? 0 : H - 2 * px, W, 2 * px);
+        const t = new THREE.CanvasTexture(c);
+        t.anisotropy = renderer.capabilities.getMaxAnisotropy();
+        return t;
+      }
+      function makeRuler(len, wid, th, tex) {
+        const face = new THREE.MeshStandardMaterial({
+          map: tex,
+          transparent: true,
+          opacity: 0.95,
+          roughness: 0.16,
+          metalness: 0,
+        });
+        const side = MAT.acrylic;
+        const m = new THREE.Mesh(new THREE.BoxGeometry(len, wid, th), [side, side, side, side, face, side]);
+        m.castShadow = true;
+        return m;
+      }
+      // Линейки ставятся УГОЛКОМ, а не крестом: каждая идёт от угла в одну сторону,
+      // нули обеих шкал сходятся в этом углу. Обе рабочие кромки смотрят В ОДНУ
+      // четверть — вверх и вправо: у горизонтальной кромка ВЕРХНЯЯ, тело под ней;
+      // у вертикальной кромка ПРАВАЯ, тело левее. Головка при этом оказывается в
+      // левом нижнем углу рабочего поля и ничего не загораживает.
+      // Сам угол вынесен от оси вращения на кронштейн-крестовину.
+      const CORN = { x: 62, y: 70 }; // угол кромок в системе головки
+      const V_OVER = 0; // вертикальная начинается от рабочей кромки горизонтальной
+      // Рабочее поле — ЧЕТВЕРТЬ СВЕРХУ СПРАВА от угла: над верхней кромкой
+      // горизонтальной линейки и правее правой кромки вертикальной.
+      // side — в какую сторону от кромки лежит рабочее поле (по левой нормали)
+      const EDGE = {
+        h: { t0: 0, t1: RUL_H.len, side: 1 },
+        v: { t0: -V_OVER, t1: RUL_V.len - V_OVER, side: -1 },
+      };
+      const rulerH = makeRuler(RUL_H.len, RUL_H.wid, RUL_H.th, rulerTexture(RUL_H.len, true));
+      const RUL_Z = -22.9; // обе линейки лежат в ОДНОЙ плоскости, кромками на листе
+      rulerH.position.set(CORN.x + RUL_H.len / 2, CORN.y - RUL_H.wid / 2, RUL_Z); // тело НИЖЕ кромки
+      headRot.add(rulerH);
+      const rulerV = makeRuler(RUL_V.len, RUL_V.wid, RUL_V.th, rulerTexture(RUL_V.len, false));
+      rulerV.rotation.z = Math.PI / 2; // тело ЛЕВЕЕ кромки, сама линейка идёт вверх
+      rulerV.position.set(CORN.x - RUL_V.wid / 2, CORN.y - V_OVER + RUL_V.len / 2, RUL_Z);
+      headRot.add(rulerV);
+      // Направляющие: тонкие следы кромок на листе — сразу видно, где пойдёт перо
+      const guideMat = new THREE.MeshBasicMaterial({ color: 0xe0a53c, transparent: true, opacity: 0.8 });
+      const guides = new THREE.Group();
+      headRot.add(guides);
+      for (const key of ["h", "v"]) {
+        const e = EDGE[key],
+          L = e.t1 - e.t0;
+        const g = new THREE.Mesh(new THREE.BoxGeometry(L, 3.2, 0.6), guideMat);
+        // след сдвинут на рабочую сторону кромки — туда, где пойдёт перо
+        if (key === "h") g.position.set(CORN.x + e.t0 + L / 2, CORN.y + 2.6, -24.6);
+        else {
+          g.rotation.z = Math.PI / 2;
+          g.position.set(CORN.x + 2.6, CORN.y + e.t0 + L / 2, -24.6);
+        }
+        guides.add(g);
+      }
+      // Крестовина: плечи выходят из-под корпуса головки и ложатся ПОВЕРХ линеек,
+      // упираясь в их средние линии; заклёпки прошивают плечо и линейку насквозь.
+      (function spider() {
+        const ARM_Z = RUL_Z + 6.6; // плечо лежит над линейкой, не под листом
+        const hub = cyl(34, 34, 9, MAT.paintGrey, 30);
+        hub.rotation.x = Math.PI / 2;
+        hub.position.z = ARM_Z;
+        headRot.add(hub);
+        // концы плеч — на средних линиях тел линеек
+        const midH = RUL_H.wid / 2,
+          midV = RUL_V.wid / 2;
+        const arms = [
+          { x: CORN.x + 185, y: CORN.y - midH, riv: [CORN.x + 90, CORN.y - midH] },
+          { x: CORN.x - midV, y: CORN.y + 165, riv: [CORN.x - midV, CORN.y + 80] },
+        ];
+        for (const a of arms) {
+          const L = Math.hypot(a.x, a.y);
+          const bar = new THREE.Mesh(new THREE.BoxGeometry(L, 20, 8), MAT.paintGrey);
+          bar.position.set(a.x / 2, a.y / 2, ARM_Z);
+          bar.rotation.z = Math.atan2(a.y, a.x);
+          bar.castShadow = true;
+          headRot.add(bar);
+          for (const [rx, ry] of [[a.x, a.y], a.riv]) {
+            const rivet = cyl(2.6, 2.6, 13, MAT.steel, 12); // прошивает плечо и линейку
+            rivet.rotation.x = Math.PI / 2;
+            rivet.position.set(rx, ry, ARM_Z - 1.5);
+            headRot.add(rivet);
+            const head2 = cyl(4.2, 4.2, 2.6, MAT.steel, 12);
+            head2.rotation.x = Math.PI / 2;
+            head2.position.set(rx, ry, ARM_Z + 5.2);
+            headRot.add(head2);
+          }
+        }
+      })();
+
+      /* ---------------------------------------------------------------- ЦИРКУЛЬ
+   Раствор задаётся углом в шарнире, а не числом: ноги длиной CMP.L с коленцами,
+   нижние коленца поставлены перпендикулярно доске (как и делают при большом
+   радиусе), поэтому R = 2·(L − knee)·sin(раствор/2). Отсюда и предел радиуса.
+   Игла, воткнутая в лист, оставляет циркулю одну степень свободы — вращение. */
+      const CMP = { L: 170, knee: 45, Rmin: 8 };
+      CMP.up = CMP.L - CMP.knee;
+      CMP.Rmax = 2 * CMP.up;
+      const compass = { on: false, planted: false, R: 70, cx: 0, cy: 0, ang: 0, a0: 0, a1: 0, open: 0 };
+      const compassGroup = new THREE.Group();
+      compassGroup.visible = false;
+      boardGroup.add(compassGroup);
+      const CP = {};
+      (function buildCompass() {
+        const seg = (w, t, mat) => {
+          const m = new THREE.Mesh(new THREE.BoxGeometry(1, w, t), mat);
+          m.castShadow = true;
+          compassGroup.add(m);
+          return m;
+        };
+        CP.upN = seg(7, 6, MAT.steel);
+        CP.upP = seg(7, 6, MAT.steel);
+        CP.loN = seg(5.5, 4.5, MAT.dark);
+        CP.loP = seg(5.5, 4.5, MAT.dark);
+        CP.hinge = cyl(8, 8, 16, MAT.knob, 18); // ось шарнира поперёк плоскости циркуля
+        compassGroup.add(CP.hinge);
+        CP.handle = cyl(6.5, 6.5, 30, MAT.knob, 18);
+        CP.handle.rotation.x = Math.PI / 2;
+        compassGroup.add(CP.handle);
+        CP.screw = new THREE.Mesh(new THREE.BoxGeometry(1, 2.4, 2.4), MAT.brass);
+        compassGroup.add(CP.screw);
+        CP.nut = cyl(5, 5, 7, MAT.brass, 14);
+        compassGroup.add(CP.nut);
+        CP.needle = new THREE.Mesh(new THREE.CylinderGeometry(0, 1.3, 11, 10), MAT.steel);
+        CP.needle.rotation.x = -Math.PI / 2;
+        compassGroup.add(CP.needle);
+        CP.lead = new THREE.Mesh(new THREE.CylinderGeometry(0.9, 1.8, 9, 10), MAT.knob);
+        CP.lead.rotation.x = -Math.PI / 2;
+        compassGroup.add(CP.lead);
+      })();
+      function updateCompass() {
+        const R = Math.max(CMP.Rmin, Math.min(CMP.Rmax, compass.R)),
+          half = R / 2;
+        compass.open = 2 * Math.asin(Math.min(1, half / CMP.up)); // раствор в шарнире
+        const zh = CMP.knee + Math.sqrt(Math.max(1, CMP.up * CMP.up - half * half));
+        compassGroup.position.set(compass.cx, compass.cy, 0.8);
+        compassGroup.rotation.z = compass.ang;
+        const put = (m, x1, z1, x2, z2) => {
+          const dx = x2 - x1,
+            dz = z2 - z1,
+            len = Math.hypot(dx, dz);
+          m.scale.x = len;
+          m.position.set((x1 + x2) / 2, 0, (z1 + z2) / 2);
+          m.rotation.y = -Math.atan2(dz, dx);
+        };
+        put(CP.upN, half, zh, 0, CMP.knee);
+        put(CP.upP, half, zh, R, CMP.knee);
+        put(CP.loN, 0, CMP.knee, 0, 5);
+        put(CP.loP, R, CMP.knee, R, 5);
+        CP.hinge.position.set(half, 0, zh);
+        CP.handle.position.set(half, 0, zh + 24);
+        CP.screw.scale.x = Math.max(6, R * 0.82);
+        CP.screw.position.set(half, 0, CMP.knee + 34);
+        CP.nut.position.set(half, 0, CMP.knee + 34);
+        CP.needle.position.set(0, 0, 5);
+        CP.lead.position.set(R, 0, 4.5);
+      }
+      updateCompass();
+
+      /* ======================================================================
+   ФИЗИКА: две поступательные степени свободы в плоскости доски
+   ==================================================================== */
+      const G = 9810; // мм/с²
+      const PH = {
+        x: 0,
+        y: 0,
+        vx: 0,
+        vy: 0,
+        mX: 5.4, // траверса + каретка + головка, кг (движется по X)
+        mY: 2.9, // каретка + головка, кг (движется по Y)
+        tilt: (55 * Math.PI) / 180,
+        spring: 23.3, // Н, натяг барабана (усилие в середине хода)
+        springK: 0.0012, // Н/мм — спиральная пружина почти постоянна по ходу
+        preload: 26, // Н, предварительный натяг роликов на эксцентриках
+        mu: 0.02,
+        brakeX: false,
+        brakeY: false,
+        cX: 0.9, // вязкое трение, Н·с/мм·10⁻³
+        cY: 0.9,
+        grabbed: false,
+        gx: 0,
+        gy: 0, // цель мышиного «сустава» в системе доски
+        ox: 0,
+        oy: 0, // смещение точки захвата от начала головки
+        ang: 0, // угол лимба, рад
+        zero: 0, // установка нуля, рад
+        t: 0,
+        driftRef: 0,
+        driftT: 0,
+        drift: 0,
+      };
+      const KJ = 2.6, // жёсткость мышиного сустава, Н/мм
+        CJ = 0.09; // его демпфирование
+
+      function frictionForce(axis) {
+        // прижим роликов к планкам: составляющая веса поперёк доски плюс
+        // предварительный натяг эксцентриковых осей (он и держит головку)
+        const m = axis === "x" ? PH.mX : PH.mY;
+        const N = m * G * 1e-3 * Math.cos(PH.tilt) + PH.preload;
+        const brake = axis === "x" ? PH.brakeX : PH.brakeY;
+        return PH.mu * N * (brake ? 260 : 1);
+      }
+      function springForce() {
+        // барабан тянет каретку вверх по доске; плоская спиральная пружина
+        // почти постоянна — ползунок задаёт усилие в середине хода
+        return PH.spring - PH.springK * PH.y;
+      }
+      function needSpring() {
+        return PH.mY * G * 1e-3 * Math.sin(PH.tilt);
+      }
+
+      function stepAxis(axis, h) {
+        const isX = axis === "x";
+        const m = isX ? PH.mX : PH.mY;
+        let v = isX ? PH.vx : PH.vy;
+        let p = isX ? PH.x : PH.y;
+        let F = 0; // Н
+        if (!isX) F += springForce() - PH.mY * G * 1e-3 * Math.sin(PH.tilt);
+        if (PH.grabbed) {
+          const tgt = isX ? PH.gx - PH.ox : PH.gy - PH.oy;
+          F += KJ * (tgt - p) - CJ * v;
+        }
+        // мягкие упоры на концах хода
+        const lo = isX ? LIM.x0 : LIM.y0,
+          hi = isX ? LIM.x1 : LIM.y1;
+        if (p < lo) F += 40 * (lo - p);
+        if (p > hi) F += 40 * (hi - p);
+        F -= (isX ? PH.cX : PH.cY) * 1e-3 * v;
+        const Fc = frictionForce(axis); // порог сухого трения, Н
+        const aScale = 1e3 / m; // Н -> мм/с²
+        if (Math.abs(v) < 1.2) {
+          // покой: срыв только если движущая сила превысила порог
+          if (Math.abs(F) <= Fc) {
+            v = 0;
+          } else {
+            v += ((F - Math.sign(F) * Fc) * aScale) * h;
+          }
+        } else {
+          v += ((F - Math.sign(v) * Fc) * aScale) * h;
+        }
+        p += v * h;
+        if (isX) {
+          PH.x = p;
+          PH.vx = v;
+        } else {
+          PH.y = p;
+          PH.vy = v;
+        }
+      }
+      const H_STEP = 1 / 480;
+      function physics(dt) {
+        let n = Math.min(400, Math.round(dt / H_STEP));
+        for (let i = 0; i < n; i++) {
+          stepAxis("x", H_STEP);
+          stepAxis("y", H_STEP);
+          PH.t += H_STEP;
+        }
+        // сползание за минуту — прибор уравновешивания
+        if (PH.t - PH.driftT > 1.0) {
+          const dy = PH.y - PH.driftRef;
+          PH.drift = (dy / (PH.t - PH.driftT)) * 60;
+          PH.driftRef = PH.y;
+          PH.driftT = PH.t;
+        }
+      }
+
+      function applyMechanism() {
+        tiltPivot.rotation.x = PH.tilt - Math.PI / 2;
+        liftGroup.position.y = LIFT;
+        traverse.position.x = PH.x - HEAD_OFF.x;
+        carriage.position.y = PH.y - HEAD_OFF.y;
+        headRot.rotation.z = PH.ang + PH.zero;
+        const cTop = BOARD.H / 2 - 4,
+          cBot = PH.y - HEAD_OFF.y;
+        cable.scale.y = Math.max(0.1, (cTop - cBot) / 10); // базовая высота бокса = 10
+        cable.position.y = (cTop + cBot) / 2;
+      }
+      let LIFT = 0;
+
+      /* ======================================================================
+   ЧЕРЧЕНИЕ: перо ведётся вдоль рабочей кромки линейки
+   ==================================================================== */
+      const TOL = 26; // мм — на каком расстоянии от кромки перо к ней «прилипает»
+      let pen = { on: false, edge: null, sx: 0, sy: 0, cx: 0, cy: 0, w: 0.7, ink: true };
+
+      // Угол кромок вынесен от оси вращения головки, поэтому при повороте лимба
+      // он описывает дугу — как на настоящей машине.
+      /* Линейки лежат на бумаге и закрывают её: перо под них не достаёт.
+         Прямоугольники тел в системе головки, ужатые на MARG, чтобы линия,
+         проведённая вплотную к кромке, не считалась накрытой. */
+      const MARG = 0.8;
+      function underRuler(bx, by) {
+        const th = PH.ang + PH.zero,
+          c = Math.cos(th),
+          sn = Math.sin(th);
+        const rx = bx - PH.x,
+          ry = by - PH.y;
+        const x = rx * c + ry * sn,
+          y = -rx * sn + ry * c;
+        if (x > CORN.x + MARG && x < CORN.x + RUL_H.len - MARG && y < CORN.y - MARG && y > CORN.y - RUL_H.wid + MARG)
+          return true;
+        if (
+          x < CORN.x - MARG &&
+          x > CORN.x - RUL_V.wid + MARG &&
+          y > CORN.y - V_OVER + MARG &&
+          y < CORN.y - V_OVER + RUL_V.len - MARG
+        )
+          return true;
+        // угольники тоже лежат на бумаге и закрывают её
+        for (let i = 0; i < SQ.length; i++) {
+          if (!SQ[i].on) continue;
+          const w = squareWorld(i),
+            g = w.cen;
+          const V = w.V.map((p) => [g[0] + (p[0] - g[0]) * 0.985, g[1] + (p[1] - g[1]) * 0.985]);
+          const sign = (a, b, c) => (a[0] - c[0]) * (b[1] - c[1]) - (b[0] - c[0]) * (a[1] - c[1]);
+          const P = [bx, by];
+          const d1 = sign(P, V[0], V[1]),
+            d2 = sign(P, V[1], V[2]),
+            d3 = sign(P, V[2], V[0]);
+          const neg = d1 < 0 || d2 < 0 || d3 < 0,
+            pos = d1 > 0 || d2 > 0 || d3 > 0;
+          if (!(neg && pos)) return true;
+        }
+        return false;
+      }
+      function underSquare(i, bx, by) {
+        const w = squareWorld(i),
+          g = w.cen;
+        const V = w.V;
+        const sign = (a, b, c) => (a[0] - c[0]) * (b[1] - c[1]) - (b[0] - c[0]) * (a[1] - c[1]);
+        const P = [bx, by];
+        const d1 = sign(P, V[0], V[1]),
+          d2 = sign(P, V[1], V[2]),
+          d3 = sign(P, V[2], V[0]);
+        return !((d1 < 0 || d2 < 0 || d3 < 0) && (d1 > 0 || d2 > 0 || d3 > 0));
+      }
+      // разбивает путь на куски, не накрытые линейками
+      function freeRuns(pointAt, tMax, step, minT) {
+        const n = Math.max(24, Math.ceil(tMax / step));
+        const runs = [];
+        let start = null,
+          prev = 0;
+        for (let i = 0; i <= n; i++) {
+          const t = (tMax * i) / n,
+            p = pointAt(t);
+          const free = !underRuler(p[0], p[1]);
+          if (free) {
+            if (start === null) start = t;
+            prev = t;
+          } else if (start !== null) {
+            if (prev - start > minT) runs.push([start, prev]);
+            start = null;
+          }
+        }
+        if (start !== null && prev - start > minT) runs.push([start, prev]);
+        return runs;
+      }
+      function arcPieces(cx, cy, r, a0, a1, w, ink) {
+        const span = a1 - a0,
+          sgn = Math.sign(span) || 1;
+        return freeRuns((t) => [cx + r * Math.cos(a0 + sgn * t), cy + r * Math.sin(a0 + sgn * t)], Math.abs(span), 0.7 / Math.max(1, r), 0.8 / Math.max(1, r)).map(
+          ([t0, t1]) => ({ arc: true, cx, cy, r, a0: a0 + sgn * t0, a1: a0 + sgn * t1, w, ink }),
+        );
+      }
+      function linePieces(x1, y1, x2, y2, w, ink) {
+        const dx = x2 - x1,
+          dy = y2 - y1,
+          L = Math.hypot(dx, dy) || 1;
+        return freeRuns((t) => [x1 + (dx * t) / L, y1 + (dy * t) / L], L, 0.7, 0.8).map(([t0, t1]) => ({
+          x1: x1 + (dx * t0) / L,
+          y1: y1 + (dy * t0) / L,
+          x2: x1 + (dx * t1) / L,
+          y2: y1 + (dy * t1) / L,
+          w,
+          ink,
+        }));
+      }
+      function cornerPos() {
+        const a = PH.ang + PH.zero,
+          c = Math.cos(a),
+          s2 = Math.sin(a);
+        return [PH.x + c * CORN.x - s2 * CORN.y, PH.y + s2 * CORN.x + c * CORN.y];
+      }
+      /* УГОЛЬНИКИ.
+         Каждый — настоящий треугольник, лежащий одной стороной на несущей кромке:
+         либо на рабочей кромке горизонтальной линейки, либо на свободной стороне
+         другого угольника (тот самый приём, дающий 15° и 75°). Две оставшиеся
+         стороны становятся рабочими кромками наравне с линейками. */
+      const SQ = [
+        { name: "45°", tri: [[0, 0], [184, 0], [0, 184]], on: false, base: 0, mirror: false, s: 140, stack: false },
+        { name: "30/60°", tri: [[0, 0], [259.81, 0], [0, 150]], on: false, base: 0, mirror: false, s: 140, stack: false },
+      ];
+      const SQ_TH = 4.2,
+        SQ_Z = 1.0; // угольник лежит на бумаге в той же плоскости, что и линейки
+      function squareLayout(sq) {
+        const A = sq.tri[sq.base],
+          B = sq.tri[(sq.base + 1) % 3],
+          C = sq.tri[(sq.base + 2) % 3];
+        const dx = B[0] - A[0],
+          dy = B[1] - A[1],
+          L = Math.hypot(dx, dy),
+          ux = dx / L,
+          uy = dy / L;
+        const loc = (p) => {
+          const px = p[0] - A[0],
+            py = p[1] - A[1];
+          let x = px * ux + py * uy,
+            y = Math.abs(-px * uy + py * ux); // вершина всегда вверх от несущей кромки
+          if (sq.mirror) x = L - x;
+          return [x, y];
+        };
+        return { L, P: [loc(A), loc(B), loc(C)] };
+      }
+      // несущая кромка: [точка, направление, нормаль в свободную сторону]
+      function carrierOf(i) {
+        const sq = SQ[i];
+        if (sq.stack && i === 1 && SQ[0].on) {
+          const fe = squareWorld(0).edges;
+          const e = fe[0].t1 >= fe[1].t1 ? fe[0] : fe[1]; // на самую длинную свободную сторону
+          if (e) return { p: [e.px, e.py], u: [e.dx, e.dy], n: [e.nx, e.ny], len: e.t1 };
+        }
+        const th = PH.ang + PH.zero,
+          c = cornerPos();
+        const u = [Math.cos(th), Math.sin(th)];
+        return { p: c, u, n: [-u[1], u[0]], len: EDGE.h.t1 };
+      }
+      function squareWorld(i) {
+        const sq = SQ[i],
+          lay = squareLayout(sq),
+          car = carrierOf(i);
+        const V = lay.P.map(([x, y]) => [
+          car.p[0] + car.u[0] * (sq.s + x) + car.n[0] * y,
+          car.p[1] + car.u[1] * (sq.s + x) + car.n[1] * y,
+        ]);
+        const gx = (V[0][0] + V[1][0] + V[2][0]) / 3,
+          gy = (V[0][1] + V[1][1] + V[2][1]) / 3;
+        const mk = (a, b) => {
+          const dx = b[0] - a[0],
+            dy = b[1] - a[1],
+            L = Math.hypot(dx, dy);
+          const ex = dx / L,
+            ey = dy / L;
+          let nx = -ey,
+            ny = ex; // левая нормаль
+          const mx = (a[0] + b[0]) / 2 - gx,
+            my = (a[1] + b[1]) / 2 - gy;
+          const side = nx * mx + ny * my > 0 ? 1 : -1; // наружу от треугольника
+          return { px: a[0], py: a[1], dx: ex, dy: ey, t0: 0, t1: L, side, nx: nx * side, ny: ny * side };
+        };
+        return { lay, car, V, cen: [gx, gy], edges: [mk(V[0], V[2]), mk(V[2], V[1])] };
+      }
+      function activeEdges() {
+        const th = PH.ang + PH.zero,
+          c = cornerPos();
+        const out = [
+          { px: c[0], py: c[1], dx: Math.cos(th), dy: Math.sin(th), ...EDGE.h },
+          { px: c[0], py: c[1], dx: -Math.sin(th), dy: Math.cos(th), ...EDGE.v },
+        ];
+        for (let i = 0; i < SQ.length; i++) if (SQ[i].on) out.push(...squareWorld(i).edges);
+        return out;
+      }
+      function edgeParam(e, bx, by) {
+        const rx = bx - e.px,
+          ry = by - e.py;
+        const n = -e.dy * rx + e.dx * ry; // проекция на левую нормаль кромки
+        return { t: rx * e.dx + ry * e.dy, off: Math.abs(n), free: e.side * n, e };
+      }
+      function pickEdge(bx, by) {
+        let best = null,
+          bestOff = 1e9;
+        for (const e of activeEdges()) {
+          const p = edgeParam(e, bx, by);
+          if (p.off > TOL || p.free < -3) continue;
+          if (p.t < e.t0 - 6 || p.t > e.t1) continue;
+          if (p.off < bestOff) {
+            bestOff = p.off;
+            best = e;
+          }
+        }
+        return best;
+      }
+      // мешы угольников: строятся заново при смене опорной стороны или зеркала
+      const sqMat = new THREE.MeshStandardMaterial({
+        color: 0xe6edf2,
+        metalness: 0,
+        roughness: 0.14,
+        transparent: true,
+        opacity: 0.44,
+        side: THREE.DoubleSide,
+      });
+      const sqGroups = SQ.map(() => {
+        const g = new THREE.Group();
+        g.visible = false;
+        boardGroup.add(g);
+        return g;
+      });
+      function rebuildSquare(i) {
+        const sq = SQ[i],
+          g = sqGroups[i],
+          lay = squareLayout(sq);
+        while (g.children.length) g.remove(g.children[0]);
+        const P = lay.P;
+        const sh = new THREE.Shape();
+        sh.moveTo(P[0][0], P[0][1]);
+        sh.lineTo(P[1][0], P[1][1]);
+        sh.lineTo(P[2][0], P[2][1]);
+        sh.closePath();
+        const cx = (P[0][0] + P[1][0] + P[2][0]) / 3,
+          cy = (P[0][1] + P[1][1] + P[2][1]) / 3;
+        const hole = new THREE.Path(); // вырез, за который угольник берут
+        hole.absarc(cx, cy, Math.min(26, lay.L * 0.12), 0, Math.PI * 2, true);
+        sh.holes.push(hole);
+        const geo = new THREE.ExtrudeGeometry(sh, { depth: SQ_TH, bevelEnabled: false, steps: 1, curveSegments: 28 });
+        const m = new THREE.Mesh(geo, sqMat);
+        m.castShadow = true;
+        g.add(m);
+        // жёлтые следы рабочих сторон, как у линеек
+        for (const [a, b] of [[P[0], P[2]], [P[2], P[1]]]) {
+          const dx = b[0] - a[0],
+            dy = b[1] - a[1],
+            L = Math.hypot(dx, dy),
+            ex = dx / L,
+            ey = dy / L;
+          let nx = -ey,
+            ny = ex;
+          if (nx * ((a[0] + b[0]) / 2 - cx) + ny * ((a[1] + b[1]) / 2 - cy) < 0) {
+            nx = -nx;
+            ny = -ny;
+          }
+          const gm = new THREE.Mesh(new THREE.BoxGeometry(L, 3.2, 0.6), guideMat);
+          gm.position.set((a[0] + b[0]) / 2 + nx * 2.6, (a[1] + b[1]) / 2 + ny * 2.6, 0.4);
+          gm.rotation.z = Math.atan2(ey, ex);
+          g.add(gm);
+        }
+        sq._key = sq.base + "|" + sq.mirror;
+      }
+      function updateSquares() {
+        for (let i = 0; i < SQ.length; i++) {
+          const sq = SQ[i],
+            g = sqGroups[i];
+          g.visible = sq.on;
+          if (!sq.on) continue;
+          if (sq._key !== sq.base + "|" + sq.mirror) rebuildSquare(i);
+          const car = carrierOf(i);
+          sq.s = Math.max(-30, Math.min(car.len, sq.s));
+          squareResolve(i); // ничто не стоит внахлёст: один предмет толкает другой
+          g.position.set(car.p[0] + car.u[0] * sq.s, car.p[1] + car.u[1] * sq.s, SQ_Z);
+          g.rotation.z = Math.atan2(car.u[1], car.u[0]);
+        }
+      }
+      /* Столкновения плоских предметов на листе.
+         Линейки, угольники и стёкла лежат в одной плоскости и проходить сквозь
+         друг друга не могут: угольник едет по несущей кромке до упора. */
+      function headToBoard(x, y) {
+        const th = PH.ang + PH.zero,
+          c = Math.cos(th),
+          sn = Math.sin(th);
+        return [PH.x + x * c - y * sn, PH.y + x * sn + y * c];
+      }
+      function rulerPolys() {
+        const H = [
+          [CORN.x, CORN.y],
+          [CORN.x + RUL_H.len, CORN.y],
+          [CORN.x + RUL_H.len, CORN.y - RUL_H.wid],
+          [CORN.x, CORN.y - RUL_H.wid],
+        ];
+        const V = [
+          [CORN.x, CORN.y - V_OVER],
+          [CORN.x, CORN.y - V_OVER + RUL_V.len],
+          [CORN.x - RUL_V.wid, CORN.y - V_OVER + RUL_V.len],
+          [CORN.x - RUL_V.wid, CORN.y - V_OVER],
+        ];
+        return [H.map((p) => headToBoard(p[0], p[1])), V.map((p) => headToBoard(p[0], p[1]))];
+      }
+      function convexOverlap(A, B, gap) {
+        for (const poly of [A, B])
+          for (let i = 0; i < poly.length; i++) {
+            const a = poly[i],
+              b = poly[(i + 1) % poly.length];
+            const L = Math.hypot(b[0] - a[0], b[1] - a[1]) || 1;
+            const ux = -(b[1] - a[1]) / L,
+              uy = (b[0] - a[0]) / L;
+            let minA = 1e9,
+              maxA = -1e9,
+              minB = 1e9,
+              maxB = -1e9;
+            for (const p of A) {
+              const d = p[0] * ux + p[1] * uy;
+              if (d < minA) minA = d;
+              if (d > maxA) maxA = d;
+            }
+            for (const p of B) {
+              const d = p[0] * ux + p[1] * uy;
+              if (d < minB) minB = d;
+              if (d > maxB) maxB = d;
+            }
+            if (maxA < minB + gap || maxB < minA + gap) return false;
+          }
+        return true;
+      }
+      function squarePolyAt(i, pos) {
+        const sq = SQ[i],
+          keep = sq.s;
+        sq.s = pos;
+        const V = squareWorld(i).V;
+        sq.s = keep;
+        return V;
+      }
+      function squareFree(i, pos) {
+        const P = squarePolyAt(i, pos);
+        for (const R of rulerPolys()) if (convexOverlap(P, R, 0.5)) return false;
+        const j = 1 - i;
+        if (SQ[j].on && convexOverlap(P, squareWorld(j).V, 0.5)) return false;
+        return true;
+      }
+      // подвести угольник как можно ближе к желаемому месту, но без наложения
+      function squareSlide(i, want) {
+        const sq = SQ[i];
+        if (squareFree(i, want)) {
+          sq.s = want;
+          return;
+        }
+        if (squareFree(i, sq.s)) {
+          let lo = sq.s,
+            hi = want;
+          for (let k = 0; k < 20; k++) {
+            const m = (lo + hi) / 2;
+            if (squareFree(i, m)) lo = m;
+            else hi = m;
+          }
+          sq.s = lo;
+          return;
+        }
+        squareResolve(i); // стояли внахлёст — вытолкнуть в ближайшее свободное место
+      }
+      function squareResolve(i) {
+        const sq = SQ[i];
+        if (squareFree(i, sq.s)) return;
+        for (let d = 2; d <= 500; d += 2) {
+          if (squareFree(i, sq.s + d)) {
+            sq.s += d;
+            return;
+          }
+          if (squareFree(i, sq.s - d)) {
+            sq.s -= d;
+            return;
+          }
+        }
+      }
+      function squareAngles(i) {
+        return squareWorld(i)
+          .edges.map((e) => {
+            let a = (Math.atan2(e.dy, e.dx) * 180) / Math.PI;
+            a = ((a % 180) + 180) % 180;
+            return a.toFixed(1) + "°";
+          })
+          .join(" / ");
+      }
+      function projectOnEdge(e, bx, by) {
+        const p = edgeParam(e, bx, by);
+        const t = Math.max(e.t0, Math.min(e.t1, p.t));
+        return [e.px + e.dx * t, e.py + e.dy * t];
+      }
+
+      /* ======================================================================
+   ВВОД: луч в плоскость доски, перетаскивание головки, черчение, камера
+   ==================================================================== */
+      const ray = new THREE.Raycaster();
+      const ndc = new THREE.Vector2();
+      const dragTargets = [rulerH, rulerV, limb, corpus, clampWheel];
+      function boardPoint(ev) {
+        const r = renderer.domElement.getBoundingClientRect();
+        ndc.x = ((ev.clientX - r.left) / r.width) * 2 - 1;
+        ndc.y = -((ev.clientY - r.top) / r.height) * 2 + 1;
+        ray.setFromCamera(ndc, camera);
+        boardGroup.updateMatrixWorld(true);
+        const inv = new THREE.Matrix4().copy(boardGroup.matrixWorld).invert();
+        const o = ray.ray.origin.clone().applyMatrix4(inv);
+        const dir = ray.ray.direction.clone().transformDirection(inv);
+        if (Math.abs(dir.z) < 1e-6) return null;
+        const t = -o.z / dir.z; // плоскость z = 0 системы доски
+        if (t < 0) return null;
+        return { x: o.x + dir.x * t, y: o.y + dir.y * t };
+      }
+      function hitsHead(ev) {
+        const r = renderer.domElement.getBoundingClientRect();
+        ndc.x = ((ev.clientX - r.left) / r.width) * 2 - 1;
+        ndc.y = -((ev.clientY - r.top) / r.height) * 2 + 1;
+        ray.setFromCamera(ndc, camera);
+        return ray.intersectObjects(dragTargets, false).length > 0;
+      }
+
+      const boardCentre = new THREE.Vector3();
+      function updateBoardCentre() {
+        boardGroup.updateMatrixWorld(true);
+        boardCentre.setFromMatrixPosition(boardGroup.matrixWorld);
+      }
+      const cam = {
+        target: new THREE.Vector3(0, 340, -360),
+        theta: 0.3,
+        phi: 1.22,
+        radius: 2350,
+        panned: false,
+        thV: 0,
+        phV: 0,
+        spin: true,
+      };
+      /* Два режима.
+         «Обзор» — обычная перспектива с облётом: смотрят на прибор, возят головку.
+         «Черчение» — доска строго в плоскости экрана и очень узкий угол зрения
+         (почти параллельная проекция), чтобы углы линий читались без искажения.  */
+      const VIEW = { mode: "orbit", blend: 1, zoom: 1, panX: 0, panY: 0 };
+      const DRAFT_FOV = 9,
+        ORBIT_FOV = 38;
+      const camUp = new THREE.Vector3(0, 1, 0);
+      const bX = new THREE.Vector3(),
+        bY = new THREE.Vector3(),
+        bZ = new THREE.Vector3();
+      function boardBasis() {
+        boardGroup.updateMatrixWorld(true);
+        boardGroup.matrixWorld.extractBasis(bX, bY, bZ);
+        bX.normalize();
+        bY.normalize();
+        bZ.normalize();
+        boardCentre.setFromMatrixPosition(boardGroup.matrixWorld);
+      }
+      function draftPose() {
+        boardBasis();
+        const half = Math.tan((DRAFT_FOV * Math.PI) / 360);
+        const visH = (BOARD.H + 70) * VIEW.zoom,
+          visW = (BOARD.W + 70) * VIEW.zoom;
+        const dist = Math.max(visH / 2 / half, visW / 2 / (half * camera.aspect));
+        const look = boardCentre.clone().addScaledVector(bX, VIEW.panX).addScaledVector(bY, VIEW.panY);
+        return { pos: look.clone().addScaledVector(bZ, dist), look, up: bY, fov: DRAFT_FOV, dist: visH };
+      }
+      function orbitPose() {
+        if (!cam.panned) {
+          boardBasis();
+          cam.target.lerp(boardCentre, 0.25);
+        }
+        const s = Math.sin(cam.phi);
+        return {
+          pos: new THREE.Vector3(
+            cam.target.x + cam.radius * s * Math.sin(cam.theta),
+            cam.target.y + cam.radius * Math.cos(cam.phi),
+            cam.target.z + cam.radius * s * Math.cos(cam.theta),
+          ),
+          look: cam.target.clone(),
+          up: new THREE.Vector3(0, 1, 0),
+          fov: ORBIT_FOV,
+        };
+      }
+      function applyCamera(dt) {
+        const t = VIEW.mode === "draft" ? draftPose() : orbitPose();
+        let k = 1;
+        if (VIEW.blend < 1) {
+          VIEW.blend = Math.min(1, VIEW.blend + (dt || 0.016) * 0.9);
+          k = 0.15;
+        }
+        camera.position.lerp(t.pos, k);
+        camUp.lerp(t.up, k).normalize();
+        camera.up.copy(camUp);
+        camera.fov += (t.fov - camera.fov) * k;
+        camera.updateProjectionMatrix();
+        camera.lookAt(t.look);
+      }
+      function setViewMode(m) {
+        if (VIEW.mode === m) return;
+        VIEW.mode = m;
+        VIEW.blend = 0;
+        if (m === "draft") {
+          cam.spin = false;
+          setTog("tSpin", false);
+        }
+        document.getElementById("mOrbit").classList.toggle("on", m === "orbit");
+        document.getElementById("mDraft").classList.toggle("on", m === "draft");
+        document.getElementById("hintTxt").textContent =
+          m === "draft"
+            ? "нажать на лист у жёлтой направляющей и вести — линия пойдёт вдоль кромки · тащить линейку — вести головку · правая кнопка — сдвиг"
+            : "тащить линейку — вести головку · левая кнопка мимо прибора — облёт · правая — сдвиг";
+      }
+
+      let mode = null,
+        sqDrag = null,
+        lastPtr = { x: 0, y: 0 };
+      const el = renderer.domElement;
+      el.addEventListener("contextmenu", (e) => e.preventDefault());
+      el.addEventListener("pointerdown", (ev) => {
+        el.setPointerCapture(ev.pointerId);
+        lastPtr = { x: ev.clientX, y: ev.clientY };
+        if (ev.button === 2 || ev.button === 1) {
+          mode = VIEW.mode === "draft" ? "dpan" : "pan"; // правая и средняя — сдвиг
+          return;
+        }
+        const bp = boardPoint(ev);
+        if (bp && VIEW.mode === "draft") {
+          for (let i = SQ.length - 1; i >= 0; i--) {
+            if (!SQ[i].on || !underSquare(i, bp.x, bp.y)) continue;
+            const car = carrierOf(i);
+            mode = "sqdrag";
+            sqDrag = { i, off: (bp.x - car.p[0]) * car.u[0] + (bp.y - car.p[1]) * car.u[1] - SQ[i].s };
+            return;
+          }
+        }
+        if (hitsHead(ev) && bp) {
+          mode = "drag";
+          PH.grabbed = true;
+          PH.gx = bp.x;
+          PH.gy = bp.y;
+          PH.ox = bp.x - PH.x;
+          PH.oy = bp.y - PH.y;
+          return;
+        }
+        if (VIEW.mode !== "draft") {
+          // в обзоре левая кнопка мимо прибора облетает сцену
+          mode = "orbit";
+          cam.spin = false;
+          setTog("tSpin", false);
+          return;
+        }
+        if (bp && compass.on) {
+          const d = Math.hypot(bp.x - compass.cx, bp.y - compass.cy);
+          if (compass.planted && Math.abs(d - compass.R) <= 45) {
+            // взялись за ногу с грифелем — крутим циркуль вокруг иглы
+            mode = "arc";
+            compass.a0 = Math.atan2(bp.y - compass.cy, bp.x - compass.cx);
+            compass.a1 = compass.a0;
+            compass.ang = compass.a0;
+            updateCompass();
+          } else {
+            if (underRuler(bp.x, bp.y)) return; // под линейкой иглу не воткнуть
+            // иначе втыкаем иглу в новую точку
+            compass.planted = true;
+            compass.cx = bp.x;
+            compass.cy = bp.y;
+            updateCompass();
+          }
+          return;
+        }
+        if (bp) {
+          const e = pickEdge(bp.x, bp.y);
+          if (!e && pen.ink) return; // тушью без линейки не проводят — только карандашом
+          const p = e ? projectOnEdge(e, bp.x, bp.y) : [bp.x, bp.y];
+          mode = "draw";
+          pen.on = true;
+          pen.edge = e;
+          pen.sx = p[0];
+          pen.sy = p[1];
+          pen.cx = p[0];
+          pen.cy = p[1];
+        }
+      });
+      el.addEventListener("pointermove", (ev) => {
+        const dx = ev.clientX - lastPtr.x,
+          dy = ev.clientY - lastPtr.y;
+        lastPtr = { x: ev.clientX, y: ev.clientY };
+        if (mode === "orbit") {
+          cam.theta -= dx * 0.005;
+          cam.phi = Math.max(0.16, Math.min(2.6, cam.phi - dy * 0.005));
+          cam.thV = -dx * 0.0012;
+          cam.phV = -dy * 0.0012;
+        } else if (mode === "dpan") {
+          const k = ((BOARD.H + 70) * VIEW.zoom) / renderer.domElement.clientHeight;
+          VIEW.panX -= dx * k;
+          VIEW.panY += dy * k;
+        } else if (mode === "pan") {
+          cam.panned = true;
+          const k = cam.radius * 0.0012;
+          cam.target.x -= dx * k * Math.cos(cam.theta);
+          cam.target.z += dx * k * Math.sin(cam.theta);
+          cam.target.y += dy * k;
+        } else if (mode === "drag") {
+          const bp = boardPoint(ev);
+          if (bp) {
+            PH.gx = bp.x;
+            PH.gy = bp.y;
+          }
+        } else if (mode === "sqdrag") {
+          const bp = boardPoint(ev);
+          if (bp) {
+            const car = carrierOf(sqDrag.i);
+            squareSlide(sqDrag.i, (bp.x - car.p[0]) * car.u[0] + (bp.y - car.p[1]) * car.u[1] - sqDrag.off);
+            updateSquares();
+          }
+        } else if (mode === "arc") {
+          const bp = boardPoint(ev);
+          if (bp) {
+            const a = Math.atan2(bp.y - compass.cy, bp.x - compass.cx);
+            let dd = a - compass.a1; // накапливаем угол, чтобы можно было замкнуть круг
+            while (dd > Math.PI) dd -= 2 * Math.PI;
+            while (dd < -Math.PI) dd += 2 * Math.PI;
+            compass.a1 = Math.max(compass.a0 - 2 * Math.PI, Math.min(compass.a0 + 2 * Math.PI, compass.a1 + dd));
+            compass.ang = compass.a1;
+            updateCompass();
+            blit(arcPieces(compass.cx, compass.cy, compass.R, compass.a0, compass.a1, pen.w, pen.ink));
+          }
+        } else if (mode === "draw" && pen.on) {
+          const bp = boardPoint(ev);
+          if (bp) {
+            const p = pen.edge ? projectOnEdge(pen.edge, bp.x, bp.y) : [bp.x, bp.y];
+            pen.cx = p[0];
+            pen.cy = p[1];
+            blit(linePieces(pen.sx, pen.sy, pen.cx, pen.cy, pen.w, pen.ink));
+          }
+        }
+      });
+      function endPointer() {
+        if (mode === "arc") {
+          if (Math.abs(compass.a1 - compass.a0) > 0.02)
+            for (const st of arcPieces(compass.cx, compass.cy, compass.R, compass.a0, compass.a1, pen.w, pen.ink)) {
+              strokes.push(st);
+              drawSeg(bctx, st);
+            }
+          blit();
+        }
+        if (mode === "draw" && pen.on) {
+          if (Math.hypot(pen.cx - pen.sx, pen.cy - pen.sy) > 1.2)
+            for (const st of linePieces(pen.sx, pen.sy, pen.cx, pen.cy, pen.w, pen.ink)) {
+              strokes.push(st);
+              drawSeg(bctx, st);
+            }
+          blit();
+          pen.on = false;
+        }
+        PH.grabbed = false;
+        mode = null;
+      }
+      el.addEventListener("pointerup", endPointer);
+      el.addEventListener("pointercancel", endPointer);
+      el.addEventListener(
+        "wheel",
+        (ev) => {
+          ev.preventDefault();
+          if (VIEW.mode === "draft")
+            VIEW.zoom = Math.max(0.16, Math.min(1.25, VIEW.zoom * (1 + Math.sign(ev.deltaY) * 0.1)));
+          else cam.radius = Math.max(420, Math.min(4200, cam.radius * (1 + Math.sign(ev.deltaY) * 0.09)));
+        },
+        { passive: false },
+      );
+
+      /* ------------------------------------------------------------ ИНТЕРФЕЙС */
+      function slider(id, vid, fn, fmt) {
+        const s = document.getElementById(id),
+          v = document.getElementById(vid);
+        const upd = () => {
+          const x = parseFloat(s.value);
+          fn(x);
+          if (v) v.textContent = fmt ? fmt(x) : x;
+        };
+        s.addEventListener("input", upd);
+        upd();
+        return s;
+      }
+      function setTog(id, on) {
+        document.getElementById(id).classList.toggle("on", !!on);
+      }
+      function tog(id, init, fn) {
+        const e = document.getElementById(id);
+        let v = init;
+        e.classList.toggle("on", v);
+        e.addEventListener("click", () => {
+          v = !v;
+          e.classList.toggle("on", v);
+          fn(v);
+        });
+        fn(v);
+      }
+      const degMin = (rad) => {
+        let d = (rad * 180) / Math.PI;
+        while (d < 0) d += 360;
+        while (d >= 360) d -= 360;
+        let deg = Math.floor(d),
+          mi = Math.round((d - deg) * 60);
+        if (mi === 60) {
+          mi = 0;
+          deg += 1;
+        }
+        if (deg >= 360) deg -= 360;
+        return deg + "°" + String(mi).padStart(2, "0") + "′";
+      };
+
+      slider("sTilt", "vTilt", (x) => (PH.tilt = (x * Math.PI) / 180), (x) => x + "°");
+      slider("sLift", "vLift", (x) => (LIFT = x), (x) => x + " мм");
+      const sprSlider = slider("sSpr", "vSpr", (x) => (PH.spring = x), (x) => x.toFixed(1) + " Н");
+      slider("sMu", "vMu", (x) => (PH.mu = x), (x) => x.toFixed(3));
+      slider("sPen", "vPen", (x) => (pen.w = x), (x) => x.toFixed(2) + " мм");
+      let RAST = true,
+        CLAMP = false;
+      const angSlider = document.getElementById("sAng");
+      function setAngle(deg) {
+        if (CLAMP) return;
+        if (RAST) deg = Math.round(deg / 15) * 15;
+        PH.ang = (deg * Math.PI) / 180;
+        angSlider.value = deg;
+        document.getElementById("vAng").textContent = degMin(PH.ang);
+      }
+      angSlider.addEventListener("input", () => setAngle(parseFloat(angSlider.value)));
+      slider("sZero", "vZero", (x) => (PH.zero = (x * Math.PI) / 180), (x) => degMin((x * Math.PI) / 180));
+      document.querySelectorAll(".angs div").forEach((d) => d.addEventListener("click", () => setAngle(+d.dataset.a)));
+      tog("tRast", true, (v) => {
+        RAST = v;
+        if (v) setAngle((PH.ang * 180) / Math.PI);
+      });
+      tog("tClamp", false, (v) => (CLAMP = v));
+      tog("tBrakeX", false, (v) => (PH.brakeX = v));
+      tog("tBrakeY", false, (v) => (PH.brakeY = v));
+      tog("tSpin", true, (v) => (cam.spin = v));
+      tog("tGhost", false, (v) => {
+        boardPanel.material.transparent = v;
+        boardPanel.material.opacity = v ? 0.22 : 1;
+        boardPanel.material.needsUpdate = true;
+      });
+      tog("tInk", true, (v) => (pen.ink = v));
+      tog("tGuide", true, (v) => (guides.visible = v));
+      tog("tCompass", false, (v) => {
+        compass.on = v;
+        compassGroup.visible = v && compass.planted;
+        if (v && !compass.planted) {
+          compass.planted = true;
+          compass.cx = 0;
+          compass.cy = 0;
+          compassGroup.visible = true;
+          updateCompass();
+        }
+      });
+      tog("tSq0", false, (v) => {
+        SQ[0].on = v;
+        updateSquares();
+      });
+      tog("tSq1", false, (v) => {
+        SQ[1].on = v;
+        updateSquares();
+      });
+      tog("tStack", false, (v) => {
+        SQ[1].stack = v; // 30/60 ложится на свободную сторону 45° — так и берут 15° и 75°
+        updateSquares();
+      });
+      for (const i of [0, 1])
+        document.getElementById("bSq" + i).addEventListener("click", () => {
+          // перекладываем угольник на следующую сторону, каждая третья — с переворотом
+          const sq = SQ[i];
+          if (sq.base === 2) {
+            sq.base = 0;
+            sq.mirror = !sq.mirror;
+          } else sq.base++;
+          updateSquares();
+        });
+      slider("sRad", "vRad", (x) => {
+        compass.R = x;
+        updateCompass();
+      }, (x) => x.toFixed(0) + " мм");
+      document.getElementById("mOrbit").addEventListener("click", () => setViewMode("orbit"));
+      document.getElementById("mDraft").addEventListener("click", () => setViewMode("draft"));
+      addEventListener("keydown", (e) => {
+        if (e.code === "Space") {
+          e.preventDefault();
+          setViewMode(VIEW.mode === "draft" ? "orbit" : "draft");
+        }
+      });
+      document.getElementById("bBalance").addEventListener("click", () => {
+        // выставить натяг барабана под текущий наклон, как это делают маховичком
+        const v = Math.round(needSpring() * 10) / 10;
+        sprSlider.value = v;
+        sprSlider.dispatchEvent(new Event("input"));
+      });
+      /* Выгрузка чертежа. SVG — вектор в настоящих миллиметрах листа А0, его можно
+         открыть в любом чертёжном редакторе и напечатать один к одному. PNG —
+         растр по 6 точек на миллиметр, без подложечной сетки. */
+      function download(name, blob) {
+        const url = URL.createObjectURL(blob),
+          a = document.createElement("a");
+        a.href = url;
+        a.download = name;
+        a.click();
+        setTimeout(() => URL.revokeObjectURL(url), 4000);
+      }
+      function sheetSVG() {
+        const W = PAPER.W,
+          H = PAPER.H;
+        const head =
+          '<?xml version="1.0" encoding="UTF-8"?>\n' +
+          '<svg xmlns="http://www.w3.org/2000/svg" width="' + W + 'mm" height="' + H + 'mm" ' +
+          'viewBox="0 0 ' + W + " " + H + '">\n' +
+          '<rect width="' + W + '" height="' + H + '" fill="#ffffff"/>\n';
+        const body = strokes
+          .map((s) => {
+            const col = s.ink ? "#000000" : "#555c66",
+              wd = s.w.toFixed(2);
+            if (s.arc) {
+              const cx = (s.cx + W / 2).toFixed(3),
+                cy = (H / 2 - s.cy).toFixed(3),
+                sweep = s.a1 - s.a0;
+              if (Math.abs(sweep) >= Math.PI * 2 - 1e-3)
+                return (
+                  '<circle cx="' + cx + '" cy="' + cy + '" r="' + s.r.toFixed(3) +
+                  '" fill="none" stroke="' + col + '" stroke-width="' + wd + '"/>'
+                );
+              const pt = (a) => [(s.cx + s.r * Math.cos(a) + W / 2).toFixed(3), (H / 2 - (s.cy + s.r * Math.sin(a))).toFixed(3)];
+              const p0 = pt(s.a0),
+                p1 = pt(s.a1);
+              // ось Y в SVG направлена вниз, поэтому рост угла на листе — это sweep-flag 0
+              const large = Math.abs(sweep) > Math.PI ? 1 : 0,
+                sw = sweep > 0 ? 0 : 1;
+              return (
+                '<path d="M ' + p0[0] + " " + p0[1] + " A " + s.r.toFixed(3) + " " + s.r.toFixed(3) +
+                " 0 " + large + " " + sw + " " + p1[0] + " " + p1[1] +
+                '" fill="none" stroke="' + col + '" stroke-width="' + wd + '" stroke-linecap="round"/>'
+              );
+            }
+            const x1 = (s.x1 + W / 2).toFixed(2),
+              y1 = (H / 2 - s.y1).toFixed(2),
+              x2 = (s.x2 + W / 2).toFixed(2),
+              y2 = (H / 2 - s.y2).toFixed(2);
+            return (
+              '<line x1="' + x1 + '" y1="' + y1 + '" x2="' + x2 + '" y2="' + y2 +
+              '" stroke="' + col + '" stroke-width="' + wd + '" stroke-linecap="round"/>'
+            );
+          })
+          .join("\n");
+        return head + body + "\n</svg>\n";
+      }
+      function sheetPNG() {
+        const px = 6, // точек на миллиметр
+          c = document.createElement("canvas");
+        c.width = Math.round(PAPER.W * px);
+        c.height = Math.round(PAPER.H * px);
+        const g = c.getContext("2d");
+        g.fillStyle = "#ffffff";
+        g.fillRect(0, 0, c.width, c.height);
+        g.lineCap = "round";
+        for (const s of strokes) {
+          g.strokeStyle = s.ink ? "#000000" : "#555c66";
+          g.lineWidth = Math.max(1, s.w * px);
+          g.beginPath();
+          if (s.arc)
+            g.arc((s.cx + PAPER.W / 2) * px, (PAPER.H / 2 - s.cy) * px, s.r * px, -s.a0, -s.a1, s.a1 > s.a0);
+          else {
+            g.moveTo((s.x1 + PAPER.W / 2) * px, (PAPER.H / 2 - s.y1) * px);
+            g.lineTo((s.x2 + PAPER.W / 2) * px, (PAPER.H / 2 - s.y2) * px);
+          }
+          g.stroke();
+        }
+        return c;
+      }
+      document.getElementById("bSvg").addEventListener("click", () => {
+        download("kulman-list.svg", new Blob([sheetSVG()], { type: "image/svg+xml" }));
+      });
+      document.getElementById("bPng").addEventListener("click", () => {
+        sheetPNG().toBlob((b) => download("kulman-list.png", b), "image/png");
+      });
+      document.getElementById("bUndo").addEventListener("click", () => {
+        strokes.pop();
+        paintBase();
+      });
+      document.getElementById("bClear").addEventListener("click", () => {
+        strokes.length = 0;
+        paintBase();
+      });
+
+      /* ----------------------------------------------------------------- HUD */
+      let hudT = 0;
+      function updateHUD(dt) {
+        hudT += dt;
+        if (hudT < 0.12) return;
+        hudT = 0;
+        const c = cornerPos();
+        document.getElementById("rX").textContent = c[0].toFixed(1);
+        document.getElementById("rY").textContent = c[1].toFixed(1);
+        document.getElementById("rA").textContent = degMin(PH.ang + PH.zero);
+        const need = needSpring();
+        document.getElementById("rNeed").textContent = need.toFixed(1);
+        const err = springForce() - need;
+        const bal = document.getElementById("rBal");
+        const stuck = frictionForce("y") >= Math.abs(err);
+        bal.textContent = stuck ? "держит" : err > 0 ? "тянет вверх" : "сползает вниз";
+        bal.className = stuck ? "ok" : "warn";
+        document.getElementById("rDrift").textContent = PH.drift.toFixed(1) + " мм";
+        const sa = [];
+        for (let i = 0; i < SQ.length; i++) if (SQ[i].on) sa.push(squareAngles(i));
+        document.getElementById("rSq").textContent = sa.length ? sa.join(" · ") : "—";
+        document.getElementById("rOpen").textContent = compass.on
+          ? compass.R.toFixed(0) + " мм · " + ((compass.open * 180) / Math.PI).toFixed(1) + "°"
+          : "—";
+        document.getElementById("rN").textContent = strokes.length;
+      }
+
+      /* ----------------------------------------------------------------- ЦИКЛ */
+      const PH_STEP = 0.02,
+        PH_CATCH = 0.4;
+      let accum = 0,
+        last = performance.now();
+      function animate(now) {
+        requestAnimationFrame(animate);
+        window.__frames = (window.__frames || 0) + 1;
+        if (window.__frames === 1) last = now;
+        const wall = Math.min(0.25, (now - last) / 1000);
+        last = now;
+        if (cam.spin && VIEW.mode === "orbit") cam.theta += wall * 0.1;
+        else {
+          cam.theta += cam.thV;
+          cam.phi = Math.max(0.16, Math.min(2.6, cam.phi + cam.phV));
+          cam.thV *= 0.9;
+          cam.phV *= 0.9;
+        }
+        applyCamera(wall);
+        accum = Math.min(accum + wall, PH_CATCH);
+        while (accum >= PH_STEP) {
+          physics(PH_STEP);
+          accum -= PH_STEP;
+        }
+        applyMechanism();
+        updateSquares();
+        updateHUD(wall);
+        renderer.render(scene, camera);
+      }
+      addEventListener("resize", () => {
+        camera.aspect = innerWidth / innerHeight;
+        camera.updateProjectionMatrix();
+        renderer.setSize(innerWidth, innerHeight);
+      });
+
+      paintBase();
+      applyMechanism();
+      applyCamera();
+      requestAnimationFrame(animate);
+
+      /* ------------------------------------------------- отладочные зацепки */
+      window.__PH = PH;
+      window.__scene = scene;
+      window.__strokes = strokes;
+      window.__mode = setViewMode;
+      window.__slideSq = (i, want) => {
+        squareSlide(i, want);
+        updateSquares();
+        return SQ[i].s;
+      };
+      window.__sqPos = (i) => SQ[i].s;
+      window.__sqOverlap = () => {
+        if (!SQ[0].on || !SQ[1].on) return false;
+        if (convexOverlap(squareWorld(0).V, squareWorld(1).V, 0.5)) return true;
+        for (let i = 0; i < 2; i++)
+          if (SQ[i].on) for (const R of rulerPolys()) if (convexOverlap(squareWorld(i).V, R, 0.5)) return true;
+        return false;
+      };
+      window.__square = (i, on, base, mirror, pos, stack) => {
+        const sq = SQ[i];
+        sq.on = on;
+        if (base !== undefined) sq.base = base;
+        if (mirror !== undefined) sq.mirror = mirror;
+        if (pos !== undefined) sq.s = pos;
+        if (stack !== undefined) sq.stack = stack;
+        updateSquares();
+        return { angles: squareAngles(i), V: squareWorld(i).V };
+      };
+      window.__compass = (x, y, R) => {
+        compass.on = true;
+        compass.planted = true;
+        compass.cx = x;
+        compass.cy = y;
+        if (R) compass.R = R;
+        compassGroup.visible = true;
+        updateCompass();
+        return { R: compass.R, open: +((compass.open * 180) / Math.PI).toFixed(2), Rmax: CMP.Rmax };
+      };
+      window.__arcCommit = (a0, a1) => {
+        const ps = arcPieces(compass.cx, compass.cy, compass.R, a0, a1, pen.w, pen.ink);
+        for (const st of ps) {
+          strokes.push(st);
+          drawSeg(bctx, st);
+        }
+        blit();
+        return ps.length;
+      };
+      window.__plant = (x, y) => {
+        if (underRuler(x, y)) return false;
+        compass.cx = x;
+        compass.cy = y;
+        compass.planted = true;
+        updateCompass();
+        return true;
+      };
+      window.__arc = (a0, a1) => {
+        const st = { arc: true, cx: compass.cx, cy: compass.cy, r: compass.R, a0, a1, w: pen.w, ink: pen.ink };
+        strokes.push(st);
+        drawSeg(bctx, st);
+        blit();
+        compass.ang = a1;
+        updateCompass();
+        return st;
+      };
+      window.__svg = sheetSVG;
+      window.__view = (th, ph, r, tx, ty, tz) => {
+        cam.theta = th;
+        cam.phi = ph;
+        cam.radius = r;
+        cam.panned = true;
+        cam.target.set(tx || 0, ty === undefined ? 340 : ty, tz === undefined ? -360 : tz);
+        cam.spin = false;
+        setTog("tSpin", false);
+        applyCamera();
+        renderer.render(scene, camera);
+      };
+      window.__advance = (secs, h) => {
+        h = h || 0.02;
+        for (let t = 0; t < secs; t += h) physics(h);
+        applyMechanism();
+      };
+      window.__dbg = () => ({
+        x: +PH.x.toFixed(2),
+        y: +PH.y.toFixed(2),
+        vx: +PH.vx.toFixed(3),
+        vy: +PH.vy.toFixed(3),
+        ang: +(((PH.ang + PH.zero) * 180) / Math.PI).toFixed(3),
+        need: +needSpring().toFixed(2),
+        spring: +springForce().toFixed(2),
+        fric: +frictionForce("y").toFixed(2),
+        drift: +PH.drift.toFixed(2),
+        strokes: strokes.length,
+      });
+      window.__grab = (bx, by) => {
+        PH.grabbed = true;
+        PH.ox = 0;
+        PH.oy = 0;
+        PH.gx = bx;
+        PH.gy = by;
+      };
+      window.__release = () => (PH.grabbed = false);
+      window.__corner = cornerPos;
+      window.__drawAt = (bx, by, len) => {
+        const e = pickEdge(bx, by);
+        if (!e) return null;
+        const a = projectOnEdge(e, bx, by),
+          d = e;
+        const s = { x1: a[0], y1: a[1], x2: a[0] + d.dx * len, y2: a[1] + d.dy * len, w: pen.w, ink: pen.ink };
+        strokes.push(s);
+        drawSeg(bctx, s);
+        blit();
+        return { edge: e, s };
+      };
+      window.__READY = true;
+    </script>
+  </body>
+</html>
