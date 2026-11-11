@@ -1,0 +1,143 @@
+<!doctype html>
+<html lang="ru">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>ТПМ-2: модель машинки</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link
+      href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans+Condensed:wght@500;600&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="tpm2-model.css" />
+  </head>
+  <body>
+    <div class="app">
+      <div class="view">
+        <canvas id="gl" aria-label="Трёхмерная модель машинки ТПМ-2; клавиши модели можно нажимать"></canvas>
+        <div class="loading" id="loading">Собираю модель…</div>
+        <div class="views" role="group" aria-label="Вид">
+          <button id="v-all" aria-pressed="true">Общий вид</button>
+          <button id="v-kb" aria-pressed="false">Клавиатура</button>
+          <button id="v-unit" aria-pressed="false">Печатающий узел</button>
+          <button id="v-code" aria-pressed="false">Кодовая часть снизу</button>
+          <button id="v-drive" aria-pressed="false">Двигатель</button>
+          <button id="v-sheet" aria-pressed="false">Лист</button>
+          <button
+            id="v-eye"
+            aria-pressed="false"
+            title="Глаз пишущего в 720 мм перед строкой и 460 мм над столом: так видно, что строка не закрыта"
+          >
+            С места пишущего
+          </button>
+        </div>
+        <div class="hint">клик по клавише — печать<br />тащить — облёт · колесо — ближе<br />правая кнопка — сдвиг</div>
+        <div class="tip" id="tip"></div>
+        <div class="toggles">
+          <label title="Рама и каркас полупрозрачны: виден механизм внутри"
+            ><input type="checkbox" id="t-ghost" /> прозрачная рама</label
+          >
+          <label title="Узлы раздвигаются, чтобы было видно, из чего собрана машинка; печатать можно и так"
+            ><input type="checkbox" id="t-expl" /> разнесённый вид</label
+          >
+          <label><input type="checkbox" id="t-car" /> скрыть каретку и лист</label>
+          <label><input type="checkbox" id="t-keys" /> скрыть клавиши</label>
+          <label title="Камера медленно облетает машинку"><input type="checkbox" id="t-spin" /> облёт</label>
+        </div>
+      </div>
+      <aside>
+        <header>
+          <h1>ТПМ-2 — тенгварская пишущая машинка</h1>
+          <p class="lede">
+            Компоновочная модель редакции 0.8: около 770 деталей. Нажмите клавишу — прямо на модели или ниже: машинка
+            наберёт код, запорная гребёнка запрёт клавиатуру, коромысла сложат разряды, цикловой вал поднимет челнок
+            из-под строки и повернёт к литере, кулачок взведёт и спустит молоток, каретка пройдёт ширину литеры. Вид «С
+            места пишущего» показывает, что напечатанное не закрыто.
+          </p>
+        </header>
+        <section>
+          <h2>Клавиатура</h2>
+          <div class="kb" id="kb"></div>
+          <div class="kb-service" style="margin-top: 4px">
+            <button id="k-shift" aria-pressed="false" title="Верхний регистр для следующей литеры">Регистр</button>
+            <button id="k-sp4">пробел 4u</button>
+            <button id="k-sp6">пробел 6u</button>
+            <button id="k-bk" title="Каретка назад на 1u">забой</button>
+            <button id="k-back" title="Каретка назад на ширину последней литеры">назад на литеру</button>
+            <button id="k-nl">новая строка</button>
+          </div>
+          <p class="note">
+            С клавиатуры компьютера: раскладка совпадает с QWERTY, Shift — верхний регистр, пробел — 6u, Enter — новая
+            строка, Backspace — назад на литеру. Голубые клавиши — мёртвые знаки (техты): они встают над или под
+            последней буквой; пунктирный кружок показывает, где стоит буква. На клавишах гласных в верхнем регистре —
+            долгие гласные на ára.
+          </p>
+        </section>
+        <section>
+          <h2>Ход</h2>
+          <div class="controls">
+            <label for="speed">Скорость</label>
+            <select id="speed">
+              <option value="1">как в машинке (≈ 0,4 с на знак)</option>
+              <option value="4" selected>в 4 раза медленнее</option>
+              <option value="15">в 15 раз медленнее</option>
+            </select>
+            <select id="demo" aria-label="Пример">
+              <option value="">Пример фразы…</option>
+            </select>
+            <button id="clear">Новый лист</button>
+          </div>
+        </section>
+        <section>
+          <h2>Завод</h2>
+          <div class="wind">
+            <div class="meter" id="meter" role="meter" aria-label="Завод пружины" aria-valuemin="0" aria-valuemax="100">
+              <div></div>
+            </div>
+            <button id="wind" title="Ручка завода справа: около 60 оборотов через пару 1:3">Завести</button>
+            <div class="lbl" id="windlbl">—</div>
+          </div>
+          <p class="note">
+            Пружина отдаёт на каждый знак одну и ту же работу — оборот циклового вала; пробелы и подача её не тратят.
+            Число знаков на завод взято из расчёта двигателя (§ «Пружинный двигатель» проекта).
+          </p>
+        </section>
+        <section>
+          <h2>Приборы</h2>
+          <dl class="state" id="state"></dl>
+          <canvas
+            id="cyc"
+            width="796"
+            height="264"
+            aria-label="Диаграмма цикла: ходы кулачков по углу циклового вала"
+          ></canvas>
+          <p class="note">
+            Диаграмма — законы кулачков за оборот: вывод челнока (поворот и подъём), фиксаторы, взвод и удар молотка,
+            окно подачи. Вертикальная черта — текущий угол вала.
+          </p>
+        </section>
+        <section>
+          <h2>Лист</h2>
+          <canvas id="sheet" width="1728" height="1360" aria-label="Напечатанный текст"></canvas>
+          <div class="row">
+            <button
+              id="copy"
+              title="Скопировать набранное как текст тенгвара в кодировке CSUR (для шрифтов Alcarin, Tengwar Telcontar и т. п.)"
+            >
+              Копировать текст
+            </button>
+            <span class="note" id="copied" style="margin: 0" aria-live="polite"></span>
+          </div>
+          <p class="note">
+            Литеры — рисунок шрифта Alcarin Tengwar (OFL). Положение каждого знака считается так же, как в машинке:
+            продвигающая литера — от оси молотка, знак — с отводом печатающего узла на запомненное b или c.
+          </p>
+        </section>
+      </aside>
+    </div>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+    <script src="tpm2-model-data.js"></script>
+    <script src="tpm2-model.js"></script>
+  </body>
+</html>
