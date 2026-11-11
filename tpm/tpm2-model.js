@@ -1095,6 +1095,13 @@ async function loadModel() {
     return worldX - (st.car - 108);
   }
   const cp = (g) => String.fromCodePoint(parseInt(g.slice(3, 7), 16)); // 'uniE050.wide' -> U+E050 (CSUR)
+  function underHammer(pos, row) {
+    const m = Math.round(pos),
+      r = Math.round(row);
+    if (Math.abs(pos - m) > 0.02 || Math.abs(row - r) > 0.02) return null; // between positions: nothing prints
+    const line = C.LAYOUT[r];
+    return line ? line[m] : null;
+  }
   function strike(it) {
     const hx = -st.slide * U; // hammer axis, world x
     if (isAdv(it)) {
@@ -1228,7 +1235,15 @@ async function loadModel() {
       st.lock = lockAt(st.phi);
       if (!printed && st.phi >= C.CYCLE.strike) {
         printed = true;
-        strike(it);
+        // rev. 0.9.2: the sheet gets what the shuttle presents under the hammer at this moment, found from the
+        // shuttle's own turn and lift (block = pos, shuttle row = row + 1) -- not the item of the key pressed
+        // (taken at the moment of the blow, not at this frame: a slow frame may jump past it)
+        const aS = C.CYCLE.strike + 8,
+          oS = camLift('out', aS);
+        const under = underHammer(HOMEP + (k.c - HOMEP) * oS, C.REST_ROW + (rowT - C.REST_ROW) * oS);
+        if (under && camLift('ribbon', aS) > 0.99) strike(under);
+        if (!under || under.glyph !== it.glyph || under.mark !== it.mark)
+          console.warn('ТПМ-2: под молотком не та литера', JSON.stringify({ key: it.glyph, under: under && under.glyph }));
       }
     });
     st.phi = 0;
