@@ -919,7 +919,8 @@ async function loadModel() {
         return rX(3.6 * st.frames[m.b] * deg, C.SECT[0], C.SECT[1]);
       case 'unit': {
         const base = T(-st.slide * U, 0, 0);
-        if (m.s === 'shuttle') return base.multiply(T(0, 0, lift)).multiply(rZ(th, 0, C.AXIS_Y));
+        // the shuttle is exported in its rest pose (row REST_ROW, lift LIFT_MIN), like the collar under it
+        if (m.s === 'shuttle') return base.multiply(T(0, 0, lift - C.LIFT_MIN)).multiply(rZ(th, 0, C.AXIS_Y));
         if (m.s === 'drum') return base.multiply(rZ(th, 0, C.AXIS_Y));
         if (m.s === 'tape') return base.multiply(T(0, -(st.pos - HOMEP) * C.TAPE, 0));
         if (m.s === 'fork') return base.multiply(rY(-Math.atan((lift - C.LIFT_MIN) / 150), C.FORK[0], C.FORK[1]));
@@ -1037,7 +1038,7 @@ async function loadModel() {
   // the ribbon strip: its middle (between the vibrator fingers) rises with the vibrator, the ends stay at the guides
   function bendRibbon() {
     if (!ribbonMesh) return;
-    const lz = C.RIB_DROP * st.detent,
+    const lz = C.RIB_DROP * (st.rib || 0),
       cx = -st.slide * U,
       key = lz * 1000 + cx;
     if (key === ribbonLast) return;
