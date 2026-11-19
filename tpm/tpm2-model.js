@@ -923,6 +923,12 @@ async function loadModel() {
         if (m.s === 'shuttle') return base.multiply(T(0, 0, lift - C.LIFT_MIN)).multiply(rZ(th, 0, C.AXIS_Y));
         if (m.s === 'drum') return base.multiply(rZ(th, 0, C.AXIS_Y));
         if (m.s === 'tape') return base.multiply(T(0, -(st.pos - HOMEP) * C.TAPE, 0));
+        if (m.s === 'tapeband') {
+          // rev. 0.9.3: the band runs from the pulley (y0) to the clamp, which moves with the slider
+          const [y0, y1] = C.TAPEBAND,
+            k = (y1 - (st.pos - HOMEP) * C.TAPE - y0) / (y1 - y0);
+          return base.multiply(T(0, y0, 0)).multiply(new M().makeScale(1, k, 1)).multiply(T(0, -y0, 0));
+        }
         if (m.s === 'fork') return base.multiply(rY(-Math.atan((lift - C.LIFT_MIN) / 150), C.FORK[0], C.FORK[1]));
         if (m.s === 'collar') return base.multiply(T(0, 0, lift - C.LIFT_MIN));
         if (m.s === 'detent') return base.multiply(T(-3 * st.detent, 0, 0));
@@ -997,17 +1003,18 @@ async function loadModel() {
       case 'camrod':
         return T(0, 0, C.CAM_LIFT[m.k] * camLift(PROFILE[m.k], st.phi));
       case 'cyc':
-        return rX(-st.phi * deg, C.CYC[0], C.CYC[1]);
+        return rX(st.phi * deg, C.CYC[0], C.CYC[1]); // rev. 0.9.3: same sense as the model (was reversed)
       case 'car':
         return T(st.car - C.CAR0, 0, 0);
       case 'esc':
         return rZ((st.car - C.CAR0) / 5.053, C.ESC[0], C.ESC[1]);
       case 'gov':
-        return rX(-C.GOV * st.phi * deg, C.YD, C.CYC[1]);
+        return rX(C.GOV * st.phi * deg, C.YD, C.CYC[1]);
       case 'rot':
       case 'wind': {
         // motor train: turns with the cycle shaft; winding side with the crank
-        const a = (m.t === 'rot' ? st.ncyc * 360 + st.phi : st.wind * 360) * m.k * deg;
+        // rev. 0.9.3: the whole train turned the other way (with the cycle shaft, which turned backwards)
+        const a = -(m.t === 'rot' ? st.ncyc * 360 + st.phi : st.wind * 360) * m.k * deg;
         return m.a === 'x' ? rX(a, m.p[0], m.p[1]) : rY(a, m.p[0], m.p[1]);
       }
       default:
