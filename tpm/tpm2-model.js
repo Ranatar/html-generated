@@ -1667,6 +1667,7 @@ async function loadModel() {
     }
     curFont = id;
     fontNote.textContent = fontInfo(id);
+    trUpdate(); // the transcription preview and its export follow the set
     dirty = true;
   }
   if (fontSel) {
@@ -1688,6 +1689,13 @@ async function loadModel() {
     const kk = keyByN[w[0]];
     return kk ? (w[1] ? kk.up : kk.lo) : null;
   };
+  // rev. 0.11a: the sign the shuttle's current font set has under a key (the key caps stay Alcarin's)
+  const fontItemOf = (k) => {
+    const w = C.WHERE[String(k)];
+    if (!w) return null;
+    const kk = keyByN[w[0]];
+    return kk ? keyItem(kk, w[1]) : null;
+  };
   // where the machine puts each sign: a dry run of press() -- an advancing letter is struck from the hammer axis and
   // moves the carriage by its width, a mark is struck with the unit retracted by the remembered b or c
   function compose(items) {
@@ -1707,16 +1715,17 @@ async function loadModel() {
         mem = { b: 0, c: 0, w: 6 };
         continue;
       }
-      const it = x.k === null ? null : itemOf(x.k);
-      if (!it) continue;
+      const it = x.k === null ? null : fontItemOf(x.k);
+      if (!it || it.missing || !it.glyph) continue; // a sign the font lacks: the machine prints nothing
+      const f = curFont;
       if (isAdv(it)) {
-        ln.push({ g: it.glyph, x: it.a * U - it.ax * S_FONT - car });
-        if (it.kind === 'C') ln.push({ g: it.mark, x: it.a * U - it.max * S_FONT - car });
+        ln.push({ g: it.glyph, f, x: it.a * U - it.ax * S_FONT - car });
+        if (it.kind === 'C' && it.mark) ln.push({ g: it.mark, f, x: it.a * U - it.max * S_FONT - car });
         mem = { b: it.b, c: it.c, w: it.w };
         car -= it.w * U;
       } else {
         const slide = (it.below ? mem.c : mem.b) + C.MARKREF;
-        ln.push({ g: it.glyph, x: -slide * U + C.MARKREF * U - it.ax * S_FONT - car });
+        ln.push({ g: it.glyph, f, x: -slide * U + C.MARKREF * U - it.ax * S_FONT - car });
       }
     }
     return out;
@@ -1801,9 +1810,13 @@ async function loadModel() {
       }
       const k = keyByN[w[0]],
         it = itemOf(x.k);
-      d.className = 'tk' + (isAdv(it) ? '' : ' dead');
+      const fi = fontItemOf(x.k),
+        absent = !fi || fi.missing || !fi.glyph;
+      d.className = 'tk' + (isAdv(it) ? '' : ' dead') + (absent ? ' bad' : '');
       d.innerHTML = legendSvg(it, '') + `<span>${(w[1] ? '⇧' : '') + D.legends[k.r][k.c].toUpperCase()}</span>`;
-      d.title = (x.src ? x.src + ': ' : '') + (it.label || '') + (x.warn ? ' — ' + x.warn : '');
+      d.title =
+        (x.src ? x.src + ': ' : '') + (it.label || '') + (x.warn ? ' — ' + x.warn : '') + (absent ? ' — в этом шрифте знака нет' : '');
+      if (absent) trRes.warnings.push('в шрифте ' + FONTS[curFont].name + ' нет знака «' + (it.label || x.src || '?') + '»');
       keys.appendChild(d);
     }
     const ws = [...new Set(trRes.warnings)];
