@@ -398,8 +398,11 @@ async function loadModel() {
       const p = D.plain[k];
       return (shapes[k] = [Uint16Array.from(p.v), p.v.length / 3 > 65535 ? Uint32Array.from(p.i) : Uint16Array.from(p.i)]);
     }
-    const [off, nv, ni, wide] = D.geoms[k];
-    const d = new Int16Array(D.buf, off, nv * 3),
+    return (shapes[k] = decodeShape(D.geoms, D.buf, k));
+  }
+  function decodeShape(geoms, buf, k) {
+    const [off, nv, ni, wide] = geoms[k];
+    const d = new Int16Array(buf, off, nv * 3),
       q = new Uint16Array(nv * 3);
     for (let c = 0; c < 3; c++) {
       let a = 0;
@@ -409,7 +412,7 @@ async function loadModel() {
       }
     }
     const io = Math.ceil((off + nv * 6) / 4) * 4;
-    const z = wide ? new Uint32Array(D.buf, io, ni) : new Uint16Array(D.buf, io, ni);
+    const z = wide ? new Uint32Array(buf, io, ni) : new Uint16Array(buf, io, ni);
     const idx = nv > 65535 ? new Uint32Array(ni) : new Uint16Array(ni);
     let a = 0;
     for (let i = 0; i < ni; i++) {
@@ -417,7 +420,16 @@ async function loadModel() {
       a += v & 1 ? -((v + 1) / 2) : v / 2;
       idx[i] = a;
     }
-    return (shapes[k] = [q, idx]);
+    return [q, idx];
+  }
+  function partGeometry(o, q, idx, Q) {
+    const pos = new Float32Array(q.length);
+    for (let i = 0; i < q.length; i += 3) {
+      pos[i] = o[0] + q[i] * Q;
+      pos[i + 1] = o[1] + q[i + 1] * Q;
+      pos[i + 2] = o[2] + q[i + 2] * Q;
+    }
+    return creased(pos, idx, 32);
   }
   const meshes = [],
     caps = {};
@@ -425,14 +437,8 @@ async function loadModel() {
     ribbonRest = null,
     ribbonLast = -1;
   for (const p of D.parts) {
-    const [q, idx] = shape(p.geo),
-      pos = new Float32Array(q.length);
-    for (let i = 0; i < q.length; i += 3) {
-      pos[i] = p.o[0] + q[i] * D.Q;
-      pos[i + 1] = p.o[1] + q[i + 1] * D.Q;
-      pos[i + 2] = p.o[2] + q[i + 2] * D.Q;
-    }
-    const g = creased(pos, idx, 32);
+    const [q, idx] = shape(p.geo);
+    const g = partGeometry(p.o, q, idx, D.Q);
     let mat = matFor(p);
     if (p.n.startsWith('cap ')) mat = mat.clone(); // each key cap lights up on its own
     const m = new THREE.Mesh(g, mat);
@@ -520,6 +526,43 @@ async function loadModel() {
   }
   const pathCache = {};
   const path2d = (g) => pathCache[g] || (pathCache[g] = new Path2D(D.paths[g]));
+  // rev. 0.11: font sets of the shuttle (tools/model/fontset.py). Alcarin's set is in the model; another set swaps
+  // the 11 type blocks and the 11 code combs and brings its own codes, cell layout and outlines. The keyboard and the
+  // key caps stay Alcarin's (they are the machine's, not the font's).
+  const FONTS = { alcarin: { name: 'Alcarin Tengwar', paths: D.paths, bbox: D.bbox, layout: C.LAYOUT, keys: null, geo: {} } };
+  let curFont = 'alcarin';
+  const fontPaths = (f) => (FONTS[f || 'alcarin'] || FONTS.alcarin).paths;
+  const fontPathCache = {};
+  const fontPath2d = (f, g) => {
+    const key = (f || 'alcarin') + '|' + g;
+    return fontPathCache[key] || (fontPathCache[key] = new Path2D(fontPaths(f)[g]));
+  };
+  const fontLayout = () => FONTS[curFont].layout;
+  function keyItem(k, tier) {
+    if (curFont === 'alcarin') return tier ? k.up : k.lo;
+    const e = FONTS[curFont].keys[k.n];
+    return e ? (tier ? e.up : e.lo) : null;
+  }
+  async function loadFont(id) {
+    if (FONTS[id]) return FONTS[id];
+    const fm = (C.FONTS || []).find((f) => f.id === id);
+    if (!fm) throw new Error('нет набора ' + id);
+    window.TPM2_FONTS = window.TPM2_FONTS || {};
+    if (!window.TPM2_FONTS[id])
+      await new Promise((res, rej) => {
+        const sc = document.createElement('script');
+        sc.src = fm.file;
+        sc.onload = res;
+        sc.onerror = () => rej(new Error('нет файла ' + fm.file + ' рядом со страницей'));
+        document.head.appendChild(sc);
+      });
+    const T = window.TPM2_FONTS[id];
+    const z = Uint8Array.from(atob(T.geom.join('')), (ch) => ch.charCodeAt(0));
+    const buf = await new Response(new Blob([z]).stream().pipeThrough(new DecompressionStream('deflate'))).arrayBuffer();
+    const F = T.meta;
+    return (FONTS[id] = { name: F.name, paths: F.paths, bbox: F.bbox, layout: F.LAYOUT, keys: F.keys, parts: F.parts,
+      geoms: F.geoms, Q: F.Q, buf, geo: {} });
+  }
   // draw a legend into a box (x, y = top-left, w, h) of a 2D context
   function drawLegend(ctx, it, x, y, w, h, color, carrierColor) {
     const L = legend(it);
@@ -646,7 +689,14 @@ async function loadModel() {
   const HOMEP = (C.NPOS - 1) / 2;
   const st = {
     f: {},
-    frames: { R: 0, W: 0, B: 0, C: 0, O: 0, N: 0 },
+    frames: { R: 0, W: 0, B: 0, C: 0, O: 0, N: 0, Wr: 0 },
+    feel: { W: 0, B: 0, C: 0 }, // rev. 0.10: feeler travels (mm from rest)
+    lockRead: 0, // rev. 0.11: read lock pin in (dead marks, spaces)
+    lockHammer: 0, // rev. 0.11: hammer lock pin in (spaces: the idle cycle)
+    uIn: false, // rev. 0.11: U's finger in the teeth (the release)
+    carRelease: 0, // rev. 0.11: carriage release key pressed (0..1)
+    margL: C.CAR0, // rev. 0.11: carriage x at the left margin (line start) and at the right margin (line end)
+    margR: C.CAREND,
     tier: 0,
     bits: {},
     pos: HOMEP,
@@ -691,6 +741,17 @@ async function loadModel() {
       if (a > d1) return 1 - cyc((a - d1) / rp);
       return 1;
     }
+    if (kind === 'read') {
+      // rev. 0.10: high at rest (feelers in); low while the feelers read
+      const r0 = c.read[0],
+        r1 = c.read[1],
+        g0 = C.READ.RAMP[0],
+        g1 = C.READ.RAMP[1];
+      if (a < r0 - g0 || a > r1 + g1) return 1;
+      if (a < r0) return 1 - cyc((a - r0 + g0) / g0);
+      if (a <= r1) return 0;
+      return cyc((a - r1) / g1);
+    }
     if (kind === 'cock') {
       // hammer spring cocked over 10..150 deg, released at the strike
       const s0 = c.strike;
@@ -728,7 +789,7 @@ async function loadModel() {
       if (any && Math.abs(cb - HOMEP) > 1e-9) c = cb;
       else if (Math.abs(d) > 1e-9) c = d > 0 ? C.NPOS - 1 : 0;
       else c = cb;
-      f = Math.abs(c - HOMEP) > 1e-9 ? d / (c - HOMEP) : 0;
+      f = Math.abs(c - HOMEP) > 1e-9 ? d / (c - HOMEP) : st.phi ? camLift('out', st.phi) : 0; // rev. 0.11: a space (pos 5) still drives the tree
     } else {
       const d = st.row - C.REST_ROW;
       c = any ? cb : d > 1e-9 ? C.NROWS - 1 : 0;
@@ -774,7 +835,7 @@ async function loadModel() {
   function followAngle(b) {
     const F = C.FOLLOW;
     // a sector held by its pawl keeps its follower up: memory of B, C (units) and W (as w - 4)
-    const mem = { B: st.mem.b || 0, C: st.mem.c || 0, W: Math.max(0, (st.mem.w || 0) - 4) }[b] || 0;
+    const mem = { B: st.mem.b || 0, C: st.mem.c || 0, W: 0 }[b] || 0; // rev. 0.10: sector W follows only frame W (the spaces)
     let s = Math.max(st.frames[b] || 0, mem);
     s = b === 'R' ? Math.min(s, 4) : Math.min(s, 12);
     return (Math.asin((F.H0 + s) / F.R) * 180) / Math.PI - F.TH0;
@@ -842,19 +903,19 @@ async function loadModel() {
     const E = C.ESC2,
       cx = E.c[0],
       cy = E.c[1],
-      sW = st.frames.W || 0;
+      sW = Math.max(st.frames.W || 0, st.frames.Wr || 0); // rev. 0.10: frame W (spaces) or the W wire
     const beta = escB(),
       fk = (st.f[47] || 0) > 0;
     switch (m.s) {
       case 'dog': {
         const r = ((((st.car - C.CAR0) / 5.053 / deg) % E.pitch) + E.pitch) % E.pitch,
           i = Math.floor((r / E.pitch) * 24) % 24;
-        return T(0, E.dog[i], 0);
+        return T(0, Math.max(E.dog[i], 3.0 * st.carRelease), 0); // rev. 0.11: the release wire draws it out
       }
       case 'U':
         return rZ(-6 * sW * deg, cx, cy);
       case 'Uf': {
-        const inn = sW > 0.01 ? 1 : 0;
+        const inn = st.uIn ? 1 : 0; // rev. 0.11: in for the release only, as in the model
         return rZ(-6 * sW * deg, cx, cy).multiply(T(-3 * inn * E.uw[0], -3 * inn * E.uw[1], 0));
       }
       case 'B':
@@ -911,6 +972,8 @@ async function loadModel() {
         return T(0, 0, -C.KEY_TRAVEL * keyF(m.n));
       case 'pusher':
         return T(0, 0, colRise(m.c));
+      case 'pusherS':
+        return T(0, 0, 4 * Math.min(1, (st.f[m.n] || 0) * 1.4));
       case 'bit':
         return T(0, 0, 4 * (st.bits[m.b] || 0));
       case 'bail':
@@ -979,8 +1042,33 @@ async function loadModel() {
       }
       case 'follow':
         return rX(followAngle(m.b) * deg, C.FOLLOW.AX[0], C.FOLLOW.AX[1]);
+      case 'feel':
+        return T(-st.slide * U, st.feel[m.ch] || 0, 0);
+      case 'feelbar':
+        return T(-st.slide * U, Math.max(st.feel.W, st.feel.B, st.feel.C) > 0 ? C.READ.TRAVEL : 0, 0);
+      case 'rslide':
+        return T(0, 0, -(st.frames[m.b] || 0));
+      case 'lockpin': {
+        const base = m.s === 'hammer' ? T(-st.slide * U, 0, 0) : new M();
+        return base.multiply(T(m.d * (m.s === 'hammer' ? st.lockHammer : st.lockRead), 0, 0));
+      }
+      case 'locklever': {
+        const f = m.s === 'hammer' ? st.lockHammer : st.lockRead;
+        if (m.a === 'z') return rZ(m.ang * f * deg, m.p[0], m.p[1]);
+        return T(-st.slide * U, 0, 0).multiply(rY(m.ang * f * deg, m.p[0], m.p[1]));
+      }
+      case 'readrocker': {
+        // rev. 0.10: the model's rocker angle (roller on the cam's pitch curve) by whole degrees, interpolated
+        // rev. 0.11: with the read lock in, the rocker stays where the cam leaves it at rest
+        if (st.lockRead > 0.5) return new M();
+        const R = C.READ.ROCK,
+          a = ((st.phi % 360) + 360) % 360,
+          i = Math.floor(a),
+          f = a - i;
+        return rX((R[i] + (R[Math.min(i + 1, 360)] - R[i]) * f - R[0]) * deg, m.p[0], m.p[1]); // exported at phi = 0
+      }
       case 'escl': {
-        const sW = st.frames.W || 0,
+        const sW = Math.max(st.frames.W || 0, st.frames.Wr || 0), // rev. 0.10: frame W (spaces) or the W wire
           E = C.ESCL;
         if (m.s === 'rodY') return T(0, -sW, 0);
         if (m.s === 'rodX') return T(-sW, 0, 0);
@@ -1006,6 +1094,10 @@ async function loadModel() {
         return rX(st.phi * deg, C.CYC[0], C.CYC[1]); // rev. 0.9.3: same sense as the model (was reversed)
       case 'car':
         return T(st.car - C.CAR0, 0, 0);
+      case 'release': // rev. 0.11: the carriage release key turns about its axle
+        return rX(m.ang * st.carRelease * deg, m.p[0], m.p[1]);
+      case 'marg': // rev. 0.11: a margin stop: exported at the full line, moved by whole rack teeth (6u)
+        return T(st.car - C.CAR0 - (m.s === 'L' ? st.margL - C.CAR0 : st.margR - C.CAREND), 0, 0);
       case 'esc':
         return rZ((st.car - C.CAR0) / 5.053, C.ESC[0], C.ESC[1]);
       case 'gov':
@@ -1093,7 +1185,7 @@ async function loadModel() {
         sctx.save();
         sctx.translate(g.x * PX, y);
         sctx.scale(S_FONT * PX, -S_FONT * PX);
-        sctx.fill(path2d(g.g));
+        sctx.fill(fontPath2d(g.f, g.g));
         sctx.restore();
       }
     });
@@ -1102,26 +1194,33 @@ async function loadModel() {
   function paperX(worldX) {
     return worldX - (st.car - 108);
   }
-  const cp = (g) => String.fromCodePoint(parseInt(g.slice(3, 7), 16)); // 'uniE050.wide' -> U+E050 (CSUR)
+  // rev. 0.11: the code point of a sign: from the item (font sets) or from Alcarin's glyph name 'uniE050.wide' -> U+E050
+  const cpOf = (it, mark) => {
+    if (it.cps) return String.fromCodePoint(mark ? it.cps[1] : it.cps[0]);
+    const g = mark ? it.mark : it.glyph;
+    return g && g.startsWith('uni') ? String.fromCodePoint(parseInt(g.slice(3, 7), 16)) : '';
+  };
   function underHammer(pos, row) {
     const m = Math.round(pos),
       r = Math.round(row);
     if (Math.abs(pos - m) > 0.02 || Math.abs(row - r) > 0.02) return null; // between positions: nothing prints
-    const line = C.LAYOUT[r];
+    const line = fontLayout()[r];
     return line ? line[m] : null;
   }
   function strike(it) {
     const hx = -st.slide * U; // hammer axis, world x
+    if (it.missing || !it.glyph) return; // rev. 0.11: a sign the font lacks: an empty cell, nothing prints
+    const f = curFont;
     if (isAdv(it)) {
-      lines[0].push({ g: it.glyph, x: paperX(hx + it.a * U - it.ax * S_FONT) });
-      typed += cp(it.glyph);
-      if (it.kind === 'C') {
-        lines[0].push({ g: it.mark, x: paperX(hx + it.a * U - it.max * S_FONT) });
-        typed += cp(it.mark);
+      lines[0].push({ g: it.glyph, f, x: paperX(hx + it.a * U - it.ax * S_FONT) });
+      typed += cpOf(it, false);
+      if (it.kind === 'C' && it.mark) {
+        lines[0].push({ g: it.mark, f, x: paperX(hx + it.a * U - it.max * S_FONT) });
+        typed += cpOf(it, true);
       }
     } else {
-      lines[0].push({ g: it.glyph, x: paperX(hx + C.MARKREF * U - it.ax * S_FONT) });
-      typed += cp(it.glyph);
+      lines[0].push({ g: it.glyph, f, x: paperX(hx + C.MARKREF * U - it.ax * S_FONT) });
+      typed += cpOf(it, false);
     }
     drawSheet();
   }
@@ -1144,7 +1243,7 @@ async function loadModel() {
   }
   const ease = (t) => (t < 0.5 ? 2 * t * t : 1 - Math.pow(-2 * t + 2, 2) / 2);
   function lugs(it) {
-    if (isAdv(it)) return { R: C.TP, W: C.K * (it.w - C.WOFF), B: C.K * it.b, C: C.K * it.c };
+    if (isAdv(it)) return { R: C.TP }; // rev. 0.10: W, B and C are read from the shuttle in the cycle
     const o = { O: C.TP };
     if (it.below) o.N = C.TP;
     return o;
@@ -1156,7 +1255,7 @@ async function loadModel() {
     });
   }
   async function newLine() {
-    await carriageTo(C.CAR0, 380);
+    await carriageTo(st.margL, 380); // rev. 0.11: back to the left margin stop
     lines.unshift([]);
     if (lines.length > 14) lines.pop();
     typed += '\n';
@@ -1185,22 +1284,65 @@ async function loadModel() {
     const k = keyByN[n];
     if (!k) return;
     if (k.kind === 'space') {
+      if (st.reserve <= 0) {
+        st.msg = 'пружина спущена — заведите';
+        flashWind();
+        renderState();
+        return;
+      }
+      // rev. 0.11: a space runs an idle cycle: its plate lifts R and W (w - 4), its pusher sets r1 + r4 (the shuttle
+      // stays at position 5 and only drops to row 1), the read lock and the hammer lock go in; the carriage feeds w
+      const w = k.id === 'space4' ? 4 : 6,
+        wf = C.K * (w - C.WOFF);
+      // the page returns the carriage when the feed would pass the right margin (on the machine: the typist, at the bell)
+      if (st.car - w * U < st.margR - 1e-3) await newLine();
       hit(n, true);
-      const w = k.id === 'space4' ? 4 : 6;
-      await tween(110, (t) => {
-        st.f[n] = ease(t);
+      await tween(150, (t) => {
+        const f = ease(t);
+        st.f[n] = f;
+        st.frames.R = C.TP * f;
+        st.frames.W = Math.max(0, C.TP * f - (C.TP - wf));
+        st.lockRead = st.lockHammer = f;
+        st.bits.r1 = st.bits.r4 = f;
       });
-      await tween(110, (t) => {
-        st.f[n] = 1 - ease(t);
+      await tween(1000 * MOTOR.t_avg, (t) => {
+        st.phi = 360 * t;
+        const o = camLift('out', st.phi);
+        st.pos = HOMEP;
+        st.row = C.REST_ROW + (0 - C.REST_ROW) * o;
+        st.detent = camLift('detent', st.phi);
+        st.rib = camLift('ribbon', st.phi);
+        st.hammer = 0;
+        st.cock = camLift('cock', st.phi);
+        st.lock = lockAt(st.phi);
+        st.uIn = st.phi >= 300 && st.phi <= 350;
       });
-      await carriageTo(st.car - w * U, 100);
+      st.phi = 0;
+      st.ncyc++;
+      st.reserve--;
+      st.cock = 0;
+      st.lock = 0;
       st.mem = { b: 0, c: 0, w };
+      const fr0 = Object.assign({}, st.frames);
+      await tween(140, (t) => {
+        const f = 1 - ease(t);
+        st.f[n] = f;
+        for (const b of Object.keys(st.frames)) st.frames[b] = fr0[b] * f;
+        st.lockRead = st.lockHammer = f;
+        st.bits.r1 = st.bits.r4 = f;
+      });
+      for (const b of Object.keys(st.frames)) st.frames[b] = 0;
+      st.lockRead = st.lockHammer = 0;
+      st.uIn = true;
+      await carriageTo(Math.max(st.car - w * U, st.margR), 100);
+      st.uIn = false;
       typed += ' ';
       hit(n, false);
       return;
     }
-    const it = tier ? k.up : k.lo;
+    const it = keyItem(k, tier);
     if (!it) return;
+    if (isAdv(it) && st.car - it.w * U < st.margR - 1e-3) await newLine();
     if (st.reserve <= 0) {
       st.msg = 'пружина спущена — заведите';
       flashWind();
@@ -1227,6 +1369,7 @@ async function loadModel() {
         st.frames[b] = target[b] !== undefined ? Math.max(0, C.TP * f - (C.TP - target[b])) : 0;
       for (const b in bits) st.bits[b] = bits[b] * f;
       st.slide = ret * f;
+      if (!isAdv(it)) st.lockRead = f; // rev. 0.11: a dead mark does not read
     });
     // 2. one revolution of the cycle shaft, paid for by the spring
     const rowT = code + 4 * tier;
@@ -1241,6 +1384,18 @@ async function loadModel() {
       st.hammer = camLift('strike', st.phi);
       st.cock = camLift('cock', st.phi);
       st.lock = lockAt(st.phi);
+      st.uIn = isAdv(it) && st.phi >= 300 && st.phi <= 350;
+      if (isAdv(it)) {
+        // rev. 0.10: the feelers go out to the tabs of this cell; the latch holds the W rod till 345 deg
+        const fr = 1 - camLift('read', st.phi),
+          v = { W: it.w - C.WOFF, B: it.b, C: it.c };
+        for (const ch of C.READ.CH) st.feel[ch] = Math.min(fr * C.READ.TRAVEL, C.READ.C0 + C.READ.K * v[ch]);
+        st.frames.B = Math.max(0, st.feel.B - C.READ.C0);
+        st.frames.C = Math.max(0, st.feel.C - C.READ.C0);
+        st.frames.Wr =
+          st.phi >= C.CYCLE.read[0] && st.phi <= C.CYCLE.wlatch ? C.READ.K * v.W : Math.max(0, st.feel.W - C.READ.C0);
+        if (st.phi > C.CYCLE.read[0]) st.mem = { b: it.b, c: it.c, w: it.w };
+      }
       if (!printed && st.phi >= C.CYCLE.strike) {
         printed = true;
         // rev. 0.9.2: the sheet gets what the shuttle presents under the hammer at this moment, found from the
@@ -1250,11 +1405,13 @@ async function loadModel() {
           oS = camLift('out', aS);
         const under = underHammer(HOMEP + (k.c - HOMEP) * oS, C.REST_ROW + (rowT - C.REST_ROW) * oS);
         if (under && camLift('ribbon', aS) > 0.99) strike(under);
-        if (!under || under.glyph !== it.glyph || under.mark !== it.mark)
+        if (!under || under.glyph !== it.glyph || (under.mark || null) !== (it.mark || null))
           console.warn('ТПМ-2: под молотком не та литера', JSON.stringify({ key: it.glyph, under: under && under.glyph }));
       }
     });
     st.phi = 0;
+    st.feel = { W: 0, B: 0, C: 0 };
+    st.frames.Wr = 0;
     st.ncyc++;
     st.reserve--;
     st.cock = 0;
@@ -1267,13 +1424,16 @@ async function loadModel() {
       for (const b of Object.keys(st.frames)) st.frames[b] = fr0[b] * f;
       for (const b in bits) st.bits[b] = bits[b] * f;
       st.slide = ret * f;
+      if (!isAdv(it)) st.lockRead = f;
     });
     for (const b of Object.keys(st.frames)) st.frames[b] = 0;
+    st.lockRead = 0;
     st.tier = 0;
     if (isAdv(it)) {
       st.mem = { b: it.b, c: it.c, w: it.w };
-      await carriageTo(st.car - it.w * U, 110);
-      if (C.CAR0 - st.car > C.LINE) await newLine();
+      st.uIn = true;
+      await carriageTo(Math.max(st.car - it.w * U, st.margR), 110); // the right margin stop on the abutment
+      st.uIn = false;
     }
     hit(n, false);
   }
@@ -1415,7 +1575,7 @@ async function loadModel() {
       lines = [[]];
       typed = '';
       drawSheet();
-      await carriageTo(C.CAR0, 300);
+      await carriageTo(st.margL, 300);
     }),
   );
   const demoSel = $('demo');
@@ -1432,6 +1592,95 @@ async function loadModel() {
     enqueue(newLine);
     for (const [n, t] of seq) type(n, t);
   });
+  // ---------------------------------------------------------------- rev. 0.11: margins (stops on the carriage rack)
+  function setMargins() {
+    const kl = Math.max(0, Math.round(+$('marg-l').value || 0)),
+      kr = Math.max(0, Math.round(+$('marg-r').value || 0)),
+      maxK = Math.floor((C.CAR0 - C.CAREND) / C.RACKP) - 4;
+    const l = Math.min(kl, maxK), r = Math.min(kr, maxK - l);
+    $('marg-l').value = l;
+    $('marg-r').value = r;
+    st.margL = C.CAR0 - l * C.RACKP;
+    st.margR = C.CAREND + r * C.RACKP;
+    $('marg-note').textContent =
+      'строка ' + ((st.margL - st.margR) / U).toFixed(0) + 'u (' + (st.margL - st.margR).toFixed(1).replace('.', ',') +
+      ' мм); шаг упора — зуб рейки, 6u = ' + C.RACKP.toFixed(2).replace('.', ',') + ' мм';
+    dirty = true;
+  }
+  // rev. 0.11: the carriage release: the key down, the carriage by hand, the key up (the dog drops between two teeth)
+  async function freeMove(du) {
+    await tween(160, (t) => {
+      st.carRelease = ease(t);
+    });
+    const target = Math.min(st.margL, Math.max(st.margR, st.car - du * U));
+    await carriageTo(target, 60 + 6 * Math.abs(du));
+    await tween(160, (t) => {
+      st.carRelease = 1 - ease(t);
+    });
+    st.carRelease = 0;
+  }
+  for (const [id, sg] of [['free-l', -1], ['free-r', 1]]) {
+    const b = $(id);
+    if (b) b.addEventListener('click', () => enqueue(() => freeMove(sg * Math.max(1, Math.round(+$('free-n').value || 1)))));
+  }
+  if ($('marg-l')) {
+    $('marg-l').addEventListener('change', () => enqueue(async () => setMargins()));
+    $('marg-r').addEventListener('change', () => enqueue(async () => setMargins()));
+    setMargins();
+  }
+  // ---------------------------------------------------------------- rev. 0.11: the font set of the shuttle
+  const fontSel = $('font'),
+    fontNote = $('font-note');
+  function fontInfo(id) {
+    const f = (C.FONTS || []).find((x) => x.id === id);
+    if (!f) return '';
+    const i = f.info || {};
+    const parts = [f.author ? f.name + ' — ' + f.author : f.name];
+    if (id !== 'alcarin') parts.push('кегль ' + (i.scale || 1).toFixed(3).replace('.', ',') + ' от Alcarin');
+    parts.push('w ' + i.ranges.w.join('–') + ', b ' + i.ranges.b.join('–') + ', c ' + i.ranges.c.join('–'));
+    parts.push('чтение ' + i.read + ', удар ' + i.strike);
+    if (i.shift) parts.push('литер, сдвинутых в клетке вправо: ' + i.shift);
+    if (i.pad) parts.push('носителей, дополненных до 4u: ' + i.pad);
+    if (i.shrunk && i.shrunk.length) parts.push('уменьшены: ' + i.shrunk.join(', '));
+    if (i.missing && i.missing.length) parts.push('нет знаков: ' + i.missing.join(', '));
+    return parts.join('; ') + '.';
+  }
+  async function setFont(id) {
+    let F;
+    try {
+      F = id === 'alcarin' ? FONTS.alcarin : await loadFont(id);
+    } catch (e) {
+      fontNote.textContent = 'Набор не загрузился: ' + e.message;
+      fontSel.value = curFont;
+      return;
+    }
+    for (const m of meshes) {
+      const n = m.userData.n;
+      if (!(n.startsWith('type block ') || n.startsWith('code comb '))) continue;
+      if (!FONTS.alcarin.geo[n]) FONTS.alcarin.geo[n] = m.geometry;
+      if (!F.geo[n]) {
+        const p = F.parts.find((pp) => pp.n === n);
+        const [q, idx] = decodeShape(F.geoms, F.buf, p.geo);
+        F.geo[n] = partGeometry(p.o, q, idx, F.Q);
+      }
+      m.geometry = F.geo[n];
+    }
+    curFont = id;
+    fontNote.textContent = fontInfo(id);
+    dirty = true;
+  }
+  if (fontSel) {
+    for (const f of C.FONTS || []) {
+      const o = document.createElement('option');
+      o.value = f.id;
+      o.textContent = f.name;
+      fontSel.appendChild(o);
+    }
+    fontSel.value = 'alcarin';
+    fontNote.textContent = fontInfo('alcarin');
+    // the swap waits for the keys typed before it: a set is changed with the machine at rest
+    fontSel.addEventListener('change', () => enqueue(() => setFont(fontSel.value)));
+  }
   // ---------------------------------------------------------------- rev. 0.9c: typing by transcription; pictures
   const itemOf = (k) => {
     const w = C.WHERE[String(k)];
@@ -1487,7 +1736,7 @@ async function loadModel() {
     let body = '';
     ls.forEach((ln, j) => {
       for (const g of ln)
-        body += `<path transform="translate(${g.x.toFixed(3)} ${(j * LS).toFixed(3)}) scale(${S_FONT} ${-S_FONT})" d="${D.paths[g.g]}"/>`;
+        body += `<path transform="translate(${g.x.toFixed(3)} ${(j * LS).toFixed(3)}) scale(${S_FONT} ${-S_FONT})" d="${fontPaths(g.f)[g.g]}"/>`;
     });
     const bg = opts.bg ? `<rect x="${vx}" y="${vy}" width="${vw}" height="${vh}" fill="${opts.bg}"/>` : '';
     const size = opts.px ? '' : ` width="${vw.toFixed(2)}mm" height="${vh.toFixed(2)}mm"`;
@@ -1795,6 +2044,7 @@ async function loadModel() {
     const lanes = [
       ['челнок', (a) => camLift('out', a), acc],
       ['фиксаторы', (a) => camLift('detent', a), stl],
+      ['щупы', (a) => 1 - camLift('read', a), acc],
       ['молоток', (a) => camLift('strike', a), warn],
     ];
     const lh = (bot - top) / lanes.length;
