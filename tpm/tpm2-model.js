@@ -385,6 +385,7 @@ async function loadModel() {
       if (cls === 'steel') Object.assign(o, { metalness: 0.9, roughness: 0.32, envMapIntensity: 1.1 });
       else if (cls === 'alu') Object.assign(o, { metalness: 0.75, roughness: 0.42 });
       else if (cls === 'rubber') Object.assign(o, { metalness: 0, roughness: 0.92 });
+      else if (/серебрист/.test(p.mt)) Object.assign(o, { metalness: 0.55, roughness: 0.34, envMapIntensity: 1.0 });
       else Object.assign(o, { metalness: 0, roughness: 0.6, envMapIntensity: 0.6 });
       mats[key] = new THREE.MeshStandardMaterial(o);
     }
@@ -1130,6 +1131,7 @@ async function loadModel() {
     esc: [0, 150, 170],
     ribbon: [0, 110, 230],
     drive: [170, 0, 30],
+    case: [0, -60, 330], // rev. 0.12: the shell lifts off the machine
   };
   const ID = new M(),
     TMP = new M();
@@ -2189,6 +2191,26 @@ async function loadModel() {
       }
     dirty = true;
   });
+  // rev. 0.12: the case shown, as glass, or hidden
+  const caseGlass = new THREE.MeshStandardMaterial({
+    color: 0x6f86c8,
+    transparent: true,
+    opacity: 0.16,
+    depthWrite: false,
+    roughness: 0.15,
+    side: THREE.DoubleSide,
+  });
+  function setCase(v) {
+    for (const m of meshes)
+      if (m.userData.g === 'case') {
+        if (!m.userData.mat0) m.userData.mat0 = m.material;
+        m.visible = v !== 'hide';
+        m.material = v === 'glass' ? caseGlass : m.userData.mat0;
+        m.castShadow = v === 'show';
+      }
+    dirty = true;
+  }
+  if ($('t-case')) $('t-case').addEventListener('change', (e) => setCase(e.target.value));
   $('t-expl').addEventListener('change', (e) => {
     const e0 = st.explode,
       e1 = e.target.checked ? 1 : 0;
