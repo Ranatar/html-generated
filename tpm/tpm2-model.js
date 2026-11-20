@@ -1,4 +1,4 @@
-// Transcription of Latin-letter Quenya and Sindarin into the signs of the TPM-2 layout (tehta modes).
+// Transcription of Latin-letter Quenya and Sindarin, and of Russian (rev. 0.12), into the signs of the TPM-2 layout (tehta modes).
 // The rules follow the descriptions of the classical mode (Quenya) and the general use of the Third Age (Sindarin)
 // by Måns Björkman, Amanyë Tenceli (at.boktypografen.se), as also implemented in Glǽmscribe (glaemscrafu.jrrvf.com);
 // this is an independent implementation limited to the signs on the shuttle.
@@ -181,8 +181,94 @@ const TPM2_TR = (function () {
     return out;
   }
 
+  // ------------------------------------------------------------------ Russian (rev. 0.12)
+  // After the system of hex.pp.ua/tengwar.php (2011), corrected: the vowel's tehta stands over the preceding
+  // consonant (as in the classical mode); a soft consonant before я, е, ё, ю takes two dots below, as Quenya writes ty,
+  // ny (й = anna then stands only where it sounds: at the start of a word, after a vowel, after ь and ъ); е and э thus
+  // differ (мер / мэр); ь is two dots below, ъ is vilya; ы is vilya with the dot; щ (a long soft ш) is harma with the
+  // bar below, ц is tinco with the hook (sa-rincë); doubled consonants take the bar below (Tolkien's sign, not the
+  // wavy line of Dan Smith's fonts), unless the pair is soft: then the consonant is written twice (two signs below
+  // one letter do not fit). с and з turn their tail down under a tehta.
+  const RC = { т: 'tinco', п: 'parma', ч: 'calma', к: 'quesse', д: 'ando', б: 'umbar', г: 'ungwe', ф: 'formen', ш: 'harma',
+    х: 'hwesta', в: 'ampa', ж: 'anca', н: 'numen', м: 'malta', й: 'anna', р: 'romen', л: 'lambe', с: 'silme', з: 'esse',
+    ц: 'tinco', щ: 'harma', ў: 'vala' };
+  const NUQ = { silme: 'silmen', esse: 'essen' };
+  const ALWAYS = new Set(['ж', 'ш', 'ц', 'ч', 'щ', 'й']);   // hard or soft by themselves: no dots before е, ё, ю, я
+  const SOFTV = { я: 'a', е: 'e', ё: 'o', ю: 'u' };
+  const HARDV = { а: 'a', э: 'e', о: 'o', у: 'u' };
+  const isV = (c) => !!(c && (SOFTV[c] || HARDV[c] || c === 'и' || c === 'ы'));
+
+  function russianWord(w) {
+    const out = [];
+    const U = [];
+    let i = 0;
+    while (i < w.length) {
+      const ch = w[i];
+      if (w.startsWith('дж', i)) { U.push({ c: 'anga', src: 'дж', l: 'дж', m: [] }); i += 2; continue; }
+      if (RC[ch]) {
+        const u = { c: RC[ch], src: ch, l: ch, m: [] };
+        i++;
+        if (w[i] === ch && ch !== 'й') {
+          const after = w[i + 1];
+          if (!(SOFTV[after] || after === 'ь') || ALWAYS.has(ch)) { u.dbl = true; u.src += ch; i++; }
+        }
+        if (ch === 'щ') u.m.push(bar('harma', 'dbl'));
+        else if (u.dbl) u.m.push(bar(u.c, 'dbl'));
+        if (w[i] === 'ь') {
+          if (u.m.length) u.warn = `ь после «${u.src}» опущен: под литерой уже черта`;
+          else u.m.push('mark:ddotb');
+          u.soft = true; u.src += 'ь'; i++;
+        }
+        if (ch === 'ц') u.sar = true;
+        U.push(u);
+        if (w[i] === 'ъ') { U.push({ c: 'vilya', src: 'ъ', l: 'ъ', m: [], sign: true }); i++; }
+        continue;
+      }
+      if (ch === 'ь' || ch === 'ъ') {
+        U.push(ch === 'ъ' ? { c: 'vilya', src: 'ъ', l: 'ъ', m: [], sign: true } : { note: '«ь» без согласной перед ним', src: 'ь' });
+        i++; continue;
+      }
+      if (isV(ch)) { U.push({ v: ch, src: ch }); i++; continue; }
+      U.push({ bad: ch, src: ch }); i++;
+    }
+    for (let j = 0; j < U.length; j++) {
+      const u = U[j], nx = U[j + 1];
+      if (u.bad) { out.push({ k: null, src: u.bad, warn: `«${u.bad}» — нет в правилах русского режима` }); continue; }
+      if (u.note) { out.push({ k: null, src: u.src, warn: u.note }); continue; }
+      if (u.c) {
+        // does the next vowel sit on this consonant?
+        let teh = null, dots = false;
+        if (nx && nx.v && !u.soft && !u.sign) {
+          const v = nx.v;
+          if (HARDV[v]) teh = HARDV[v];
+          else if (v === 'и') teh = 'i';
+          else if (SOFTV[v]) { teh = SOFTV[v]; dots = !ALWAYS.has(u.l) && !u.dbl; }
+          if (dots && u.m.length) dots = false;
+        }
+        let L = u.c;
+        if (teh && NUQ[L] && !dots && !u.m.length) L = NUQ[L];      // the tail down only where nothing stands below
+        out.push(u.warn ? { k: TW[L], src: u.src, warn: u.warn } : { k: TW[L], src: u.src });
+        for (const m of u.m) out.push({ k: m, src: '' });
+        if (dots) out.push({ k: 'mark:ddotb', src: '' });
+        if (teh) { out.push({ k: tehta(teh), src: nx.src }); j++; }
+        if (u.sar) out.push({ k: TW.sarince, src: '' });
+        continue;
+      }
+      // a vowel with no consonant to sit on: at the start, after a vowel, after ь or ъ, or ы
+      const pv = U[j - 1];
+      const afterSign = pv && (pv.soft || pv.sign);          // ья, ьё, ьи, ьо, ъе: й sounds
+      if (u.v === 'ы') { out.push({ k: TW.vilya, src: u.src }, { k: tehta('i'), src: '' }); continue; }
+      if (SOFTV[u.v] || afterSign) {
+        out.push({ k: TW.anna, src: u.src }, { k: tehta(SOFTV[u.v] || HARDV[u.v] || 'i'), src: '' });
+        continue;
+      }
+      out.push({ k: TW.telco, src: u.src }, { k: tehta(u.v === 'и' ? 'i' : HARDV[u.v]), src: '' });
+    }
+    return out;
+  }
+
   function transcribe(text, mode) {
-    const word = mode === 'sindarin' ? sindarinWord : quenyaWord;
+    const word = mode === 'sindarin' ? sindarinWord : mode === 'russian' ? russianWord : quenyaWord;
     const s = norm(text), items = [];
     let buf = '';
     const pushWord = () => {
@@ -192,7 +278,7 @@ const TPM2_TR = (function () {
       buf = '';
     };
     for (const ch of s) {
-      if (/[a-zá-ýñþχđ']/.test(ch) && ch !== '÷' && ch !== '×') { buf += ch; continue; }
+      if (mode === 'russian' ? /[а-яёў]/.test(ch) : /[a-zá-ýñþχđ']/.test(ch) && ch !== '÷' && ch !== '×') { buf += ch; continue; }
       pushWord();
       if (ch === '\n') items.push({ k: '\n', src: '↵' });
       else if (/\s/.test(ch)) { if (items.length && items[items.length - 1].k !== ' ') items.push({ k: ' ', src: ' ' }); }
@@ -2191,6 +2277,25 @@ async function loadModel() {
       }
     dirty = true;
   });
+  // rev. 0.12a: the owner's device is a picture on its plaque (a decal on the machine): a texture, projected from above
+  if (C.DEVICE_TEX)
+    for (const m of meshes)
+      if (m.userData.n === 'case device plaque') {
+        const g = m.geometry;
+        g.computeBoundingBox();
+        const bb = g.boundingBox, P = g.attributes.position, uv = new Float32Array(P.count * 2);
+        for (let i = 0; i < P.count; i++) {
+          uv[2 * i] = (P.getX(i) - bb.min.x) / (bb.max.x - bb.min.x);
+          uv[2 * i + 1] = (P.getY(i) - bb.min.y) / (bb.max.y - bb.min.y);
+        }
+        g.setAttribute('uv', new THREE.BufferAttribute(uv, 2));
+        const tex = new THREE.TextureLoader().load(C.DEVICE_TEX, () => (dirty = true));
+        if ('colorSpace' in tex) tex.colorSpace = THREE.SRGBColorSpace;
+        else tex.encoding = THREE.sRGBEncoding;
+        tex.anisotropy = 8;
+        m.material = new THREE.MeshStandardMaterial({ map: tex, roughness: 0.45, metalness: 0.1 });
+        m.userData.mat0 = m.material;
+      }
   // rev. 0.12: the case shown, as glass, or hidden
   const caseGlass = new THREE.MeshStandardMaterial({
     color: 0x6f86c8,
